@@ -65,6 +65,7 @@ Database changes should use ordered forward migrations and retry-safe server-sid
 - Keep company ID, local logo, country folder, supplied ticker, exchange, and dataset status associated on the same result.
 - Search endpoint may return up to 1,811 records, but the customer UI should request and render at most 100 results at a time.
 - Display supplied ticker values as supplied; do not imply they are verified or guaranteed to resolve with a market-data provider.
+- The administrator company catalogue may maintain a separate, audited admin label (`verified`, `unverified`, or `archived`). `verified` means only that an administrator marked the reference row in the catalogue UI; it must never modify the static source listing verification markers, `referenceOnly`, or `eligibleForVerifiedTradeRotation`. Delete in this UI means archive/soft-delete only; preserve the 1,811 source records and stable Logo IDs.
 
 - Import every row and every column from `company_trading_symbols.xlsx` aligned by its 1-based `#` field to Logo ID; preserve supplied ticker, exchange, status, parent ticker, and reason fields even for placeholder, parent, and historical rows.
 - Placeholder codes are display-only and must not be passed to market-data or order APIs. Historical and parent-company ticker references must remain visibly classified; do not silently convert them into direct listings.

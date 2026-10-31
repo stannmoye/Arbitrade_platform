@@ -941,3 +941,77 @@
   .admin-portal .package-catalogue-pagination,
   .admin-portal .company-catalogue-pagination { align-items: flex-start; }
 }
+
+
+/* Administrator company catalogue bulk selection and management controls. */
+.admin-portal .company-catalogue-toolbar,
+.admin-portal .company-catalogue-toolbar-group,
+.admin-portal .company-catalogue-bulk-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.admin-portal .company-catalogue-toolbar {
+  padding: 12px;
+  border: 1px solid var(--trade-border);
+  border-radius: 13px;
+  background: var(--trade-raised);
+}
+.admin-portal .company-catalogue-toolbar > strong {
+  color: var(--arb-color-text, #f3f8fb);
+  font-size: 12px;
+}
+.admin-portal .company-catalogue-row {
+  grid-template-columns: 22px 62px minmax(0, 1fr) minmax(120px, auto);
+}
+.admin-portal .company-catalogue-select {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.admin-portal .company-catalogue-select input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--trade-accent, #38bdf8);
+  cursor: pointer;
+}
+.admin-portal .company-catalogue-row.is-selected {
+  border-color: var(--trade-accent, #38bdf8);
+  background: color-mix(in srgb, var(--trade-accent, #38bdf8) 8%, var(--trade-surface));
+}
+.admin-portal .company-catalogue-list.is-view-all {
+  max-height: min(72vh, 1100px);
+  overflow: auto;
+  padding-right: 4px;
+}
+.admin-portal .company-catalogue-status.verified {
+  color: var(--trade-success, #48c78e);
+  border-color: color-mix(in srgb, var(--trade-success, #48c78e) 45%, var(--trade-border));
+}
+.admin-portal .company-catalogue-status.archived {
+  color: var(--arb-color-text-muted, #91a6b6);
+}
+.admin-portal .company-catalogue-bulk-actions {
+  justify-content: flex-start;
+  padding-top: 14px;
+  border-top: 1px solid var(--trade-border);
+}
+.admin-portal .company-catalogue-bulk-actions .danger-button {
+  color: var(--trade-danger, #ef7777);
+  border-color: color-mix(in srgb, var(--trade-danger, #ef7777) 55%, var(--trade-border));
+}
+.admin-portal .company-catalogue-success {
+  margin: 0;
+  color: var(--trade-success, #48c78e);
+  font-size: 12px;
+  font-weight: 700;
+}
+@media (max-width: 760px) {
+  .admin-portal .company-catalogue-row { grid-template-columns: 20px 52px minmax(0, 1fr); }
+  .admin-portal .company-catalogue-row .company-catalogue-status { grid-column: 3; justify-self: start; }
+  .admin-portal .company-catalogue-toolbar { align-items: flex-start; }
+  .admin-portal .company-catalogue-toolbar-group,
+  .admin-portal .company-catalogue-bulk-actions { width: 100%; }
+}
