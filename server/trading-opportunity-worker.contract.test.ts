@@ -60,7 +60,7 @@ describe("automatic Trading opportunity scheduler", () => {
     expect(reconciliationSource).toContain('eq(tradePositions.status,"confirmed")');
     expect(reconciliationSource).toContain('eq(tradePositions.settlementStatus,"pending")');
     expect(reconciliationSource).toContain("tradePositions.settlementReviewAt");
-    expect(reconciliationSource).toContain("trade.settlementReviewAt||trade.settlesAt");
+    expect(reconciliationSource).toContain("trade.settlementReviewAt||trade.creditAt||trade.settlesAt");
     expect(reconciliationSource).not.toContain("tradePositions.creditAt");
   });
 
