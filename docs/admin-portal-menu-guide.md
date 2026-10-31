@@ -483,7 +483,7 @@ Use the package editor and Trade Settings controls defined in [Trading Pop-up & 
 - Minimum required capital and any fixed/ranged capital bounds
 - Configured profit percentage minimum and maximum, clearly treated as policy/estimate bounds rather than random realized returns
 - Expanded pop-up display duration (separate from package duration and trade duration)
-- Company catalogue filters, stable Logo ID rotation, repeat avoidance and read-only preview
+- Company catalogue filters, stable Logo ID rotation, repeat avoidance and read-only preview. Customer pop-up identity and preview are restricted to currently admin-verified, non-archived Logo IDs; an empty approved pool has no unverified fallback. The searchable customer catalogue remains informational and is not an alternate popup source.
 - Schedule, visible-card limits, daily earnings ceiling, retries/carry-forward and authorized fee policy/version
 - Save/publish validation, policy version, audit history and effective-time rules
 
