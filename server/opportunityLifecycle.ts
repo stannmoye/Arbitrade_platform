@@ -54,10 +54,10 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
 
         let company: { id: string; name: string; logoUrl: string; metadataJson: string; rotationCycle: number; rotationSequence: number; poolFingerprint: string } | null = null;
         if (item.companyRotationEnabled) {
-          // Lock the administrator catalogue state for this transaction so a
+          // Read-lock the administrator catalogue state for this transaction so a
           // concurrent verify/unverify/archive action cannot race this selection.
           const [catalogueRows] = await connection.query<any[]>(
-            "SELECT settingValue FROM app_settings WHERE settingKey=? LIMIT 1 FOR UPDATE",
+            "SELECT settingValue FROM app_settings WHERE settingKey=? LIMIT 1 LOCK IN SHARE MODE",
             ["trade.companyCatalogue.adminState"],
           );
           const catalogueState = parseCompanyCatalogueAdminState(String(catalogueRows[0]?.settingValue || "{}"));
