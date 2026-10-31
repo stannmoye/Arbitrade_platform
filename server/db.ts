@@ -20,7 +20,7 @@ import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule } from "./modules/trading-delivery-quota";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
-import { decideTradeExecutionRetry, MAX_TRANSIENT_RETRIES_PER_OPPORTUNITY } from "./modules/trade-execution-retry";
+import { decideTradeExecutionRetry, MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY } from "./modules/trade-execution-retry";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
 import { isAllowedAttachmentRequest, isSupportAttachmentStorageKeyForTicket, isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 import { assertNotificationPayloadMatches, buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
@@ -3123,7 +3123,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
         await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:new Date(Date.now()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),errorCode:"ALLOCATION_PAUSED",attemptNumber:claim.attemptNumber,releaseAttempt:true,executionLeaseToken});
         continue;
       }
-      const decision=decideTradeExecutionRetry(error,Number(claim.attemptNumber),MAX_TRANSIENT_RETRIES_PER_OPPORTUNITY,new Date(),Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30)));
+      const decision=decideTradeExecutionRetry(error,Number(claim.attemptNumber),MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY,new Date(),Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30)));
       if(decision.kind==="retry"){
         await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:decision.retryAt,errorCode:decision.errorCode,executionLeaseToken});
         continue;
