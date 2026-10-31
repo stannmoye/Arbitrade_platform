@@ -219,7 +219,7 @@ async function reconcileTradeSettlementTimingSchema(connection, root) {
 
   const requiredTradeColumns = [
     "id", "userId", "offerId", "packageSubscriptionId", "currency", "principalMinor",
-    "expectedRewardMinor", "status", "confirmedAt", "settlesAt", "creditAt", "settledAt",
+    "expectedRewardMinor", "status", "confirmedAt", "settlesAt", "settlementReviewAt", "creditAt", "settledAt",
     "lifecycleStage", "settlementStatus", "rewardReservedMinor", "rewardCreditedMinor",
     "realizedGrossProfitMinor", "platformFeeMinor", "netProfitMinor", "feePolicyVersion",
     "platformFeeRateBps", "platformFeeRoundingMode", "settlementOutcome", "walletUpdatedAt",
