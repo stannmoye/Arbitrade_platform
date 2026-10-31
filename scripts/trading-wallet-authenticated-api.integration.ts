@@ -155,6 +155,10 @@ try {
   assert.equal(anonymousBalanceRead.status, 401, "Customer wallet APIs must reject requests without a signed session.");
   assert.equal(trpcErrorCode(anonymousBalanceRead), "UNAUTHORIZED");
 
+  const anonymousLedgerRead = await callQuery("customer.walletLedger");
+  assert.equal(anonymousLedgerRead.status, 401, "Customer wallet history must reject requests without a signed session.");
+  assert.equal(trpcErrorCode(anonymousLedgerRead), "UNAUTHORIZED");
+
   const staleSessionRead = await callQuery("customer.balances", undefined, staleCustomerCookie);
   assert.equal(staleSessionRead.status, 401, "A validly signed session with an obsolete authVersion must be rejected.");
 
@@ -173,6 +177,11 @@ try {
   const deniedCustomerLedgerRead = await callQuery("adminOperations.customerBalances", { userId: customerId }, customerCookie);
   assert.equal(deniedCustomerLedgerRead.status, 403, "A customer must not access the administrator's customer-wallet query.");
   assert.equal(trpcErrorCode(deniedCustomerLedgerRead), "FORBIDDEN");
+
+  const deniedAdminWalletHistory = await callQuery("customer.walletLedger", undefined, adminCookie);
+  assert.equal(deniedAdminWalletHistory.status, 403,
+    "The customer wallet-history route must reject administrator roles rather than changing the account scope.");
+  assert.equal(trpcErrorCode(deniedAdminWalletHistory), "FORBIDDEN");
 
   // Supply a deterministic fresh provider quote while leaving the database,
   // application router, session middleware and wallet/ledger transactions real.
@@ -298,6 +307,26 @@ try {
   const idempotencyRows = await db.select().from(adminWalletAdjustmentIdempotency)
     .where(eq(adminWalletAdjustmentIdempotency.adminId, adminId));
   assert.equal(idempotencyRows.length, 2, "The two distinct API requests must retain two request-key records; replay must not add a third.");
+
+  const customerWalletHistory = await callQuery("customer.walletLedger", undefined, customerCookie);
+  assert.equal(customerWalletHistory.status, 200);
+  assert.equal(customerWalletHistory.data?.length, 2,
+    "The customer wallet page must be able to read both committed wallet ledger entries.");
+  assert.deepEqual(
+    customerWalletHistory.data.map((row: any) => row.entryType).sort(),
+    ["admin_credit", "admin_manual_deposit_credit"],
+  );
+  assert.deepEqual(
+    customerWalletHistory.data.map((row: any) => Number(row.amountMinor)).sort((a: number,b: number) => a-b),
+    [2500, 10000],
+  );
+  assert.ok(customerWalletHistory.data.every((row: any) => !("userId" in row)),
+    "The customer-facing history response does not disclose the owning user identifier.");
+
+  const otherCustomerWalletHistory = await callQuery("customer.walletLedger", undefined, otherCustomerCookie);
+  assert.equal(otherCustomerWalletHistory.status, 200);
+  assert.equal(otherCustomerWalletHistory.data?.length, 0,
+    "A different authenticated customer must receive only their own empty ledger history.");
 
   const qualificationJobs = await db.select().from(tradingTierQualificationJobs)
     .where(eq(tradingTierQualificationJobs.userId, customerId));
