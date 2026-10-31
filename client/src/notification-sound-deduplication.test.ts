@@ -203,7 +203,7 @@ describe("authoritative financial-event notification contracts", () => {
     const settlement = routers.slice(settlementStart, settlementEnd);
     const dbSource = readFileSync(new URL("../../server/db.ts", import.meta.url), "utf8");
     const creditStart = dbSource.indexOf("export async function processConfirmedTradeCredits(");
-    const creditEnd = dbSource.indexOf("\\nexport async function createOpportunityOffer(", creditStart);
+    const creditEnd = dbSource.indexOf("\nexport async function createOpportunityOffer(", creditStart);
     const creditPosting = dbSource.slice(creditStart, creditEnd);
     const notificationEvents = readFileSync(new URL("../../server/modules/notification-events.ts", import.meta.url), "utf8");
     expect(settlementStart).toBeGreaterThanOrEqual(0);
