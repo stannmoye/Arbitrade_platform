@@ -543,6 +543,7 @@ export const tradePositions = mysqlTable("trade_positions", {
   status: mysqlEnum("status", ["pending", "confirmed", "settled", "cancelled"]).default("confirmed").notNull(),
   confirmedAt: timestamp("confirmedAt").defaultNow().notNull(),
   settlesAt: timestamp("settlesAt").notNull(),
+  settlementReviewAt: timestamp("settlementReviewAt"),
   creditAt: timestamp("creditAt"),
   settledAt: timestamp("settledAt"),
   lifecycleStage: varchar("lifecycleStage", { length: 48 }).default("Trade Allocated").notNull(),
