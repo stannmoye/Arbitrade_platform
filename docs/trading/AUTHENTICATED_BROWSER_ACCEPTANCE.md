@@ -38,13 +38,14 @@ The storage-state files must already exist in Playwright's `{ cookies, origins }
 Install the repository's locked dependencies and the Playwright Chromium browser. Playwright is provisioned with `npx` in the existing CI workflow rather than declared as a direct application dependency, so expose its temporary package to Node with `NODE_PATH`:
 
 ```sh
+npx --yes --package=playwright playwright install chromium
 TRADING_ACCEPTANCE_BASE_URL=https://<isolated-test-host> \
 TRADING_ACCEPTANCE_ENVIRONMENT=non-production \
 TRADING_CUSTOMER_STORAGE_STATE=/secure/test-state/eligible-customer.json \
 TRADING_UNQUALIFIED_CUSTOMER_STORAGE_STATE=/secure/test-state/unqualified-customer.json \
 TRADING_ADMIN_STORAGE_STATE=/secure/test-state/admin.json \
 TRADING_ACCEPTANCE_CUSTOMER_EMAIL=eligible-customer@example.invalid \
-node scripts/trading-ui-browser-acceptance.cjs
+npx --yes --package=playwright -c 'PLAYWRIGHT_MODULES="$(dirname "$(dirname "$(command -v playwright)")")"; NODE_PATH="$PLAYWRIGHT_MODULES" node scripts/trading-ui-browser-acceptance.cjs'
 ```
 
 Use test-only settings and ensure the original retry-delay setting is valid (5–3600 seconds), because the script temporarily changes and then restores that value. Preserve the JSON result and test logs as acceptance evidence.
