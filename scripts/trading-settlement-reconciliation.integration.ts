@@ -73,11 +73,11 @@ try {
 
   const now = Date.now();
   const overdueBySchedule = await insertTrade({ settlesAt: new Date(now - 60_000) });
-  // creditAt is the authoritative scheduled credit/settlement time when present,
-  // even if the original settlesAt is later.
-  const overdueByCreditAt = await insertTrade({
-    settlesAt: new Date(now + 3_600_000),
-    creditAt: new Date(now - 30_000),
+  // Administrator review becomes available at trade completion even when
+  // the separately saved wallet-credit time is still in the future.
+  const reviewDueBeforeCreditAt = await insertTrade({
+    settlesAt: new Date(now - 30_000),
+    creditAt: new Date(now + 3_600_000),
   });
   const futureTrade = await insertTrade({ settlesAt: new Date(now + 3_600_000) });
   const alreadyWaiting = await insertTrade({
@@ -108,7 +108,7 @@ try {
 
   const rows = await db.select().from(tradePositions).where(inArray(tradePositions.id, tradeIds));
   const byId = new Map(rows.map((row) => [row.id, row]));
-  for (const id of [overdueBySchedule, overdueByCreditAt]) {
+  for (const id of [overdueBySchedule, reviewDueBeforeCreditAt]) {
     const trade = byId.get(id);
     assert.ok(trade);
     assert.equal(trade.status, "confirmed", "Elapsed time must not settle a trade.");
@@ -123,7 +123,7 @@ try {
   assert.equal(byId.get(alreadySettled)?.status, "settled", "Terminal trades must not be reopened.");
 
   const dueEvents = await db.select().from(tradeLifecycleEvents)
-    .where(and(inArray(tradeLifecycleEvents.tradeId, [overdueBySchedule, overdueByCreditAt]), eq(tradeLifecycleEvents.eventType, "settlement_due_waiting_for_confirmation")));
+    .where(and(inArray(tradeLifecycleEvents.tradeId, [overdueBySchedule, reviewDueBeforeCreditAt]), eq(tradeLifecycleEvents.eventType, "settlement_due_waiting_for_confirmation")));
   assert.equal(dueEvents.length, 2, "One and only one due event must be recorded per transitioned trade.");
 
   // Inject a database error after cross-wallet source debits, conversion ledger
