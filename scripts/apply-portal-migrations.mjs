@@ -63,6 +63,7 @@ const migrationFiles = [
   "0094_trading_policy_duration_bounds_nullable.sql",
   "0095_fx_snapshot_source_timestamp_precision.sql",
   "0096_trade_settlement_review_timestamp.sql",
+  "0097_trading_daily_execution_attempt_accounting.sql",
 ];
 // These tables are schema-baseline indicators for first-time portal migration tracking.
 // Some also belong to the main Drizzle chain; none of them alone proves that a

@@ -40,7 +40,7 @@ describe("worker schema contracts", () => {
 
   it("creates and validates the durable Trading tier queue in the runtime schema bridge", async () => {
     const root = new URL("../", import.meta.url);
-    const [runtimeSchema, mainMigrationRunner, migration, opportunityWorkerMigration, healthMigration, deliveryDiagnosticsMigration, mainPopupPolicySnapshotMigration, executionLeaseMigration, packagePolicySchemaMigration, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration, walletFundingPlanMigration, walletAdjustmentIdempotencyMigration, nullablePolicyDurationBoundsMigration, fxSnapshotSourceTimestampMigration, settlementReviewTimestampMigration, portalRunner, installerRecovery] = await Promise.all([
+    const [runtimeSchema, mainMigrationRunner, migration, opportunityWorkerMigration, healthMigration, deliveryDiagnosticsMigration, mainPopupPolicySnapshotMigration, executionLeaseMigration, packagePolicySchemaMigration, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration, walletFundingPlanMigration, walletAdjustmentIdempotencyMigration, nullablePolicyDurationBoundsMigration, fxSnapshotSourceTimestampMigration, settlementReviewTimestampMigration, dailyAttemptAccountingMigration, portalRunner, installerRecovery] = await Promise.all([
       readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
       readFile(new URL("scripts/guarded-main-migrate.mjs", root), "utf8"),
       readFile(new URL("drizzle/0082_trading_tier_qualification_jobs.sql", root), "utf8"),
@@ -58,6 +58,7 @@ describe("worker schema contracts", () => {
       readFile(new URL("drizzle/0094_trading_policy_duration_bounds_nullable.sql", root), "utf8"),
       readFile(new URL("drizzle/0095_fx_snapshot_source_timestamp_precision.sql", root), "utf8"),
       readFile(new URL("drizzle/0096_trade_settlement_review_timestamp.sql", root), "utf8"),
+      readFile(new URL("drizzle/0097_trading_daily_execution_attempt_accounting.sql", root), "utf8"),
       readFile(new URL("scripts/apply-portal-migrations.mjs", root), "utf8"),
       readFile(new URL("installer/migration-recovery-status.mjs", root), "utf8"),
     ]);
@@ -107,6 +108,14 @@ describe("worker schema contracts", () => {
     expect(runtimeSchema).toContain('drizzle/0096_trade_settlement_review_timestamp.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, settlementReviewTimestampMigration)");
     expect(settlementReviewTimestampMigration).toContain("ADD COLUMN IF NOT EXISTS `settlementReviewAt` timestamp NULL");
+    expect(runtimeSchema).toContain('drizzle/0097_trading_daily_execution_attempt_accounting.sql');
+    expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, dailyExecutionAttemptAccountingMigration)");
+    expect(dailyAttemptAccountingMigration).toContain("`executionDailyAttemptCount` int NOT NULL DEFAULT 0");
+    expect(dailyAttemptAccountingMigration).toContain("`executionDailyAttemptDay` varchar(10) NULL");
+    expect(portalRunner).toContain('"0097_trading_daily_execution_attempt_accounting.sql"');
+    expect(installerRecovery).toContain('"0097_trading_daily_execution_attempt_accounting.sql"');
+    expect(WORKER_SCHEMA_CONTRACTS.opportunity_popup_events.columns).toContain("executionDailyAttemptCount");
+    expect(WORKER_SCHEMA_CONTRACTS.opportunity_popup_events.columns).toContain("executionDailyAttemptDay");
     expect(walletAdjustmentIdempotencyMigration).toContain("CREATE TABLE IF NOT EXISTS `admin_wallet_adjustment_idempotency`");
     expect(WORKER_SCHEMA_CONTRACTS.admin_wallet_adjustment_idempotency.indexes).toHaveProperty("admin_wallet_adjustment_key_uq");
     expect(portalRunner).toContain('"0093_admin_wallet_adjustment_idempotency.sql"');
