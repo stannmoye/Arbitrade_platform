@@ -120,9 +120,10 @@ export default function AdminCompanyCatalogue() {
         </label>
         <label>Catalogue status
           <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "all" | AdminCompanyStatus)}>
-            <option value="all">All active companies</option>
+            <option value="all">All non-archived companies</option>
             <option value="unverified">Unverified</option>
             <option value="verified">Admin marked verified</option>
+            <option value="disabled">Disabled</option>
             <option value="archived">Archived / deleted</option>
           </select>
         </label>
