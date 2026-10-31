@@ -1,3 +1,13 @@
+## 2026-10-31 — Stage 3C.2: daily attempt budget versus retry ceiling
+
+- Work remains on `fix/trade-lifecycle-and-admin-policy-completion`; PR #258 remains draft and must not be merged without explicit authorization.
+- Corrected a policy mismatch: `maxTradeAttemptsPerDay` now limits the customer's total automatic execution claims across opportunities for the UTC day, including transient technical retries. It is no longer treated as the per-event retry maximum.
+- Claims lock the customer row before the opportunity row (matching trade-allocation lock order), read the persisted package policy and count durable `executionAttemptCount` values for the customer/day. This serializes cross-event claims and prevents parallel workers from exceeding the configured budget.
+- The per-opportunity transient retry ceiling remains a separate bounded internal safety control. A policy value of zero disables the daily cap. Exhausted daily budget defers not-yet-attempted opportunities until next UTC day; no wallet or ledger operation occurs.
+- Added exact-head worker DB coverage for cross-opportunity daily cap exhaustion and updated admin UI/docs. CI and both DB engine results are pending.
+
+---
+
 ## 2026-10-31 — Stage 3C.1: durable delivery cadence and post-completion timing
 
 - Work remains isolated on `fix/trade-lifecycle-and-admin-policy-completion`; PR #258 remains draft and must not be merged without explicit authorization.
