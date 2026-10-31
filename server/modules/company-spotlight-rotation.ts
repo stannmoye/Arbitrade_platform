@@ -68,8 +68,8 @@ export function buildCompanySpotlightPool(
   const verified = new Set(adminState.verifiedIds);
   const archived = new Set(adminState.archivedIds);
   const disabled = new Set(adminState.disabledIds ?? []);
-  // Administrator approval is required for customer spotlight display. Archived
-  // always wins, including malformed/stale state containing an ID in both sets.
+  // Administrator approval is required for customer spotlight display. Archived and disabled
+  // always win, including stale state that also contains an ID in verifiedIds.
   const pool = catalogue.filter(company =>
     company.id && company.name && company.logoUrl &&
     verified.has(company.id) && !archived.has(company.id) && !disabled.has(company.id) &&
