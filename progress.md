@@ -1,3 +1,14 @@
+## 2026-10-31 — Verified-only customer company pop-ups (in progress)
+
+- Canonical base: `main` at `a4f8cdd392f339c81762bd8a6584797881579aa9`; implementation branch: `feat/verified-company-popups`; code head before this handoff update: `d4965b2429b0c4e8920e2c93f3d1762752b50086`.
+- Changed company spotlight selection to require a current administrator `verifiedIds` entry and exclude every `archivedIds` entry. Country-folder filters apply only after this status gate. Missing/malformed admin state and an empty approved pool fail closed: the opportunity may still be delivered, but no company identity is attached and no unverified fallback is used.
+- The worker reads the admin status under a shared database lock while selecting a company, preserving concurrency across worker instances while serializing admin status changes against an in-flight selection. The immutable popup metadata records `adminCatalogueStatus: verified`; source listing status, `referenceOnly`, and securities/trade-execution eligibility remain unchanged.
+- Customer opportunity responses re-check current admin status and strip company identity from active pop-ups after an administrator marks a company Unverified or Archived. Completed trade snapshots remain immutable. The read-only next-company preview uses the same verified-only pool.
+- Updated the admin catalogue and package editor copy, canonical Trading specification, admin configuration manual, AGENTS guidance, and this progress handoff. No migration is needed: the implementation consumes the existing audited `trade.companyCatalogue.adminState` setting. The repository has no tracked PDF companion to update.
+- Added unit/contract coverage and expanded the disposable MySQL/MariaDB company-rotation integration script for verified-only selection, archived precedence, empty-pool no-fallback, and metadata distinction from securities verification. Exact-head GitHub CI is pending. No production database change or deployment has been performed.
+
+---
+
 ## 2026-10-30 — Administrator company catalogue bulk controls (in progress)
 
 - Base: canonical `main` at `709c9e9da09e3188fb1a98a0714c8ae137e35f1f`; work branch: `feat/admin-company-catalogue-bulk-controls`.
