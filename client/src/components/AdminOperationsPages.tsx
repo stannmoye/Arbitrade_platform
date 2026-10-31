@@ -367,7 +367,7 @@ export function AdminTransactionReview({ focus }: { focus?: "capital" | "fees" |
               </tr>;
             })}
           </tbody></table></div>}
-          <div className="admin-ops-note"><ShieldCheck size={16} /><span>Confirm only after independently verifying the actual result and evidence reference. Review becomes available when the trade duration ends. Confirmation records the result and fee-policy snapshot but does not release principal or credit earnings. The server-side worker posts the wallet and ledger exactly once when the saved creditAt is reached; elapsed time alone never confirms a result.</span></div>
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span>Confirm only after independently verifying the actual result and evidence reference. Review becomes available when the configured settlement-review delay ends. Confirmation records the result and fee-policy snapshot but does not release principal or credit earnings. The server-side worker posts the wallet and ledger exactly once when the saved creditAt is reached; elapsed time alone never confirms a result.</span></div>
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head">
