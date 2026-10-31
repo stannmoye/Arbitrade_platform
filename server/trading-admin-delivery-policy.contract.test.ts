@@ -67,7 +67,7 @@ describe("administrator Trading delivery policy controls", () => {
 
   it("keeps display timeout presentation-only and avoids promising a configured reward as earned profit", () => {
     expect(policyEditor).toContain("Controls display only; must not cancel an active trade.");
-    expect(app).toContain("active trade snapshots were preserved");
+    expect(app).toContain("Active trade snapshots were preserved.");
     expect(policyEditor).toContain("This is a minimum eligibility constraint, not a generated or guaranteed return.");
     expect(database).toContain("packagePolicyVersionSnapshot:snapshotVersion");
   });
