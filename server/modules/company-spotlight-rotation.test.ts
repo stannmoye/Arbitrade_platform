@@ -14,8 +14,8 @@ describe("package-scoped company spotlight rotation",()=>{
   });
   it("includes only admin-verified IDs and always excludes archived IDs",()=>{
     const [verified,archived,alsoVerified]=COMPANY_REFERENCE_CATALOGUE.slice(0,3);
-    const pool=buildCompanySpotlightPool("",{verifiedIds:[verified!.id,archived!.id,alsoVerified!.id],archivedIds:[archived!.id]});
-    expect(pool.map(company=>company.id)).toEqual([verified!.id,alsoVerified!.id]);
+    const pool=buildCompanySpotlightPool("",{verifiedIds:[verified!.id,archived!.id,alsoVerified!.id],archivedIds:[archived!.id],disabledIds:[alsoVerified!.id]});
+    expect(pool.map(company=>company.id)).toEqual([verified!.id]);
     expect(buildCompanySpotlightPool("",{verifiedIds:[],archivedIds:[]})).toEqual([]);
   });
   it("fails closed when the administrator status setting is missing or malformed",()=>{
@@ -75,6 +75,7 @@ describe("current customer company snapshot authorization",()=>{
     const companyId=COMPANY_REFERENCE_CATALOGUE[0]!.id;
     const approved={verifiedIds:[companyId],archivedIds:[]};
     expect(isCompanySpotlightDisplayAllowed(companyId,approved)).toBe(true);
+    expect(isCompanySpotlightDisplayAllowed(companyId,{...approved,disabledIds:[companyId]})).toBe(false);
     // Pending, rejected, and disabled entries are represented by absence from the
     // administrator-approved ID set; archived IDs are independently denied.
     for(const state of [
