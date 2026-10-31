@@ -1,3 +1,15 @@
+## 2026-10-31 — Final review follow-up: close customer company catalogue exposure
+
+- Whole-branch review found a customer-facing search surface not covered by the original verified-only pop-up filter: `CustomerOpportunities` queried the public `companyCatalogueReference.search/count/summary` routes and displayed the full 1,811-record catalogue, including unverified and archived records. The canonical specification, administrator manual, repository instructions and customer guide still described that older behavior.
+- Restricted full-catalogue summary/search/count and direct lookup/symbol/random/next routes to `adminProcedure`. Added customer-only protected summary/count/search routes that read current `trade.companyCatalogue.adminState`, fail closed on missing/malformed state, filter by current `verifiedIds` minus `archivedIds` before pagination/counting, and reject non-customer roles.
+- Switched the customer Trading page to the customer-only endpoints and updated its labels/help text to describe approved references only. The administrator catalogue retains the full 1,811-record source and its existing status-management actions.
+- Centralized the active-popup snapshot guard and added a prebuilt Set-based predicate so customer reads and customer catalogue queries revalidate approval efficiently. Extended executable unit/contract coverage for immediate revocation, archived precedence, malformed/stale IDs, admin-only full-catalogue routes and customer-only filtered routes.
+- Updated `AGENTS.md`, `README.md`, `docs/TRADING_SYSTEM_SPECIFICATION.md`, `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md`, `docs/trading/IMPLEMENTATION_COORDINATION.md`, `docs/admin-portal-menu-guide.md`, and `client/public/trade-admin-guide.html` to remove the conflicting instruction that customers may browse the full unverified catalogue. The canonical requirement is now consistent: only currently admin-verified, non-archived companies are retrievable or displayable in customer-facing Trade surfaces; the full catalogue is administrator-only.
+- Current PR head after these changes: `fa370f6a82267a661de53dce66bc9d3db0f108a9`. PR #258 remains open, draft and unmerged. The 10/10 workflow groups passed on earlier head `4e139c3550da03b41403190323a83e143d127258`; no workflow runs or commit statuses are currently exposed for this latest head, so the new changes are **not yet CI-verified**. No local Node/pnpm runtime is available in this connector session to execute tests, and no production database, migration, merge or deployment was used.
+- Remaining: trigger/obtain exact-head CI, review the remaining customer/admin end-to-end and migration/performance paths, resolve any new failures, and refresh this record only after exact-head validation.
+
+---
+
 ## 2026-10-31 — Final whole-branch review: current company approval guard
 
 - Reviewed PR #258 against `main` at base `048620efa2c68d707c87fb22ba63ebeb6a924772`; the branch was at `4e139c3550da03b41403190323a83e143d127258` before this review change. PR remains open, draft and unmerged.
