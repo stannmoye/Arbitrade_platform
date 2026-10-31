@@ -4,7 +4,7 @@ export type TradeExecutionRetryDecision =
 
 // Separate per-opportunity safety ceiling; the administrator daily attempt budget
 // is enforced transactionally across all of a customer's opportunities.
-export const MAX_TRANSIENT_RETRIES_PER_OPPORTUNITY = 5;
+export const MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY = 5;
 
 const RETRYABLE_CODES = new Set([
   "ER_LOCK_DEADLOCK",
