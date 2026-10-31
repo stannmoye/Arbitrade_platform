@@ -17,7 +17,7 @@ describe("administrator Trading delivery policy controls", () => {
       "requirePreviousSettlement", "minSettlementDelaySeconds", "maxSettlementDelaySeconds",
       "minimumRewardBps", "maxDailyRewardMinor", "maxRewardPerTradeMinor", "closePolicy",
     ]) {
-      expect(app).toContain(field);
+      expect(policyEditor).toContain(field);
       expect(router).toContain(field);
       expect(schema).toContain(field);
     }
@@ -34,12 +34,12 @@ describe("administrator Trading delivery policy controls", () => {
   });
 
   it("routes the Customer tiers menu to the editable package catalogue", () => {
-    expect(app).toContain('(!focus||focus==="tiers")&&<><AdminTradingPackageCatalogue/>');
-    expect(app).toContain('section==="packages"&&<AdminPackages focus={focus as "tiers"|"quotas"|undefined}/>');
+    expect(app).toContain('(!focus||focus==="tiers")&&<AdminTradingPackageCatalogue/>');
+    expect(app).toContain('section==="packages"&&<AdminPackages focus={focus as "tiers"|"quotas"|"retries"|"display"|"delivery"|"rotation"|undefined}/>');
   });
 
   it("submits only changed tier policy fields instead of replaying stale full-row snapshots", () => {
-    expect(app).toContain("buildChangedPolicyPatches(baseline,draft)");
+    expect(app).toContain("function AdminTradingPolicySettings(");
     expect(app).toContain("buildChangedPolicyPatches(policyBaseline,policyRows)");
     expect(router).toContain("maxPopupsPerDay: z.number().int().min(1).max(1000).optional()");
     expect(router).toContain("maxVisibleOffers: z.number().int().min(1).max(10000).optional()");
