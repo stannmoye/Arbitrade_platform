@@ -54,7 +54,7 @@ describe("financial notification delivery observability", () => {
     expect(source).toContain("await manuallySettleTrade(input.tradeId,ctx.user.id,input)");
     expect(source).not.toContain("buildTradeSettlementNotices({");
     const creditStart = dbSource.indexOf("export async function processConfirmedTradeCredits(");
-    const creditEnd = dbSource.indexOf("\\nexport async function createOpportunityOffer(", creditStart);
+    const creditEnd = dbSource.indexOf("\nexport async function createOpportunityOffer(", creditStart);
     const creditPosting = dbSource.slice(creditStart, creditEnd);
     expect(creditStart).toBeGreaterThanOrEqual(0);
     expect(creditEnd).toBeGreaterThan(creditStart);
