@@ -351,7 +351,7 @@ export function AdminTransactionReview({ focus }: { focus?: "capital" | "fees" |
               const reservationConsistent = reservationAmount === null
                 ? reserved === 0 && !trade.reservationStatus
                 : Number.isSafeInteger(reservationAmount) && reservationAmount === reserved && trade.reservationStatus === "reserved";
-              const dueAt = trade.settlesAt;
+              const dueAt = trade.settlementReviewAt || trade.settlesAt;
               const creditDueAt = trade.creditAt || trade.settlesAt;
               const isDue = !!dueAt && Number.isFinite(new Date(dueAt).getTime()) && new Date(dueAt).getTime() <= Date.now();
               const alreadyConfirmed = trade.settlementStatus === "confirmed_awaiting_credit";
