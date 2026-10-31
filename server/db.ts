@@ -3883,8 +3883,10 @@ export async function listPendingSettlements(){
     status:tradePositions.status, settlementStatus:tradePositions.settlementStatus,
     lifecycleStage:tradePositions.lifecycleStage,
     confirmedAt:tradePositions.confirmedAt, settlesAt:tradePositions.settlesAt, creditAt:tradePositions.creditAt,
-    settlementConfirmedAt:tradePositions.settlementConfirmedAt, settlementReference:tradePositions.settlementReference,
-    walletUpdatedAt:tradePositions.walletUpdatedAt,
+    settlementConfirmedAt:tradePositions.settlementConfirmedAt, settlementConfirmedBy:tradePositions.settlementConfirmedBy,
+    settlementReference:tradePositions.settlementReference, walletUpdatedAt:tradePositions.walletUpdatedAt,
+    settlementOutcome:tradePositions.settlementOutcome, realizedGrossProfitMinor:tradePositions.realizedGrossProfitMinor,
+    platformFeeMinor:tradePositions.platformFeeMinor, netProfitMinor:tradePositions.netProfitMinor,
     reservationStatus:tradeRewardReservations.status,
     reservationPackageName:tradeRewardReservations.packageName,
     reservationAmountMinor:tradeRewardReservations.reservedMinor,
@@ -3913,6 +3915,11 @@ export async function listTradeSettlementIntegrityIssues(input?: { limit?: numbe
     and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "pending"), isNull(tradeRewardReservations.id), gt(tradePositions.rewardReservedMinor, 0)),
     and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "pending"), eq(tradeRewardReservations.status, "credited")),
     and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "pending"), eq(tradeRewardReservations.status, "released")),
+    and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), isNull(tradePositions.settlementReference)),
+    and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), isNull(tradePositions.settlementConfirmedAt)),
+    and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), isNotNull(tradePositions.walletUpdatedAt)),
+    and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), isNull(tradeRewardReservations.id), gt(tradePositions.rewardReservedMinor, 0)),
+    and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), or(eq(tradeRewardReservations.status, "credited"), eq(tradeRewardReservations.status, "released"))),
     and(eq(tradePositions.status, "settled"), eq(tradePositions.settlementStatus, "completed"), eq(tradeRewardReservations.status, "reserved")),
     and(isNotNull(tradeRewardReservations.id), sql`(${tradeRewardReservations.userId} <> ${tradePositions.userId} OR ${tradeRewardReservations.currency} <> ${tradePositions.currency} OR ${tradeRewardReservations.reservedMinor} <> ${tradePositions.rewardReservedMinor})`)
   );
@@ -3929,6 +3936,8 @@ export async function listTradeSettlementIntegrityIssues(input?: { limit?: numbe
     lifecycleStage: tradePositions.lifecycleStage,
     settlementOutcome: tradePositions.settlementOutcome,
     settlementReference: tradePositions.settlementReference,
+    settlementConfirmedAt: tradePositions.settlementConfirmedAt,
+    walletUpdatedAt: tradePositions.walletUpdatedAt,
     realizedGrossProfitMinor: tradePositions.realizedGrossProfitMinor,
     platformFeeMinor: tradePositions.platformFeeMinor,
     netProfitMinor: tradePositions.netProfitMinor,
@@ -3960,6 +3969,10 @@ export async function listTradeSettlementIntegrityIssues(input?: { limit?: numbe
     if (row.claimReference && row.settlementReference && row.claimReference !== row.settlementReference) flags.push("settlement_reference_claim_value_mismatch");
     if (row.status === "confirmed" && row.settlementStatus === "pending" && !row.reservationId && Number(row.rewardReservedMinor) > 0) flags.push("pending_trade_missing_reward_reservation");
     if (row.status === "confirmed" && row.settlementStatus === "pending" && (row.reservationStatus === "credited" || row.reservationStatus === "released")) flags.push("pending_trade_reservation_not_reserved");
+    if (row.status === "confirmed" && row.settlementStatus === "confirmed_awaiting_credit" && !row.settlementReference) flags.push("confirmed_trade_missing_settlement_reference");
+    if (row.status === "confirmed" && row.settlementStatus === "confirmed_awaiting_credit" && !row.settlementConfirmedAt) flags.push("confirmed_trade_missing_confirmation_timestamp");
+    if (row.status === "confirmed" && row.settlementStatus === "confirmed_awaiting_credit" && row.walletUpdatedAt) flags.push("awaiting_credit_trade_wallet_already_updated");
+    if (row.status === "confirmed" && row.settlementStatus === "confirmed_awaiting_credit" && (row.reservationStatus === "credited" || row.reservationStatus === "released")) flags.push("confirmed_trade_reservation_not_reserved");
     if (row.status === "settled" && row.settlementStatus === "completed" && row.reservationStatus === "reserved") flags.push("settled_trade_reservation_still_reserved");
     if (row.reservationId && (row.reservationUserId !== row.userId || row.reservationCurrency !== row.currency || Number(row.reservationAmountMinor) !== Number(row.rewardReservedMinor))) flags.push("trade_reward_reservation_identity_or_amount_mismatch");
     if (row.status === "settled" && row.settlementStatus !== "completed") flags.push("settled_trade_status_not_completed");
@@ -4094,6 +4107,8 @@ export async function listWalletLedgerReconciliation(input?: {
     settlementStatus: tradePositions.settlementStatus,
     settlementOutcome: tradePositions.settlementOutcome,
     settlementReference: tradePositions.settlementReference,
+    settlementConfirmedAt: tradePositions.settlementConfirmedAt,
+    walletUpdatedAt: tradePositions.walletUpdatedAt,
     realizedGrossProfitMinor: tradePositions.realizedGrossProfitMinor,
     platformFeeMinor: tradePositions.platformFeeMinor,
     netProfitMinor: tradePositions.netProfitMinor,
