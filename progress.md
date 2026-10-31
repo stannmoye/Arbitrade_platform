@@ -711,3 +711,12 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 - Continue to require all executable exact-head GitHub checks to pass. Any failing CI check must be investigated and fixed before merge; do not waive automated MySQL/MariaDB integration, type-check, unit test, build, installer or recovery checks.
 - Customer-to-customer wallet transfers remain unsupported in this branch; no claim of transfer implementation or live transfer testing is made.
 - Merge is authorized only after the latest PR head is confirmed green and mergeable. Keep the PR targeted at `main`; do not deploy or run production migrations.
+
+## 2026-10-31 — Mobile administrator menu vertical scrolling correction
+
+- Canonical baseline verified from the preceding merged Trade work: `main` commit `c6a6530861c5282d1eb707c2c033310e90888082` (PR #258).
+- Investigated the mobile-only admin navigation defect. The small-screen admin drawer correctly used a fixed, viewport-bounded rail and a flexible navigation region, but a later responsive theme override set `.admin-canonical-nav` to `max-height:none; overflow:visible` at widths up to 900px. This overrode the intended vertical scrolling and allowed the expanded menu list to extend beyond the available drawer height.
+- Added a final, mobile-only CSS recovery rule: the rail clips to its viewport bounds; the navigation list is a vertical flex column with `min-height:0`, vertical auto-overflow, contained overscroll and iOS momentum scrolling; menu groups retain their natural height. Desktop rules are unchanged.
+- Added regression contracts verifying the mobile scroll rule's cascade order and required overflow/touch behaviour, and that the rule is scoped to the mobile breakpoint.
+- Work branch: `fix/admin-mobile-navigation-scroll`. No navigation destinations, access permissions, customer UI, Trading logic, APIs, database schema or migrations were changed.
+- Validation: source-level regression test added; full `pnpm check`, `pnpm test`, `pnpm build`, and narrow-screen browser interaction checks must pass on the final PR head before merge. No local Node/pnpm/browser runtime or hosted deployment was available in this connector session; no test pass is claimed here. No production deployment or database operation was performed.
