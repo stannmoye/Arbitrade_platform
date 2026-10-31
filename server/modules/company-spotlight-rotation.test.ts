@@ -103,7 +103,8 @@ describe("customer company catalogue access boundary",()=>{
     expect(routerSource).toContain("customerSearch: protectedProcedure");
     expect(routerSource).toContain("customerCount: protectedProcedure");
     expect(routerSource).toContain("customerSummary: protectedProcedure");
-    expect(routerSource).toContain(".filter((company) => isCompanySpotlightDisplayAllowed(company.id, adminState))");
+    expect(routerSource).toContain("const companyDisplayAllowed = createCompanySpotlightDisplayGuard(adminState)");
+    expect(routerSource).toContain(".filter((company) => companyDisplayAllowed(company.id))");
     expect(routerSource).toContain(".slice(offset, offset + limit)");
     expect(customerPortal).toContain("companyCatalogueReference.customerSearch.useQuery");
     expect(customerPortal).toContain("companyCatalogueReference.customerCount.useQuery");
