@@ -11,7 +11,6 @@ if (![userId, eventId, offerId].every((value) => Number.isSafeInteger(value) && 
 const claim = await claimOpportunityExecutionAttempt(
   userId,
   { deliveryEventId: eventId, offerId, tradeRetryDelaySeconds: 30 },
-  5,
 );
 if (!claim.claimed || !claim.executionLeaseToken) {
   await closeDbPool();
