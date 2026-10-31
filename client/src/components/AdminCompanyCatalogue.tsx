@@ -3,7 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { getPageCount } from "../trading-catalogue-pagination";
 
 const PAGE_SIZE = 10;
-type AdminCompanyStatus = "verified" | "unverified" | "archived";
+type AdminCompanyStatus = "verified" | "unverified" | "disabled" | "archived";
 
 export default function AdminCompanyCatalogue() {
   const [search, setSearch] = useState("");
@@ -73,13 +73,13 @@ export default function AdminCompanyCatalogue() {
   });
   const clearSelection = () => setSelectedIds(new Set());
 
-  const applyStatus = async (status: AdminCompanyStatus) => {
+  const applyStatus = async (status: "verified" | "unverified" | "disabled" | "enabled" | "archived") => {
     const ids = [...selectedIds];
     if (!ids.length || updateStatus.isPending) return;
-    const label = status === "archived" ? "archive" : status === "verified" ? "mark as admin-verified" : "mark as unverified";
+    const label = status === "archived" ? "archive" : status === "verified" ? "mark as admin-verified" : status === "disabled" ? "disable" : status === "enabled" ? "enable" : "mark as unverified";
     const confirmed = window.confirm(`You are about to ${label} ${ids.length.toLocaleString()} selected compan${ids.length === 1 ? "y" : "ies"}. Continue?`);
     if (!confirmed) return;
-    const reason = status === "archived" ? "Administrator archived selected catalogue records." : status === "verified" ? "Administrator marked selected catalogue records as verified." : "Administrator marked selected catalogue records as unverified.";
+    const reason = status === "archived" ? "Administrator archived selected catalogue records." : status === "verified" ? "Administrator marked selected catalogue records as verified." : status === "disabled" ? "Administrator disabled selected catalogue records." : status === "enabled" ? "Administrator enabled selected catalogue records." : "Administrator marked selected catalogue records as unverified.";
     await updateStatus.mutateAsync({ ids, status, reason });
   };
 
@@ -151,7 +151,7 @@ export default function AdminCompanyCatalogue() {
         {displayedRecords.map((company) => {
           const logoId = company.id.replace(/^logo-brand-/, "");
           const status = (statuses[company.id]?.status ?? "unverified") as AdminCompanyStatus;
-          const statusLabel = status === "verified" ? "Admin marked verified" : status === "archived" ? "Archived" : "Unverified";
+          const statusLabel = status === "verified" ? "Admin marked verified" : status === "archived" ? "Archived" : status === "disabled" ? "Disabled" : "Unverified";
           return <article className={`company-catalogue-row ${selectedIds.has(company.id) ? "is-selected" : ""}`} key={company.id}>
             <label className="company-catalogue-select" aria-label={`Select ${company.name}`}>
               <input type="checkbox" checked={selectedIds.has(company.id)} onChange={(event) => toggleCompany(company.id, event.target.checked)} />
@@ -187,7 +187,7 @@ export default function AdminCompanyCatalogue() {
 
       <div className="company-catalogue-bulk-actions">
         <button className="primary-button" type="button" onClick={() => void applyStatus("verified")} disabled={!selectedCount || updateStatus.isPending}>Mark selected verified</button>
-        <button className="secondary-button" type="button" onClick={() => void applyStatus("unverified")} disabled={!selectedCount || updateStatus.isPending}>Mark selected unverified</button>
+        <button className="secondary-button" type="button" onClick={() => void applyStatus("unverified")} disabled={!selectedCount || updateStatus.isPending}>Reject / mark unverified</button>\n        <button className="secondary-button" type="button" onClick={() => void applyStatus("enabled")} disabled={!selectedCount || updateStatus.isPending}>Enable selected</button>\n        <button className="secondary-button" type="button" onClick={() => void applyStatus("disabled")} disabled={!selectedCount || updateStatus.isPending}>Disable selected</button>
         {statusFilter === "archived"
           ? <button className="secondary-button" type="button" onClick={() => void restoreSelected()} disabled={!selectedCount || updateStatus.isPending}>Restore selected</button>
           : <button className="secondary-button danger-button" type="button" onClick={() => void applyStatus("archived")} disabled={!selectedCount || updateStatus.isPending}>Delete selected</button>}
