@@ -19,9 +19,9 @@ describe("package-scoped company spotlight rotation",()=>{
     expect(buildCompanySpotlightPool("",{verifiedIds:[],archivedIds:[]})).toEqual([]);
   });
   it("fails closed when the administrator status setting is missing or malformed",()=>{
-    expect(parseCompanyCatalogueAdminState(null)).toEqual({verifiedIds:[],archivedIds:[]});
+    expect(parseCompanyCatalogueAdminState(null)).toEqual({verifiedIds:[],archivedIds:[],disabledIds:[]});
     expect(parseCompanyCatalogueAdminState("{not-json")).toEqual({verifiedIds:[],archivedIds:[]});
-    expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001","invalid"],archivedIds:["logo-brand-0001"]})).toEqual({verifiedIds:["logo-brand-0001"],archivedIds:["logo-brand-0001"]});
+    expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001","invalid"],archivedIds:["logo-brand-0001"]})).toEqual({verifiedIds:["logo-brand-0001"],archivedIds:["logo-brand-0001"],disabledIds:[]});
   });
   it("normalizes exact country-folder filters and rejects unknown labels",()=>{
     const country=COMPANY_REFERENCE_CATALOGUE[0]!.countryName;
