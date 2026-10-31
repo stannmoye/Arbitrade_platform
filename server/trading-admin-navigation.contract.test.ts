@@ -13,7 +13,8 @@ describe("Administrator company catalogue navigation and pagination", () => {
     const catalogue = readFileSync(new URL("../client/src/components/AdminCompanyCatalogue.tsx", import.meta.url), "utf8");
     expect(navigation).toContain('id: "trade-company-catalogue", target: "companyCatalogue"');
     expect(navigation).not.toContain('id: "trade-company-catalogue", target: "opportunity"');
-    expect(adminApp).toContain('section==="companyCatalogue"&&<Suspense');
+    expect(adminApp).toContain('section==="companyCatalogue"&&<>');
+    expect(adminApp).toContain('<AdminTradingPolicySettings focus="rotation"/>');
     expect(catalogue).toContain("const PAGE_SIZE = 10");
     expect(catalogue).toContain("trpc.companyCatalogueReference.search.useQuery");
     expect(catalogue).toContain("limit: 1811");
@@ -29,16 +30,27 @@ describe("Administrator company catalogue navigation and pagination", () => {
     expect(catalogue).toContain("internal catalogue label");
   });
 
-  it("paginates all tier policy cards in groups of five without truncating the saved policy payload", () => {
+  it("routes every policy submenu through one authoritative editor and keeps tier catalogue visible", () => {
     const start = adminApp.indexOf("function AdminPackages({focus}");
-    const end = adminApp.indexOf("function AdminTradeAllocationControl()", start);
+    const end = adminApp.indexOf("function AdminSignupFeatures()", start);
+    const packageSurface = adminApp.slice(start, end);
+    const opportunityStart = adminApp.indexOf("function AdminOpportunityEngine()");
+    const portalStart = adminApp.indexOf("function AdminPortal()", opportunityStart);
+    const opportunity = adminApp.slice(opportunityStart, portalStart);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    const editor = adminApp.slice(start, end);
-    expect(editor).toContain("const policyPageSize=5");
-    expect(editor).toContain("paginateItems(draft,policyPage,policyPageSize)");
-    expect(editor).toContain("buildChangedPolicyPatches(baseline,draft)");
-    expect(editor).toContain('aria-label="Tier policy pagination"');
+    expect(packageSurface).toContain("<AdminTradingPackageCatalogue/>");
+    expect(packageSurface).toContain("<AdminTradingPolicySettings focus={focus}/>");
+    expect(adminApp).toContain("function AdminTradingPolicySettings(");
+    expect(opportunity).not.toContain("TradingDeliveryPolicyEditor");
+    expect(adminApp).toContain('section==="opportunity"&&focus==="delivery"&&<AdminPackages focus="delivery"/>');
+    expect(adminApp).toContain('<AdminTradingPolicySettings focus="rotation"/>');
+    expect(policyEditor).toContain("focus?: PolicyEditorFocus;");
+    expect(policyEditor).toContain('show("quotas")');
+    expect(policyEditor).toContain('show("delivery")');
+    expect(policyEditor).toContain('show("display")');
+    expect(policyEditor).toContain('show("retries")');
+    expect(policyEditor).toContain('show("rotation")');
   });
 });
 
