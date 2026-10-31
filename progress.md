@@ -1,10 +1,12 @@
-## 2026-10-31 — Stage 3C.2 UTC rollover accounting correction
+## 2026-10-31 — Stage 3C.2 daily attempt accounting — verified
 
-- Replaced daily-cap aggregation over lifetime `executionAttemptCount` with dedicated `executionDailyAttemptCount` and `executionDailyAttemptDay` fields.
-- UTC rollover resets only the daily counter; lifetime technical retry count and `executionRetryDay` retain separate semantics. Daily-cap deferral no longer rewrites the retry-window marker.
-- Added additive migration 0097, Drizzle schema/journal registration, runtime-schema bridge and worker schema contract coverage.
-- Added worker integration assertions for historical lifetime attempts with a previous-day daily counter rolling to one current-day attempt. Exact-head CI and MySQL/MariaDB integration validation remain pending.
-- No merge, production migration, database operation or deployment has occurred.
+- Code and database test head: `d55da4ccb64f3eb742d551dab2064a5bf98c8dca` on `fix/trade-lifecycle-and-admin-policy-completion`; PR #258 remains open, draft and unmerged.
+- Customer-wide UTC-day usage sums `executionDailyAttemptCount` where `executionDailyAttemptDay` is the current UTC day. The attempted opportunity's persisted tier policy supplies the configured limit; usage aggregation spans all of the customer's opportunity events, including events under different package policies.
+- UTC rollover resets only the dedicated daily counter. Lifetime `executionAttemptCount` and `executionRetryDay` remain separate; daily-cap deferral preserves the technical retry-window marker.
+- Migration 0097 adds the daily fields and the `(userId, executionDailyAttemptDay)` index. It deliberately does not backfill legacy events: cumulative lifetime attempts and a latest retry-day marker cannot reconstruct the UTC day of every historical attempt. Legacy daily values therefore start at `0/NULL`, avoiding false charges to an arbitrary day.
+- The worker integration covers a customer reaching the cap through opportunities attached to two tier policies, cap deferral preserving an older retry marker, and a previous-day counter rolling to one current-day attempt while the lifetime count remains cumulative.
+- All 10 GitHub Actions workflow groups completed successfully on exact code head `d55da4c`: Trading recovery, application verification, production TypeScript/tests/build and browser recovery, installer validation, Mining regression, administrator wallet idempotency, tier qualification, settlement reconciliation, opportunity-worker lifecycle, and company rotation. Opportunity-worker, tier-qualification, settlement and company-rotation integrations passed on both MySQL 8.4 and MariaDB 11.4; wallet idempotency passed on both engines; installer fresh-MariaDB and MySQL 8.4 compatibility/recovery passed.
+- No merge, production database migration or deployment occurred. Database validation used disposable CI databases only.
 
 ---
 

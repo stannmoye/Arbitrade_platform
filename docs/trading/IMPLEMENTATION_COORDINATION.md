@@ -1,10 +1,12 @@
-## 2026-10-31 — Stage 3C.2 UTC rollover accounting correction
+## 2026-10-31 — Stage 3C.2 UTC rollover accounting — verified
 
-- Replaced daily-cap aggregation over lifetime `executionAttemptCount` with dedicated `executionDailyAttemptCount` and `executionDailyAttemptDay` fields.
-- UTC rollover resets only the daily counter; lifetime technical retry count and `executionRetryDay` retain separate semantics. Daily-cap deferral no longer rewrites the retry-window marker.
-- Added additive migration 0097, Drizzle schema/journal registration, runtime-schema bridge and worker schema contract coverage.
-- Added worker integration assertions for historical lifetime attempts with a previous-day daily counter rolling to one current-day attempt. Exact-head CI and MySQL/MariaDB integration validation remain pending.
-- No merge, production migration, database operation or deployment has occurred.
+- Code and database test head: `d55da4ccb64f3eb742d551dab2064a5bf98c8dca`; PR #258 remains open, draft and unmerged.
+- Daily usage sums `executionDailyAttemptCount` by customer and current UTC `executionDailyAttemptDay`; it includes opportunity events across package names. The attempted event's saved package policy supplies the configured limit, as required by the canonical specification.
+- UTC rollover resets only the daily counter. Lifetime technical retry counts and `executionRetryDay` remain independent, and daily-cap deferral does not rewrite the technical retry-window marker.
+- Migration 0097 adds an indexed daily counter. No historical backfill is possible without per-attempt timestamps: legacy `executionAttemptCount` is cumulative and `executionRetryDay` stores only the latest retry-window day. Legacy daily values intentionally remain `0/NULL`; future claims populate the current UTC day.
+- Integration coverage includes multiple opportunities across two tier policies, customer-wide cap enforcement, preservation of the retry-window marker on deferral, and UTC rollover with the lifetime count still cumulative.
+- Exact-head CI passed all 10 workflow groups on code head `d55da4c`. MySQL 8.4 and MariaDB 11.4 opportunity-worker, tier-qualification, settlement and company-rotation integrations all passed. Wallet idempotency passed on both engines; installer fresh-MariaDB, MySQL 8.4 compatibility/recovery, migration regression, application checks and customer-portal browser recovery also passed.
+- No merge, production migration or deployment occurred; DB validation used disposable CI databases only.
 
 ---
 
@@ -12,9 +14,9 @@
 
 - Work remains on `fix/trade-lifecycle-and-admin-policy-completion`; PR #258 remains draft and must not be merged without explicit authorization.
 - Corrected a policy mismatch: `maxTradeAttemptsPerDay` now limits the customer's total automatic execution claims across opportunities for the UTC day, including transient technical retries. It is no longer treated as the per-event retry maximum.
-- Claims lock the customer row before the opportunity row (matching trade-allocation lock order), read the persisted package policy and count durable `executionAttemptCount` values for the customer/day. This serializes cross-event claims and prevents parallel workers from exceeding the configured budget.
+- Claims lock the customer row before the opportunity row (matching trade-allocation lock order), read the persisted policy for the attempted event's package, and sum `executionDailyAttemptCount` values whose `executionDailyAttemptDay` matches the current UTC day across all of that customer's package opportunities. This serializes cross-event and cross-package claims. The selected event's policy supplies the configured limit; a value of zero disables the cap.
 - The per-opportunity transient retry ceiling remains a separate bounded internal safety control. A policy value of zero disables the daily cap. Exhausted daily budget defers not-yet-attempted opportunities until next UTC day; no wallet or ledger operation occurs.
-- Added exact-head worker DB coverage for cross-opportunity daily cap exhaustion and updated admin UI/docs. CI and both DB engine results are pending.
+- Added exact-head worker DB coverage for cross-opportunity and cross-package daily cap exhaustion. MySQL 8.4 and MariaDB 11.4 integration results passed on code head `d55da4c`.
 
 ---
 
