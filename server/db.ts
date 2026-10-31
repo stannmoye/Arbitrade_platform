@@ -18,7 +18,7 @@ import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, 
 import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
-import { calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow } from "./modules/trading-delivery-quota";
+import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow } from "./modules/trading-delivery-quota";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry } from "./modules/trade-execution-retry";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
@@ -3161,11 +3161,16 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const configuredPolicies=eligibleSubscriptions.map(subscription=>policyByName.get(subscription.packageName)).filter((row:any)=>Boolean(row));
   const policy=configuredPolicies[0]||null;
   const packageName=[...new Set(eligibleSubscriptions.map(row=>row.packageName))].join(", ");
-  const adminDeliveryCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);const configuredCap=Math.max(0,Number(row?.maxPopupsPerDay)||0);const policyCap=configuredCap>0?configuredCap:quotaFor(subscription);let snapshot:any={};try{snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}"))}catch{snapshot={}}const tierCap=Math.max(0,Number(snapshot.maxPopupsPerDay??subscription.packageMaxPopupsPerDay)||0);return sum+(tierCap>0?Math.min(policyCap,tierCap):policyCap);},0);
-  const adminDailyTarget=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);const target=Math.max(0,Number(row?.dailyPopupTarget)||0);const quota=quotaFor(subscription);return sum+(target>0?Math.min(target,quota):quota);},0);
-  const adminVisibleCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);const configuredCap=Math.max(0,Number(row?.maxVisibleOffers)||0);return sum+(configuredCap>0?configuredCap:quotaFor(subscription));},0);
-  const maxPopupsPerDay=Math.min(combinedQuota,adminDeliveryCap||combinedQuota,adminDailyTarget||combinedQuota);
-  const maxVisibleOffers=adminVisibleCap>0?adminVisibleCap:combinedQuota;
+  const tierDeliveryCaps=eligibleSubscriptions.map(subscription=>{
+    const row=policyByName.get(subscription.packageName);
+    let snapshot:any={};try{snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}"))}catch{snapshot={}}
+    return {
+      quota:quotaFor(subscription),policyMaxPopupsPerDay:row?.maxPopupsPerDay,
+      packageMaxPopupsPerDay:snapshot.maxPopupsPerDay??subscription.packageMaxPopupsPerDay,
+      dailyPopupTarget:row?.dailyPopupTarget,maxVisibleOffers:row?.maxVisibleOffers,
+    };
+  });
+  const {maxPopupsPerDay,maxVisibleOffers}=calculateTierDeliveryCaps(tierDeliveryCaps);
   const effectiveSchedulingPeriod=configuredPolicies.some((row:any)=>row.schedulingPeriod==="rolling_24h")?"rolling_24h":"calendar_day";
   const quotaWindow=resolveTradingQuotaWindow(now,effectiveSchedulingPeriod);
   const popupPolicy={
