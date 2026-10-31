@@ -371,9 +371,11 @@ try {
   assert.ok(secondClaim.executionLeaseToken);
   const dailyLimitClaim = await claimOpportunityExecutionAttempt(userId, thirdOffer);
   assert.equal(dailyLimitClaim.claimed, false, "A fifth attempt across a distinct opportunity must be blocked by the four-attempt customer daily cap.");
-  assert.equal(dailyLimitClaim.reason, "daily-attempt-limit");
-  assert.equal(dailyLimitClaim.usedAttempts, 4);
-  assert.equal(dailyLimitClaim.dailyAttemptLimit, 4);
+  if (!dailyLimitClaim.claimed) {
+    assert.equal(dailyLimitClaim.reason, "daily-attempt-limit");
+    assert.equal((dailyLimitClaim as any).usedAttempts, 4);
+    assert.equal((dailyLimitClaim as any).dailyAttemptLimit, 4);
+  }
 
   const allocationResults = await Promise.allSettled([
     createTrade(userId, {
