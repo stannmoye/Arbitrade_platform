@@ -3730,13 +3730,19 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   }).where(and(eq(customerBalances.id,bal.id),gte(customerBalances.availableMinor,minimumRequiredFromTarget)));
   if(Number((balanceUpdate as any)[0]?.affectedRows||0)!==1) throw new Error("Insufficient available balance after FX conversion");
   await tx.insert(balanceLedger).values({userId,currency:offer.currency,amountMinor:-input.amountMinor,entryType:"trade_reservation",reference:ref,withdrawable:false});
-  const settlementDelaySeconds=Math.max(Number(packagePolicy.minSettlementDelaySeconds||0),Math.min(Number(packagePolicy.maxSettlementDelaySeconds||settlementPolicy.delaySeconds),settlementPolicy.delaySeconds)); const tradeStartedAt=new Date(); const settlesAt=new Date(tradeStartedAt.getTime()+effectiveDurationSeconds*1000); const creditAt=new Date(settlesAt.getTime()+(settlementDelaySeconds+settlementPolicy.creditDelaySeconds)*1000); const snapshotVersion=Number(popupSnapshot?.packagePolicyVersionSnapshot||packagePolicy.policyVersion||activePackageSubscription.termsVersion||1); const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null,companyLogoUrl:popupSnapshot?.companyLogoUrl||null,companyReferenceMetadataJson:popupSnapshot?.companyReferenceMetadataJson||null,companyReferenceOnly:Boolean(popupSnapshot?.companyReferenceOnly??false),walletFundingPlanJson,transactionReference:ref,rewardReservedMinor:reward,settlesAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:snapshotVersion} as any);
+  const settlementDelaySeconds=Math.max(Number(packagePolicy.minSettlementDelaySeconds||0),Math.min(Number(packagePolicy.maxSettlementDelaySeconds||settlementPolicy.delaySeconds),settlementPolicy.delaySeconds));
+  const tradeStartedAt=new Date();
+  const settlesAt=new Date(tradeStartedAt.getTime()+effectiveDurationSeconds*1000);
+  const settlementReviewAt=new Date(settlesAt.getTime()+settlementDelaySeconds*1000);
+  const creditAt=new Date(settlementReviewAt.getTime()+settlementPolicy.creditDelaySeconds*1000);
+  const snapshotVersion=Number(popupSnapshot?.packagePolicyVersionSnapshot||packagePolicy.policyVersion||activePackageSubscription.termsVersion||1);
+  const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null,companyLogoUrl:popupSnapshot?.companyLogoUrl||null,companyReferenceMetadataJson:popupSnapshot?.companyReferenceMetadataJson||null,companyReferenceOnly:Boolean(popupSnapshot?.companyReferenceOnly??false),walletFundingPlanJson,transactionReference:ref,rewardReservedMinor:reward,settlesAt,settlementReviewAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:snapshotVersion} as any);
   const tradeId=Number(result[0].insertId);
   await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,packageSubscriptionId:selectedSubscriptionId,packageId:Number(activePackageSubscription.packageId),termsVersion:Number(activePackageSubscription.termsVersion||1),policyVersion:snapshotVersion,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null})});
   if(input.deliveryEventId!==undefined) await tx.update(opportunityPopupEvents).set({tradeId,eventStatus:"TRADED",executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,tradedAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offer.id)));
   else await tx.execute(sql`UPDATE opportunity_popup_events SET tradeId=${tradeId},eventStatus='TRADED',executionStatus='SUCCEEDED',executionRetryAfter=NULL,executionLastErrorCode=NULL,deliveryStatus=CASE WHEN deliveryStatus='failed' THEN deliveryStatus ELSE 'rendered' END,tradedAt=COALESCE(tradedAt,CURRENT_TIMESTAMP),updatedAt=CURRENT_TIMESTAMP WHERE userId=${userId} AND offerId=${offer.id} ORDER BY deliveredAt DESC LIMIT 1`);
   await tx.insert(tradeRewardReservations).values({userId,tradeId,packageName:activePackageSubscription.packageName,windowKey:today,currency:offer.currency,reservedMinor:reward,status:"reserved"});
-  return {tradeId,rewardMinor:reward,rewardBps:effectiveRateBps,minimumMinor:terms.minimumMinor,calculationMethod:"saved-tier-policy",configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,settlesAt,creditAt,currency:offer.currency,amountMinor:input.amountMinor,rateUsd:nativeRate,rateUpdatedAt:currencyRow.updatedAt,amountUsd:nativeMinorToUsd(input.amountMinor,Number(currencyRow.scale),nativeRate)};
+  return {tradeId,rewardMinor:reward,rewardBps:effectiveRateBps,minimumMinor:terms.minimumMinor,calculationMethod:"saved-tier-policy",configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,settlesAt,settlementReviewAt,creditAt,currency:offer.currency,amountMinor:input.amountMinor,rateUsd:nativeRate,rateUpdatedAt:currencyRow.updatedAt,amountUsd:nativeMinorToUsd(input.amountMinor,Number(currencyRow.scale),nativeRate)};
  });
 }
 export async function listTrades(userId:number){
@@ -3776,6 +3782,7 @@ export async function listTrades(userId:number){
     completionAt:tradePositions.completionAt,
     confirmedAt:tradePositions.confirmedAt,
     settlesAt:tradePositions.settlesAt,
+    settlementReviewAt:tradePositions.settlementReviewAt,
     creditAt:tradePositions.creditAt,
     settledAt:tradePositions.settledAt,
     symbol:opportunityOffers.symbol,
@@ -3810,14 +3817,14 @@ export async function markDueTradesAwaitingConfirmation(userId:number){
   const now=new Date();
   const due=await db.select({id:tradePositions.id}).from(tradePositions).where(and(
     eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed"),
-    eq(tradePositions.settlementStatus,"pending"),lte(tradePositions.settlesAt,now),
-  )).orderBy(tradePositions.settlesAt);
+    eq(tradePositions.settlementStatus,"pending"),or(lte(tradePositions.settlementReviewAt,now),and(isNull(tradePositions.settlementReviewAt),lte(tradePositions.settlesAt,now))),
+  )).orderBy(tradePositions.settlementReviewAt,tradePositions.settlesAt);
   let marked=0;
   for(const item of due){
     const markedOne=await db.transaction(async tx=>{
       const trade=(await tx.select().from(tradePositions).where(and(eq(tradePositions.id,item.id),eq(tradePositions.userId,userId))).limit(1).for("update"))[0];
       if(!trade||trade.status!=="confirmed"||trade.settlementStatus!=="pending") return false;
-      const dueAt=trade.settlesAt;
+      const dueAt=trade.settlementReviewAt||trade.settlesAt;
       if(!dueAt||new Date(dueAt).getTime()>now.getTime()) return false;
       if(trade.lifecycleStage==="Awaiting Settlement Confirmation") return false;
 
@@ -3846,14 +3853,14 @@ export async function reconcileAllDueTradesAwaitingConfirmation(){
   const due=await db.select({id:tradePositions.id}).from(tradePositions).where(and(
     eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),
     or(isNull(tradePositions.lifecycleStage),notInArray(tradePositions.lifecycleStage,["Awaiting Settlement Confirmation"])),
-    lte(tradePositions.settlesAt,now),
-  )).orderBy(tradePositions.settlesAt).limit(1000);
+    or(lte(tradePositions.settlementReviewAt,now),and(isNull(tradePositions.settlementReviewAt),lte(tradePositions.settlesAt,now))),
+  )).orderBy(tradePositions.settlementReviewAt,tradePositions.settlesAt).limit(1000);
   let marked=0;
   for(const item of due){
     const markedOne=await db.transaction(async tx=>{
       const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,item.id)).limit(1).for("update"))[0];
       if(!trade||trade.status!=="confirmed"||trade.settlementStatus!=="pending") return false;
-      const dueAt=trade.settlesAt;
+      const dueAt=trade.settlementReviewAt||trade.settlesAt;
       if(!dueAt||new Date(dueAt).getTime()>now.getTime()) return false;
       if(trade.lifecycleStage==="Awaiting Settlement Confirmation") return false;
       const stateUpdate=await tx.update(tradePositions).set({
@@ -3882,7 +3889,7 @@ export async function listPendingSettlements(){
     expectedRewardMinor:tradePositions.expectedRewardMinor, rewardReservedMinor:tradePositions.rewardReservedMinor,
     status:tradePositions.status, settlementStatus:tradePositions.settlementStatus,
     lifecycleStage:tradePositions.lifecycleStage,
-    confirmedAt:tradePositions.confirmedAt, settlesAt:tradePositions.settlesAt, creditAt:tradePositions.creditAt,
+    confirmedAt:tradePositions.confirmedAt, settlesAt:tradePositions.settlesAt, settlementReviewAt:tradePositions.settlementReviewAt, creditAt:tradePositions.creditAt,
     settlementConfirmedAt:tradePositions.settlementConfirmedAt, settlementConfirmedBy:tradePositions.settlementConfirmedBy,
     settlementReference:tradePositions.settlementReference, walletUpdatedAt:tradePositions.walletUpdatedAt,
     settlementOutcome:tradePositions.settlementOutcome, realizedGrossProfitMinor:tradePositions.realizedGrossProfitMinor,
@@ -4201,7 +4208,7 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     }
     if(trade.status!=="confirmed"||trade.settlementStatus!=="pending") throw new Error("Trade is not pending manual settlement");
     // Review is allowed when the trade duration ends. creditAt controls wallet posting.
-    const settlementDueAt=trade.settlesAt;
+    const settlementDueAt=trade.settlementReviewAt||trade.settlesAt;
     if(!settlementDueAt||!Number.isFinite(new Date(settlementDueAt).getTime())||new Date(settlementDueAt).getTime()>Date.now()) {
       throw new Error("Trade is not yet due for settlement confirmation");
     }
