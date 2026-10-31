@@ -109,7 +109,21 @@ The opportunity scheduler must use bounded, round-robin batches of customers wit
 
 Admin may pause new allocations or a faulty integration for safety; this is not a customer trading toggle. The global pause must be persisted in the application database, enforced inside the trade-allocation transaction, fail closed if its safety setting is missing or malformed, and record the administrator, timestamp, old/new values, and reason in the audit log. Pausing new allocations must not delete pending work or block required settlement/reconciliation. Do not add customer-facing Trading On/Off, Opportunity On/Off, or Auto Trade On/Off controls.
 
-A countdown is a display of expected timing, not proof of execution. Only confirmed execution/settlement may trigger final success status and wallet credit.
+A countdown is a display of expected timing, not proof of execution. Only an administrator-confirmed, evidence-backed result followed by the saved wallet-credit deadline may trigger final success status and wallet credit.
+
+### Settlement review and delayed wallet-credit lifecycle
+
+Trade completion, administrator review, and wallet posting are three distinct timestamps/states:
+
+1. `settlesAt` is the server-owned end of the configured trade duration. It is not evidence of execution or a settlement result.
+2. `settlementReviewAt` is persisted when the trade is allocated as `settlesAt + settlementDelaySeconds`. The administrator queue becomes eligible for review at this timestamp. For legacy rows where this new nullable field is absent, use `settlesAt` as the review deadline; do not rewrite historical timestamps.
+3. `creditAt` is persisted as `settlementReviewAt + creditDelaySeconds`. It is the earliest time the confirmed result may be posted to the customer wallet. For legacy rows without `creditAt`, use `settlementReviewAt`, then `settlesAt`, as the compatibility fallback.
+
+An administrator may confirm a result only after `settlementReviewAt` and must supply the actual gross result and its evidence reference. Confirmation saves the settlement reference claim, actual gross result, fee-policy version/rate/rounding snapshot, outcome, administrator and confirmation timestamp. The trade remains `status=confirmed` with `settlementStatus=confirmed_awaiting_credit`; the principal stays locked, the reward reservation remains reserved, `walletUpdatedAt` and `completionAt` remain null, and no wallet or ledger posting occurs during confirmation.
+
+The bounded `settlement-credit-posting` worker processes only rows in `confirmed_awaiting_credit` whose saved `creditAt` has arrived. Under a trade row lock and one database transaction it verifies the administrator confirmation, unique settlement-reference claim, saved fee calculation, reserved reward and locked principal; writes the principal/profit/fee/loss ledger entries; updates available/locked/earned wallet balances; updates the reservation; and transitions the trade to `status=settled`, `settlementStatus=completed`, with `walletUpdatedAt` and `completionAt`. The conditional state transition and transaction make concurrent worker attempts/restarts idempotent. If the administrator confirms after `creditAt`, the next worker cycle may post immediately; confirmation is still mandatory.
+
+Settlement notifications and terminal popup completion occur only after the wallet-credit transaction commits. A worker timer, countdown, due timestamp, or customer page read must never confirm a result or post funds by itself. The additive migration `0096_trade_settlement_review_timestamp.sql` adds the nullable review timestamp; legacy rows remain intact and use the documented fallback.
 
 ## 7. Failed execution, retries, carry-forward
 
