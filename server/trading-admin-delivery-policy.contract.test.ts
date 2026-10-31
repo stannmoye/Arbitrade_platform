@@ -23,7 +23,7 @@ describe("administrator Trading delivery policy controls", () => {
     }
     expect(app).toContain("enabled:x.enabled===true,automaticDelivery:x.automaticDelivery===true,automaticTradingEnabled:x.automaticTradingEnabled===true");
     expect(app).toContain("minimumPayoutRateBps:x.minimumPayoutRateBps??null");
-    expect(app).toContain("companyRotationCountryNames:x.companyRotationCountryNames??\"\")");
+    expect(app).toContain("companyRotationCountryNames:x.companyRotationCountryNames??\"\"");
     expect(policyEditor).toContain("value={row.enabled?\"true\":\"false\"}");
     expect(app).toContain("({...x,packageName:x.packageName");
     for (const binding of [
