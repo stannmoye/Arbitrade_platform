@@ -3,11 +3,11 @@ import crypto from "node:crypto";
 import mysql from "mysql2/promise";
 import { spawnSync } from "node:child_process";
 import { eq, inArray } from "drizzle-orm";
-import { closeDbPool, getDb } from "../server/db";
+import { closeDbPool, getDb, updateCompanyCatalogueAdminState } from "../server/db";
 import { ensurePopupDeliveries } from "../server/opportunityLifecycle";
 import { COMPANY_REFERENCE_CATALOGUE } from "../server/modules/company-catalogue-reference";
 import { buildCompanySpotlightPool, type CompanySpotlightRepeatPolicy } from "../server/modules/company-spotlight-rotation";
-import { appSettings, opportunityOffers, opportunityPopupEvents, users } from "../drizzle/schema";
+import { appSettings, opportunityOffers, opportunityPopupEvents, users, v5AuditEvents } from "../drizzle/schema";
 
 type PopupDelivery = Parameters<typeof ensurePopupDeliveries>[0][number];
 
@@ -179,6 +179,22 @@ try {
     await db!.insert(appSettings).values({ settingKey: catalogueAdminStateKey, settingValue, updatedBy: userId! })
       .onDuplicateKeyUpdate({ set: { settingValue, updatedBy: userId! } });
   };
+  await setCatalogueAdminState([...allVerifiedState.verifiedIds]);
+
+  // Exercise persisted admin enable/disable and approval transitions, not only JSON fixtures.
+  const adminStatusTestId = COMPANY_REFERENCE_CATALOGUE[0]!.id;
+  await updateCompanyCatalogueAdminState({ ids: [adminStatusTestId], status: "disabled", reason: "Integration test: disable company", updatedBy: userId! });
+  let savedAdminState = JSON.parse(String((await db.select({ settingValue: appSettings.settingValue }).from(appSettings).where(eq(appSettings.settingKey, catalogueAdminStateKey)).limit(1))[0]?.settingValue || "{}"));
+  assert.ok(savedAdminState.disabledIds.includes(adminStatusTestId), "disable action must persist its ID");
+  assert.ok(savedAdminState.verifiedIds.includes(adminStatusTestId), "disable must preserve the separate verification decision");
+  await updateCompanyCatalogueAdminState({ ids: [adminStatusTestId], status: "enabled", reason: "Integration test: enable company", updatedBy: userId! });
+  savedAdminState = JSON.parse(String((await db.select({ settingValue: appSettings.settingValue }).from(appSettings).where(eq(appSettings.settingKey, catalogueAdminStateKey)).limit(1))[0]?.settingValue || "{}"));
+  assert.ok(!savedAdminState.disabledIds.includes(adminStatusTestId), "enable action must clear disabled status");
+  assert.ok(savedAdminState.verifiedIds.includes(adminStatusTestId), "enable must not grant or remove verification");
+  await updateCompanyCatalogueAdminState({ ids: [adminStatusTestId], status: "unverified", reason: "Integration test: reject company", updatedBy: userId! });
+  savedAdminState = JSON.parse(String((await db.select({ settingValue: appSettings.settingValue }).from(appSettings).where(eq(appSettings.settingKey, catalogueAdminStateKey)).limit(1))[0]?.settingValue || "{}"));
+  assert.ok(!savedAdminState.verifiedIds.includes(adminStatusTestId), "reject/unverify must revoke customer approval");
+  await updateCompanyCatalogueAdminState({ ids: [adminStatusTestId], status: "verified", reason: "Integration test: re-approve company", updatedBy: userId! });
   await setCatalogueAdminState([...allVerifiedState.verifiedIds]);
 
   const countryNames = new Set(COMPANY_REFERENCE_CATALOGUE.map(row => row.countryName).filter(Boolean));
@@ -408,6 +424,7 @@ try {
       }
     }
     if (offerIds.length) await db.delete(opportunityOffers).where(inArray(opportunityOffers.id, offerIds));
+    if (userId !== undefined) await db.delete(v5AuditEvents).where(eq(v5AuditEvents.actorUserId, userId));
     if (userId !== undefined) await db.delete(users).where(eq(users.id, userId));
   } finally {
     await closeDbPool();
