@@ -186,39 +186,26 @@ describe("Trading fee-policy navigation", () => {
 });
 
 describe("Trading customer-display navigation", () => {
-  it("opens the persisted package display-timing controls, not the read-only delivery summary", () => {
+  it("opens the persisted customer display controls in the shared policy editor", () => {
     const item = navigation.match(/id: "trade-popup-display", target: "([^"]+)"/);
     expect(item?.[1]).toBe("tradeCustomerDisplay");
     expect(adminApp).toContain('{section==="tradeCustomerDisplay"&&<AdminPackages focus="display"/>}');
-
-    const start = adminApp.indexOf("function AdminPackages({focus}");
-    const end = adminApp.indexOf("function AdminTradeAllocationControl()", start);
-    expect(start).toBeGreaterThanOrEqual(0);
-    expect(end).toBeGreaterThan(start);
-    const packageEditor = adminApp.slice(start, end);
-    expect(packageEditor).toContain("popupDisplayTargetSeconds");
-    expect(packageEditor).toContain("completionDisplaySeconds");
-    expect(packageEditor).toContain("These settings affect presentation only, not allocation, trade execution, or settlement.");
-    expect(packageEditor).toContain('{(!focus||focus==="tiers")&&<><AdminTradingPackageCatalogue/>');
+    expect(policyEditor).toContain("value={row.popupDisplayTargetSeconds}");
+    expect(policyEditor).toContain("value={row.completionDisplaySeconds}");
+    expect(policyEditor).toContain("Controls display only; must not cancel an active trade.");
+    expect(adminApp).toContain('(!focus||focus==="tiers")&&<AdminTradingPackageCatalogue/>');
   });
 });
 
 describe("Trading retry-policy navigation", () => {
-  it("opens the package retry controls instead of the read-only delivery summary", () => {
+  it("opens retry controls in the shared policy editor and states the current retry-window boundary", () => {
     const item = navigation.match(/id: "trade-retries-carry-forward", target: "([^"]+)"/);
     expect(item?.[1]).toBe("tradeRetryPolicy");
     expect(adminApp).toContain('{section==="tradeRetryPolicy"&&<AdminPackages focus="retries"/>}');
-
-    const start = adminApp.indexOf("function AdminPackages({focus}");
-    const end = adminApp.indexOf("function AdminTradeAllocationControl()", start);
-    expect(start).toBeGreaterThanOrEqual(0);
-    expect(end).toBeGreaterThan(start);
-    const packageEditor = adminApp.slice(start, end);
-    expect(packageEditor).toContain("maxTradeAttemptsPerDay");
-    expect(packageEditor).toContain("tradeRetryDelaySeconds");
-    expect(packageEditor).toContain("Carry-forward controls are not available yet.");
-    expect(packageEditor).toContain('{(!focus||focus==="quotas")&&<div className="package-policy-section"><strong>Daily customer allowance</strong>');
-    expect(packageEditor).toContain('focus==="quotas"');
+    expect(policyEditor).toContain("value={row.maxTradeAttemptsPerDay}");
+    expect(policyEditor).toContain("value={row.tradeRetryDelaySeconds}");
+    expect(policyEditor).toContain("Carry-forward across daily windows is not enabled. A retry window that expires is marked failed for review.");
+    expect(policyEditor).toContain('show("quotas")');
   });
 });
 
