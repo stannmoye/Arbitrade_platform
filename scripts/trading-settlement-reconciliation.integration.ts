@@ -383,7 +383,7 @@ try {
     settlementWorkerReplayIdempotent: true,
     futureTradeUnchanged: true,
     terminalTradeUnchanged: true,
-    walletAndLedgerUnchanged: true,
+    reconciliationDidNotMutateWalletOrLedger: true,
     crossWalletFundingRollbackVerified: true,
   }));
 } finally {
