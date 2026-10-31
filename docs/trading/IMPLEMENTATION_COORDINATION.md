@@ -1,3 +1,14 @@
+## 2026-10-31 — Stage 1 customer wallet API and ledger-history validation
+
+- Stage 1 implementation/test head: `39bb4565eb9a235e481d597f1190de027c5780e2`. At that exact head all 10 PR workflow groups passed, including the wallet administrator-idempotency integration on MySQL 8.4 and MariaDB 11.4, application verification, TypeScript/tests/build, installer validation, worker/tier/settlement/company-rotation integrations, Mining regression and Trading recovery checks.
+- Added `customer.walletLedger`, a customer-role-only protected query that returns only the authenticated customer's persisted ledger columns, newest first, defaulting to 50 and capped at 100. The customer Wallet page now renders the saved entries, signed native-currency amounts and ledger timestamps. No owner ID or other customer's row is returned.
+- Added an authenticated HTTP integration using the production `appRouter`, Express tRPC adapter and `createContext`; test identities are inserted into the disposable database and receive signed sessions from the production local-session helper. It verifies anonymous/stale-session denial, customer/admin authorization, customer wallet isolation, customer-only ledger-history access, admin customer credit, administrator self-credit exclusion, qualifying and unrelated credits, non-USD credit-time conversion, persisted USD attribution/FX evidence, request-key replay and mismatch rejection.
+- FX provider HTTP is stubbed deterministically at the external network boundary only; the real rate-conversion service, request router, session verification, transactional ledger writes and persisted FX snapshot remain under test. No production customer, wallet or database data is used.
+- Existing database integration already exercises successful and failed FX quotes, qualifying-credit/reversal attribution, duplicate credit handling, worker enqueue and transaction rollback. No new migration was required.
+- **Remaining Stage 1 boundary:** branch inspection did not find a customer-to-customer wallet-transfer route or service. The non-qualifying credit and qualification-worker exclusion paths are tested, but ordinary wallet-transfer behaviour has not been independently exercised. Do not claim transfer regression coverage until an actual supported transfer path is identified and tested.
+- Stage 1 is therefore **incomplete** pending that transfer boundary check. Stage 2 has not been started. PR #258 must remain open, draft and unmerged; no deployment, merge or production migration has been performed.
+
+---
 ## 2026-10-31 — Stage 3C.3 previous-settlement gate — verified
 
 - Final implementation head: `93d6f625b011fdb3bef239658bafea3f65a9eaa9` on `fix/trade-lifecycle-and-admin-policy-completion`; PR #258 remains open, draft and unmerged. The initial gate-only implementation was `208ee15`; the final head also includes deferred retry and release of both attempt budgets.
