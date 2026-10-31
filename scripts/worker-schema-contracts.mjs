@@ -61,6 +61,7 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
     indexes: {
       PRIMARY: { unique: true, columns: ["id"] },
       opportunity_popup_event_key_unique: { unique: true, columns: ["eventKey"] },
+      opportunity_popup_user_daily_attempt_day_idx: { unique: false, columns: ["userId", "executionDailyAttemptDay"] },
     },
   },
   trade_positions: {

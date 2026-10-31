@@ -277,7 +277,9 @@ export const opportunityPopupEvents = mysqlTable("opportunity_popup_events", {
   settledAt: timestamp("settledAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+  dailyAttemptUserDayIdx: index("opportunity_popup_user_daily_attempt_day_idx").on(table.userId, table.executionDailyAttemptDay),
+}));
 export const opportunityPopupDaily = mysqlTable("opportunity_popup_daily", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),

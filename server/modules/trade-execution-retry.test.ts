@@ -67,8 +67,10 @@ describe("trade execution retry policy", () => {
   it("keeps per-opportunity retries separate from the customer-wide daily attempt budget", () => {
     const source = readFileSync(new URL("../db.ts", import.meta.url), "utf8");
     expect(source).toContain("MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY");
-    expect(source).toContain("COALESCE(SUM(executionAttemptCount),0) AS count");
-    expect(source).toContain("executionRetryDay=${day}");
+    expect(source).toContain("COALESCE(SUM(executionDailyAttemptCount),0) AS count");
+    expect(source).toContain("executionDailyAttemptDay=${day}");
+    expect(source).toContain("executionRetryDay:day");
+    expect(source).not.toContain("COALESCE(SUM(executionAttemptCount),0) AS count");
     expect(source).toContain("DAILY_TRADE_ATTEMPT_LIMIT_REACHED");
     expect(source).toContain("SELECT id FROM users WHERE id=${userId} FOR UPDATE");
     expect(source).not.toContain("attempts>=maxAttempts");

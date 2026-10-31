@@ -32,6 +32,7 @@ const openId = "opportunity-worker-" + token;
 const eventKey = "worker-event-" + token;
 const currency = "T" + token.slice(0, 7).toUpperCase();
 const packageName = "Wkr" + token;
+const secondaryPackageName = packageName + "Plus";
 let userId;
 let eventId;
 let offerId;
@@ -46,6 +47,7 @@ let currencyInserted = false;
 let offerInserted = false;
 let secondOfferInserted = false;
 let packageInserted = false;
+let secondaryPolicyInserted = false;
 
 try {
   const userInsert = await db.insert(users).values({
@@ -93,6 +95,13 @@ try {
     minimumTradeDurationSeconds: 3600,
     maximumTradeDurationSeconds: 3600,
   });
+  // A second tier policy with the same configured limit lets this fixture prove
+  // that the customer's attempt count is aggregated across package opportunities.
+  await db.insert(opportunityPackagePolicies).values({
+    packageName: secondaryPackageName,
+    maxTradeAttemptsPerDay: 4,
+  });
+  secondaryPolicyInserted = true;
   const subscriptionInsert = await db.insert(customerPackageSubscriptions).values({
     userId,
     packageId,
@@ -180,7 +189,7 @@ try {
     userId,
     offerId: secondOfferId,
     quotaDay: new Date().toISOString().slice(0, 10),
-    packageName,
+    packageName: secondaryPackageName,
     symbol: "TEST2",
     currency,
     minimumMinor: 25000,
@@ -366,9 +375,15 @@ try {
     earnedMinor: customerBalances.earnedMinor,
   }).from(customerBalances).where(eq(customerBalances.userId, userId));
 
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const yesterdayUtc = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   const secondClaim = await claimOpportunityExecutionAttempt(userId, secondOffer);
-  assert.equal(secondClaim.claimed, true, "The competing opportunity must be independently claimable before quota contention.");
+  assert.equal(secondClaim.claimed, true, "An opportunity under a second tier policy is still charged to the same customer-wide daily budget.");
   assert.ok(secondClaim.executionLeaseToken);
+  // The unattempted third event has no lifetime attempts, so an older retry-day
+  // marker can be used to prove daily-cap deferral does not rewrite that marker.
+  await db.update(opportunityPopupEvents).set({ executionRetryDay: yesterdayUtc })
+    .where(eq(opportunityPopupEvents.id, thirdEventId));
   const dailyLimitClaim = await claimOpportunityExecutionAttempt(userId, thirdOffer);
   assert.equal(dailyLimitClaim.claimed, false, "A fifth attempt across a distinct opportunity must be blocked by the four-attempt customer daily cap.");
   if (!dailyLimitClaim.claimed) {
@@ -376,11 +391,14 @@ try {
     assert.equal((dailyLimitClaim as any).usedAttempts, 4);
     assert.equal((dailyLimitClaim as any).dailyAttemptLimit, 4);
   }
+  const [deferredState] = await db.select({
+    executionRetryDay: opportunityPopupEvents.executionRetryDay,
+  }).from(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, thirdEventId)).limit(1);
+  assert.equal(String(deferredState.executionRetryDay), yesterdayUtc,
+    "Daily-cap deferral must not overwrite the independent technical retry-window marker.");
 
   // UTC rollover resets only the daily counter; lifetime technical retries
   // and the retry-window marker remain independent.
-  const todayUtc = new Date().toISOString().slice(0, 10);
-  const yesterdayUtc = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   await db.update(opportunityPackagePolicies).set({ maxTradeAttemptsPerDay: 0 })
     .where(eq(opportunityPackagePolicies.packageName, packageName));
   await db.update(opportunityPopupEvents).set({
@@ -532,6 +550,7 @@ try {
       await db.delete(users).where(eq(users.id, userId));
     }
     await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName));
+    if (secondaryPolicyInserted) await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, secondaryPackageName));
     if (packageInserted && packageId !== undefined) await db.delete(packages).where(eq(packages.id, packageId));
     if (offerInserted && offerId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, offerId));
     if (secondOfferInserted && secondOfferId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, secondOfferId));

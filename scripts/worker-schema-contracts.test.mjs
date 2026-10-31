@@ -112,6 +112,10 @@ describe("worker schema contracts", () => {
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, dailyExecutionAttemptAccountingMigration)");
     expect(dailyAttemptAccountingMigration).toContain("`executionDailyAttemptCount` int NOT NULL DEFAULT 0");
     expect(dailyAttemptAccountingMigration).toContain("`executionDailyAttemptDay` varchar(10) NULL");
+    expect(dailyAttemptAccountingMigration).toContain("CREATE INDEX IF NOT EXISTS `opportunity_popup_user_daily_attempt_day_idx`");
+    expect(dailyAttemptAccountingMigration).not.toMatch(/^\s*UPDATE\s+`opportunity_popup_events`/im);
+    expect(WORKER_SCHEMA_CONTRACTS.opportunity_popup_events.indexes)
+      .toHaveProperty("opportunity_popup_user_daily_attempt_day_idx");
     expect(portalRunner).toContain('"0097_trading_daily_execution_attempt_accounting.sql"');
     expect(installerRecovery).toContain('"0097_trading_daily_execution_attempt_accounting.sql"');
     expect(WORKER_SCHEMA_CONTRACTS.opportunity_popup_events.columns).toContain("executionDailyAttemptCount");
@@ -216,8 +220,8 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(last.tag).toBe("0096_trade_settlement_review_timestamp");
-    expect(journal.entries.slice(-25).map((entry) => entry.tag)).toEqual([
+    expect(last.tag).toBe("0097_trading_daily_execution_attempt_accounting");
+    expect(journal.entries.slice(-26).map((entry) => entry.tag)).toEqual([
       "0072_wallet_ledger_reconciliation_indexes",
       "0073_trade_settlement_recovery_cases",
       "0074_trade_execution_retries",
@@ -243,6 +247,7 @@ describe("worker schema contracts", () => {
       "0094_trading_policy_duration_bounds_nullable",
       "0095_fx_snapshot_source_timestamp_precision",
       "0096_trade_settlement_review_timestamp",
+      "0097_trading_daily_execution_attempt_accounting",
     ]);
     expect(portalRunner).toContain('"0076_trading_admin_policy_read_repair.sql"');
     expect(portalRunner).toContain('"0077_trading_package_catalogue_schema_repair.sql"');
