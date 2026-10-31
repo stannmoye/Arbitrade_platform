@@ -218,7 +218,7 @@ try {
   assert.ok(exhaustionPool.length >= 3, "exhaustion test requires a multi-company filtered pool");
   assert.equal(exhaustionPool.length, countryCounts.get(smallestCountry), "test fixture count must agree with the runtime filter");
 
-  const requiredOffers = 10 + exhaustionPool.length + 1;
+  const requiredOffers = 11 + exhaustionPool.length + 1;
   for (let index = 0; index < requiredOffers; index++) await addOffer(index);
 
   // Two independent worker invocations race on the exact same user:offer:quotaDay.
@@ -366,7 +366,7 @@ try {
 
   // Exhaust the smallest actual country-folder pool to prove no repeat occurs in cycle 1,
   // and that the next assignment starts cycle 2 under avoid-until-exhausted.
-  const poolOfferIds = offerIds.slice(10, 10 + exhaustionPool.length + 1);
+  const poolOfferIds = offerIds.slice(11, 11 + exhaustionPool.length + 1);
   const poolRows: NonNullable<Awaited<ReturnType<typeof readEvent>>>[] = [];
   for (let index = 0; index < exhaustionPool.length; index++) {
     const offerId = poolOfferIds[index]!;
