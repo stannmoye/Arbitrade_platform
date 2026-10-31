@@ -1,0 +1,67 @@
+import { describe, expect, it } from "vitest";
+import {
+  calculateTradingDeliveryCapacity,
+  countConsumedDeliveryOffers,
+  resolveTradingQuotaWindow,
+} from "./trading-delivery-quota";
+
+describe("Trading quota windows", () => {
+  const now = new Date("2026-10-31T12:30:00.000Z");
+
+  it("uses an actual trailing 24-hour window for rolling_24h", () => {
+    const window = resolveTradingQuotaWindow(now, "rolling_24h");
+    expect(window.start.toISOString()).toBe("2026-10-30T12:30:00.000Z");
+    expect(window.end.toISOString()).toBe(now.toISOString());
+  });
+
+  it("uses UTC midnight boundaries for calendar_day", () => {
+    const window = resolveTradingQuotaWindow(now, "calendar_day");
+    expect(window.start.toISOString()).toBe("2026-10-31T00:00:00.000Z");
+    expect(window.end.toISOString()).toBe("2026-11-01T00:00:00.000Z");
+  });
+});
+
+describe("Trading daily delivery consumption", () => {
+  it("counts each delivered opportunity once across retries and excludes failed delivery attempts", () => {
+    expect(countConsumedDeliveryOffers([
+      { offerId: 10, status: "pending" },
+      { offerId: 10, status: "delivered" },
+      { offerId: 10, status: "expired" },
+      { offerId: 11, status: "failed" },
+      { offerId: 12, status: "delivered" },
+    ])).toBe(2);
+  });
+
+  it("does not let the simultaneous visible-offer limit reduce the daily entitlement", () => {
+    expect(calculateTradingDeliveryCapacity({
+      dailyCap: 12,
+      deliveredOfferCount: 3,
+      maxVisibleOffers: 10,
+      activeVisibleCount: 2,
+    })).toEqual({ dailyRemaining: 9, visibleRemaining: 8, remainingQuota: 8 });
+  });
+
+  it("stops new delivery when either the daily quota or visible-offer capacity is exhausted", () => {
+    expect(calculateTradingDeliveryCapacity({
+      dailyCap: 6,
+      deliveredOfferCount: 6,
+      maxVisibleOffers: 10,
+      activeVisibleCount: 1,
+    }).remainingQuota).toBe(0);
+    expect(calculateTradingDeliveryCapacity({
+      dailyCap: 20,
+      deliveredOfferCount: 4,
+      maxVisibleOffers: 3,
+      activeVisibleCount: 3,
+    }).remainingQuota).toBe(0);
+  });
+
+  it("clamps negative counts to zero", () => {
+    expect(calculateTradingDeliveryCapacity({
+      dailyCap: 4,
+      deliveredOfferCount: -3,
+      maxVisibleOffers: 5,
+      activeVisibleCount: -2,
+    })).toEqual({ dailyRemaining: 4, visibleRemaining: 5, remainingQuota: 4 });
+  });
+});
