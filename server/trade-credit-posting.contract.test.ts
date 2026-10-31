@@ -41,7 +41,7 @@ describe("evidence-confirmed delayed wallet-credit lifecycle", () => {
     expect(credit).toContain('eq(tradePositions.status,"confirmed")');
     expect(credit).toContain('eq(tradePositions.settlementStatus,"confirmed_awaiting_credit")');
     expect(credit).toContain("lte(tradePositions.creditAt,now)");
-    expect(credit).toContain("const creditDueAt=trade.creditAt||trade.settlementReviewAt||trade.creditAt||trade.settlesAt");
+    expect(credit).toContain("const creditDueAt=trade.creditAt||trade.settlementReviewAt||trade.settlesAt");
     expect(credit).toContain("new Date(creditDueAt).getTime()>now.getTime()");
   });
 
