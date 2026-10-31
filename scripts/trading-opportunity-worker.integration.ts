@@ -10,6 +10,7 @@ import {
   recordOpportunityExecutionFailure,
   listCustomerOpportunities,
 } from "../server/db";
+import { MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY } from "../server/modules/trade-execution-retry";
 import {
   balanceLedger,
   currencyRegistry,
@@ -422,6 +423,8 @@ try {
   assert.equal(Number(rolloverState.executionDailyAttemptCount), 1, "Prior-day attempts are not charged to today's budget.");
   assert.equal(String(rolloverState.executionDailyAttemptDay), todayUtc);
   assert.equal(String(rolloverState.executionRetryDay), todayUtc, "The retry-window marker remains intact.");
+  assert.equal(rolloverClaim.transientAttemptNumber, 1,
+    "The per-opportunity transient retry counter resets independently from the lifetime diagnostic counter.");
 
   const allocationResults = await Promise.allSettled([
     createTrade(userId, {
@@ -586,6 +589,31 @@ try {
     balancesBeforeSettlementGate,
     "A blocked allocation must not move or reserve wallet funds.",
   );
+
+  // Repeated worker crashes must still exhaust the per-opportunity retry
+  // ceiling, even when no caught error reaches decideTradeExecutionRetry.
+  await db.update(opportunityPopupEvents).set({
+    executionStatus: "RUNNING",
+    executionAttemptCount: 12,
+    executionRetryDay: todayUtc,
+    executionRetryAfter: new Date(Date.now() - 1000),
+    executionDailyAttemptCount: MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY,
+    executionDailyAttemptDay: todayUtc,
+  }).where(eq(opportunityPopupEvents.id, thirdEventId));
+  const exhaustedCrashClaim = await claimOpportunityExecutionAttempt(userId, thirdOffer);
+  assert.equal(exhaustedCrashClaim.claimed, false,
+    "A crashed opportunity must not be reclaimed after its per-opportunity transient ceiling.");
+  assert.equal(exhaustedCrashClaim.reason, "attempts-exhausted");
+  const [exhaustedEvent] = await db.select({
+    executionStatus: opportunityPopupEvents.executionStatus,
+    executionAttemptCount: opportunityPopupEvents.executionAttemptCount,
+    executionDailyAttemptCount: opportunityPopupEvents.executionDailyAttemptCount,
+  }).from(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, thirdEventId)).limit(1);
+  assert.equal(exhaustedEvent.executionStatus, "FAILED");
+  assert.equal(Number(exhaustedEvent.executionAttemptCount), 12,
+    "The lifetime diagnostic count must not be rewritten when the retry ceiling is reached.");
+  assert.equal(Number(exhaustedEvent.executionDailyAttemptCount), MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY,
+    "The exhausted per-opportunity attempt count must remain auditable.");
 
   console.log(JSON.stringify({
     ok: true,

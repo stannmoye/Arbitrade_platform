@@ -3028,6 +3028,19 @@ export async function claimOpportunityExecutionAttempt(userId:number, offer:any)
       return {claimed:false,reason:"retry-window-expired"};
     }
     if(event.executionRetryAfter&&new Date(event.executionRetryAfter).getTime()>now.getTime()) return {claimed:false,reason:"waiting"};
+    // Lifetime claims are diagnostic only. The daily event counter is the
+    // bounded per-opportunity retry window and also contributes to the
+    // customer-wide daily budget below, including after a worker crash.
+    const transientAttempts=String(event.executionDailyAttemptDay||"")===day
+      ?Number(event.executionDailyAttemptCount||0):0;
+    if(!Number.isSafeInteger(transientAttempts)||transientAttempts<0) return {claimed:false,reason:"attempt-count-invalid"};
+    if(transientAttempts>=MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY){
+      await tx.update(opportunityPopupEvents).set({
+        executionStatus:"FAILED",executionRetryAfter:null,
+        executionLastErrorCode:"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED",updatedAt:now,
+      }).where(eq(opportunityPopupEvents.id,event.id));
+      return {claimed:false,reason:"attempts-exhausted"};
+    }
     const policy=(await tx.select({maxTradeAttemptsPerDay:opportunityPackagePolicies.maxTradeAttemptsPerDay})
       .from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,String(event.packageName||""))).limit(1).for("update"))[0];
     if(!policy) return {claimed:false,reason:"policy-unavailable"};
@@ -3047,13 +3060,14 @@ export async function claimOpportunityExecutionAttempt(userId:number, offer:any)
       }
     }
     const executionLeaseToken=crypto.randomUUID();
+    const transientAttemptNumber=transientAttempts+1;
     await tx.update(opportunityPopupEvents).set({
       executionStatus:"RUNNING",executionAttemptCount:attempts+1,executionLeaseToken,
-      executionDailyAttemptCount:String(event.executionDailyAttemptDay||"")===day?Number(event.executionDailyAttemptCount||0)+1:1,
+      executionDailyAttemptCount:transientAttemptNumber,
       executionDailyAttemptDay:day,
       executionRetryAfter:new Date(now.getTime()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),executionRetryDay:day,updatedAt:now,
     }).where(eq(opportunityPopupEvents.id,event.id));
-    return {claimed:true,attemptNumber:attempts+1,eventId:Number(event.id),executionLeaseToken};
+    return {claimed:true,attemptNumber:attempts+1,transientAttemptNumber,eventId:Number(event.id),executionLeaseToken};
   });
 }
 export async function recordOpportunityExecutionFailure(userId:number,eventId:number, state:{status:"RETRYING"|"FAILED";retryAt?:Date;errorCode:string;attemptNumber?:number;releaseAttempt?:boolean;executionLeaseToken:string}){
@@ -3135,7 +3149,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
         await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:new Date(Date.now()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),errorCode:"PREVIOUS_SETTLEMENT_PENDING",attemptNumber:claim.attemptNumber,releaseAttempt:true,executionLeaseToken});
         continue;
       }
-      const decision=decideTradeExecutionRetry(error,Number(claim.attemptNumber),MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY,new Date(),Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30)));
+      const decision=decideTradeExecutionRetry(error,Number(claim.transientAttemptNumber),MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY,new Date(),Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30)));
       if(decision.kind==="retry"){
         await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:decision.retryAt,errorCode:decision.errorCode,executionLeaseToken});
         continue;
