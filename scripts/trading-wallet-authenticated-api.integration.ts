@@ -289,6 +289,21 @@ try {
   assert.equal(nonQualifyingCredit.data?.entryType, "admin_credit");
   assert.equal(nonQualifyingCredit.data?.qualifyingDepositUsdMinor, null);
 
+  // Even an administrator request explicitly labelled as qualifying cannot
+  // qualify the administrator's own wallet: only customer accounts count.
+  const administratorSelfCredit = await callMutation("adminOperations.adjustCustomerBalance", {
+    userId: adminId,
+    currency: "USD",
+    amountMinor: 1000,
+    mode: "credit",
+    creditClassification: "qualifying_deposit",
+    reason: "Authenticated API integration administrator self-credit exclusion",
+    idempotencyKey: key("admin-wallet-self-credit"),
+  }, adminCookie);
+  assert.equal(administratorSelfCredit.status, 200);
+  assert.equal(administratorSelfCredit.data?.entryType, "admin_credit");
+  assert.equal(administratorSelfCredit.data?.qualifyingDepositUsdMinor, null);
+
   const customerLedgerRows = await db.select().from(balanceLedger).where(eq(balanceLedger.userId, customerId));
   assert.equal(customerLedgerRows.length, 2, "One qualifying API credit and one unrelated credit must persist exactly two ledger rows.");
   const persistedQualifying = customerLedgerRows.find((row) => row.entryType === "admin_manual_deposit_credit");
@@ -306,7 +321,7 @@ try {
 
   const idempotencyRows = await db.select().from(adminWalletAdjustmentIdempotency)
     .where(eq(adminWalletAdjustmentIdempotency.adminId, adminId));
-  assert.equal(idempotencyRows.length, 2, "The two distinct API requests must retain two request-key records; replay must not add a third.");
+  assert.equal(idempotencyRows.length, 3, "Distinct requests retain request-key records; matching replay does not add another record.");
 
   const customerWalletHistory = await callQuery("customer.walletLedger", undefined, customerCookie);
   assert.equal(customerWalletHistory.status, 200);
@@ -332,8 +347,12 @@ try {
     .where(eq(tradingTierQualificationJobs.userId, customerId));
   assert.equal(qualificationJobs.length, 1, "Only the qualifying API credit may enqueue a tier-qualification job.");
   assert.equal(Number(qualificationJobs[0].sourceLedgerId), Number(persistedQualifying.id));
+  const administratorQualificationJobs = await db.select().from(tradingTierQualificationJobs)
+    .where(eq(tradingTierQualificationJobs.userId, adminId));
+  assert.equal(administratorQualificationJobs.length, 0,
+    "Administrator wallet credits must never enqueue customer tier qualification.");
 
-  console.log("Authenticated wallet API integration passed: signed database-backed sessions, stale-session rejection, customer/admin authorization, real tRPC wallet credit and balance reads, cross-customer isolation, FX attribution and snapshot persistence, request-key replay, mismatch rejection, unrelated-credit exclusion and qualification outbox uniqueness.");
+  console.log("Authenticated wallet API integration passed: signed database-backed sessions, stale-session rejection, customer/admin authorization, real tRPC wallet credit and balance reads, cross-customer isolation, FX attribution and snapshot persistence, request-key replay, mismatch rejection, unrelated-credit and administrator-self-credit exclusion, and qualification outbox uniqueness.");
 } finally {
   if (apiServer) {
     await new Promise<void>((resolve, reject) => {
