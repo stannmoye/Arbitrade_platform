@@ -25,6 +25,10 @@ const token = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
 const userOpenId = "rotation-integration-" + token;
 const mainPackage = "RotationTest-" + token;
 const poolPackage = "RotationPool-" + token;
+const verificationPackage = "VerificationFilter-" + token;
+const emptyPackage = "EmptyVerified-" + token;
+const catalogueAdminStateKey = "trade.companyCatalogue.adminState";
+let originalCatalogueAdminState: { settingValue: string; updatedBy: number | null } | null | undefined;
 const quotaDay = new Date().toISOString().slice(0, 10);
 const stateKeys = [
   "trading.companyRotation.pending." + token,
@@ -151,12 +155,35 @@ try {
   userId = Number(userInsert[0].insertId);
   stateKeys[0] = "trading.companyRotation." + userId + "." + mainPackage;
   stateKeys[1] = "trading.companyRotation." + userId + "." + poolPackage;
+  stateKeys.push(
+    "trading.companyRotation." + userId + "." + verificationPackage,
+    "trading.companyRotation." + userId + "." + emptyPackage,
+  );
+
+  const priorCatalogueRows = await db.select({
+    settingValue: appSettings.settingValue,
+    updatedBy: appSettings.updatedBy,
+  }).from(appSettings).where(eq(appSettings.settingKey, catalogueAdminStateKey)).limit(1);
+  originalCatalogueAdminState = priorCatalogueRows[0]
+    ? { settingValue: String(priorCatalogueRows[0].settingValue ?? "{}"), updatedBy: priorCatalogueRows[0].updatedBy ?? null }
+    : null;
+  const allVerifiedState = {
+    verifiedIds: COMPANY_REFERENCE_CATALOGUE.map(company => company.id),
+    archivedIds: [],
+  };
+  const setCatalogueAdminState = async (verifiedIds: string[], archivedIds: string[] = []) => {
+    const settingValue = JSON.stringify({ verifiedIds, archivedIds });
+    await db!.insert(appSettings).values({ settingKey: catalogueAdminStateKey, settingValue, updatedBy: userId! })
+      .onDuplicateKeyUpdate({ set: { settingValue, updatedBy: userId! } });
+  };
+  await setCatalogueAdminState([...allVerifiedState.verifiedIds]);
 
   const countryNames = new Set(COMPANY_REFERENCE_CATALOGUE.map(row => row.countryName).filter(Boolean));
   assert.ok(countryNames.size > 1, "catalogue must contain multiple country-folder filters");
   const selectedCountry = COMPANY_REFERENCE_CATALOGUE.find(row => row.countryName)?.countryName;
   assert.ok(selectedCountry, "catalogue must provide a valid country-folder label");
-  const selectedCountryPool = buildCompanySpotlightPool(selectedCountry);
+  const selectedCountryPool = buildCompanySpotlightPool(selectedCountry, allVerifiedState);
+  assert.ok(selectedCountryPool.length > 0, "verified company pool must include the selected country");
   const countryCounts = new Map<string, number>();
   for (const row of COMPANY_REFERENCE_CATALOGUE) {
     countryCounts.set(row.countryName, (countryCounts.get(row.countryName) || 0) + 1);
@@ -168,11 +195,11 @@ try {
     .sort((a, b) => a[1] - b[1]);
   const smallestCountry = boundedPools[0]?.[0];
   assert.ok(smallestCountry, "catalogue must provide a country pool with at least three companies");
-  const exhaustionPool = buildCompanySpotlightPool(smallestCountry);
+  const exhaustionPool = buildCompanySpotlightPool(smallestCountry, allVerifiedState);
   assert.ok(exhaustionPool.length >= 3, "exhaustion test requires a multi-company filtered pool");
   assert.equal(exhaustionPool.length, countryCounts.get(smallestCountry), "test fixture count must agree with the runtime filter");
 
-  const requiredOffers = 8 + exhaustionPool.length + 1;
+  const requiredOffers = 10 + exhaustionPool.length + 1;
   for (let index = 0; index < requiredOffers; index++) await addOffer(index);
 
   // Two independent worker invocations race on the exact same user:offer:quotaDay.
@@ -249,6 +276,36 @@ try {
   assert.equal(metadataOf(afterRestart).rotationSequence, 2, "a fresh worker process must resume from the persisted cursor");
   assert.equal((await readState(mainPackage)).state.requestCount, 2);
 
+  // The worker must use the admin-approved ID set and give archived status precedence.
+  const verificationCandidates = COMPANY_REFERENCE_CATALOGUE
+    .filter(row => row.countryName === smallestCountry).slice(0, 2);
+  assert.equal(verificationCandidates.length, 2, "verification filter test needs two companies in one country pool");
+  await setCatalogueAdminState(
+    [verificationCandidates[0]!.id, verificationCandidates[1]!.id],
+    [verificationCandidates[1]!.id],
+  );
+  await ensurePopupDeliveries([makeDelivery(offerIds[7]!, verificationPackage, smallestCountry)]);
+  const verifiedOnlyEvent = await readEvent(offerIds[7]!);
+  assert.ok(verifiedOnlyEvent);
+  assert.equal(verifiedOnlyEvent.companyReferenceId, verificationCandidates[0]!.id);
+  assert.equal(metadataOf(verifiedOnlyEvent).adminCatalogueStatus, "verified");
+  assert.equal(metadataOf(verifiedOnlyEvent).listingStatus, "unverified", "admin display approval must not rewrite source listing verification");
+
+  // With no verified IDs, the opportunity may still be delivered but no company
+  // identity is attached; the worker must never substitute an unverified record.
+  await setCatalogueAdminState([]);
+  await ensurePopupDeliveries([makeDelivery(offerIds[8]!, emptyPackage, smallestCountry)]);
+  const noCompanyEvent = await readEvent(offerIds[8]!);
+  assert.ok(noCompanyEvent);
+  assert.equal(noCompanyEvent.companyReferenceId, null);
+  assert.equal(noCompanyEvent.companyDisplayName, null);
+  assert.equal(noCompanyEvent.companyLogoUrl, null);
+  assert.equal(Boolean(noCompanyEvent.companyReferenceOnly), false);
+  const emptyCursorRows = await db.select({ settingKey: appSettings.settingKey }).from(appSettings)
+    .where(eq(appSettings.settingKey, "trading.companyRotation." + userId + "." + emptyPackage)).limit(1);
+  assert.equal(emptyCursorRows.length, 0, "an empty approved pool must not create or advance a rotation cursor");
+  await setCatalogueAdminState([...allVerifiedState.verifiedIds]);
+
   // Force an insert failure after the cursor update, then prove the transaction rolls
   // back both the candidate event and the cursor advance on MySQL and MariaDB.
   triggerName = "trg_rotation_rollback_" + token;
@@ -259,7 +316,7 @@ try {
     password: decodeURIComponent(parsedDatabaseUrl.password),
     database: databaseName,
   });
-  const rollbackOfferId = offerIds[7]!;
+  const rollbackOfferId = offerIds[9]!;
   await triggerConnection.query(
     `CREATE TRIGGER \`${triggerName}\` BEFORE INSERT ON \`opportunity_popup_events\`
      FOR EACH ROW BEGIN
@@ -283,7 +340,7 @@ try {
 
   // Exhaust the smallest actual country-folder pool to prove no repeat occurs in cycle 1,
   // and that the next assignment starts cycle 2 under avoid-until-exhausted.
-  const poolOfferIds = offerIds.slice(8, 8 + exhaustionPool.length + 1);
+  const poolOfferIds = offerIds.slice(10, 10 + exhaustionPool.length + 1);
   const poolRows: NonNullable<Awaited<ReturnType<typeof readEvent>>>[] = [];
   for (let index = 0; index < exhaustionPool.length; index++) {
     const offerId = poolOfferIds[index]!;
@@ -311,6 +368,8 @@ try {
     snapshotStableAfterPolicyChange: true,
     freshProcessRestoredCursor: true,
     transactionRollbackRestoredCursor: true,
+    verifiedOnlySelection: verifiedOnlyEvent.companyReferenceId === verificationCandidates[0]!.id,
+    emptyVerifiedPoolOmitsCompany: noCompanyEvent.companyReferenceId === null,
     poolExhaustionSize: exhaustionPool.length,
     cycleAfterExhaustion: metadataOf(overflowEvent).rotationCycle,
   }));
@@ -326,6 +385,16 @@ try {
     if (userId !== undefined) {
       await db.delete(opportunityPopupEvents).where(eq(opportunityPopupEvents.userId, userId));
       if (stateKeys.length) await db.delete(appSettings).where(inArray(appSettings.settingKey, stateKeys));
+    }
+    if (originalCatalogueAdminState !== undefined) {
+      if (originalCatalogueAdminState === null) {
+        await db.delete(appSettings).where(eq(appSettings.settingKey, catalogueAdminStateKey));
+      } else {
+        await db.update(appSettings).set({
+          settingValue: originalCatalogueAdminState.settingValue,
+          updatedBy: originalCatalogueAdminState.updatedBy,
+        }).where(eq(appSettings.settingKey, catalogueAdminStateKey));
+      }
     }
     if (offerIds.length) await db.delete(opportunityOffers).where(inArray(opportunityOffers.id, offerIds));
     if (userId !== undefined) await db.delete(users).where(eq(users.id, userId));
