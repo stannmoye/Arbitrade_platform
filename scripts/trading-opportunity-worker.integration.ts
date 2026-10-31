@@ -87,6 +87,8 @@ try {
     minimumTradeUnits: 250,
     maximumTradeUnits: 250,
     maxTradeAttemptsPerDay: 4,
+    requirePreviousSettlement: false,
+    maxConcurrentActiveTrades: 5,
     enabled: true,
     automaticDelivery: true,
     automaticTradingEnabled: true,
@@ -100,6 +102,7 @@ try {
   await db.insert(opportunityPackagePolicies).values({
     packageName: secondaryPackageName,
     maxTradeAttemptsPerDay: 4,
+    requirePreviousSettlement: false,
   });
   secondaryPolicyInserted = true;
   const subscriptionInsert = await db.insert(customerPackageSubscriptions).values({
@@ -511,6 +514,60 @@ try {
     "Idempotent replay must not mutate wallet balances.",
   );
 
+  // The selected tier's previous-settlement switch applies across every tier
+  // belonging to the customer. A confirmed trade is not complete until credit.
+  await db.update(packages).set({ opportunitiesPerDay: 5 })
+    .where(eq(packages.id, packageId));
+  await db.update(customerPackageSubscriptions).set({
+    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 5, maxActiveInvestments: 5 }),
+  }).where(eq(customerPackageSubscriptions.id, subscriptionId));
+  await db.update(opportunityPackagePolicies).set({
+    requirePreviousSettlement: true,
+    maxConcurrentActiveTrades: 5,
+    maxTradeAttemptsPerDay: 0,
+  }).where(eq(opportunityPackagePolicies.packageName, packageName));
+
+  const ledgerBeforeSettlementGate = await db.select({ id: balanceLedger.id, amountMinor: balanceLedger.amountMinor })
+    .from(balanceLedger).where(eq(balanceLedger.userId, userId));
+  const balancesBeforeSettlementGate = await db.select({
+    id: customerBalances.id,
+    availableMinor: customerBalances.availableMinor,
+    lockedMinor: customerBalances.lockedMinor,
+    earnedMinor: customerBalances.earnedMinor,
+  }).from(customerBalances).where(eq(customerBalances.userId, userId));
+  await assert.rejects(
+    createTrade(userId, {
+      offerId: thirdOfferId,
+      amountMinor: 25000,
+      deliveryEventId: thirdEventId,
+      executionLeaseToken: rolloverClaim.executionLeaseToken,
+      packageSubscriptionId: subscriptionId,
+      packageId,
+    }),
+    /previous trade settlement is still pending/i,
+    "A tier with requirePreviousSettlement must block a new customer allocation while any earlier tier trade awaits wallet posting.",
+  );
+  assert.equal(
+    (await db.select({ id: tradePositions.id }).from(tradePositions).where(eq(tradePositions.userId, userId))).length,
+    1,
+    "The previous-settlement gate must not create a second trade.",
+  );
+  assert.deepEqual(
+    await db.select({ id: balanceLedger.id, amountMinor: balanceLedger.amountMinor }).from(balanceLedger).where(eq(balanceLedger.userId, userId)),
+    ledgerBeforeSettlementGate,
+    "A blocked allocation must not create ledger entries.",
+  );
+  assert.deepEqual(
+    await db.select({
+      id: customerBalances.id,
+      availableMinor: customerBalances.availableMinor,
+      lockedMinor: customerBalances.lockedMinor,
+      earnedMinor: customerBalances.earnedMinor,
+    }).from(customerBalances).where(eq(customerBalances.userId, userId)),
+    balancesBeforeSettlementGate,
+    "A blocked allocation must not move or reserve wallet funds.",
+  );
+
   console.log(JSON.stringify({
     ok: true,
     concurrentClaims: 2,
@@ -524,6 +581,7 @@ try {
     quotaRejectedAllocationRequests: rejectedAllocations.length,
     freshAllocationReplayCount: successfulAllocationResults.filter((result) => result.idempotentReplay === true).length,
     concurrentIdempotentReplays: replayResults.length,
+    previousSettlementGateBlocked: true,
     uniqueTradeRows: tradeRows.length,
     ledgerAndWalletUnchangedOnStaleAndReplay: true,
   }));

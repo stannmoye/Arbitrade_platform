@@ -3664,6 +3664,19 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     if(activePositions.length>=tierActiveLimit) throw new Error("Package maximum active investments reached");
   }
   if(packagePolicy){
+    // This is a customer-wide gate, not a same-package check. A previous trade
+    // remains unsettled until the administrator-confirmed result is posted to
+    // the wallet and the lifecycle reaches its completed state.
+    if(packagePolicy.requirePreviousSettlement !== false) {
+      const unsettledRows=await tx.execute(sql`SELECT id FROM trade_positions
+        WHERE userId=${userId}
+          AND status<>'cancelled'
+          AND (status<>'settled' OR settlementStatus<>'completed')
+        ORDER BY id ASC LIMIT 1 FOR UPDATE`) as any;
+      if(unsettledRows?.[0]?.length) {
+        throw new Error("Previous trade settlement is still pending; new allocation is blocked by the selected tier policy");
+      }
+    }
     const activeRows=await tx.select({id:tradePositions.id}).from(tradePositions)
       .where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed")))
       .limit(Math.max(1,Number(packagePolicy.maxConcurrentActiveTrades||1)+1));

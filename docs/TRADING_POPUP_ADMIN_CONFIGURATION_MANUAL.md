@@ -138,6 +138,12 @@ The monitored `settlement-credit-posting` worker posts only after both condition
 
 Never interpret a countdown, `settlesAt`, `settlementReviewAt` or `creditAt` as proof of an actual result. A timer alone cannot confirm a trade or release funds.
 
+### Require previous settlement
+
+When **Require previous settlement** is enabled for the selected tier, the customer cannot receive another allocation while any earlier non-cancelled trade across their tiers remains unsettled. The previous trade must have completed administrator review, passed its saved credit deadline, and had its wallet-credit transaction committed (`status=settled`, `settlementStatus=completed`). An administrator's confirmation by itself does not clear the gate. Disabling this setting removes only this gate; it does not bypass the tier's other quotas, active-trade limits, wallet checks or the administrator's global allocation pause.
+
+The global allocation pause applies only to new allocations. It does not suspend the settlement-review queue, confirmed wallet-credit posting, reconciliation or safe idempotent replay of an already-created trade.
+
 ## 6. Administrator company catalogue and tier-list presentation
 
 - **Trade Settings → Show offers → Company names shown** opens a dedicated administrator company-catalogue page, not the opportunity engine or package/tier editor.
