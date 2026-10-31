@@ -68,7 +68,7 @@ export function AdminSlideMenu({ section, onNavigate }: AdminSlideMenuProps) {
             {expanded && <div className="admin-slide-items">{group.items.map((item) => {
               const Icon = item.icon as LucideIcon;
               return <div className="admin-secondary-item-wrap" key={item.id}>
-                <button type="button" className={`admin-slide-item${section === item.target ? " active" : ""}`} tabIndex={open ? 0 : -1} onClick={() => navigate(item.target, item.focus)}>
+                <button type="button" className={`admin-slide-item${section === item.target ? " is-active" : ""}`} tabIndex={open ? 0 : -1} onClick={() => navigate(item.target, item.focus)}>
                   <span className="admin-slide-item-icon"><Icon size={16} /></span><span className="admin-slide-item-copy"><strong>{item.label}</strong><small>{item.detail}</small></span>
                 </button>
                 {item.children?.length ? <div className="admin-secondary-submenu">{item.children.map((child) =>
