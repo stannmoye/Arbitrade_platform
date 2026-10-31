@@ -4279,7 +4279,7 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
       platformFeeRateBps:feePolicy.feeRateBps,
       platformFeeRoundingMode:feePolicy.roundingMode,
       settlementOutcome:accounting.outcome,
-      transactionReference:reference,
+      transactionReference:reference.length<=120?reference:`trade-${tradeId}-${crypto.createHash("sha256").update(reference).digest("hex").slice(0,32)}`,
       settlementReference:reference,
       settlementConfirmedAt:now,
       settlementConfirmedBy:adminId,
