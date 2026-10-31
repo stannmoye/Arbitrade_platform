@@ -224,6 +224,8 @@ async function runAdminAppearanceInteractionCheck(browser) {
       return checks;
     }
 
+    // Platform Configuration now lives in the right-side Admin Menus drawer.
+    await page.getByRole("button", { name: "Open Admin Menus" }).click();
     await page.getByRole("button", { name: /Platform Configuration/ }).click();
     await page.getByRole("button", { name: /Appearance & Themes/ }).click();
     // AdminAppearance is intentionally lazy-loaded to keep admin-only settings
