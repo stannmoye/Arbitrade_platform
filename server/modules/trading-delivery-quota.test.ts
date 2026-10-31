@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  calculateTierDeliveryCaps,
   calculateTradingDeliveryCapacity,
   countConsumedDeliveryOffers,
   resolveTradingQuotaWindow,
@@ -18,6 +19,21 @@ describe("Trading quota windows", () => {
     const window = resolveTradingQuotaWindow(now, "calendar_day");
     expect(window.start.toISOString()).toBe("2026-10-31T00:00:00.000Z");
     expect(window.end.toISOString()).toBe("2026-11-01T00:00:00.000Z");
+  });
+});
+
+describe("Tier delivery caps", () => {
+  it("keeps daily target and visible-offer limits independent from cumulative tier entitlement", () => {
+    expect(calculateTierDeliveryCaps([
+      { quota: 6, policyMaxPopupsPerDay: 10, packageMaxPopupsPerDay: 0, dailyPopupTarget: 0, maxVisibleOffers: 2 },
+      { quota: 6, policyMaxPopupsPerDay: 4, packageMaxPopupsPerDay: 0, dailyPopupTarget: 3, maxVisibleOffers: 5 },
+    ])).toEqual({ combinedQuota: 12, maxPopupsPerDay: 9, maxVisibleOffers: 7 });
+  });
+
+  it("uses full tier allowance when a daily target or configured cap is zero", () => {
+    expect(calculateTierDeliveryCaps([
+      { quota: 8, policyMaxPopupsPerDay: 0, packageMaxPopupsPerDay: 0, dailyPopupTarget: 0, maxVisibleOffers: 0 },
+    ])).toEqual({ combinedQuota: 8, maxPopupsPerDay: 8, maxVisibleOffers: 8 });
   });
 });
 
