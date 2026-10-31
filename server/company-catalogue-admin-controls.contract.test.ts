@@ -63,5 +63,7 @@ describe("administrator company catalogue bulk controls", () => {
     expect(catalogue).toContain("ineligible for verified trade rotation");
     expect(specification).toContain("does not certify a public securities listing");
     expect(specification).toContain("or change `referenceOnly` / `eligibleForVerifiedTradeRotation`");
+    expect(specification).toContain("only IDs in the persisted administrator `verifiedIds` set are eligible");
+    expect(specification).toContain("never fall back to an unverified record");
   });
 });
