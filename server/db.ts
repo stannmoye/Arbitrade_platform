@@ -3916,6 +3916,7 @@ export async function listTradeSettlementIntegrityIssues(input?: { limit?: numbe
     and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "pending"), eq(tradeRewardReservations.status, "credited")),
     and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "pending"), eq(tradeRewardReservations.status, "released")),
     and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), isNull(tradePositions.settlementReference)),
+    and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), isNull(tradeSettlementReferenceClaims.tradeId)),
     and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), isNull(tradePositions.settlementConfirmedAt)),
     and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), isNotNull(tradePositions.walletUpdatedAt)),
     and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), isNull(tradeRewardReservations.id), gt(tradePositions.rewardReservedMinor, 0)),
@@ -3970,6 +3971,7 @@ export async function listTradeSettlementIntegrityIssues(input?: { limit?: numbe
     if (row.status === "confirmed" && row.settlementStatus === "pending" && !row.reservationId && Number(row.rewardReservedMinor) > 0) flags.push("pending_trade_missing_reward_reservation");
     if (row.status === "confirmed" && row.settlementStatus === "pending" && (row.reservationStatus === "credited" || row.reservationStatus === "released")) flags.push("pending_trade_reservation_not_reserved");
     if (row.status === "confirmed" && row.settlementStatus === "confirmed_awaiting_credit" && !row.settlementReference) flags.push("confirmed_trade_missing_settlement_reference");
+    if (row.status === "confirmed" && row.settlementStatus === "confirmed_awaiting_credit" && !row.claimTradeId) flags.push("confirmed_trade_missing_reference_claim");
     if (row.status === "confirmed" && row.settlementStatus === "confirmed_awaiting_credit" && !row.settlementConfirmedAt) flags.push("confirmed_trade_missing_confirmation_timestamp");
     if (row.status === "confirmed" && row.settlementStatus === "confirmed_awaiting_credit" && row.walletUpdatedAt) flags.push("awaiting_credit_trade_wallet_already_updated");
     if (row.status === "confirmed" && row.settlementStatus === "confirmed_awaiting_credit" && (row.reservationStatus === "credited" || row.reservationStatus === "released")) flags.push("confirmed_trade_reservation_not_reserved");
@@ -4367,6 +4369,13 @@ export async function processConfirmedTradeCredits(input?: { limit?: number }) {
       const lockedMinor=Number(wallet.lockedMinor);
       if(!Number.isSafeInteger(lockedMinor)||lockedMinor<principal) {
         throw new Error("Settlement wallet locked balance is inconsistent with the confirmed trade principal");
+      }
+      const availableMinor=Number(wallet.availableMinor);
+      const earnedMinor=Number(wallet.earnedMinor);
+      if(!Number.isSafeInteger(availableMinor)||availableMinor<0||!Number.isSafeInteger(earnedMinor)||
+        !Number.isSafeInteger(availableMinor+accounting.totalReturnedMinor)||
+        !Number.isSafeInteger(earnedMinor+accounting.netProfitMinor)) {
+        throw new Error("Settlement wallet totals are outside the safe minor-unit range");
       }
       const reference=trade.settlementReference;
       const ledgerBase=reference.length<=60?reference:`trade-${trade.id}-${crypto.createHash("sha256").update(reference).digest("hex").slice(0,24)}`;
