@@ -38,13 +38,21 @@ export function parseCompanyCatalogueAdminState(raw: unknown): CompanyCatalogueA
 }
 
 /** Customer reads must revalidate persisted snapshots against current admin approval. */
+export function createCompanySpotlightDisplayGuard(
+  adminState: CompanyCatalogueAdminState,
+): (companyId: unknown) => boolean {
+  const verifiedIds = new Set(adminState.verifiedIds);
+  const archivedIds = new Set(adminState.archivedIds);
+  return (companyId: unknown) => typeof companyId === "string" &&
+    verifiedIds.has(companyId) &&
+    !archivedIds.has(companyId);
+}
+
 export function isCompanySpotlightDisplayAllowed(
   companyId: unknown,
   adminState: CompanyCatalogueAdminState,
 ): boolean {
-  return typeof companyId === "string" &&
-    adminState.verifiedIds.includes(companyId) &&
-    !adminState.archivedIds.includes(companyId);
+  return createCompanySpotlightDisplayGuard(adminState)(companyId);
 }
 
 export function buildCompanySpotlightPool(
