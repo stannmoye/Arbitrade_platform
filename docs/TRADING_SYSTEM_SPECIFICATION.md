@@ -135,6 +135,8 @@ Settlement notifications and terminal popup completion occur only after the wall
 - Genuine market loss: record the actual result accurately. Do not relabel it as a technical failure or manufacture a compensating profit.
 - Failed execution, zero-profit outcomes, and losses incur no profit-based platform fee.
 - Retries must not count as multiple completed trades, create duplicate credits, or bypass the daily earnings ceiling.
+- `maxTradeAttemptsPerDay` is a customer-wide daily execution-attempt budget, not a per-opportunity retry count and not the number of successfully created trade rows. Every claimed automatic execution attempt, including a retry after a transient technical failure, consumes one attempt. Claims are serialized under the customer row lock; the worker sums durable `executionAttemptCount` values for that customer and UTC day before issuing another lease. The configured tier policy supplies the limit for the opportunity being attempted. A value of 0 means no daily cap. When the budget is exhausted, do not claim or financially process another opportunity that day; defer unattempted opportunities until the next UTC day and preserve same-day retry-window rules for opportunities already attempted.
+- The per-opportunity technical retry ceiling is a separate bounded safety limit (currently five attempts). It only controls repeated transient failures for one opportunity. It must never be read from or presented as `maxTradeAttemptsPerDay`.
 - A missed opportunity quota is not the same as a financial guarantee. Any promise to compensate financially for missed opportunities requires explicit funding, disclosure, and appropriate review.
 
 ## 8. Platform fee, profit, and wallet accounting
