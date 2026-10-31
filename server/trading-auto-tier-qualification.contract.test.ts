@@ -91,6 +91,14 @@ describe("Automatic Trading tier qualification", () => {
   });
 
   it("shows assigned Trading tiers and cumulative qualifying USD on the admin customer view without changing transfers", () => {
+    const customerListStart = databaseSource.indexOf("export async function listAdminCustomers()");
+    const customerListEnd = databaseSource.indexOf("\\nexport async function createAdminCustomer", customerListStart);
+    const customerListSource = databaseSource.slice(customerListStart, customerListEnd);
+    expect(customerListStart).toBeGreaterThanOrEqual(0);
+    expect(customerListEnd).toBeGreaterThan(customerListStart);
+    expect(customerListSource).toContain("COALESCE(SUM(");
+    expect(customerListSource).toContain(".groupBy(balanceLedger.userId)");
+    expect(customerListSource).not.toContain("qualifyingDepositUsdMinor:balanceLedger.qualifyingDepositUsdMinor");
     expect(databaseSource).toContain("qualifyingDepositUsd:qualifyingUsdMinor/100");
     expect(databaseSource).toContain('inArray(balanceLedger.entryType,["admin_manual_deposit_credit","admin_manual_deposit_reversal"])');
     expect(customerAppSource).toContain("Qualifying USD:");
