@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { closeDbPool, createTrade, getDb, manuallySettleTrade, processConfirmedTradeCredits, reconcileAllDueTradesAwaitingConfirmation } from "../server/db";
 import {
-  balanceLedger, currencyRegistry, customerBalances, customerPackageSubscriptions,
+  balanceLedger, currencyRegistry, customerBalances, customerNotifications, customerPackageSubscriptions, emailOutbox,
   fxRateSnapshots, opportunityOffers, opportunityPackagePolicies, packages, tradeLifecycleEvents, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, users,
 } from "../drizzle/schema";
 
@@ -136,6 +136,15 @@ try {
   const dueEvents = await db.select().from(tradeLifecycleEvents)
     .where(and(inArray(tradeLifecycleEvents.tradeId, [overdueBySchedule, reviewDueBeforeCreditAt]), eq(tradeLifecycleEvents.eventType, "settlement_due_waiting_for_confirmation")));
   assert.equal(dueEvents.length, 2, "One and only one due event must be recorded per transitioned trade.");
+  const reconciliationLedgerAfter = await db.select({ id: balanceLedger.id }).from(balanceLedger).where(eq(balanceLedger.userId, userId));
+  const reconciliationWalletAfter = await db.select({
+    id: customerBalances.id,
+    availableMinor: customerBalances.availableMinor,
+    lockedMinor: customerBalances.lockedMinor,
+    earnedMinor: customerBalances.earnedMinor,
+  }).from(customerBalances).where(eq(customerBalances.userId, userId));
+  assert.deepEqual(reconciliationLedgerAfter, ledgerBefore, "Due-time reconciliation must not write customer ledger entries.");
+  assert.deepEqual(reconciliationWalletAfter, walletBefore, "Due-time reconciliation must not mutate customer wallet balances.");
 
   // Exercise the two-phase result-confirmation and delayed-credit lifecycle on
   // a disposable account. The review time is past, but wallet credit is future.
@@ -362,16 +371,6 @@ try {
   assert.deepEqual(afterFundingLedger, beforeFundingLedger, "A mid-transaction failure must remove all partial conversion/reservation ledger postings.");
   assert.deepEqual(afterFundingFx, beforeFundingFx, "A mid-transaction failure must roll back all FX snapshots written for the failed funding operation.");
 
-  const ledgerAfter = await db.select({ id: balanceLedger.id }).from(balanceLedger).where(eq(balanceLedger.userId, userId));
-  const walletAfter = await db.select({
-    id: customerBalances.id,
-    availableMinor: customerBalances.availableMinor,
-    lockedMinor: customerBalances.lockedMinor,
-    earnedMinor: customerBalances.earnedMinor,
-  }).from(customerBalances).where(eq(customerBalances.userId, userId));
-  assert.deepEqual(ledgerAfter, ledgerBefore, "Reconciliation must not write customer ledger entries.");
-  assert.deepEqual(walletAfter, walletBefore, "Reconciliation must not mutate customer wallet balances.");
-
   console.log(JSON.stringify({
     ok: true,
     database: process.env.DATABASE_URL?.replace(/:\/\/[^@]+@/, "://[redacted]@").replace(/\/[^/?]+(?:\?.*)?$/, "/[database]"),
@@ -414,6 +413,9 @@ try {
       await db.delete(users).where(eq(users.id, fundingUserId)).catch(() => {});
     }
     if (userId !== undefined) {
+      await db.delete(customerNotifications).where(eq(customerNotifications.userId, userId)).catch(() => {});
+      const testEmail = openId + "@example.invalid";
+      await db.delete(emailOutbox).where(eq(emailOutbox.recipient, testEmail)).catch(() => {});
       await db.delete(balanceLedger).where(eq(balanceLedger.userId, userId));
       await db.delete(customerBalances).where(eq(customerBalances.userId, userId));
       await db.delete(users).where(eq(users.id, userId));
