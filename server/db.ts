@@ -2921,7 +2921,7 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
       const companyRotationCountryNames=normalizedCompanyRotationCountryNames||null;
       const companyRotationRepeatPolicy=String(effective.companyRotationRepeatPolicy??"avoid_until_exhausted");
       if(!["avoid_until_exhausted","allow_repeats"].includes(companyRotationRepeatPolicy)) throw new Error(`Company rotation repeat policy is invalid for ${policy.packageName}`);
-      if(companyRotationEnabled) buildCompanySpotlightPool(companyRotationCountryNames??"");
+      // The approved pool is customer/admin state, so validate only the country-folder syntax here.\n      // A package may legitimately have no currently verified company; delivery then omits the company identity.
       const minimumTradeDurationSeconds=effective.minimumTradeDurationSeconds==null?null:Number(effective.minimumTradeDurationSeconds);
       const maximumTradeDurationSeconds=effective.maximumTradeDurationSeconds==null?null:Number(effective.maximumTradeDurationSeconds);
       if((minimumTradeDurationSeconds===null)!==(maximumTradeDurationSeconds===null)) throw new Error(`Set both published duration bounds or leave both blank for ${policy.packageName}`);
