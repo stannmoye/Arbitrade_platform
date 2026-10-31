@@ -23,20 +23,33 @@ export type CompanyCatalogueAdminState = {
 
 /** Malformed or missing administrator state fails closed: no company is approved for customer display. */
 export function parseCompanyCatalogueAdminState(raw: unknown): CompanyCatalogueAdminState {
-  let parsed: any = raw;
+  let parsed: unknown = raw;
   try {
     if (typeof raw === "string") parsed = JSON.parse(raw || "{}");
   } catch {
-    parsed = null;
+    return { verifiedIds: [], archivedIds: [], disabledIds: [] };
   }
-  const validIds = (value: unknown): string[] => Array.isArray(value)
-    ? [...new Set(value.filter((id): id is string => typeof id === "string" && /^logo-brand-\d{4}$/.test(id)))]
-    : [];
-  return {
-    verifiedIds: validIds(parsed?.verifiedIds),
-    archivedIds: validIds(parsed?.archivedIds),
-    disabledIds: validIds(parsed?.disabledIds),
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return { verifiedIds: [], archivedIds: [], disabledIds: [] };
+  }
+  const state = parsed as Record<string, unknown>;
+  const parseIds = (value: unknown, optional = false): string[] | null => {
+    if (value === undefined && optional) return [];
+    if (!Array.isArray(value) || value.some(id => typeof id !== "string" || !/^logo-brand-\d{4}$/.test(id))) {
+      return null;
+    }
+    return [...new Set(value as string[])];
   };
+  // Older valid states predate disabledIds, so that one field is optional.
+  // A malformed approval or exclusion list invalidates the entire state: never
+  // turn a corrupt archived/disabled list into permission to show a company.
+  const verifiedIds = parseIds(state.verifiedIds);
+  const archivedIds = parseIds(state.archivedIds);
+  const disabledIds = parseIds(state.disabledIds, true);
+  if (!verifiedIds || !archivedIds || !disabledIds) {
+    return { verifiedIds: [], archivedIds: [], disabledIds: [] };
+  }
+  return { verifiedIds, archivedIds, disabledIds };
 }
 
 /** Customer reads must revalidate persisted snapshots against current admin approval. */
