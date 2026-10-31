@@ -1,3 +1,16 @@
+## 2026-10-31 — Stage 2: evidence-confirmed settlement and delayed wallet-credit lifecycle (implementation in progress)
+
+- Verified base: `main` at `048620efa2c68d707c87fb22ba63ebeb6a924772`. Isolated work branch: `fix/trade-lifecycle-and-admin-policy-completion`. No changes have been pushed to `main`.
+- Reworked manual settlement so an authorized administrator can review after the saved `settlementReviewAt`, record the actual gross result/evidence reference and immutable fee-policy snapshot, and transition the trade to `confirmed_awaiting_credit` without writing wallet or ledger entries. Principal remains locked and the reward reservation remains reserved.
+- Added a bounded, monitored `settlement-credit-posting` worker. It processes only administrator-confirmed trades after `creditAt`, locks and verifies the trade/reference claim/reservation/wallet, recomputes the saved fee calculation, and commits ledger entries, wallet balances, reservation state and terminal trade status in one transaction. Row locking plus conditional state transition prevents duplicate concurrent/restart credits.
+- Added nullable `settlementReviewAt` in forward-only migration `0096_trade_settlement_review_timestamp.sql`. New trades persist `settlesAt`, `settlementReviewAt = settlesAt + settlementDelaySeconds`, and `creditAt = settlementReviewAt + creditDelaySeconds`. Legacy rows are not rewritten: null review timestamps fall back to `settlesAt`; null credit timestamps fall back to review time.
+- Registered migration 0096 in the Drizzle journal, guarded main migration contract, worker runtime schema bridge, portal migration runner, installer recovery list, and worker schema contract. No historical migration or settlement row is destructively changed.
+- Updated the admin queue and timing labels to distinguish review-ready from confirmed-awaiting-credit, show the saved result/reference/credit time, and prevent a second confirmation. Settlement notifications and popup terminal completion now occur only after the wallet-credit transaction commits.
+- Updated the canonical Trade specification, admin configuration manual, embedded admin guide, settlement contract tests, and the disposable MySQL/MariaDB integration script. Integration coverage now checks review before credit time, no ledger/wallet mutation on confirmation, delayed posting, concurrent worker idempotency, reservation finalization and duplicate-cycle safety.
+- Validation status: source edits and static contract updates are on the isolated branch. This connector session cannot run `pnpm check`, `pnpm test`, `pnpm build`, or the disposable MySQL/MariaDB integration locally. Exact-head GitHub Actions are still required. Stage 2 is not complete or merge-ready until those checks pass and the final diff is reviewed. No production database or deployment has been changed.
+
+---
+
 ## 2026-10-31 — Verified-only customer company pop-ups (merged into main)
 
 - Canonical base before implementation: `main` at `a4f8cdd392f339c81762bd8a6584797881579aa9`; implementation branch: `feat/verified-company-popups`; PR #256 merged into `main` as `9b83dd507bc7e466b961737bc15ee0038038ea7c`.
