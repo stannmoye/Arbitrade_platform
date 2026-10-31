@@ -3388,8 +3388,6 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const catalogueAdminRow=(await db.select({settingValue:appSettings.settingValue})
     .from(appSettings).where(eq(appSettings.settingKey,"trade.companyCatalogue.adminState")).limit(1))[0];
   const catalogueAdminState=parseCompanyCatalogueAdminState(catalogueAdminRow?.settingValue??"{}");
-  const currentlyVerifiedCompanyIds=new Set(catalogueAdminState.verifiedIds);
-  const archivedCompanyIds=new Set(catalogueAdminState.archivedIds);
   const companyDisplayAllowed=(id:unknown)=>isCompanySpotlightDisplayAllowed(id,catalogueAdminState);
   const tradeCandidates=popupRows.filter(row=>row.offerStatus==="open"&&row.closesAt&&new Date(row.closesAt).getTime()>now.getTime()).map(row=>{
     // Never reassign an existing popup to another package when its original
