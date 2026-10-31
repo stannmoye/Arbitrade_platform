@@ -37,6 +37,8 @@ let eventId;
 let offerId;
 let secondOfferId;
 let secondEventId;
+let thirdOfferId;
+let thirdEventId;
 let packageId;
 let subscriptionId;
 let tradeId;
@@ -82,6 +84,7 @@ try {
     packageName,
     minimumTradeUnits: 250,
     maximumTradeUnits: 250,
+    maxTradeAttemptsPerDay: 4,
     enabled: true,
     automaticDelivery: true,
     automaticTradingEnabled: true,
@@ -193,11 +196,47 @@ try {
   });
   secondEventId = Number(secondEventInsert[0].insertId);
 
+  const thirdOfferInsert = await db.insert(opportunityOffers).values({
+    symbol: "TEST3",
+    venueFrom: "integration-source",
+    venueTo: "integration-destination",
+    currency,
+    minimumMinor: 25000,
+    expectedRewardBps: 400,
+    durationSeconds: 3600,
+    opensAt: new Date(Date.now() - 60000),
+    closesAt: new Date(Date.now() + 3600000),
+    rewardAt: new Date(Date.now() + 3600000),
+    status: "open",
+  });
+  thirdOfferId = Number(thirdOfferInsert[0].insertId);
+  const thirdEventInsert = await db.insert(opportunityPopupEvents).values({
+    eventKey: eventKey + "-third",
+    userId,
+    offerId: thirdOfferId,
+    quotaDay: new Date().toISOString().slice(0, 10),
+    packageName,
+    symbol: "TEST3",
+    currency,
+    minimumMinor: 25000,
+    expectedRewardBps: 400,
+    configuredProfitRateBps: 400,
+    configuredDurationSeconds: 3600,
+    balanceAvailableMinor: 100000,
+    balanceStatus: "sufficient",
+    eventStatus: "DELIVERED",
+    deliveryStatus: "delivered",
+    executionStatus: "READY",
+    executionAttemptCount: 0,
+  });
+  thirdEventId = Number(thirdEventInsert[0].insertId);
+
   const offer = { deliveryEventId: eventId, offerId, tradeRetryDelaySeconds: 30 };
   const secondOffer = { deliveryEventId: secondEventId, offerId: secondOfferId, tradeRetryDelaySeconds: 30 };
+  const thirdOffer = { deliveryEventId: thirdEventId, offerId: thirdOfferId, tradeRetryDelaySeconds: 30 };
   const competingClaims = await Promise.all([
-    claimOpportunityExecutionAttempt(userId, offer, 5),
-    claimOpportunityExecutionAttempt(userId, offer, 5),
+    claimOpportunityExecutionAttempt(userId, offer),
+    claimOpportunityExecutionAttempt(userId, offer),
   ]);
   assert.equal(competingClaims.filter((claim) => claim.claimed).length, 1,
     "Two concurrent workers must not both claim the same opportunity event.");
@@ -266,7 +305,7 @@ try {
   await db.update(opportunityPopupEvents)
     .set({ executionRetryAfter: new Date(Date.now() - 1000) })
     .where(and(eq(opportunityPopupEvents.id, eventId), eq(opportunityPopupEvents.userId, userId)));
-  const recoveredClaim = await claimOpportunityExecutionAttempt(userId, offer, 5);
+  const recoveredClaim = await claimOpportunityExecutionAttempt(userId, offer);
   assert.equal(recoveredClaim.claimed, true, "A restarted worker must reclaim a lease abandoned by a crashed process.");
   assert.ok(recoveredClaim.executionLeaseToken);
   assert.notEqual(recoveredClaim.executionLeaseToken, firstClaim.executionLeaseToken,
@@ -327,9 +366,14 @@ try {
     earnedMinor: customerBalances.earnedMinor,
   }).from(customerBalances).where(eq(customerBalances.userId, userId));
 
-  const secondClaim = await claimOpportunityExecutionAttempt(userId, secondOffer, 5);
+  const secondClaim = await claimOpportunityExecutionAttempt(userId, secondOffer);
   assert.equal(secondClaim.claimed, true, "The competing opportunity must be independently claimable before quota contention.");
   assert.ok(secondClaim.executionLeaseToken);
+  const dailyLimitClaim = await claimOpportunityExecutionAttempt(userId, thirdOffer);
+  assert.equal(dailyLimitClaim.claimed, false, "A fifth attempt across a distinct opportunity must be blocked by the four-attempt customer daily cap.");
+  assert.equal(dailyLimitClaim.reason, "daily-attempt-limit");
+  assert.equal(dailyLimitClaim.usedAttempts, 4);
+  assert.equal(dailyLimitClaim.dailyAttemptLimit, 4);
 
   const allocationResults = await Promise.allSettled([
     createTrade(userId, {
@@ -447,6 +491,9 @@ try {
     if (secondEventId !== undefined) {
       await db.delete(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, secondEventId));
     }
+    if (thirdEventId !== undefined) {
+      await db.delete(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, thirdEventId));
+    }
     if (tradeId !== undefined) {
       await db.delete(tradeLifecycleEvents).where(eq(tradeLifecycleEvents.tradeId, tradeId));
       await db.delete(tradeRewardReservations).where(eq(tradeRewardReservations.tradeId, tradeId));
@@ -462,6 +509,7 @@ try {
     if (packageInserted && packageId !== undefined) await db.delete(packages).where(eq(packages.id, packageId));
     if (offerInserted && offerId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, offerId));
     if (secondOfferInserted && secondOfferId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, secondOfferId));
+    if (thirdOfferId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, thirdOfferId));
     if (currencyInserted) {
       await db.delete(currencyRegistry).where(eq(currencyRegistry.code, currency));
     }
