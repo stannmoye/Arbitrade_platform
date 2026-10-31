@@ -5,7 +5,7 @@ const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const helper = readFileSync(new URL("./modules/trading-delivery-quota.ts", import.meta.url), "utf8");
 const editor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
 const start = database.indexOf("export async function listCustomerOpportunities(");
-const end = database.indexOf("\\nexport async function ", start + 1);
+const end = database.indexOf("\nexport async function ", start + 1);
 const delivery = database.slice(start, end);
 
 describe("runtime Trading delivery quota semantics", () => {
