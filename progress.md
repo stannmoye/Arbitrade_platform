@@ -704,3 +704,10 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 - Next acceptance action: run the documented Playwright harness against a disposable seeded non-production deployment, retain its JSON result, then recheck exact-head CI. Do not proceed to merge or production release while this acceptance gate remains pending.
 - Follow-up documentation verification: the browser harness imports `playwright`, but Playwright is not a direct `package.json` dependency; the existing CI provisions it temporarily with `npx` and exposes it through `NODE_PATH`. Corrected the acceptance guide to use the same reproducible package-resolution pattern and install Chromium explicitly. No application dependency or lockfile was changed.
 - The harness is not currently invoked by the repository's pull-request workflow; the workflow's customer browser-recovery job runs a separate static-client suite. The documented real authenticated harness remains a separate, pending non-production acceptance gate.
+## 2026-10-31 — Owner-approved hosted browser acceptance deferral
+
+- The repository owner explicitly instructed that tests requiring a live server be deferred because no server is currently available, and authorized merging after all available repository/CI checks pass.
+- The authenticated Playwright harness remains unrun; this is not represented as a pass. Updated `docs/trading/AUTHENTICATED_BROWSER_ACCEPTANCE.md` to record the explicit waiver for this merge and retain the harness as post-deployment verification.
+- Continue to require all executable exact-head GitHub checks to pass. Any failing CI check must be investigated and fixed before merge; do not waive automated MySQL/MariaDB integration, type-check, unit test, build, installer or recovery checks.
+- Customer-to-customer wallet transfers remain unsupported in this branch; no claim of transfer implementation or live transfer testing is made.
+- Merge is authorized only after the latest PR head is confirmed green and mergeable. Keep the PR targeted at `main`; do not deploy or run production migrations.
