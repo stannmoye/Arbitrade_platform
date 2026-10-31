@@ -95,7 +95,7 @@ export default function AdminCompanyCatalogue() {
       <div>
         <div className="eyebrow">Trade · Company reference catalogue</div>
         <h1>Company names shown</h1>
-        <p>Manage the saved company/logo reference collection. Admin verification is an internal catalogue label; it does not certify a stock-market listing or make a company eligible for trade execution.</p>
+        <p>Manage the saved company/logo reference collection. Verified companies are eligible for customer opportunity pop-up display; Unverified and Archived companies are excluded. This is display approval only, not stock-market listing or trade-execution verification.</p>
       </div>
       <button className="secondary-button" type="button" onClick={() => { void summary.refetch(); void records.refetch(); void adminState.refetch(); }} disabled={summary.isFetching || records.isFetching || adminState.isFetching}>Refresh catalogue</button>
     </div>
@@ -195,6 +195,6 @@ export default function AdminCompanyCatalogue() {
       {updateStatus.isError && <p className="admin-ops-empty error" role="alert">{updateStatus.error.message}</p>}
       {updateStatus.isSuccess && <p className="company-catalogue-success" role="status">Catalogue changes saved.</p>}
     </section>
-    <p className="company-catalogue-disclaimer">Delete moves records to Archived; it does not permanently remove the source catalogue. Archived records can be restored. Admin verification is an internal status only: all records remain reference-only and ineligible for verified trade rotation.</p>
+    <p className="company-catalogue-disclaimer">Delete moves records to Archived; it does not permanently remove the source catalogue. Archived records can be restored. Only Verified, non-archived records can appear as company references in customer opportunity pop-ups. Admin verification is display approval only: all records remain reference-only and ineligible for verified securities/trade execution.</p>
   </div>;
 }
