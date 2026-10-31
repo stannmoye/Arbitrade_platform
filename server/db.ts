@@ -144,9 +144,10 @@ export async function updateCompanyCatalogueAdminState(input: {
     let archivedIds: string[] = [];
     let disabledIds: string[] = [];
     try {
-      const parsed = JSON.parse(row?.settingValue ?? "{}") as { verifiedIds?: string[]; archivedIds?: string[] };
+      const parsed = JSON.parse(row?.settingValue ?? "{}") as { verifiedIds?: string[]; archivedIds?: string[]; disabledIds?: string[] };
       verifiedIds = (parsed.verifiedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
       archivedIds = (parsed.archivedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
+      disabledIds = (parsed.disabledIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
     } catch {
       verifiedIds = [];
       archivedIds = [];
