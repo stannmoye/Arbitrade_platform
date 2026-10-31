@@ -130,7 +130,7 @@ The settlement timing controls and manual settlement queue represent separate st
 - Trade duration ends at the persisted `settlesAt`.
 - The configured settlement delay produces `settlementReviewAt = settlesAt + settlementDelaySeconds`. Administrators can review and confirm the actual result only at or after this timestamp.
 - The wallet-credit delay produces `creditAt = settlementReviewAt + creditDelaySeconds`. This is the earliest time the server may post the confirmed result to the wallet.
-- A legacy trade without `settlementReviewAt` uses `settlesAt` as its review deadline. A legacy trade without `creditAt` uses its review deadline as the credit deadline. Historical rows are not rewritten to invent missing delays.
+- A legacy trade without `settlementReviewAt` uses its prior `creditAt` as the review deadline when present, preserving the old review gate; if both are absent, it uses `settlesAt`. A legacy trade without `creditAt` uses its review deadline as the credit deadline. Historical rows are not rewritten to invent missing delays.
 
 When an administrator confirms the actual gross result and evidence reference, the server saves the result and immutable fee-policy snapshot, claims the reference, and changes the settlement state to `confirmed_awaiting_credit`. This is not a wallet credit: principal remains locked, the reward reservation remains reserved, and no ledger row or balance update is made by the confirmation request.
 
