@@ -3776,7 +3776,6 @@ export async function listTrades(userId:number){
     status:tradePositions.status,
     settlementStatus:tradePositions.settlementStatus,
     lifecycleStage:tradePositions.lifecycleStage,
-    settlementConfirmedAt:tradePositions.settlementConfirmedAt,
     walletUpdatedAt:tradePositions.walletUpdatedAt,
     transactionReference:tradePositions.transactionReference,
     completionAt:tradePositions.completionAt,
@@ -4323,7 +4322,8 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
 export async function processConfirmedTradeCredits(input?: { limit?: number }) {
   const db=await getDb();
   if(!db) throw new Error("Database is not available");
-  const limit=Math.max(1,Math.min(250,Number.isSafeInteger(input?.limit)?Number(input.limit):100));
+  const requestedLimit=input?.limit;
+  const limit=Math.max(1,Math.min(250,Number.isSafeInteger(requestedLimit)?Number(requestedLimit):100));
   const now=new Date();
   const due=await db.select({id:tradePositions.id}).from(tradePositions).where(and(
     eq(tradePositions.status,"confirmed"),
