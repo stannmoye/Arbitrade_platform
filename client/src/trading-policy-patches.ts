@@ -1,4 +1,4 @@
-export type NamedPolicyRow = { packageName: string } & Record<string, unknown>;
+export type NamedPolicyRow = { packageName: string };
 
 /**
  * Build field-scoped policy updates from the last server snapshot.
@@ -17,8 +17,8 @@ export function buildChangedPolicyPatches<T extends NamedPolicyRow>(
     if (!previous) {
       throw new Error(`Cannot patch Trading policy "${row.packageName}" without a loaded baseline`);
     }
-    const before = previous as Record<string, unknown>;
-    const after = row as Record<string, unknown>;
+    const before = previous as unknown as Record<string, unknown>;
+    const after = row as unknown as Record<string, unknown>;
     const patch: Record<string, unknown> = { packageName: row.packageName };
     for (const key of Object.keys(after)) {
       if (key === "packageName") continue;
