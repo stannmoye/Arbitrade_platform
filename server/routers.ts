@@ -4,7 +4,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { countCompanyReferences, findCompanyReferencesBySymbol, getCompanyReferenceById, getCompanyReferenceSummary, getRandomCompanyReference, searchCompanyReferences } from "./modules/company-catalogue-reference";
-import { isCompanySpotlightDisplayAllowed, parseCompanyCatalogueAdminState } from "./modules/company-spotlight-rotation";
+import { createCompanySpotlightDisplayGuard, parseCompanyCatalogueAdminState } from "./modules/company-spotlight-rotation";
 import { z } from "zod";
 import { communicationSettingsInput, getAdminCommunicationSettings, getCustomerCommunicationOptions, saveAdminCommunicationSettings, validateCommunicationSettingsInput } from "./communicationSettings";
 import { TRPCError } from "@trpc/server";
@@ -36,8 +36,9 @@ async function getCustomerApprovedCompanyReferences(
 ) {
   const raw = await getAppSetting("trade.companyCatalogue.adminState", "{}");
   const adminState = parseCompanyCatalogueAdminState(raw);
+  const companyDisplayAllowed = createCompanySpotlightDisplayGuard(adminState);
   return searchCompanyReferences({ ...filters, offset: 0, limit: 1811 })
-    .filter((company) => isCompanySpotlightDisplayAllowed(company.id, adminState));
+    .filter((company) => companyDisplayAllowed(company.id));
 }
 
 export const appRouter = router({
