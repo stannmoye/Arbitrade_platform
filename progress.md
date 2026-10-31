@@ -1,3 +1,16 @@
+## 2026-10-31 — Exact-head CI revalidation and remaining acceptance boundary
+
+- Re-verified PR #258 through GitHub. It remains **open, draft, and unmerged** on `fix/trade-lifecycle-and-admin-policy-completion`, targeting `main`. Exact implementation/documentation head at this checkpoint: `1c358d43c54f0b3e25e4c4bf5f7bc8e4e64ad04f`.
+- All 10 required workflow groups completed successfully on that exact head: Trading tier qualification, application verification, production source build/tests, installer validation, opportunity-worker concurrency/recovery, settlement reconciliation, administrator wallet idempotency, company rotation, Mining regression, and Trading recovery validation.
+- Job-level evidence includes MySQL 8.4 and MariaDB 11.4 integration runs for tier qualification, wallet idempotency/FX/rollback, settlement reconciliation, opportunity-worker lifecycle, and durable company rotation; fresh MariaDB installation and MySQL 8.4 installer/migration recovery; TypeScript, unit tests, production build, bundle budgets and server smoke checks.
+- Customer portal browser recovery run `41221969897` completed with **1,021 checks passed and 0 failures**. Its report explicitly limits its scope: customer/admin auth and API responses are mocked; it does not prove live role enforcement, database persistence, or full authenticated customer/admin Trade workflows. Admin browser interactions cover appearance and table scrolling, not package/policy/company/settlement workflows.
+- Source review reconfirmed that customer company search/count/summary are customer-role guarded and filtered through the current verified-minus-disabled/archived allowlist; full catalogue search and direct lookup are administrator-only. Malformed company status state now fails closed, with backward compatibility for legacy state lacking `disabledIds`.
+- Source review reconfirmed the admin wallet-credit service checks idempotency before FX lookup, obtains a fresh provider rate for qualifying non-USD credits, validates the wallet configuration again under transaction, stores USD-minor attribution and FX evidence with the ledger credit, and atomically enqueues tier qualification. Non-qualifying credit/debit pathways do not enqueue tier qualification.
+- **Remaining acceptance work:** full authenticated customer end-to-end workflow, full authenticated administrator Trade workflow, complete whole-branch security/correctness/performance review, and any follow-up defects found by those checks. Existing browser recovery and database integration coverage must not be represented as full portal acceptance.
+- Database integrations used disposable CI databases only. No production database access, production migration, deployment, merge, or PR state change occurred.
+
+---
+
 ## 2026-10-31 — Malformed company-status state hardening and documentation alignment
 
 - Continued the whole-branch review and found a fail-open edge case in `parseCompanyCatalogueAdminState`: invalid IDs were silently filtered, and a malformed `archivedIds` or `disabledIds` field could be treated as an empty exclusion list while valid `verifiedIds` remained active. This contradicted the fail-closed customer-display contract.
