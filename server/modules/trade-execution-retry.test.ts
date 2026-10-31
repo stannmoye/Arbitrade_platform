@@ -86,5 +86,8 @@ describe("trade execution retry policy", () => {
     expect(source).toContain("TEMPORARY_EXECUTION_RETRY_WINDOW_EXPIRED");
     expect(source).toContain("maxTradeAttemptsPerDay");
     expect(source).toContain("if(/new trading allocations are paused by an administrator/i.test(message))");
+    expect(source).toContain("if(/previous trade settlement is still pending/i.test(message))");
+    expect(source).toContain('errorCode:"PREVIOUS_SETTLEMENT_PENDING"');
+    expect(source).toContain("executionDailyAttemptCount=sql`GREATEST");
   });
 });

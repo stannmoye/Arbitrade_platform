@@ -7,6 +7,7 @@ import {
   closeDbPool,
   createTrade,
   getDb,
+  recordOpportunityExecutionFailure,
   listCustomerOpportunities,
 } from "../server/db";
 import {
@@ -547,6 +548,24 @@ try {
     /previous trade settlement is still pending/i,
     "A tier with requirePreviousSettlement must block a new customer allocation while any earlier tier trade awaits wallet posting.",
   );
+  await recordOpportunityExecutionFailure(userId, thirdEventId, {
+    status: "RETRYING",
+    retryAt: new Date(Date.now() + 30_000),
+    errorCode: "PREVIOUS_SETTLEMENT_PENDING",
+    attemptNumber: rolloverClaim.attemptNumber,
+    releaseAttempt: true,
+    executionLeaseToken: rolloverClaim.executionLeaseToken,
+  });
+  const deferredEvent = (await db.select({
+    executionStatus: opportunityPopupEvents.executionStatus,
+    executionAttemptCount: opportunityPopupEvents.executionAttemptCount,
+    executionDailyAttemptCount: opportunityPopupEvents.executionDailyAttemptCount,
+    eventStatus: opportunityPopupEvents.eventStatus,
+  }).from(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, thirdEventId)).limit(1))[0];
+  assert.equal(deferredEvent?.executionStatus, "RETRYING", "A previous-settlement gate must defer, not permanently fail, the opportunity.");
+  assert.equal(Number(deferredEvent?.executionAttemptCount), 7, "Deferral must release the per-opportunity technical attempt.");
+  assert.equal(Number(deferredEvent?.executionDailyAttemptCount), 0, "Deferral must release the customer-wide daily attempt budget.");
+  assert.equal(deferredEvent?.eventStatus, "DELIVERED", "A temporarily blocked opportunity must remain eligible for a later retry.");
   assert.equal(
     (await db.select({ id: tradePositions.id }).from(tradePositions).where(eq(tradePositions.userId, userId))).length,
     1,
@@ -582,6 +601,8 @@ try {
     freshAllocationReplayCount: successfulAllocationResults.filter((result) => result.idempotentReplay === true).length,
     concurrentIdempotentReplays: replayResults.length,
     previousSettlementGateBlocked: true,
+    previousSettlementGateDeferred: true,
+    dailyAttemptBudgetReleased: true,
     uniqueTradeRows: tradeRows.length,
     ledgerAndWalletUnchangedOnStaleAndReplay: true,
   }));
