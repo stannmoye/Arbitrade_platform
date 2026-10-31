@@ -678,7 +678,7 @@ function CustomerWalletLedger({currencies}:{currencies:any[]}) {
     const symbol=meta?.symbol||currency;
     return `${symbol}${(Math.abs(Number(minor))/Math.pow(10,scale)).toLocaleString(undefined,{minimumFractionDigits:Math.min(scale,2),maximumFractionDigits:scale})}`;
   };
-  const label=(value:string)=>value.replace(/_/g," ").replace(/\\b\\w/g,(letter)=>letter.toUpperCase());
+  const label=(value:string)=>value.replace(/_/g," ").replace(/\b\w/g,(letter)=>letter.toUpperCase());
   return <section className="settings-card" aria-label="Wallet ledger history">
     <div className="eyebrow">Persisted wallet activity</div>
     <h2>Recent wallet ledger</h2>
