@@ -77,8 +77,8 @@ describe("current customer company snapshot authorization",()=>{
     const approved={verifiedIds:[companyId],archivedIds:[]};
     expect(isCompanySpotlightDisplayAllowed(companyId,approved)).toBe(true);
     expect(isCompanySpotlightDisplayAllowed(companyId,{...approved,disabledIds:[companyId]})).toBe(false);
-    // Pending, rejected, and disabled entries are represented by absence from the
-    // administrator-approved ID set; archived IDs are independently denied.
+    // Pending/rejected entries are absent from the verified allowlist; disabled and
+    // archived IDs are independently denied even when they remain verified.
     for(const state of [
       {verifiedIds:[],archivedIds:[]},
       {verifiedIds:[],archivedIds:[companyId]},
