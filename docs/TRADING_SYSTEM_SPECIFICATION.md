@@ -229,7 +229,7 @@ The admin portal is the authoritative control plane for the customer Trading exp
 
 ### Company identity
 
-Only companies currently marked **Verified** by an authorized administrator and not marked **Archived** may be attached to a customer opportunity pop-up. The worker enforces this from the persisted admin catalogue state; customer-side hiding is not the security boundary. Unverified and archived records are excluded before country-folder filters and rotation. If the approved filtered pool is empty, show the opportunity without a company name/logo and do not substitute another record. Re-check current admin status when returning active pop-ups so an unverify/archive action hides an already-created active company identity; completed historical trade snapshots remain unchanged.
+Only companies currently marked **Verified**, enabled, and neither **Disabled** nor **Archived** by an authorized administrator may be attached to a customer opportunity pop-up. The worker enforces this from the persisted admin catalogue state; customer-side hiding is not the security boundary. Unverified, disabled and archived records are excluded before country-folder filters and rotation. If the approved filtered pool is empty, show the opportunity without a company name/logo and do not substitute another record. Re-check current admin status when returning active pop-ups so an unverify, disable or archive action hides an already-created active company identity; completed historical trade snapshots remain unchanged.
 
 Show these together in the expanded pop-up and minimized card where space allows:
 - Company name.
@@ -325,7 +325,7 @@ Trading operates as a real-money workflow recorded in the customer's internal le
 - Worker restart/retry tests prove durable resumption, expired-lease recovery and idempotent opportunity/allocation/settlement behaviour.
 
 
-- Test that verified-only company rotation excludes unverified and archived IDs, respects country filters, returns no company for an empty approved pool, and hides active popup identities after an admin unverify/archive action.
+- Test that verified-and-enabled company rotation excludes unverified, disabled and archived IDs, respects country filters, returns no company for an empty approved pool, and hides active popup identities after an admin unverify, disable or archive action.
 
 ## 15. Implementation workflow requirement
 
