@@ -5,21 +5,32 @@ const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const routerSource = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const notificationSource = readFileSync(new URL("./modules/notification-events.ts", import.meta.url), "utf8");
 const start = source.indexOf("export async function manuallySettleTrade(");
-const end = source.indexOf("export async function createOpportunityOffer(", start);
-const implementation = source.slice(start, end);
+const end = source.indexOf("\nexport async function processConfirmedTradeCredits(", start);
+const confirmation = source.slice(start, end);
+const creditStart = source.indexOf("export async function processConfirmedTradeCredits(");
+const creditEnd = source.indexOf("\nexport async function createOpportunityOffer(", creditStart);
+const creditPosting = source.slice(creditStart, creditEnd);
 
 describe("manual trade settlement notification boundary", () => {
-  it("keeps notification delivery outside the durable financial transaction", () => {
-    const transactionStart = implementation.indexOf("await db.transaction(async tx=>");
-    const transactionBoundary = implementation.indexOf('  await updatePopupLifecycleForOffer(result.userId,result.offerId,"settled");');
+  it("does not send settlement-credit notices when an administrator only confirms a result", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    expect(transactionStart).toBeGreaterThanOrEqual(0);
-    expect(transactionBoundary).toBeGreaterThan(transactionStart);
-    expect(implementation).not.toContain("createNotification(");
-    expect(implementation.slice(transactionBoundary)).toContain("return result;");
-    expect(routerSource).toContain("buildTradeSettlementNotices({");
-    expect(routerSource).toContain("await Promise.allSettled(notices.map");
+    expect(confirmation).toContain('settlementStatus:"confirmed_awaiting_credit"');
+    expect(confirmation).not.toContain("createNotification(");
+    expect(routerSource).toContain("await manuallySettleTrade(input.tradeId,ctx.user.id,input)");
+    expect(routerSource).not.toContain("buildTradeSettlementNotices({");
+  });
+
+  it("sends settlement notices only after the delayed wallet and ledger transaction commits", () => {
+    const transactionClose = creditPosting.indexOf("    });\n    if(posted){");
+    const notification = creditPosting.indexOf("const notices=buildTradeSettlementNotices({");
+    expect(creditStart).toBeGreaterThanOrEqual(0);
+    expect(creditEnd).toBeGreaterThan(creditStart);
+    expect(transactionClose).toBeGreaterThan(0);
+    expect(notification).toBeGreaterThan(transactionClose);
+    expect(creditPosting).toContain("await Promise.allSettled(notices.map(notice=>createNotification(");
+    expect(creditPosting).toContain("One or more trade settlement notices failed after wallet credit commit.");
+    expect(creditPosting).toContain("wallet_credit_posted");
   });
 
   it("uses stable per-trade event keys and distinguishes gross result, fees, and losses", () => {
@@ -30,13 +41,13 @@ describe("manual trade settlement notification boundary", () => {
     expect(notificationSource).toContain("Net trading profit credited");
     expect(notificationSource).toContain("Trading platform fee recorded");
     expect(notificationSource).toContain("Trading loss recorded");
-    expect(routerSource).toContain("grossProfitMinor:result.grossProfitMinor");
-    expect(routerSource).toContain("platformFeeMinor:result.platformFeeMinor");
-    expect(routerSource).toContain("netProfitMinor:result.netProfitMinor");
+    expect(creditPosting).toContain("grossProfitMinor:posted.grossProfitMinor");
+    expect(creditPosting).toContain("platformFeeMinor:posted.platformFeeMinor");
+    expect(creditPosting).toContain("netProfitMinor:posted.netProfitMinor");
   });
 
-  it("keeps notification failures best-effort after financial commit", () => {
-    expect(routerSource).toContain("Promise.allSettled(notices.map");
-    expect(routerSource).toContain("One or more trade settlement notices failed after ledger commit.");
+  it("keeps notification failures best-effort after the durable wallet-credit commit", () => {
+    expect(creditPosting).toContain("Promise.allSettled(notices.map");
+    expect(creditPosting).toContain("One or more trade settlement notices failed after wallet credit commit.");
   });
 });
