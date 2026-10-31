@@ -40,8 +40,9 @@ describe("worker schema contracts", () => {
 
   it("creates and validates the durable Trading tier queue in the runtime schema bridge", async () => {
     const root = new URL("../", import.meta.url);
-    const [runtimeSchema, migration, opportunityWorkerMigration, healthMigration, deliveryDiagnosticsMigration, mainPopupPolicySnapshotMigration, executionLeaseMigration, packagePolicySchemaMigration, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration, walletFundingPlanMigration, walletAdjustmentIdempotencyMigration, nullablePolicyDurationBoundsMigration, fxSnapshotSourceTimestampMigration, settlementReviewTimestampMigration, portalRunner, installerRecovery] = await Promise.all([
+    const [runtimeSchema, mainMigrationRunner, migration, opportunityWorkerMigration, healthMigration, deliveryDiagnosticsMigration, mainPopupPolicySnapshotMigration, executionLeaseMigration, packagePolicySchemaMigration, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration, walletFundingPlanMigration, walletAdjustmentIdempotencyMigration, nullablePolicyDurationBoundsMigration, fxSnapshotSourceTimestampMigration, settlementReviewTimestampMigration, portalRunner, installerRecovery] = await Promise.all([
       readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
+      readFile(new URL("scripts/guarded-main-migrate.mjs", root), "utf8"),
       readFile(new URL("drizzle/0082_trading_tier_qualification_jobs.sql", root), "utf8"),
       readFile(new URL("drizzle/0083_trading_opportunity_worker_indexes.sql", root), "utf8"),
       readFile(new URL("drizzle/0084_worker_health_registry.sql", root), "utf8"),
@@ -71,6 +72,8 @@ describe("worker schema contracts", () => {
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, tradingOpportunityWorkerMigration)");
     expect(opportunityWorkerMigration).toContain("customer_package_subscriptions_worker_status_user_idx");
     expect(runtimeSchema).toContain('drizzle/0052_delivery_diagnostics.sql');
+    expect(mainMigrationRunner).toContain('drizzle", "0052_delivery_diagnostics.sql');
+    expect(mainMigrationRunner.indexOf('drizzle", "0052_delivery_diagnostics.sql')).toBeLessThan(mainMigrationRunner.indexOf("await assertWorkerSchemaContracts(connection)"));
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, deliveryDiagnosticsMigration)");
     expect(deliveryDiagnosticsMigration).toContain("ADD COLUMN IF NOT EXISTS `status` enum");
     expect(WORKER_SCHEMA_CONTRACTS.opportunity_delivery_events.columns).toContain("status");
