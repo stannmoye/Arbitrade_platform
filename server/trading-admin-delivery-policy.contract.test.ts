@@ -33,6 +33,21 @@ describe("administrator Trading delivery policy controls", () => {
     ]) expect(policyEditor).toContain(binding);
   });
 
+  it("routes the Customer tiers menu to the editable package catalogue", () => {
+    expect(app).toContain('(!focus||focus==="tiers")&&<><AdminTradingPackageCatalogue/>');
+    expect(app).toContain('section==="packages"&&<AdminPackages focus={focus as "tiers"|"quotas"|undefined}/>');
+  });
+
+  it("submits only changed tier policy fields instead of replaying stale full-row snapshots", () => {
+    expect(app).toContain("buildChangedPolicyPatches(baseline,draft)");
+    expect(app).toContain("buildChangedPolicyPatches(policyBaseline,policyRows)");
+    expect(router).toContain("maxPopupsPerDay: z.number().int().min(1).max(1000).optional()");
+    expect(router).toContain("maxVisibleOffers: z.number().int().min(1).max(10000).optional()");
+    expect(router).toContain("minimumTradeUnits: z.number().int().min(1).max(2147483647).optional()");
+    expect(router).toContain("burstEnabled: z.boolean().optional()");
+    expect(database).toContain("...supplied,packageName:policy.packageName,updatedBy");
+  });
+
   it("merges partial policy updates against locked rows before a transactional, versioned and audited write", () => {
     expect(database).toContain("const requested=policies.map(policy=>");
     expect(database).toContain("await db.transaction(async tx=>");
