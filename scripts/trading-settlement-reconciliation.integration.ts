@@ -16,6 +16,7 @@ const openId = "settlement-reconcile-" + token;
 let userId: number | undefined;
 let adminId: number | undefined;
 let settlementOfferId: number | undefined;
+let settlementImmediateOfferId: number | undefined;
 let fundingUserId: number | undefined;
 let fundingPackageId: number | undefined;
 let fundingPackageName: string | undefined;
@@ -148,6 +149,8 @@ try {
   }).from(customerBalances).where(eq(customerBalances.userId, userId));
   assert.deepEqual(reconciliationLedgerAfter, ledgerBefore, "Due-time reconciliation must not write customer ledger entries.");
   assert.deepEqual(reconciliationWalletAfter, walletBefore, "Due-time reconciliation must not mutate customer wallet balances.");
+  const unconfirmedCreditCycle = await processConfirmedTradeCredits();
+  assert.equal(unconfirmedCreditCycle.credited, 0, "Elapsed time and review readiness must not post an unconfirmed trade.");
 
   // Exercise the two-phase result-confirmation and delayed-credit lifecycle on
   // a disposable account. The review time is past, but wallet credit is future.
@@ -253,6 +256,79 @@ try {
   const settlementLedgerAfterReplay = await db.select({ id: balanceLedger.id })
     .from(balanceLedger).where(eq(balanceLedger.userId, userId));
   assert.equal(settlementLedgerAfterReplay.length, settlementLedgerAfterCredit.length, "Worker replay must not duplicate ledger rows.");
+
+  // A result confirmed after its scheduled credit time is still credited only
+  // by the worker, and only after the evidence-backed confirmation commits.
+  const immediateOffer = await db.insert(opportunityOffers).values({
+    symbol: "SETTLEMENT-IMMEDIATE-" + token,
+    venueFrom: "integration-source",
+    venueTo: "integration-target",
+    currency: "USD",
+    minimumMinor: 10000,
+    expectedRewardBps: 100,
+    durationSeconds: 60,
+    opensAt: new Date(now - 120_000),
+    closesAt: new Date(now + 3_600_000),
+    rewardAt: new Date(now - 30_000),
+    status: "open",
+  });
+  settlementImmediateOfferId = Number(immediateOffer[0].insertId);
+  await db.update(customerBalances).set({
+    lockedMinor: sql`${customerBalances.lockedMinor}+25000`,
+  }).where(eq(customerBalances.userId, userId));
+  const immediateTradeInsert = await db.insert(tradePositions).values({
+    userId,
+    offerId: settlementImmediateOfferId,
+    currency: "USD",
+    principalMinor: 25000,
+    expectedRewardMinor: 1000,
+    rewardReservedMinor: 1000,
+    settlesAt: new Date(now - 60_000),
+    settlementReviewAt: new Date(now - 30_000),
+    creditAt: new Date(now - 10_000),
+    status: "confirmed",
+    settlementStatus: "pending",
+    lifecycleStage: "Awaiting Settlement Confirmation",
+  });
+  const immediateTradeId = Number(immediateTradeInsert[0].insertId);
+  tradeIds.push(immediateTradeId);
+  await db.insert(tradeRewardReservations).values({
+    userId,
+    tradeId: immediateTradeId,
+    packageName: "SettlementIntegration",
+    windowKey: new Date(now).toISOString().slice(0, 10),
+    currency: "USD",
+    reservedMinor: 1000,
+    status: "reserved",
+  });
+  const immediateReference = "integration-immediate-settlement-" + token;
+  const immediateLedgerBefore = await db.select({ id: balanceLedger.id })
+    .from(balanceLedger).where(eq(balanceLedger.userId, userId));
+  const immediateWalletBefore = (await db.select().from(customerBalances)
+    .where(eq(customerBalances.userId, userId)).limit(1))[0];
+  const immediateConfirmation = await manuallySettleTrade(immediateTradeId, adminId!, {
+    grossProfitMinor: 1000,
+    settlementReference: immediateReference,
+    notes: "Disposable overdue-credit integration evidence",
+  });
+  assert.equal(immediateConfirmation.walletCreditPending, true, "Confirmation after creditAt must still wait for the posting worker.");
+  const immediateWalletAfterConfirmation = (await db.select().from(customerBalances)
+    .where(eq(customerBalances.userId, userId)).limit(1))[0];
+  assert.equal(Number(immediateWalletAfterConfirmation?.availableMinor), Number(immediateWalletBefore?.availableMinor));
+  assert.equal(Number(immediateWalletAfterConfirmation?.lockedMinor), Number(immediateWalletBefore?.lockedMinor));
+  const immediateLedgerAfterConfirmation = await db.select({ id: balanceLedger.id })
+    .from(balanceLedger).where(eq(balanceLedger.userId, userId));
+  assert.deepEqual(immediateLedgerAfterConfirmation, immediateLedgerBefore, "An overdue credit timestamp must not bypass administrator confirmation or post in the confirmation transaction.");
+  const immediateCreditCycle = await processConfirmedTradeCredits();
+  assert.equal(immediateCreditCycle.credited, 1, "The next worker cycle must post an already-due, newly confirmed trade.");
+  const immediateCompletedTrade = (await db.select().from(tradePositions)
+    .where(eq(tradePositions.id, immediateTradeId)).limit(1))[0];
+  assert.equal(immediateCompletedTrade?.status, "settled");
+  assert.equal(immediateCompletedTrade?.settlementStatus, "completed");
+  assert.ok(immediateCompletedTrade?.walletUpdatedAt);
+  const immediateLedgerAfterCredit = await db.select({ id: balanceLedger.id })
+    .from(balanceLedger).where(eq(balanceLedger.userId, userId));
+  assert.equal(immediateLedgerAfterCredit.length - immediateLedgerBefore.length, 3, "The overdue confirmed trade must post its principal, gross profit and fee once.");
 
   // Inject a database error after cross-wallet source debits, conversion ledger
   // postings and FX snapshots have been written inside createTrade's transaction.
@@ -399,6 +475,7 @@ try {
       await db.delete(tradePositions).where(inArray(tradePositions.id, tradeIds));
     }
     if (settlementOfferId) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, settlementOfferId)).catch(() => {});
+    if (settlementImmediateOfferId) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, settlementImmediateOfferId)).catch(() => {});
     if (userId !== undefined) await db.delete(customerBalances).where(eq(customerBalances.userId, userId)).catch(() => {});
     if (adminId !== undefined) await db.delete(users).where(eq(users.id, adminId)).catch(() => {});
     if (fundingUserId !== undefined) {
