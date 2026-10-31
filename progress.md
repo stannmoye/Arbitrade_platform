@@ -1,3 +1,15 @@
+## 2026-10-31 — Company catalogue access and admin status completion
+
+- Stage A review of PR #258 against `main` found that customer Trading still used public full-catalogue company search/count/summary routes. This exposed unverified and archived source records outside the popup selector. Replaced the customer calls with authenticated customer-only endpoints; full catalogue search/count/summary and direct lookup/symbol/random/next routes now require administrator authorization.
+- Customer endpoints filter the full source set against current `verifiedIds`, `disabledIds`, and `archivedIds` before pagination/counting. Missing or malformed state fails closed. Active popup snapshots are rechecked at customer read time using a shared Set-backed guard; durable worker selection and preview use the same verified/enabled/non-archived policy.
+- Completed the administrator company status controls: verify, reject/unverify, enable, disable, archive and restore. Enable/disable is independent of verification; enabling never approves a company. Status writes remain row-locked, transactional and audited. Added unit/contract coverage and expanded the MySQL/MariaDB company-rotation integration to exercise persisted status transitions, disable exclusion, archived precedence and empty approved pools.
+- Updated the canonical Trading specification, admin configuration manual, `AGENTS.md`, README, implementation coordination guide, admin menu guide and customer/admin guide to remove the conflicting full-catalogue customer-browse rule and document disabled-state exclusion.
+- Migration review remains consistent: 0096/0097 are journaled, portal/recovery-runner compatible, and runtime contracts cover the worker-critical fields. The MySQL compatibility runner handles idempotent index/column syntax; no production database was touched.
+- A previous exact-head CI attempt on `9de0ee0` exposed four stale contract assertions after the customer route/label refactor (old public endpoint/status/label assumptions); TypeScript check passed. Those assertions were updated to the new protected routes and admin actions. The subsequent exact-head CI attempt was cancelled while its jobs were queued by a newer commit. Current code/documentation head before this progress update: `f264bda1624bd7a857dd5ea05d0d74a95e4ef6c6`; its fresh 10-workflow matrix must be checked after this documentation commit.
+- PR #258 remains open, draft and unmerged. No merge, deployment or production migration was performed. Stage C–F end-to-end, migration, regression and performance acceptance remains pending exact-head CI and final review.
+
+---
+
 ## 2026-10-31 — Final review follow-up: close customer company catalogue exposure
 
 - Whole-branch review found a customer-facing search surface not covered by the original verified-only pop-up filter: `CustomerOpportunities` queried the public `companyCatalogueReference.search/count/summary` routes and displayed the full 1,811-record catalogue, including unverified and archived records. The canonical specification, administrator manual, repository instructions and customer guide still described that older behavior.
