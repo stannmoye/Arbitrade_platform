@@ -140,19 +140,10 @@ export async function updateCompanyCatalogueAdminState(input: {
     await tx.insert(appSettings).values({ settingKey, settingValue: "{}", updatedBy: input.updatedBy })
       .onDuplicateKeyUpdate({ set: { settingKey } });
     const row = (await tx.select().from(appSettings).where(eq(appSettings.settingKey, settingKey)).limit(1).for("update"))[0];
-    let verifiedIds: string[] = [];
-    let archivedIds: string[] = [];
-    let disabledIds: string[] = [];
-    try {
-      const parsed = JSON.parse(row?.settingValue ?? "{}") as { verifiedIds?: string[]; archivedIds?: string[]; disabledIds?: string[] };
-      verifiedIds = (parsed.verifiedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
-      archivedIds = (parsed.archivedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
-      disabledIds = (parsed.disabledIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
-    } catch {
-      verifiedIds = [];
-      archivedIds = [];
-      disabledIds = [];
-    }
+    const currentCatalogueState = parseCompanyCatalogueAdminState(row?.settingValue ?? "{}");
+    const verifiedIds = [...currentCatalogueState.verifiedIds];
+    const archivedIds = [...currentCatalogueState.archivedIds];
+    const disabledIds = [...(currentCatalogueState.disabledIds ?? [])];
     const verified = new Set(verifiedIds);
     const archived = new Set(archivedIds);
     const disabled = new Set(disabledIds);
