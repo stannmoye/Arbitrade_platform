@@ -1,3 +1,14 @@
+## 2026-10-31 — Final whole-branch review: current company approval guard
+
+- Reviewed PR #258 against `main` at base `048620efa2c68d707c87fb22ba63ebeb6a924772`; the branch was at `4e139c3550da03b41403190323a83e143d127258` before this review change. PR remains open, draft and unmerged.
+- Rechecked the customer company selection path in `ensurePopupDeliveries`, durable company rotation, the customer opportunity read path, and the administrator catalogue state. New rotation pools already fail closed unless an ID is in the current admin `verifiedIds` allowlist and not in `archivedIds`. Customer reads also strip company identity from persisted active popup snapshots when current approval has been revoked.
+- Centralized the current customer-display authorization predicate as `isCompanySpotlightDisplayAllowed` and used it in `listCustomerOpportunities` for both candidate allocation data and returned popup snapshots. This avoids two independently maintained allowlist checks and keeps stale references fail-closed.
+- Extended the executable company-rotation unit tests for immediate revocation after unverify/reject/disable, archive precedence, malformed state, and stale/non-string snapshot IDs. Existing MySQL/MariaDB rotation integration already verifies approved-only selection and no-company behavior when the approved pool is empty.
+- Reviewed migrations 0096/0097 and the compatibility runner: both are registered in the journal and portal/recovery runners; the runner translates idempotent index creation and column additions for MySQL compatibility. No production database was accessed.
+- Exact-head CI for this review follow-up is pending; do not treat earlier 10/10 workflow success on `4e139c3` as validation of this new code. Next: inspect fresh workflow results, finish customer/admin workflow and package-policy audits, then refresh this record with the exact final head and CI outcome.
+
+---
+
 ## 2026-10-31 — Stage 3C.3 previous-settlement gate — verified
 
 - Final implementation head: `93d6f625b011fdb3bef239658bafea3f65a9eaa9` on `fix/trade-lifecycle-and-admin-policy-completion`; PR #258 remains open, draft and unmerged. The initial gate-only implementation was `208ee15`; the final head also includes deferred retry and release of both attempt budgets.
