@@ -64,6 +64,16 @@ describe("trade execution retry policy", () => {
     expect(() => decideTradeExecutionRetry({ code: "ETIMEDOUT" }, 1, 0, now)).toThrow("Invalid trade execution retry policy inputs");
   });
 
+  it("keeps per-opportunity retries separate from the customer-wide daily attempt budget", () => {
+    const source = readFileSync(new URL("../db.ts", import.meta.url), "utf8");
+    expect(source).toContain("MAX_TRANSIENT_RETRIES_PER_OPPORTUNITY");
+    expect(source).toContain("COALESCE(SUM(executionAttemptCount),0) AS count");
+    expect(source).toContain("executionRetryDay=${day}");
+    expect(source).toContain("DAILY_TRADE_ATTEMPT_LIMIT_REACHED");
+    expect(source).toContain("SELECT id FROM users WHERE id=${userId} FOR UPDATE");
+    expect(source).not.toContain("attempts>=maxAttempts");
+  });
+
   it("persists bounded retry state and never retries a trade after the opportunity is terminal", () => {
     const source = readFileSync(new URL("../db.ts", import.meta.url), "utf8");
     expect(source).toContain("claimOpportunityExecutionAttempt");
