@@ -237,8 +237,8 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <div class="eyebrow">07 · Timing rules</div><h2>Trade Duration & Closing Rules</h2>
 <p>This page is in <strong>Set up trades → How trades finish</strong>. It has internal tabs for Ticket, Email, Trade and Password/Security; choose the Trade tab. The focused submenu opens the trade timing area directly.</p>
 <div class="field-list">
-<div class="field"><b>Settlement time (minutes)</b><span>Configured settlement delay value used by the timing policy.</span></div>
-<div class="field"><b>Wallet credit delay after trade completion (seconds)</b><span>Separates completion/settlement from when a wallet credit is posted.</span></div>
+<div class="field"><b>Settlement review delay (minutes)</b><span>Wait after the saved trade completion time before an administrator may review and confirm the actual result. The server persists this as settlementReviewAt.</span></div>
+<div class="field"><b>Wallet credit delay after review becomes due (seconds)</b><span>Added to settlementReviewAt to create creditAt. An administrator must still confirm the actual result; if confirmation is late and creditAt has passed, the worker may post immediately after confirmation.</span></div>
 <div class="field"><b>Cooldown before next automatic trade (seconds)</b><span>Wait after wallet credit before another automatic allocation may be allowed.</span></div>
 <div class="field"><b>Formula delay before next popup (seconds)</b><span>Server-side delay before another opportunity calculation/delivery can happen.</span></div>
 <div class="field"><b>Popup cooldown (seconds)</b><span>Minimum spacing between customer popup notifications.</span></div>
@@ -262,15 +262,15 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <div class="field"><b>Save fee policy</b><span>Saves an audited, versioned fee policy. Each settlement retains the fee rate, rounding rule and policy version used.</span></div>
 </div>
 <h3>Manual settlement queue</h3>
-<p>The queue shows trades awaiting administrator confirmation. Review the customer/trade ID, due status, evidence health, principal, and reserved reward. A reserved reward is an estimate—not an actual result.</p>
+<p>The queue shows trades awaiting administrator review and trades whose actual result is confirmed but whose wallet credit is still waiting. Review the customer/trade ID, review deadline, credit deadline, evidence reference, principal, and reserved reward. A reserved reward is an estimate—not an actual result.</p>
 <div class="field-list">
 <div class="field"><b>Actual gross profit/loss (minor units)</b><span>Enter the independently verified actual result in the currency's smallest unit. A negative value represents a loss.</span></div>
 <div class="field"><b>Settlement evidence reference</b><span>Required reference to the evidence supporting the actual result. Do not invent a reference.</span></div>
-<div class="field"><b>Confirm actual result</b><span>Submits the result for server-side due-time/evidence checks and atomic ledger settlement. If it is early or invalid, the server rejects it.</span></div>
+<div class="field"><b>Confirm actual result</b><span>Submits the actual result for server-side review-time/evidence checks and saves the confirmation. It does not post wallet funds; the monitored worker posts the ledger and wallet changes only when creditAt is reached.</span></div>
 </div>
 <h3>Wallet reconciliation</h3>
 <p>The read-only reconciliation compares available wallet balances with signed ledger entries and flags differences. It is for investigation; it does not let an administrator edit ledger history.</p>
-<div class="callout warn">Never settle a trade because the countdown reached zero. Verify the underlying evidence and confirm only the actual gross result. Principal, gross result, fee, net result and total credit are separate amounts.</div>
+<div class="callout warn">Never confirm a trade because the countdown reached zero. Verify the underlying evidence and confirm only the actual gross result. Confirmation leaves principal locked; wallet credit happens later at creditAt. Principal, gross result, fee, net result and total credit are separate amounts.</div>
 </section>
 
 <section class="section anchor" id="monitor">
