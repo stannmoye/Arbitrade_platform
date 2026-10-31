@@ -63,7 +63,7 @@ Database changes should use ordered forward migrations and retry-safe server-sid
 ### Company catalogue UI integration
 
 - The full 1,811-record company source catalogue is administrator-only. Customer company search/count/summary endpoints must return only IDs in the current persisted admin `verifiedIds` set and must exclude every ID in `archivedIds` and `disabledIds`; filter before pagination and before calculating counts.
-- Customer routes must not expose the full catalogue or public direct lookup/random/rotation endpoints. The customer Trading page may search only the currently approved, non-archived subset; unverify/archive changes must hide previously selected active company identities on the next customer read.
+- Customer routes must not expose the full catalogue or public direct lookup/random/rotation endpoints. The customer Trading page may search only the currently approved, enabled, non-archived subset; unverify/disable/archive changes must hide previously selected active company identities on the next customer read.
 - Missing or malformed administrator state fails closed with no customer company records or pop-up identity. Admins retain full search and management access to verified, unverified, disabled and archived records, including separate enable/disable actions; enabling never grants verification.
 - Keep company ID, local logo, country folder, supplied ticker, exchange, and dataset status associated on each permitted result. Customer display approval is not securities listing verification or trade-execution authorization.
 - Display supplied ticker values as supplied; do not imply they are verified or guaranteed to resolve with a market-data provider.
