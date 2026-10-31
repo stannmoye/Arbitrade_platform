@@ -1,3 +1,16 @@
+## 2026-10-31 — Stage 3C.3 previous-settlement gate — verified
+
+- Implementation head: `208ee15f1821eaa0c5e03e39a55eb9f8701014f7` on `fix/trade-lifecycle-and-admin-policy-completion`; PR #258 remains open, draft and unmerged.
+- Enforced `requirePreviousSettlement` inside the customer-locked trade-allocation transaction. When enabled for the selected tier, any earlier non-cancelled trade for that customer, across all tiers, must have both `status=settled` and `settlementStatus=completed` before a new allocation can proceed.
+- Administrator confirmation alone does not clear the gate; the confirmed trade remains blocking until the wallet-credit transaction commits. The prior trade row is locked during the check. A disabled setting removes only this gate for the selected tier.
+- The gate runs after idempotent replay detection, so a retry of an already-allocated event remains safe and does not create a new allocation.
+- Reviewed global allocation pause semantics: the persisted pause is checked inside `createTrade` for new allocations; settlement review, confirmed wallet-credit posting and reconciliation do not depend on that pause setting.
+- Disposable opportunity-worker integration emitted `previousSettlementGateBlocked=true` on both MySQL 8.4 and MariaDB 11.4. It verified one trade only and unchanged wallet/ledger state after the blocked allocation.
+- All 10 exact-head workflow groups passed on code head `208ee15`, including TypeScript, tests, production build, browser recovery, installer/migration validation, Mining regression, settlement, wallet idempotency, tier qualification, opportunity worker and company rotation.
+- No production database migration, merge or deployment occurred.
+
+---
+
 ## 2026-10-31 — Stage 3C.2 UTC rollover accounting — verified
 
 - Code and database test head: `d55da4ccb64f3eb742d551dab2064a5bf98c8dca`; PR #258 remains open, draft and unmerged.
