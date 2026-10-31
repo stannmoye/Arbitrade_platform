@@ -1,6 +1,8 @@
 import {describe,expect,it} from "vitest";
 import {COMPANY_REFERENCE_CATALOGUE} from "./company-catalogue-reference";
-import {buildCompanySpotlightPool,nextCompanySpotlight,normalizeCompanyRotationCountryNames,parseCompanyCatalogueAdminState} from "./company-spotlight-rotation";\n\nconst allVerifiedState={verifiedIds:COMPANY_REFERENCE_CATALOGUE.map(company=>company.id),archivedIds:[]};
+import {buildCompanySpotlightPool,nextCompanySpotlight,normalizeCompanyRotationCountryNames,parseCompanyCatalogueAdminState} from "./company-spotlight-rotation";
+
+const allVerifiedState={verifiedIds:COMPANY_REFERENCE_CATALOGUE.map(company=>company.id),archivedIds:[]};
 
 describe("package-scoped company spotlight rotation",()=>{
   it("uses stable Logo IDs from the full informational catalogue",()=>{
