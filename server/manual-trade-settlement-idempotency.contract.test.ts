@@ -75,10 +75,12 @@ describe("manual trade settlement idempotency", () => {
     expect(implementation).toContain("Settlement notes must not exceed 2000 characters");
   });
 
-  it("rejects manual settlement before the trade due timestamp", () => {
-    expect(implementation).toContain("const settlementDueAt=trade.creditAt||trade.settlesAt");
+  it("allows evidence review at trade completion without waiting for the later wallet-credit timestamp", () => {
+    expect(implementation).toContain("const settlementDueAt=trade.settlesAt");
     expect(implementation).toContain("Trade is not yet due for settlement confirmation");
     expect(implementation).toContain("new Date(settlementDueAt).getTime()>Date.now()");
+    expect(implementation).toContain('settlementStatus:"confirmed_awaiting_credit"');
+    expect(implementation).not.toContain("const settlementDueAt=trade.creditAt||trade.settlesAt");
   });
 
   it("locks the trade and treats a matching completed reference/result as a replay", () => {
