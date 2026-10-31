@@ -4298,7 +4298,7 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     assertExactlyOneAffectedRow(settlementUpdate,"Manual trade result confirmation transition");
     await tx.insert(tradeLifecycleEvents).values({
       tradeId,userId:trade.userId,eventType:"manual_settlement_confirmed",stage:"Settlement Confirmed — Awaiting Wallet Credit",
-      payloadJson:JSON.stringify({principalMinor:principal,grossProfitMinor:accounting.grossProfitMinor,platformFeeMinor:accounting.platformFeeMinor,netProfitMinor:accounting.netProfitMinor,feeRateBps:feePolicy.feeRateBps,roundingMode:feePolicy.roundingMode,feePolicyVersion:feePolicy.policyVersion,outcome:accounting.outcome,reference,adminId,creditAt:trade.creditAt||trade.settlesAt}),
+      payloadJson:JSON.stringify({principalMinor:principal,grossProfitMinor:accounting.grossProfitMinor,platformFeeMinor:accounting.platformFeeMinor,netProfitMinor:accounting.netProfitMinor,feeRateBps:feePolicy.feeRateBps,roundingMode:feePolicy.roundingMode,feePolicyVersion:feePolicy.policyVersion,outcome:accounting.outcome,reference,adminId,creditAt:trade.creditAt||trade.settlementReviewAt||trade.settlesAt}),
     });
     if(accounting.netProfitMinor>Number(trade.rewardReservedMinor||0)){
       await tx.insert(tradeLifecycleEvents).values({
@@ -4313,7 +4313,7 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
       rewardMinor:Math.max(0,accounting.netProfitMinor),totalMinor:accounting.totalReturnedMinor,
       feeRateBps:feePolicy.feeRateBps,roundingMode:feePolicy.roundingMode,
       feePolicyVersion:feePolicy.policyVersion,outcome:accounting.outcome,reference,legacyUnrecorded:false,
-      walletCreditPending:true,creditAt:trade.creditAt||trade.settlesAt,
+      walletCreditPending:true,creditAt:trade.creditAt||trade.settlementReviewAt||trade.settlesAt,
     };
   });
   // Popup completion is recorded only after the separate wallet-credit worker commits.
@@ -4329,7 +4329,7 @@ export async function processConfirmedTradeCredits(input?: { limit?: number }) {
     eq(tradePositions.status,"confirmed"),
     eq(tradePositions.settlementStatus,"confirmed_awaiting_credit"),
     or(lte(tradePositions.creditAt,now),and(isNull(tradePositions.creditAt),or(lte(tradePositions.settlementReviewAt,now),and(isNull(tradePositions.settlementReviewAt),lte(tradePositions.settlesAt,now))))),
-  )).orderBy(tradePositions.creditAt).limit(limit);
+  )).orderBy(tradePositions.creditAt,tradePositions.settlementReviewAt,tradePositions.settlesAt).limit(limit);
   let credited=0;
   let skipped=0;
   for(const item of due){
