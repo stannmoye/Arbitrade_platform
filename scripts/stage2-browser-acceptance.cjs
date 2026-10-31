@@ -226,14 +226,17 @@ async function runAdminAppearanceInteractionCheck(browser) {
 
     // Platform Configuration now lives in the right-side Admin Menus drawer.
     await page.getByRole("button", { name: "Open Admin Menus" }).click();
-    const platformConfigurationGroup = page.getByRole("button", { name: /Platform Configuration/ });
+    const adminDrawer = page.locator("#admin-navigation-drawer");
+    await adminDrawer.waitFor({ state: "visible" });
+    const platformConfigurationGroup = adminDrawer.locator(".admin-secondary-group-heading")
+      .filter({ hasText: "Platform Configuration" });
     await platformConfigurationGroup.waitFor({ state: "visible" });
     // Secondary drawer groups are expanded by default. Only toggle the group
     // when it is collapsed, otherwise the click would hide its menu items.
     if (await platformConfigurationGroup.getAttribute("aria-expanded") !== "true") {
       await platformConfigurationGroup.click();
     }
-    await page.getByRole("button", { name: /Appearance & Themes/ }).click();
+    await adminDrawer.getByRole("button", { name: /Appearance & Themes/ }).click();
     // AdminAppearance is intentionally lazy-loaded to keep admin-only settings
     // out of the customer-facing entry bundle. Wait for that async route chunk.
     await page.getByRole("heading", { name: "Theme management" }).waitFor({
