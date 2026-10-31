@@ -261,6 +261,8 @@ export const opportunityPopupEvents = mysqlTable("opportunity_popup_events", {
   executionRetryAfter: timestamp("executionRetryAfter"),
   executionLeaseToken: varchar("executionLeaseToken", { length: 64 }),
   executionRetryDay: varchar("executionRetryDay", { length: 10 }),
+  executionDailyAttemptCount: int("executionDailyAttemptCount").default(0).notNull(),
+  executionDailyAttemptDay: varchar("executionDailyAttemptDay", { length: 10 }),
   executionLastErrorCode: varchar("executionLastErrorCode", { length: 80 }),
   receivedAt: timestamp("receivedAt"),
   renderedAt: timestamp("renderedAt"),
@@ -275,7 +277,9 @@ export const opportunityPopupEvents = mysqlTable("opportunity_popup_events", {
   settledAt: timestamp("settledAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+  dailyAttemptUserDayIdx: index("opportunity_popup_user_daily_attempt_day_idx").on(table.userId, table.executionDailyAttemptDay),
+}));
 export const opportunityPopupDaily = mysqlTable("opportunity_popup_daily", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
@@ -543,6 +547,7 @@ export const tradePositions = mysqlTable("trade_positions", {
   status: mysqlEnum("status", ["pending", "confirmed", "settled", "cancelled"]).default("confirmed").notNull(),
   confirmedAt: timestamp("confirmedAt").defaultNow().notNull(),
   settlesAt: timestamp("settlesAt").notNull(),
+  settlementReviewAt: timestamp("settlementReviewAt"),
   creditAt: timestamp("creditAt"),
   settledAt: timestamp("settledAt"),
   lifecycleStage: varchar("lifecycleStage", { length: 48 }).default("Trade Allocated").notNull(),

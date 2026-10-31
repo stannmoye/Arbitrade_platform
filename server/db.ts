@@ -15,14 +15,15 @@ import { calculateConfiguredProfitMinor, chooseInclusiveInteger } from "./module
 import { planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, usdUnitsToNativeMinor } from "../shared/money";
-import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
+import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, createCompanySpotlightDisplayGuard, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
+import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule } from "./modules/trading-delivery-quota";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
-import { decideTradeExecutionRetry } from "./modules/trade-execution-retry";
+import { decideTradeExecutionRetry, MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY } from "./modules/trade-execution-retry";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
 import { isAllowedAttachmentRequest, isSupportAttachmentStorageKeyForTicket, isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
-import { assertNotificationPayloadMatches, buildNotificationEventKey, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
+import { assertNotificationPayloadMatches, buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
@@ -123,7 +124,7 @@ export async function setAppSetting(key: string, value: string, updatedBy?: numb
 
 export async function updateCompanyCatalogueAdminState(input: {
   ids: string[];
-  status: "verified" | "unverified" | "archived";
+  status: "verified" | "unverified" | "archived" | "disabled" | "enabled";
   reason: string;
   updatedBy: number;
 }) {
@@ -139,28 +140,25 @@ export async function updateCompanyCatalogueAdminState(input: {
     await tx.insert(appSettings).values({ settingKey, settingValue: "{}", updatedBy: input.updatedBy })
       .onDuplicateKeyUpdate({ set: { settingKey } });
     const row = (await tx.select().from(appSettings).where(eq(appSettings.settingKey, settingKey)).limit(1).for("update"))[0];
-    let verifiedIds: string[] = [];
-    let archivedIds: string[] = [];
-    try {
-      const parsed = JSON.parse(row?.settingValue ?? "{}") as { verifiedIds?: string[]; archivedIds?: string[] };
-      verifiedIds = (parsed.verifiedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
-      archivedIds = (parsed.archivedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
-    } catch {
-      verifiedIds = [];
-      archivedIds = [];
-    }
+    const currentCatalogueState = parseCompanyCatalogueAdminState(row?.settingValue ?? "{}");
+    const verifiedIds = [...currentCatalogueState.verifiedIds];
+    const archivedIds = [...currentCatalogueState.archivedIds];
+    const disabledIds = [...(currentCatalogueState.disabledIds ?? [])];
     const verified = new Set(verifiedIds);
     const archived = new Set(archivedIds);
+    const disabled = new Set(disabledIds);
     const updatedAt = new Date().toISOString();
     for (const id of ids) {
-      verified.delete(id);
-      archived.delete(id);
-      if (input.status === "verified") verified.add(id);
-      if (input.status === "archived") archived.add(id);
+      if (input.status === "verified") { verified.add(id); archived.delete(id); disabled.delete(id); }
+      if (input.status === "unverified") { verified.delete(id); archived.delete(id); disabled.delete(id); }
+      if (input.status === "archived") { verified.delete(id); disabled.delete(id); archived.add(id); }
+      if (input.status === "disabled") disabled.add(id);
+      if (input.status === "enabled") disabled.delete(id);
     }
     const nextValue = JSON.stringify({
       verifiedIds: [...verified].sort(),
       archivedIds: [...archived].sort(),
+      disabledIds: [...disabled].sort(),
       lastAction: { status: input.status, count: ids.length, reason: input.reason.trim(), updatedAt, updatedBy: input.updatedBy },
     });
     await tx.update(appSettings).set({ settingValue: nextValue, updatedBy: input.updatedBy, updatedAt: new Date() }).where(eq(appSettings.settingKey, settingKey));
@@ -1081,6 +1079,23 @@ export async function listCurrencies(){const db=await getDb();if(!db)throw new E
 export async function upsertCurrency(input:{code:string;name:string;symbol:string;scale:number;assetType:"fiat"|"crypto"|"token";usdRate:string;rateProvider:string;externalCode?:string;enabled?:boolean}){const db=await getDb();if(!db)throw new Error("Database is not available");const code=input.code.trim().toUpperCase();if(!/^[A-Z0-9._-]{2,32}$/.test(code))throw new Error("Currency code must be 2-32 letters or numbers");if(!/^[0-9]+(\\.[0-9]+)?$/.test(input.usdRate)||Number(input.usdRate)<=0)throw new Error("USD rate must be a positive decimal");await db.insert(currencyRegistry).values({...input,code,enabled:input.enabled??true}).onDuplicateKeyUpdate({set:{name:input.name.trim(),symbol:input.symbol.trim(),scale:input.scale,assetType:input.assetType,usdRate:input.usdRate,rateProvider:input.rateProvider.trim(),externalCode:input.externalCode||null,enabled:input.enabled??true}});return (await db.select().from(currencyRegistry).where(eq(currencyRegistry.code,code)).limit(1))[0];}
 export async function listBalances(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");const currencies=await listCurrencies();const existing=await db.select().from(customerBalances).where(eq(customerBalances.userId,userId));const byCode=new Map(existing.map(x=>[x.currency,x]));return currencies.map(c=>byCode.get(c.code)||{id:0,userId,currency:c.code,availableMinor:0,lockedMinor:0,promotionalMinor:0,earnedMinor:0,updatedAt:null});}
 export async function getCustomerBalanceSummary(userId:number){const currencies=await listCurrencies();const balances=await listBalances(userId);const byCode=new Map(balances.map(x=>[x.currency,x]));let availableUsd=0,lockedUsd=0,promotionalUsd=0,earnedUsd=0;for(const c of currencies){const b=byCode.get(c.code);const factor=Math.pow(10,c.scale);const rate=Number(c.usdRate)||0;availableUsd+=(Number(b?.availableMinor||0)/factor)*rate;lockedUsd+=(Number(b?.lockedMinor||0)/factor)*rate;promotionalUsd+=(Number(b?.promotionalMinor||0)/factor)*rate;earnedUsd+=(Number(b?.earnedMinor||0)/factor)*rate;}return {balances,currencies,summary:{availableUsd,lockedUsd,promotionalUsd,earnedUsd,totalUsd:availableUsd+lockedUsd}};}
+/** Return only the authenticated customer's persisted wallet ledger history. */
+export async function listCustomerWalletLedger(userId: number, limit = 50) {
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("A valid customer account is required.");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const safeLimit = Number.isSafeInteger(limit) ? Math.max(1, Math.min(100, limit)) : 50;
+  return db.select({
+    id: balanceLedger.id,
+    currency: balanceLedger.currency,
+    amountMinor: balanceLedger.amountMinor,
+    entryType: balanceLedger.entryType,
+    createdAt: balanceLedger.createdAt,
+  }).from(balanceLedger)
+    .where(eq(balanceLedger.userId, userId))
+    .orderBy(desc(balanceLedger.createdAt), desc(balanceLedger.id))
+    .limit(safeLimit);
+}
 
 
 const PAYOUT_ASSET_CODES = new Set(["USD", "EUR", "GBP", "BTC", "ETH", "USDT"]);
@@ -1822,16 +1837,19 @@ export async function listAdminCustomers(){
   }
   const packageByUser=new Map<number,string[]>();
   for(const subscription of activePackages){const names=packageByUser.get(subscription.userId)||[];names.push(subscription.packageName);packageByUser.set(subscription.userId,names);}
-  const qualifyingLedgerRows=await db.select({
+  // Aggregate in the database so the admin directory materializes at most one
+  // qualifying-credit summary row per customer, not every historical ledger entry.
+  const qualifyingLedgerTotals=await db.select({
     userId:balanceLedger.userId,
-    qualifyingDepositUsdMinor:balanceLedger.qualifyingDepositUsdMinor,
-    entryType:balanceLedger.entryType,
-  }).from(balanceLedger).where(inArray(balanceLedger.entryType,["admin_manual_deposit_credit","admin_manual_deposit_reversal"]));
+    qualifyingDepositUsdMinor:sql<number>`COALESCE(SUM(${balanceLedger.qualifyingDepositUsdMinor}),0)`,
+  }).from(balanceLedger)
+    .where(inArray(balanceLedger.entryType,["admin_manual_deposit_credit","admin_manual_deposit_reversal"]))
+    .groupBy(balanceLedger.userId);
   const qualifyingUsdMinorByUser=new Map<number,number>();
-  for(const entry of qualifyingLedgerRows){
+  for(const entry of qualifyingLedgerTotals){
     const attributed=Number(entry.qualifyingDepositUsdMinor||0);
     if(!Number.isSafeInteger(attributed)) continue;
-    qualifyingUsdMinorByUser.set(entry.userId,(qualifyingUsdMinorByUser.get(entry.userId)||0)+attributed);
+    qualifyingUsdMinorByUser.set(entry.userId,attributed);
   }
   return rows.filter(row=>row.role!=="admin").map(row=>{
     const control=byUser.get(row.id);
@@ -3004,13 +3022,18 @@ async function markOpportunityExecuted(userId:number,offerId:number,executionLea
   await db.update(opportunityPopupEvents).set({executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,updatedAt:new Date()})
     .where(and(eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offerId),eq(opportunityPopupEvents.eventStatus,"TRADED"),eq(opportunityPopupEvents.executionLeaseToken,executionLeaseToken)));
 }
-export async function claimOpportunityExecutionAttempt(userId:number, offer:any, maxAttempts:number){
+export async function claimOpportunityExecutionAttempt(userId:number, offer:any){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   return db.transaction(async tx=>{
+    // Match createTrade's customer-first lock order and serialize all claims for
+    // this customer, including claims on different opportunity events.
+    const userLock=await tx.execute(sql`SELECT id FROM users WHERE id=${userId} FOR UPDATE`) as any;
+    if(!userLock?.[0]?.[0]?.id) return {claimed:false,reason:"customer-unavailable"};
     const event=(await tx.select({
       id:opportunityPopupEvents.id,eventStatus:opportunityPopupEvents.eventStatus,tradeId:opportunityPopupEvents.tradeId,
+      packageName:opportunityPopupEvents.packageName,
       executionStatus:opportunityPopupEvents.executionStatus,executionAttemptCount:opportunityPopupEvents.executionAttemptCount,executionLeaseToken:opportunityPopupEvents.executionLeaseToken,
-      executionRetryAfter:opportunityPopupEvents.executionRetryAfter,executionRetryDay:opportunityPopupEvents.executionRetryDay,executionLastErrorCode:opportunityPopupEvents.executionLastErrorCode,
+      executionRetryAfter:opportunityPopupEvents.executionRetryAfter,executionRetryDay:opportunityPopupEvents.executionRetryDay,executionDailyAttemptCount:opportunityPopupEvents.executionDailyAttemptCount,executionDailyAttemptDay:opportunityPopupEvents.executionDailyAttemptDay,executionLastErrorCode:opportunityPopupEvents.executionLastErrorCode,
     }).from(opportunityPopupEvents).where(and(eq(opportunityPopupEvents.id,Number(offer.deliveryEventId)),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,Number(offer.offerId)))).limit(1).for("update"))[0];
     if(!event||event.tradeId||["TRADED","SETTLED"].includes(String(event.eventStatus))||String(event.executionStatus)==="SUCCEEDED") return {claimed:false,reason:"terminal"};
     if(String(event.executionStatus)==="FAILED") return {claimed:false,reason:"failed",errorCode:String((event as any).executionLastErrorCode||"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED")};
@@ -3022,23 +3045,57 @@ export async function claimOpportunityExecutionAttempt(userId:number, offer:any,
       return {claimed:false,reason:"retry-window-expired"};
     }
     if(event.executionRetryAfter&&new Date(event.executionRetryAfter).getTime()>now.getTime()) return {claimed:false,reason:"waiting"};
-    if(!Number.isSafeInteger(maxAttempts)||maxAttempts<1||attempts>=maxAttempts){
-      await tx.update(opportunityPopupEvents).set({executionStatus:"FAILED",executionRetryAfter:null,executionLastErrorCode:"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED",updatedAt:now}).where(eq(opportunityPopupEvents.id,event.id));
+    // Lifetime claims are diagnostic only. The daily event counter is the
+    // bounded per-opportunity retry window and also contributes to the
+    // customer-wide daily budget below, including after a worker crash.
+    const transientAttempts=String(event.executionDailyAttemptDay||"")===day
+      ?Number(event.executionDailyAttemptCount||0):0;
+    if(!Number.isSafeInteger(transientAttempts)||transientAttempts<0) return {claimed:false,reason:"attempt-count-invalid"};
+    if(transientAttempts>=MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY){
+      await tx.update(opportunityPopupEvents).set({
+        executionStatus:"FAILED",executionRetryAfter:null,
+        executionLastErrorCode:"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED",updatedAt:now,
+      }).where(eq(opportunityPopupEvents.id,event.id));
       return {claimed:false,reason:"attempts-exhausted"};
     }
+    const policy=(await tx.select({maxTradeAttemptsPerDay:opportunityPackagePolicies.maxTradeAttemptsPerDay})
+      .from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,String(event.packageName||""))).limit(1).for("update"))[0];
+    if(!policy) return {claimed:false,reason:"policy-unavailable"};
+    const dailyAttemptLimit=Number(policy.maxTradeAttemptsPerDay);
+    if(!Number.isSafeInteger(dailyAttemptLimit)||dailyAttemptLimit<0) return {claimed:false,reason:"policy-invalid"};
+    if(dailyAttemptLimit>0){
+      const usedRows=await tx.execute(sql`SELECT COALESCE(SUM(executionDailyAttemptCount),0) AS count
+        FROM opportunity_popup_events WHERE userId=${userId} AND executionDailyAttemptDay=${day}`) as any;
+      const usedAttempts=Number(usedRows?.[0]?.[0]?.count||0);
+      if(usedAttempts>=dailyAttemptLimit){
+        const nextDayStart=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+1));
+        await tx.update(opportunityPopupEvents).set({
+          executionStatus:"RETRYING",executionRetryAfter:nextDayStart,
+          executionLastErrorCode:"DAILY_TRADE_ATTEMPT_LIMIT_REACHED",updatedAt:now,
+        }).where(eq(opportunityPopupEvents.id,event.id));
+        return {claimed:false,reason:"daily-attempt-limit",usedAttempts,dailyAttemptLimit};
+      }
+    }
     const executionLeaseToken=crypto.randomUUID();
+    const transientAttemptNumber=transientAttempts+1;
     await tx.update(opportunityPopupEvents).set({
       executionStatus:"RUNNING",executionAttemptCount:attempts+1,executionLeaseToken,
+      executionDailyAttemptCount:transientAttemptNumber,
+      executionDailyAttemptDay:day,
       executionRetryAfter:new Date(now.getTime()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),executionRetryDay:day,updatedAt:now,
     }).where(eq(opportunityPopupEvents.id,event.id));
-    return {claimed:true,attemptNumber:attempts+1,eventId:Number(event.id),executionLeaseToken};
+    return {claimed:true,attemptNumber:attempts+1,transientAttemptNumber,eventId:Number(event.id),executionLeaseToken};
   });
 }
-async function recordOpportunityExecutionFailure(userId:number,eventId:number, state:{status:"RETRYING"|"FAILED";retryAt?:Date;errorCode:string;attemptNumber?:number;releaseAttempt?:boolean;executionLeaseToken:string}){
+export async function recordOpportunityExecutionFailure(userId:number,eventId:number, state:{status:"RETRYING"|"FAILED";retryAt?:Date;errorCode:string;attemptNumber?:number;releaseAttempt?:boolean;executionLeaseToken:string}){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const now=new Date();
   const set:any={executionStatus:state.status,executionRetryAfter:state.retryAt||null,executionLastErrorCode:state.errorCode,updatedAt:now};
-  if(state.releaseAttempt&&Number.isSafeInteger(state.attemptNumber)) set.executionAttemptCount=Math.max(0,Number(state.attemptNumber)-1);
+  if(state.releaseAttempt) {
+    if(Number.isSafeInteger(state.attemptNumber)) set.executionAttemptCount=Math.max(0,Number(state.attemptNumber)-1);
+    // A claim released before allocation must not consume either retry budget.
+    set.executionDailyAttemptCount=sql`GREATEST(${opportunityPopupEvents.executionDailyAttemptCount}-1,0)`;
+  }
   if(state.status==="RETRYING") set.executionRetryDay=now.toISOString().slice(0,10);
   await db.update(opportunityPopupEvents).set(set).where(and(eq(opportunityPopupEvents.id,eventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.executionLeaseToken,state.executionLeaseToken),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED"])));
 }
@@ -3069,8 +3126,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
       continue;
     }
     const terms=calculateTradeTerms(userId,offer,requestedAmount);
-    const maxAttempts=Number.isSafeInteger(Number(offer.maxTradeAttemptsPerDay))?Number(offer.maxTradeAttemptsPerDay):5;
-    const claim=await claimOpportunityExecutionAttempt(userId,offer,maxAttempts);
+    const claim=await claimOpportunityExecutionAttempt(userId,offer);
     if(!claim.claimed){
       if(claim.reason==="retry-window-expired"||claim.reason==="attempts-exhausted"||claim.reason==="failed"){
         const reason=claim.reason==="retry-window-expired"?"TEMPORARY_EXECUTION_RETRY_WINDOW_EXPIRED":claim.reason==="failed"?String((claim as any).errorCode||"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED"):"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED";
@@ -3104,7 +3160,13 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
         await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:new Date(Date.now()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),errorCode:"ALLOCATION_PAUSED",attemptNumber:claim.attemptNumber,releaseAttempt:true,executionLeaseToken});
         continue;
       }
-      const decision=decideTradeExecutionRetry(error,Number(claim.attemptNumber),Math.max(1,maxAttempts),new Date(),Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30)));
+      // A previous-settlement gate is temporary business state, not a failed
+      // opportunity. Defer it and release both attempt budgets until settlement.
+      if(/previous trade settlement is still pending/i.test(message)){
+        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:new Date(Date.now()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),errorCode:"PREVIOUS_SETTLEMENT_PENDING",attemptNumber:claim.attemptNumber,releaseAttempt:true,executionLeaseToken});
+        continue;
+      }
+      const decision=decideTradeExecutionRetry(error,Number(claim.transientAttemptNumber),MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY,new Date(),Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30)));
       if(decision.kind==="retry"){
         await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:decision.retryAt,errorCode:decision.errorCode,executionLeaseToken});
         continue;
@@ -3120,8 +3182,6 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const now=new Date();
   const quotaDay=now.toISOString().slice(0,10);
-  const quotaDayStartUtc=new Date(`${quotaDay}T00:00:00.000Z`);
-  const nextQuotaDayStartUtc=new Date(quotaDayStartUtc.getTime()+24*60*60*1000);
   const settled:Array<{tradeId:number;rewardMinor:number;currency:string;totalMinor:number}>=[];
   if(options.workerCycle===true) await markDueTradesAwaitingConfirmation(userId);
   const controls=await ensureCustomerControls(userId);
@@ -3162,29 +3222,41 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const configuredPolicies=eligibleSubscriptions.map(subscription=>policyByName.get(subscription.packageName)).filter((row:any)=>Boolean(row));
   const policy=configuredPolicies[0]||null;
   const packageName=[...new Set(eligibleSubscriptions.map(row=>row.packageName))].join(", ");
-  const adminDeliveryCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);const configuredCap=Math.max(0,Number(row?.maxPopupsPerDay)||0);const policyCap=configuredCap>0?configuredCap:quotaFor(subscription);let snapshot:any={};try{snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}"))}catch{snapshot={}}const tierCap=Math.max(0,Number(snapshot.maxPopupsPerDay??subscription.packageMaxPopupsPerDay)||0);return sum+(tierCap>0?Math.min(policyCap,tierCap):policyCap);},0);
-  const adminVisibleCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);return sum+(row?Math.max(0,Number(row.maxVisibleOffers)||0):quotaFor(subscription));},0);
-  const maxPopupsPerDay=Math.min(combinedQuota,adminDeliveryCap||combinedQuota);
-  const maxVisibleOffers=Math.min(combinedQuota,adminVisibleCap||combinedQuota);
+  const tierDeliveryCaps=eligibleSubscriptions.map(subscription=>{
+    const row=policyByName.get(subscription.packageName);
+    let snapshot:any={};try{snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}"))}catch{snapshot={}}
+    return {
+      quota:quotaFor(subscription),policyMaxPopupsPerDay:row?.maxPopupsPerDay,
+      packageMaxPopupsPerDay:snapshot.maxPopupsPerDay??subscription.packageMaxPopupsPerDay,
+      dailyPopupTarget:row?.dailyPopupTarget,maxVisibleOffers:row?.maxVisibleOffers,
+    };
+  });
+  const {maxPopupsPerDay,maxVisibleOffers}=calculateTierDeliveryCaps(tierDeliveryCaps);
+  const effectiveSchedulingPeriod=configuredPolicies.some((row:any)=>row.schedulingPeriod==="rolling_24h")?"rolling_24h":"calendar_day";
+  const quotaWindow=resolveTradingQuotaWindow(now,effectiveSchedulingPeriod);
   const popupPolicy={
     popupMinGapSeconds:Math.max(0,Number(policy?.minIntervalSeconds||0)),
     popupDisplaySeconds:Math.max(1,Number(policy?.popupDisplayTargetSeconds||120)),
     popupMaxPerHour:maxPopupsPerDay,
     popupPreAlertProbabilityBps:0,popupPreAlertSeconds:0,popupWithdrawalProbabilityBps:0,
-    popupJitterSeconds:Math.max(0,Number(policy?.maxIntervalSeconds||0)-Number(policy?.minIntervalSeconds||0)),
+    popupJitterSeconds:policy?.randomizationEnabled?Math.max(0,Number(policy?.maxIntervalSeconds||0)-Number(policy?.minIntervalSeconds||0)):0,
   };
   const offerRows=await db.select().from(opportunityOffers).where(and(eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt).limit(5000);
   const tradeHistory=await listTrades(userId);
   const tradeOfferIds=new Set(tradeHistory.map((row:any)=>Number(row.offerId)));
   const missedHistory=await listMissedOpportunities(userId);
   const missedOfferIds=new Set(missedHistory.map((row:any)=>Number(row.offerId)));
-  const deliveredToday=await db.select({offerId:opportunityDeliveryEvents.offerId}).from(opportunityDeliveryEvents).where(and(eq(opportunityDeliveryEvents.userId,userId),eq(opportunityDeliveryEvents.quotaDay,quotaDay)));
-  const deliveredOfferIds=new Set(deliveredToday.map(row=>Number(row.offerId)));
+  const deliveredToday=await db.select({offerId:opportunityDeliveryEvents.offerId,status:opportunityDeliveryEvents.status}).from(opportunityDeliveryEvents).where(and(
+    eq(opportunityDeliveryEvents.userId,userId),gte(opportunityDeliveryEvents.deliveredAt,quotaWindow.start),
+    lt(opportunityDeliveryEvents.deliveredAt,quotaWindow.end),notInArray(opportunityDeliveryEvents.status,["failed"])
+  ));
+  const deliveredOfferIds=new Set(deliveredToday.filter(row=>row.status!=="failed").map(row=>Number(row.offerId)));
+  const deliveredOfferCount=countConsumedDeliveryOffers(deliveredToday);
   // Package copies are separate entitlements: count allocations against each
-  // subscription's own daily quota instead of pooling copies under package name.
+  // subscription's own quota window instead of pooling copies under package name.
   const usedQuotaRows=await db.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions
     WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL
-      AND confirmedAt>=${quotaDayStartUtc} AND confirmedAt<${nextQuotaDayStartUtc}
+      AND confirmedAt>=${quotaWindow.start} AND confirmedAt<${quotaWindow.end}
       AND status<>'cancelled'
     GROUP BY packageSubscriptionId`) as any;
   const usedBySubscription=new Map<number,number>();
@@ -3197,7 +3269,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
     expectedRewardBps:opportunityPopupEvents.expectedRewardBps,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
-    balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,quotaDay:opportunityPopupEvents.quotaDay,
+    balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,deliveryStatus:opportunityPopupEvents.deliveryStatus,quotaDay:opportunityPopupEvents.quotaDay,
     deliveredAt:opportunityPopupEvents.deliveredAt,venueFrom:opportunityOffers.venueFrom,venueTo:opportunityOffers.venueTo,
     offerStatus:opportunityOffers.status,offerMinimumMinor:opportunityOffers.minimumMinor,opensAt:opportunityOffers.opensAt,
     closesAt:opportunityOffers.closesAt,rewardAt:opportunityOffers.rewardAt,durationSeconds:opportunityOffers.durationSeconds,
@@ -3207,11 +3279,35 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     .where(and(eq(opportunityPopupEvents.userId,userId),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN"])))
     .orderBy(desc(opportunityPopupEvents.deliveredAt));
   const activePopupOfferIds=new Set(activePopupRows.map(row=>Number(row.offerId)));
-  const lastDelivery=Number(policy?.postCompletionIntervalSeconds||0)>0?(await db.select({deliveredAt:opportunityDeliveryEvents.deliveredAt}).from(opportunityDeliveryEvents).where(eq(opportunityDeliveryEvents.userId,userId)).orderBy(desc(opportunityDeliveryEvents.deliveredAt)).limit(1))[0]:undefined;
-  const formulaReadyAt=lastDelivery?new Date(new Date(lastDelivery.deliveredAt).getTime()+Number(policy?.postCompletionIntervalSeconds||0)*1000):null;
+  const activeVisibleCount=activePopupRows.filter(row=>{
+    const eventStatus=String(row.eventStatus||"").toUpperCase();
+    const deliveryStatus=String(row.deliveryStatus||"pending").toLowerCase();
+    return ["DELIVERED","NOTICED","OPENED"].includes(eventStatus)&&["pending","delivered","received","rendered"].includes(deliveryStatus);
+  }).length;
+  const schedulePolicyEnabled=configuredPolicies.some((row:any)=>Number(row.minIntervalSeconds||0)>0||Number(row.maxIntervalSeconds||0)>0||Number(row.postCompletionIntervalSeconds||0)>0);
+  const lastDelivery=schedulePolicyEnabled?(await db.select({
+    id:opportunityDeliveryEvents.id,deliveredAt:opportunityDeliveryEvents.deliveredAt,policyVersion:opportunityDeliveryEvents.policyVersion,
+  }).from(opportunityDeliveryEvents).where(and(eq(opportunityDeliveryEvents.userId,userId),notInArray(opportunityDeliveryEvents.status,["failed"])))
+    .orderBy(desc(opportunityDeliveryEvents.deliveredAt)).limit(1))[0]:undefined;
+  const deliverySchedule=resolveTradingDeliverySchedule({
+    lastDeliveredAt:lastDelivery?.deliveredAt??null,deliveryEventId:Number(lastDelivery?.id||0),userId,
+    policyVersion:Number(lastDelivery?.policyVersion||0),
+    minIntervalSeconds:Math.max(0,Number(policy?.minIntervalSeconds||0)),
+    maxIntervalSeconds:Math.max(0,Number(policy?.maxIntervalSeconds||0)),
+    randomizationEnabled:Boolean(policy?.randomizationEnabled),
+  });
+  const postCompletionIntervalSeconds=Math.max(0,Number(policy?.postCompletionIntervalSeconds||0));
+  const lastCompletedTrade=postCompletionIntervalSeconds>0?(await db.select({completionAt:tradePositions.completionAt})
+    .from(tradePositions).where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"settled"),isNotNull(tradePositions.completionAt)))
+    .orderBy(desc(tradePositions.completionAt)).limit(1))[0]:undefined;
+  const postCompletionReadyAt=lastCompletedTrade?.completionAt
+    ?new Date(new Date(lastCompletedTrade.completionAt).getTime()+postCompletionIntervalSeconds*1000):null;
+  const readyDeadlines=[deliverySchedule.readyAt,postCompletionReadyAt].filter((value):value is Date=>value instanceof Date);
+  const formulaReadyAt=readyDeadlines.length?new Date(Math.max(...readyDeadlines.map(value=>value.getTime()))):null;
   const formulaCooling=Boolean(formulaReadyAt&&formulaReadyAt.getTime()>now.getTime());
-  const dailyCap=Math.min(maxPopupsPerDay,maxVisibleOffers);
-  let remainingQuota=Math.max(0,dailyCap-deliveredToday.length);
+  const dailyCap=maxPopupsPerDay;
+  const deliveryCapacity=calculateTradingDeliveryCapacity({dailyCap,deliveredOfferCount,maxVisibleOffers,activeVisibleCount});
+  let remainingQuota=deliveryCapacity.remainingQuota;
   const balancesSnapshot=await listBalances(userId);
   const newlyEligible:any[]=[];
   // Preserve the entitlement selected for newly created popups during this cycle,
@@ -3309,9 +3405,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const catalogueAdminRow=(await db.select({settingValue:appSettings.settingValue})
     .from(appSettings).where(eq(appSettings.settingKey,"trade.companyCatalogue.adminState")).limit(1))[0];
   const catalogueAdminState=parseCompanyCatalogueAdminState(catalogueAdminRow?.settingValue??"{}");
-  const currentlyVerifiedCompanyIds=new Set(catalogueAdminState.verifiedIds);
-  const archivedCompanyIds=new Set(catalogueAdminState.archivedIds);
-  const companyDisplayAllowed=(id:unknown)=>typeof id==="string"&&currentlyVerifiedCompanyIds.has(id)&&!archivedCompanyIds.has(id);
+  const companyDisplayAllowed=createCompanySpotlightDisplayGuard(catalogueAdminState);
   const tradeCandidates=popupRows.filter(row=>row.offerStatus==="open"&&row.closesAt&&new Date(row.closesAt).getTime()>now.getTime()).map(row=>{
     // Never reassign an existing popup to another package when its original
     // package is renamed, disabled, expired, or otherwise no longer eligible.
@@ -3372,7 +3466,11 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       policyVersion:Number(row.policyVersion||base.policyVersion||1),marketObservedAt:row.marketObservedAt,sector:row.sector,industry:row.industry,
       listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus),automaticTrade:executed};
   });
-  return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:Boolean(policy?.burstEnabled),maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
+  return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,
+    remainingDailyQuota:Math.max(0,deliveryCapacity.dailyRemaining-newlyEligible.length),
+    remainingVisibleSlots:Math.max(0,deliveryCapacity.visibleRemaining-newlyEligible.length),
+    remainingQuota,activeVisibleCount:activeVisibleCount+newlyEligible.length,schedulingPeriod:effectiveSchedulingPeriod,
+    formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:Boolean(policy?.burstEnabled),maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
 }
 export async function claimAutoTradeCycleCustomers(input:{batchSize?:number}={}){
   const db=await getDb();
@@ -3605,6 +3703,19 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     if(activePositions.length>=tierActiveLimit) throw new Error("Package maximum active investments reached");
   }
   if(packagePolicy){
+    // This is a customer-wide gate, not a same-package check. A previous trade
+    // remains unsettled until the administrator-confirmed result is posted to
+    // the wallet and the lifecycle reaches its completed state.
+    if(packagePolicy.requirePreviousSettlement !== false) {
+      const unsettledRows=await tx.execute(sql`SELECT id FROM trade_positions
+        WHERE userId=${userId}
+          AND status<>'cancelled'
+          AND (status<>'settled' OR settlementStatus<>'completed')
+        ORDER BY id ASC LIMIT 1 FOR UPDATE`) as any;
+      if(unsettledRows?.[0]?.length) {
+        throw new Error("Previous trade settlement is still pending; new allocation is blocked by the selected tier policy");
+      }
+    }
     const activeRows=await tx.select({id:tradePositions.id}).from(tradePositions)
       .where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed")))
       .limit(Math.max(1,Number(packagePolicy.maxConcurrentActiveTrades||1)+1));
@@ -3730,13 +3841,19 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   }).where(and(eq(customerBalances.id,bal.id),gte(customerBalances.availableMinor,minimumRequiredFromTarget)));
   if(Number((balanceUpdate as any)[0]?.affectedRows||0)!==1) throw new Error("Insufficient available balance after FX conversion");
   await tx.insert(balanceLedger).values({userId,currency:offer.currency,amountMinor:-input.amountMinor,entryType:"trade_reservation",reference:ref,withdrawable:false});
-  const settlementDelaySeconds=Math.max(Number(packagePolicy.minSettlementDelaySeconds||0),Math.min(Number(packagePolicy.maxSettlementDelaySeconds||settlementPolicy.delaySeconds),settlementPolicy.delaySeconds)); const tradeStartedAt=new Date(); const settlesAt=new Date(tradeStartedAt.getTime()+effectiveDurationSeconds*1000); const creditAt=new Date(settlesAt.getTime()+(settlementDelaySeconds+settlementPolicy.creditDelaySeconds)*1000); const snapshotVersion=Number(popupSnapshot?.packagePolicyVersionSnapshot||packagePolicy.policyVersion||activePackageSubscription.termsVersion||1); const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null,companyLogoUrl:popupSnapshot?.companyLogoUrl||null,companyReferenceMetadataJson:popupSnapshot?.companyReferenceMetadataJson||null,companyReferenceOnly:Boolean(popupSnapshot?.companyReferenceOnly??false),walletFundingPlanJson,transactionReference:ref,rewardReservedMinor:reward,settlesAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:snapshotVersion} as any);
+  const settlementDelaySeconds=Math.max(Number(packagePolicy.minSettlementDelaySeconds||0),Math.min(Number(packagePolicy.maxSettlementDelaySeconds||settlementPolicy.delaySeconds),settlementPolicy.delaySeconds));
+  const tradeStartedAt=new Date();
+  const settlesAt=new Date(tradeStartedAt.getTime()+effectiveDurationSeconds*1000);
+  const settlementReviewAt=new Date(settlesAt.getTime()+settlementDelaySeconds*1000);
+  const creditAt=new Date(settlementReviewAt.getTime()+settlementPolicy.creditDelaySeconds*1000);
+  const snapshotVersion=Number(popupSnapshot?.packagePolicyVersionSnapshot||packagePolicy.policyVersion||activePackageSubscription.termsVersion||1);
+  const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null,companyLogoUrl:popupSnapshot?.companyLogoUrl||null,companyReferenceMetadataJson:popupSnapshot?.companyReferenceMetadataJson||null,companyReferenceOnly:Boolean(popupSnapshot?.companyReferenceOnly??false),walletFundingPlanJson,transactionReference:ref,rewardReservedMinor:reward,settlesAt,settlementReviewAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:snapshotVersion} as any);
   const tradeId=Number(result[0].insertId);
   await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,packageSubscriptionId:selectedSubscriptionId,packageId:Number(activePackageSubscription.packageId),termsVersion:Number(activePackageSubscription.termsVersion||1),policyVersion:snapshotVersion,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null})});
   if(input.deliveryEventId!==undefined) await tx.update(opportunityPopupEvents).set({tradeId,eventStatus:"TRADED",executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,tradedAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offer.id)));
   else await tx.execute(sql`UPDATE opportunity_popup_events SET tradeId=${tradeId},eventStatus='TRADED',executionStatus='SUCCEEDED',executionRetryAfter=NULL,executionLastErrorCode=NULL,deliveryStatus=CASE WHEN deliveryStatus='failed' THEN deliveryStatus ELSE 'rendered' END,tradedAt=COALESCE(tradedAt,CURRENT_TIMESTAMP),updatedAt=CURRENT_TIMESTAMP WHERE userId=${userId} AND offerId=${offer.id} ORDER BY deliveredAt DESC LIMIT 1`);
   await tx.insert(tradeRewardReservations).values({userId,tradeId,packageName:activePackageSubscription.packageName,windowKey:today,currency:offer.currency,reservedMinor:reward,status:"reserved"});
-  return {tradeId,rewardMinor:reward,rewardBps:effectiveRateBps,minimumMinor:terms.minimumMinor,calculationMethod:"saved-tier-policy",configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,settlesAt,creditAt,currency:offer.currency,amountMinor:input.amountMinor,rateUsd:nativeRate,rateUpdatedAt:currencyRow.updatedAt,amountUsd:nativeMinorToUsd(input.amountMinor,Number(currencyRow.scale),nativeRate)};
+  return {tradeId,rewardMinor:reward,rewardBps:effectiveRateBps,minimumMinor:terms.minimumMinor,calculationMethod:"saved-tier-policy",configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,settlesAt,settlementReviewAt,creditAt,currency:offer.currency,amountMinor:input.amountMinor,rateUsd:nativeRate,rateUpdatedAt:currencyRow.updatedAt,amountUsd:nativeMinorToUsd(input.amountMinor,Number(currencyRow.scale),nativeRate)};
  });
 }
 export async function listTrades(userId:number){
@@ -3768,8 +3885,14 @@ export async function listTrades(userId:number){
     settlementReference:tradePositions.settlementReference,
     settlementConfirmedAt:tradePositions.settlementConfirmedAt,
     status:tradePositions.status,
+    settlementStatus:tradePositions.settlementStatus,
+    lifecycleStage:tradePositions.lifecycleStage,
+    walletUpdatedAt:tradePositions.walletUpdatedAt,
+    transactionReference:tradePositions.transactionReference,
+    completionAt:tradePositions.completionAt,
     confirmedAt:tradePositions.confirmedAt,
     settlesAt:tradePositions.settlesAt,
+    settlementReviewAt:tradePositions.settlementReviewAt,
     creditAt:tradePositions.creditAt,
     settledAt:tradePositions.settledAt,
     symbol:opportunityOffers.symbol,
@@ -3782,19 +3905,19 @@ export async function listTrades(userId:number){
   return rows.map(row=>{
     const settled=row.status==="settled";
     const pending=row.status==="pending";
-    const hasActualBreakdown=settled&&row.settlementOutcome!=="legacy_unrecorded";
-    const stage=settled?"Trade Completed":pending?"Trade Allocated":new Date(row.settlesAt).getTime()<=Date.now()?"Awaiting Settlement Confirmation":"Trade Executing";
+    const hasActualBreakdown=Boolean(row.settlementConfirmedAt)&&row.settlementOutcome!=="legacy_unrecorded";
+    const stage=settled?"Trade Completed":row.lifecycleStage||(pending?"Trade Allocated":new Date(row.settlesAt).getTime()<=Date.now()?"Awaiting Settlement Confirmation":"Trade Executing");
     return {
       ...row,
       tradeReference:`trade-${row.id}`,
       opportunityReference:`opportunity-${row.offerId}`,
       stage,
-      settlementStatus:settled?"completed":row.status,
-      rewardCredited:settled,
-      creditedRewardMinor:hasActualBreakdown?Math.max(0,Number(row.netProfitMinor||0)):null,
-      walletUpdated:settled,
-      completionAt:settled?row.settledAt:null,
-      transactionReference:settled?row.settlementReference:null,
+      settlementStatus:row.settlementStatus,
+      rewardCredited:Boolean(row.walletUpdatedAt),
+      creditedRewardMinor:hasActualBreakdown&&row.walletUpdatedAt?Math.max(0,Number(row.netProfitMinor||0)):null,
+      walletUpdated:Boolean(row.walletUpdatedAt),
+      completionAt:row.completionAt,
+      transactionReference:row.transactionReference,
       hasActualBreakdown,
     };
   });
@@ -3804,14 +3927,14 @@ export async function markDueTradesAwaitingConfirmation(userId:number){
   const now=new Date();
   const due=await db.select({id:tradePositions.id}).from(tradePositions).where(and(
     eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed"),
-    eq(tradePositions.settlementStatus,"pending"),or(lte(tradePositions.creditAt,now),and(isNull(tradePositions.creditAt),lte(tradePositions.settlesAt,now))),
-  )).orderBy(tradePositions.creditAt);
+    eq(tradePositions.settlementStatus,"pending"),or(lte(tradePositions.settlementReviewAt,now),and(isNull(tradePositions.settlementReviewAt),or(lte(tradePositions.creditAt,now),and(isNull(tradePositions.creditAt),lte(tradePositions.settlesAt,now))))),
+  )).orderBy(tradePositions.settlementReviewAt,tradePositions.settlesAt);
   let marked=0;
   for(const item of due){
     const markedOne=await db.transaction(async tx=>{
       const trade=(await tx.select().from(tradePositions).where(and(eq(tradePositions.id,item.id),eq(tradePositions.userId,userId))).limit(1).for("update"))[0];
       if(!trade||trade.status!=="confirmed"||trade.settlementStatus!=="pending") return false;
-      const dueAt=trade.creditAt||trade.settlesAt;
+      const dueAt=trade.settlementReviewAt||trade.creditAt||trade.settlesAt;
       if(!dueAt||new Date(dueAt).getTime()>now.getTime()) return false;
       if(trade.lifecycleStage==="Awaiting Settlement Confirmation") return false;
 
@@ -3840,14 +3963,14 @@ export async function reconcileAllDueTradesAwaitingConfirmation(){
   const due=await db.select({id:tradePositions.id}).from(tradePositions).where(and(
     eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),
     or(isNull(tradePositions.lifecycleStage),notInArray(tradePositions.lifecycleStage,["Awaiting Settlement Confirmation"])),
-    or(lte(tradePositions.creditAt,now),and(isNull(tradePositions.creditAt),lte(tradePositions.settlesAt,now))),
-  )).orderBy(tradePositions.creditAt).limit(1000);
+    or(lte(tradePositions.settlementReviewAt,now),and(isNull(tradePositions.settlementReviewAt),or(lte(tradePositions.creditAt,now),and(isNull(tradePositions.creditAt),lte(tradePositions.settlesAt,now))))),
+  )).orderBy(tradePositions.settlementReviewAt,tradePositions.settlesAt).limit(1000);
   let marked=0;
   for(const item of due){
     const markedOne=await db.transaction(async tx=>{
       const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,item.id)).limit(1).for("update"))[0];
       if(!trade||trade.status!=="confirmed"||trade.settlementStatus!=="pending") return false;
-      const dueAt=trade.creditAt||trade.settlesAt;
+      const dueAt=trade.settlementReviewAt||trade.creditAt||trade.settlesAt;
       if(!dueAt||new Date(dueAt).getTime()>now.getTime()) return false;
       if(trade.lifecycleStage==="Awaiting Settlement Confirmation") return false;
       const stateUpdate=await tx.update(tradePositions).set({
@@ -3876,7 +3999,11 @@ export async function listPendingSettlements(){
     expectedRewardMinor:tradePositions.expectedRewardMinor, rewardReservedMinor:tradePositions.rewardReservedMinor,
     status:tradePositions.status, settlementStatus:tradePositions.settlementStatus,
     lifecycleStage:tradePositions.lifecycleStage,
-    confirmedAt:tradePositions.confirmedAt, settlesAt:tradePositions.settlesAt, creditAt:tradePositions.creditAt,
+    confirmedAt:tradePositions.confirmedAt, settlesAt:tradePositions.settlesAt, settlementReviewAt:tradePositions.settlementReviewAt, creditAt:tradePositions.creditAt,
+    settlementConfirmedAt:tradePositions.settlementConfirmedAt, settlementConfirmedBy:tradePositions.settlementConfirmedBy,
+    settlementReference:tradePositions.settlementReference, walletUpdatedAt:tradePositions.walletUpdatedAt,
+    settlementOutcome:tradePositions.settlementOutcome, realizedGrossProfitMinor:tradePositions.realizedGrossProfitMinor,
+    platformFeeMinor:tradePositions.platformFeeMinor, netProfitMinor:tradePositions.netProfitMinor,
     reservationStatus:tradeRewardReservations.status,
     reservationPackageName:tradeRewardReservations.packageName,
     reservationAmountMinor:tradeRewardReservations.reservedMinor,
@@ -3885,7 +4012,7 @@ export async function listPendingSettlements(){
     .leftJoin(opportunityOffers,eq(opportunityOffers.id,tradePositions.offerId))
     .leftJoin(users,eq(users.id,tradePositions.userId))
     .leftJoin(tradeRewardReservations,eq(tradeRewardReservations.tradeId,tradePositions.id))
-    .where(and(eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"))).orderBy(desc(tradePositions.confirmedAt));
+    .where(and(eq(tradePositions.status,"confirmed"),or(eq(tradePositions.settlementStatus,"pending"),eq(tradePositions.settlementStatus,"confirmed_awaiting_credit")))).orderBy(desc(tradePositions.confirmedAt));
 }
 /**
  * Read-only reconciliation queue for settlement records whose persisted state
@@ -3905,6 +4032,12 @@ export async function listTradeSettlementIntegrityIssues(input?: { limit?: numbe
     and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "pending"), isNull(tradeRewardReservations.id), gt(tradePositions.rewardReservedMinor, 0)),
     and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "pending"), eq(tradeRewardReservations.status, "credited")),
     and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "pending"), eq(tradeRewardReservations.status, "released")),
+    and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), isNull(tradePositions.settlementReference)),
+    and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), isNull(tradeSettlementReferenceClaims.tradeId)),
+    and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), isNull(tradePositions.settlementConfirmedAt)),
+    and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), isNotNull(tradePositions.walletUpdatedAt)),
+    and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), isNull(tradeRewardReservations.id), gt(tradePositions.rewardReservedMinor, 0)),
+    and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "confirmed_awaiting_credit"), or(eq(tradeRewardReservations.status, "credited"), eq(tradeRewardReservations.status, "released"))),
     and(eq(tradePositions.status, "settled"), eq(tradePositions.settlementStatus, "completed"), eq(tradeRewardReservations.status, "reserved")),
     and(isNotNull(tradeRewardReservations.id), sql`(${tradeRewardReservations.userId} <> ${tradePositions.userId} OR ${tradeRewardReservations.currency} <> ${tradePositions.currency} OR ${tradeRewardReservations.reservedMinor} <> ${tradePositions.rewardReservedMinor})`)
   );
@@ -3921,6 +4054,8 @@ export async function listTradeSettlementIntegrityIssues(input?: { limit?: numbe
     lifecycleStage: tradePositions.lifecycleStage,
     settlementOutcome: tradePositions.settlementOutcome,
     settlementReference: tradePositions.settlementReference,
+    settlementConfirmedAt: tradePositions.settlementConfirmedAt,
+    walletUpdatedAt: tradePositions.walletUpdatedAt,
     realizedGrossProfitMinor: tradePositions.realizedGrossProfitMinor,
     platformFeeMinor: tradePositions.platformFeeMinor,
     netProfitMinor: tradePositions.netProfitMinor,
@@ -3952,6 +4087,11 @@ export async function listTradeSettlementIntegrityIssues(input?: { limit?: numbe
     if (row.claimReference && row.settlementReference && row.claimReference !== row.settlementReference) flags.push("settlement_reference_claim_value_mismatch");
     if (row.status === "confirmed" && row.settlementStatus === "pending" && !row.reservationId && Number(row.rewardReservedMinor) > 0) flags.push("pending_trade_missing_reward_reservation");
     if (row.status === "confirmed" && row.settlementStatus === "pending" && (row.reservationStatus === "credited" || row.reservationStatus === "released")) flags.push("pending_trade_reservation_not_reserved");
+    if (row.status === "confirmed" && row.settlementStatus === "confirmed_awaiting_credit" && !row.settlementReference) flags.push("confirmed_trade_missing_settlement_reference");
+    if (row.status === "confirmed" && row.settlementStatus === "confirmed_awaiting_credit" && !row.claimTradeId) flags.push("confirmed_trade_missing_reference_claim");
+    if (row.status === "confirmed" && row.settlementStatus === "confirmed_awaiting_credit" && !row.settlementConfirmedAt) flags.push("confirmed_trade_missing_confirmation_timestamp");
+    if (row.status === "confirmed" && row.settlementStatus === "confirmed_awaiting_credit" && row.walletUpdatedAt) flags.push("awaiting_credit_trade_wallet_already_updated");
+    if (row.status === "confirmed" && row.settlementStatus === "confirmed_awaiting_credit" && (row.reservationStatus === "credited" || row.reservationStatus === "released")) flags.push("confirmed_trade_reservation_not_reserved");
     if (row.status === "settled" && row.settlementStatus === "completed" && row.reservationStatus === "reserved") flags.push("settled_trade_reservation_still_reserved");
     if (row.reservationId && (row.reservationUserId !== row.userId || row.reservationCurrency !== row.currency || Number(row.reservationAmountMinor) !== Number(row.rewardReservedMinor))) flags.push("trade_reward_reservation_identity_or_amount_mismatch");
     if (row.status === "settled" && row.settlementStatus !== "completed") flags.push("settled_trade_status_not_completed");
@@ -4086,6 +4226,8 @@ export async function listWalletLedgerReconciliation(input?: {
     settlementStatus: tradePositions.settlementStatus,
     settlementOutcome: tradePositions.settlementOutcome,
     settlementReference: tradePositions.settlementReference,
+    settlementConfirmedAt: tradePositions.settlementConfirmedAt,
+    walletUpdatedAt: tradePositions.walletUpdatedAt,
     realizedGrossProfitMinor: tradePositions.realizedGrossProfitMinor,
     platformFeeMinor: tradePositions.platformFeeMinor,
     netProfitMinor: tradePositions.netProfitMinor,
@@ -4169,13 +4311,15 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,tradeId)).limit(1).for("update"))[0];
     if(!trade) throw new Error("Trade not found");
     // Replaying an already committed reference/result is safe and never posts again.
-    if(trade.status==="settled"&&trade.settlementStatus==="completed"&&trade.settlementReference===reference){
+    if((trade.status==="settled"&&trade.settlementStatus==="completed"||trade.status==="confirmed"&&trade.settlementStatus==="confirmed_awaiting_credit")&&trade.settlementReference===reference){
       if(trade.settlementOutcome==="legacy_unrecorded") throw new Error("This historical settlement has no recorded gross-profit result; replay requires manual financial review.");
       if(Number(trade.realizedGrossProfitMinor)!==input.grossProfitMinor) throw new Error("Settlement reference was already used with a different actual result");
-      return {tradeId,userId:trade.userId,offerId:trade.offerId,currency:trade.currency,principalMinor:Number(trade.principalMinor),grossProfitMinor:Number(trade.realizedGrossProfitMinor),platformFeeMinor:Number(trade.platformFeeMinor),netProfitMinor:Number(trade.netProfitMinor),rewardMinor:Math.max(0,Number(trade.netProfitMinor)),totalMinor:Number(trade.principalMinor)+Number(trade.netProfitMinor),feeRateBps:Number(trade.platformFeeRateBps),roundingMode:String(trade.platformFeeRoundingMode) as FeeRoundingMode,feePolicyVersion:Number(trade.feePolicyVersion),outcome:String(trade.settlementOutcome),reference,legacyUnrecorded:false};
+      return {tradeId,userId:trade.userId,offerId:trade.offerId,currency:trade.currency,principalMinor:Number(trade.principalMinor),grossProfitMinor:Number(trade.realizedGrossProfitMinor),platformFeeMinor:Number(trade.platformFeeMinor),netProfitMinor:Number(trade.netProfitMinor),rewardMinor:Math.max(0,Number(trade.netProfitMinor)),totalMinor:Number(trade.principalMinor)+Number(trade.netProfitMinor),feeRateBps:Number(trade.platformFeeRateBps),roundingMode:String(trade.platformFeeRoundingMode) as FeeRoundingMode,feePolicyVersion:Number(trade.feePolicyVersion),outcome:String(trade.settlementOutcome),reference,legacyUnrecorded:false,walletCreditPending:trade.status!=="settled",creditAt:trade.creditAt||trade.settlementReviewAt||trade.settlesAt};
     }
     if(trade.status!=="confirmed"||trade.settlementStatus!=="pending") throw new Error("Trade is not pending manual settlement");
-    const settlementDueAt=trade.creditAt||trade.settlesAt;
+    // The saved review timestamp includes the configured settlement delay.
+    // creditAt separately includes the wallet-credit delay after review becomes due.
+    const settlementDueAt=trade.settlementReviewAt||trade.creditAt||trade.settlesAt;
     if(!settlementDueAt||!Number.isFinite(new Date(settlementDueAt).getTime())||new Date(settlementDueAt).getTime()>Date.now()) {
       throw new Error("Trade is not yet due for settlement confirmation");
     }
@@ -4242,28 +4386,10 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
       throw new Error("Settlement wallet locked balance is inconsistent with the trade principal");
     }
 
-    // Keep ledger references within balance_ledger.reference's 80-character limit.
-    // Short references retain their existing readable form for audit/recovery tools.
-    const ledgerBase=reference.length<=60?reference:`trade-${tradeId}-${crypto.createHash("sha256").update(reference).digest("hex").slice(0,24)}`;
-    await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:principal,entryType:"trade_principal_release",reference:`${ledgerBase}:principal`,withdrawable:false});
-    if(accounting.grossProfitMinor>0) await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:accounting.grossProfitMinor,entryType:"trade_reward",reference:`${ledgerBase}:gross-profit`,withdrawable:false});
-    if(accounting.platformFeeMinor>0) await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:-accounting.platformFeeMinor,entryType:"trade_platform_fee",reference:`${ledgerBase}:platform-fee`,withdrawable:false});
-    if(accounting.grossProfitMinor<0) await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:accounting.grossProfitMinor,entryType:"trade_loss",reference:`${ledgerBase}:loss`,withdrawable:false});
-
-    const walletUpdate=await tx.update(customerBalances).set({
-      availableMinor:sql`${customerBalances.availableMinor}+${accounting.totalReturnedMinor}`,
-      lockedMinor:sql`${customerBalances.lockedMinor}-${principal}`,
-      earnedMinor:sql`${customerBalances.earnedMinor}+${accounting.netProfitMinor}`,
-      updatedAt:new Date(),
-    }).where(eq(customerBalances.id,wallet.id));
-    assertExactlyOneAffectedRow(walletUpdate,"Manual settlement wallet update");
     const now=new Date();
     const settlementUpdate=await tx.update(tradePositions).set({
-      status:"settled",
-      settledAt:now,
-      lifecycleStage:"Trade Completed",
-      settlementStatus:"completed",
-      rewardCreditedMinor:accounting.rewardCreditedMinor,
+      lifecycleStage:"Settlement Confirmed — Awaiting Wallet Credit",
+      settlementStatus:"confirmed_awaiting_credit",
       realizedGrossProfitMinor:accounting.grossProfitMinor,
       platformFeeMinor:accounting.platformFeeMinor,
       netProfitMinor:accounting.netProfitMinor,
@@ -4271,28 +4397,18 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
       platformFeeRateBps:feePolicy.feeRateBps,
       platformFeeRoundingMode:feePolicy.roundingMode,
       settlementOutcome:accounting.outcome,
-      rewardReservedMinor:0,
-      walletUpdatedAt:now,
-      completionAt:now,
-      transactionReference:reference,
+      transactionReference:reference.length<=120?reference:`trade-${tradeId}-${crypto.createHash("sha256").update(reference).digest("hex").slice(0,32)}`,
       settlementReference:reference,
       settlementConfirmedAt:now,
       settlementConfirmedBy:adminId,
       settlementNotes:input.notes?.trim()||null,
     }).where(and(eq(tradePositions.id,tradeId),eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending")));
-    // If another settlement won the race, roll back wallet and ledger mutations together.
-    assertExactlyOneAffectedRow(settlementUpdate,"Manual trade settlement state transition");
-    // Preserve the original reserved estimate as audit evidence. Only its state changes.
-    if(reservation) {
-      const reservationUpdate=await tx.update(tradeRewardReservations).set({
-        status:accounting.netProfitMinor>0?"credited":"released",
-        updatedAt:now,
-      }).where(and(eq(tradeRewardReservations.id,reservation.id),eq(tradeRewardReservations.status,"reserved")));
-      assertExactlyOneAffectedRow(reservationUpdate,"Trade reward reservation settlement");
-    }
+    // Evidence-backed confirmation does not post money. Principal stays locked,
+    // and the reward reservation remains reserved until the saved creditAt.
+    assertExactlyOneAffectedRow(settlementUpdate,"Manual trade result confirmation transition");
     await tx.insert(tradeLifecycleEvents).values({
-      tradeId,userId:trade.userId,eventType:"manual_settlement_confirmed",stage:"Wallet Updated",
-      payloadJson:JSON.stringify({principalMinor:principal,grossProfitMinor:accounting.grossProfitMinor,platformFeeMinor:accounting.platformFeeMinor,netProfitMinor:accounting.netProfitMinor,feeRateBps:feePolicy.feeRateBps,roundingMode:feePolicy.roundingMode,feePolicyVersion:feePolicy.policyVersion,outcome:accounting.outcome,reference,adminId}),
+      tradeId,userId:trade.userId,eventType:"manual_settlement_confirmed",stage:"Settlement Confirmed — Awaiting Wallet Credit",
+      payloadJson:JSON.stringify({principalMinor:principal,grossProfitMinor:accounting.grossProfitMinor,platformFeeMinor:accounting.platformFeeMinor,netProfitMinor:accounting.netProfitMinor,feeRateBps:feePolicy.feeRateBps,roundingMode:feePolicy.roundingMode,feePolicyVersion:feePolicy.policyVersion,outcome:accounting.outcome,reference,adminId,creditAt:trade.creditAt||trade.settlementReviewAt||trade.settlesAt}),
     });
     if(accounting.netProfitMinor>Number(trade.rewardReservedMinor||0)){
       await tx.insert(tradeLifecycleEvents).values({
@@ -4300,22 +4416,138 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
         payloadJson:JSON.stringify({reservedMinor:Number(trade.rewardReservedMinor||0),actualNetProfitMinor:accounting.netProfitMinor,reference,reason:"Actual realized result exceeded the opportunity reward reservation; actual settlement was recorded without capping or fabricating the result."}),
       });
     }
-    await tx.insert(tradeLifecycleEvents).values({
-      tradeId,userId:trade.userId,eventType:"trade_completed",stage:"Trade Completed",
-      payloadJson:JSON.stringify({reference,outcome:accounting.outcome,realizedGrossProfitMinor:accounting.grossProfitMinor,platformFeeMinor:accounting.platformFeeMinor,netProfitMinor:accounting.netProfitMinor}),
-    });
     return {
       tradeId,userId:trade.userId,offerId:trade.offerId,currency:trade.currency,
       principalMinor:principal,grossProfitMinor:accounting.grossProfitMinor,
       platformFeeMinor:accounting.platformFeeMinor,netProfitMinor:accounting.netProfitMinor,
-      rewardMinor:accounting.rewardCreditedMinor,totalMinor:accounting.totalReturnedMinor,
+      rewardMinor:Math.max(0,accounting.netProfitMinor),totalMinor:accounting.totalReturnedMinor,
       feeRateBps:feePolicy.feeRateBps,roundingMode:feePolicy.roundingMode,
       feePolicyVersion:feePolicy.policyVersion,outcome:accounting.outcome,reference,legacyUnrecorded:false,
+      walletCreditPending:true,creditAt:trade.creditAt||trade.settlementReviewAt||trade.settlesAt,
     };
   });
-  await updatePopupLifecycleForOffer(result.userId,result.offerId,"settled");
-  // Notification delivery is performed by the API router after this durable transaction commits.
+  // Popup completion is recorded only after the separate wallet-credit worker commits.
   return result;
+}
+
+export async function processConfirmedTradeCredits(input?: { limit?: number }) {
+  const db=await getDb();
+  if(!db) throw new Error("Database is not available");
+  const requestedLimit=input?.limit;
+  const limit=Math.max(1,Math.min(250,Number.isSafeInteger(requestedLimit)?Number(requestedLimit):100));
+  const now=new Date();
+  const due=await db.select({id:tradePositions.id}).from(tradePositions).where(and(
+    eq(tradePositions.status,"confirmed"),
+    eq(tradePositions.settlementStatus,"confirmed_awaiting_credit"),
+    or(lte(tradePositions.creditAt,now),and(isNull(tradePositions.creditAt),or(lte(tradePositions.settlementReviewAt,now),and(isNull(tradePositions.settlementReviewAt),lte(tradePositions.settlesAt,now))))),
+  )).orderBy(tradePositions.creditAt,tradePositions.settlementReviewAt,tradePositions.settlesAt).limit(limit);
+  let credited=0;
+  let skipped=0;
+  for(const item of due){
+    const posted=await db.transaction(async tx=>{
+      const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,item.id)).limit(1).for("update"))[0];
+      if(!trade||trade.status!=="confirmed"||trade.settlementStatus!=="confirmed_awaiting_credit"||trade.walletUpdatedAt) return null;
+      const creditDueAt=trade.creditAt||trade.settlementReviewAt||trade.settlesAt;
+      if(!creditDueAt||new Date(creditDueAt).getTime()>now.getTime()) return null;
+      if(!trade.settlementConfirmedAt||!trade.settlementConfirmedBy||!trade.settlementReference||trade.settlementOutcome==="legacy_unrecorded") {
+        throw new Error("Confirmed trade is missing its evidence-backed settlement record");
+      }
+      const claim=(await tx.select().from(tradeSettlementReferenceClaims).where(eq(tradeSettlementReferenceClaims.tradeId,trade.id)).limit(1))[0];
+      if(!claim||claim.settlementReference!==trade.settlementReference) throw new Error("Confirmed trade settlement reference claim is missing or inconsistent");
+      const principal=Number(trade.principalMinor);
+      const grossProfit=Number(trade.realizedGrossProfitMinor);
+      const savedFee=Number(trade.platformFeeMinor);
+      const savedNet=Number(trade.netProfitMinor);
+      if(![principal,grossProfit,savedFee,savedNet].every(Number.isSafeInteger)||principal<=0||savedFee<0) {
+        throw new Error("Confirmed trade contains unsafe saved settlement amounts");
+      }
+      const accounting=calculateRealizedProfitSettlement({
+        principalMinor:principal,
+        grossProfitMinor:grossProfit,
+        feeRateBps:Number(trade.platformFeeRateBps),
+        roundingMode:String(trade.platformFeeRoundingMode) as FeeRoundingMode,
+      });
+      if(accounting.platformFeeMinor!==savedFee||accounting.netProfitMinor!==savedNet||accounting.outcome!==trade.settlementOutcome) {
+        throw new Error("Saved confirmed settlement amounts do not match the immutable fee-policy calculation");
+      }
+      if(!Number.isSafeInteger(accounting.totalReturnedMinor)||accounting.totalReturnedMinor<0) {
+        throw new Error("Confirmed settlement would produce an invalid wallet credit");
+      }
+      const reservation=(await tx.select().from(tradeRewardReservations).where(eq(tradeRewardReservations.tradeId,trade.id)).limit(1).for("update"))[0];
+      const reservedMinor=Number(trade.rewardReservedMinor||0);
+      if(reservation) {
+        if(reservation.userId!==trade.userId||reservation.currency!==trade.currency||reservation.tradeId!==trade.id||
+          reservation.status!=="reserved"||!Number.isSafeInteger(reservedMinor)||reservedMinor<0||Number(reservation.reservedMinor)!==reservedMinor) {
+          throw new Error("Confirmed trade reward reservation is inconsistent");
+        }
+      } else if(!Number.isSafeInteger(reservedMinor)||reservedMinor!==0) {
+        throw new Error("Confirmed trade is missing its reserved reward record");
+      }
+      const wallet=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,trade.userId),eq(customerBalances.currency,trade.currency))).limit(1).for("update"))[0];
+      if(!wallet) throw new Error("Customer settlement wallet is not configured");
+      const lockedMinor=Number(wallet.lockedMinor);
+      if(!Number.isSafeInteger(lockedMinor)||lockedMinor<principal) {
+        throw new Error("Settlement wallet locked balance is inconsistent with the confirmed trade principal");
+      }
+      const availableMinor=Number(wallet.availableMinor);
+      const earnedMinor=Number(wallet.earnedMinor);
+      if(!Number.isSafeInteger(availableMinor)||availableMinor<0||!Number.isSafeInteger(earnedMinor)||
+        !Number.isSafeInteger(availableMinor+accounting.totalReturnedMinor)||
+        !Number.isSafeInteger(earnedMinor+accounting.netProfitMinor)) {
+        throw new Error("Settlement wallet totals are outside the safe minor-unit range");
+      }
+      const reference=trade.settlementReference;
+      const ledgerBase=reference.length<=60?reference:`trade-${trade.id}-${crypto.createHash("sha256").update(reference).digest("hex").slice(0,24)}`;
+      await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:principal,entryType:"trade_principal_release",reference:`${ledgerBase}:principal`,withdrawable:false});
+      if(grossProfit>0) await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:grossProfit,entryType:"trade_reward",reference:`${ledgerBase}:gross-profit`,withdrawable:false});
+      if(savedFee>0) await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:-savedFee,entryType:"trade_platform_fee",reference:`${ledgerBase}:platform-fee`,withdrawable:false});
+      if(grossProfit<0) await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:grossProfit,entryType:"trade_loss",reference:`${ledgerBase}:loss`,withdrawable:false});
+      const walletUpdate=await tx.update(customerBalances).set({
+        availableMinor:sql`${customerBalances.availableMinor}+${accounting.totalReturnedMinor}`,
+        lockedMinor:sql`${customerBalances.lockedMinor}-${principal}`,
+        earnedMinor:sql`${customerBalances.earnedMinor}+${accounting.netProfitMinor}`,
+        updatedAt:now,
+      }).where(and(eq(customerBalances.id,wallet.id),gte(customerBalances.lockedMinor,principal)));
+      assertExactlyOneAffectedRow(walletUpdate,"Confirmed trade wallet credit");
+      const stateUpdate=await tx.update(tradePositions).set({
+        status:"settled",
+        settledAt:now,
+        lifecycleStage:"Trade Completed",
+        settlementStatus:"completed",
+        rewardCreditedMinor:accounting.rewardCreditedMinor,
+        walletUpdatedAt:now,
+        completionAt:now,
+      }).where(and(eq(tradePositions.id,trade.id),eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"confirmed_awaiting_credit"),isNull(tradePositions.walletUpdatedAt)));
+      assertExactlyOneAffectedRow(stateUpdate,"Confirmed trade wallet-credit state transition");
+      if(reservation) {
+        const reservationUpdate=await tx.update(tradeRewardReservations).set({
+          status:accounting.netProfitMinor>0?"credited":"released",
+          updatedAt:now,
+        }).where(and(eq(tradeRewardReservations.id,reservation.id),eq(tradeRewardReservations.status,"reserved")));
+        assertExactlyOneAffectedRow(reservationUpdate,"Confirmed trade reward reservation posting");
+      }
+      await tx.insert(tradeLifecycleEvents).values([
+        {tradeId:trade.id,userId:trade.userId,eventType:"wallet_credit_posted",stage:"Wallet Updated",payloadJson:JSON.stringify({principalMinor:principal,grossProfitMinor:grossProfit,platformFeeMinor:savedFee,netProfitMinor:savedNet,reference,confirmedAt:trade.settlementConfirmedAt,creditedAt:now.toISOString()})},
+        {tradeId:trade.id,userId:trade.userId,eventType:"trade_completed",stage:"Trade Completed",payloadJson:JSON.stringify({reference,outcome:trade.settlementOutcome,realizedGrossProfitMinor:grossProfit,platformFeeMinor:savedFee,netProfitMinor:savedNet})},
+      ]);
+      return {userId:trade.userId,offerId:trade.offerId,tradeId:trade.id,currency:trade.currency,principalMinor:principal,rewardMinor:Math.max(0,accounting.netProfitMinor),grossProfitMinor:grossProfit,platformFeeMinor:savedFee,netProfitMinor:savedNet,outcome:String(trade.settlementOutcome)};
+    });
+    if(posted){
+      credited++;
+      try { await updatePopupLifecycleForOffer(posted.userId,posted.offerId,"settled"); }
+      catch(error){ console.error("[TradeCreditPosting] popup lifecycle update failed after committed wallet credit",error instanceof Error?error.message:"unknown error"); }
+      const notices=buildTradeSettlementNotices({
+        tradeId:posted.tradeId,currency:posted.currency,principalMinor:posted.principalMinor,
+        rewardMinor:posted.rewardMinor,grossProfitMinor:posted.grossProfitMinor,
+        platformFeeMinor:posted.platformFeeMinor,netProfitMinor:posted.netProfitMinor,outcome:posted.outcome,
+      });
+      const notificationResults=await Promise.allSettled(notices.map(notice=>createNotification(posted.userId,notice.title,notice.body,{
+        eventKey:notice.eventKey,category:notice.category,priority:notice.priority,
+      })));
+      if(notificationResults.some(result=>result.status==="rejected")) console.error("[Notifications] One or more trade settlement notices failed after wallet credit commit.");
+    } else skipped++;
+  }
+  return {scanned:due.length,credited,skipped,limit,asOf:now.toISOString()};
 }
 
 export async function createOpportunityOffer(input:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number}){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();const closesAt=new Date(now.getTime()+input.durationSeconds*1000);const result=await db.insert(opportunityOffers).values({...input,opensAt:now,closesAt,rewardAt:closesAt,status:"open"});return {id:Number(result[0].insertId),...input,opensAt:now,closesAt,rewardAt:closesAt};}

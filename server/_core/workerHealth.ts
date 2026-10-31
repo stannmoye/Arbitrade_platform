@@ -8,7 +8,8 @@ import { balanceLedger, tradingTierQualificationJobs, v5AuditEvents, workerHealt
 export const WORKER_HEALTH_REGISTRY = [
   { key: "trading-tier-qualification", label: "Trading tier qualification", description: "Assigns or upgrades tiers from committed qualifying admin-credit jobs.", expectedIntervalMs: 5_000, staleAfterMs: 60_000 },
   { key: "trading-opportunities", label: "Trading opportunities and lifecycle", description: "Runs the bounded automatic opportunity and trade lifecycle cycle.", expectedIntervalMs: 30_000, staleAfterMs: 180_000 },
-  { key: "settlement-reconciliation", label: "Settlement reconciliation", description: "Marks due records for confirmation; elapsed time alone never settles or credits a trade.", expectedIntervalMs: 30_000, staleAfterMs: 180_000 },
+  { key: "settlement-reconciliation", label: "Settlement reconciliation", description: "Marks due records for administrator review; elapsed time alone never confirms or credits a trade.", expectedIntervalMs: 30_000, staleAfterMs: 180_000 },
+  { key: "settlement-credit-posting", label: "Confirmed trade wallet credits", description: "Posts only administrator-confirmed results after their saved wallet-credit time.", expectedIntervalMs: 30_000, staleAfterMs: 180_000 },
   { key: "local-scheduled-jobs", label: "Local scheduled jobs", description: "Claims due application-local scheduled jobs using durable leases.", expectedIntervalMs: 15_000, staleAfterMs: 120_000 },
   { key: "notification-campaigns", label: "Notification campaigns", description: "Processes due and expired notification campaigns.", expectedIntervalMs: 30_000, staleAfterMs: 180_000 },
   { key: "email-outbox", label: "Email delivery outbox", description: "Processes queued and retryable email notifications when an email provider is configured.", expectedIntervalMs: 30_000, staleAfterMs: 180_000 },

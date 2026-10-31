@@ -197,17 +197,20 @@ describe("authoritative financial-event notification contracts", () => {
     expect(walletForm).not.toContain("requestKeys.current.clear()");
   });
 
-  it("uses stable event keys for committed trade-settlement notices and keeps delivery best-effort", () => {
-    const settlementStart = routers.indexOf("const result=await manuallySettleTrade(");
-    const settlementEnd = routers.indexOf("return result;", settlementStart);
+  it("uses stable event keys for settlement notices only after delayed wallet posting", () => {
+    const settlementStart = routers.indexOf("return await manuallySettleTrade(input.tradeId,ctx.user.id,input)");
+    const settlementEnd = routers.indexOf("customerBalances:", settlementStart);
     const settlement = routers.slice(settlementStart, settlementEnd);
+    const dbSource = readFileSync(new URL("../../server/db.ts", import.meta.url), "utf8");
+    const creditStart = dbSource.indexOf("export async function processConfirmedTradeCredits(");
+    const creditEnd = dbSource.indexOf("\nexport async function createOpportunityOffer(", creditStart);
+    const creditPosting = dbSource.slice(creditStart, creditEnd);
     const notificationEvents = readFileSync(new URL("../../server/modules/notification-events.ts", import.meta.url), "utf8");
     expect(settlementStart).toBeGreaterThanOrEqual(0);
     expect(settlementEnd).toBeGreaterThan(settlementStart);
-    expect(settlement).toContain("buildTradeSettlementNotices({");
-    expect(settlement).toContain("tradeId:result.tradeId,");
-    expect(settlement).toContain("await Promise.allSettled(notices.map(notice=>createNotification(");
-    expect(settlement).toContain("One or more trade settlement notices failed after ledger commit.");
+    expect(settlement).not.toContain("buildTradeSettlementNotices({");
+    expect(creditPosting).toContain("buildTradeSettlementNotices({");
+    expect(creditPosting).toContain("await Promise.allSettled(notices.map(notice=>createNotification(");
     expect(notificationEvents).toContain("trade-settlement:${input.tradeId}:principal");
     expect(notificationEvents).toContain("trade-settlement:${input.tradeId}:reward");
   });

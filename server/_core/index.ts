@@ -7,7 +7,7 @@ import { registerProviderOAuthRoutes } from "./providerOAuth";
 import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { closeDbPool, countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getUserByEmail, getUserById, processNotificationCampaignLifecycle, reconcileAllDueTradesAwaitingConfirmation, runAutoTradeCycle, runTradingTierQualificationWorkerCycle } from "../db";
+import { closeDbPool, countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getUserByEmail, getUserById, processNotificationCampaignLifecycle, reconcileAllDueTradesAwaitingConfirmation, processConfirmedTradeCredits, runAutoTradeCycle, runTradingTierQualificationWorkerCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
@@ -316,11 +316,18 @@ async function startServer() {
       tradeCycleRunning = true;
       try {
         let settlementReconciliation: Awaited<ReturnType<typeof reconcileAllDueTradesAwaitingConfirmation>> | null = null;
+        let settlementCreditPosting: Awaited<ReturnType<typeof processConfirmedTradeCredits>> | null = null;
         try {
           settlementReconciliation = await runMonitoredWorkerCycle("settlement-reconciliation", () => reconcileAllDueTradesAwaitingConfirmation());
           if (settlementReconciliation.marked) console.log("[SettlementReconciliation] overdue trades marked for confirmation", settlementReconciliation);
         } catch (error) {
           console.error("[SettlementReconciliation] sweep failed", sanitizeWorkerErrorMessage(error));
+        }
+        try {
+          settlementCreditPosting = await runMonitoredWorkerCycle("settlement-credit-posting", () => processConfirmedTradeCredits({ limit: 100 }));
+          if (settlementCreditPosting.credited) console.log("[TradeCreditPosting] confirmed wallet credits posted", settlementCreditPosting);
+        } catch (error) {
+          console.error("[TradeCreditPosting] confirmed wallet credit sweep failed", sanitizeWorkerErrorMessage(error));
         }
         const result = await runMonitoredWorkerCycle("trading-opportunities", async () => {
           const cycle = await runAutoTradeCycle();
@@ -330,7 +337,7 @@ async function startServer() {
         });
         tradeCycleConsecutiveFailures = 0;
         tradeCycleRetryAfterMs = 0;
-        console.log("[AutoTrade] cycle", { ...result, settlementReconciliation });
+        console.log("[AutoTrade] cycle", { ...result, settlementReconciliation, settlementCreditPosting });
       } catch (error) {
         tradeCycleConsecutiveFailures = Math.min(tradeCycleConsecutiveFailures + 1, 8);
         const backoffMs = Math.min(tradeCycleMaximumBackoffMs, tradeCycleBaseIntervalMs * (2 ** (tradeCycleConsecutiveFailures - 1)));

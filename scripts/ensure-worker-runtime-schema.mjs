@@ -96,6 +96,12 @@ async function main() {
     const workerMigration = await readFile(resolve(root, "drizzle/0062_worker_runtime_tables.sql"), "utf8");
     await executeCompatibleMigrationSql(db, workerMigration);
 
+    // Delivery diagnostics are defined in the portal migration chain, but the
+    // opportunity worker also runs on hosts that invoke only the main migration
+    // entry point. Bridge this idempotent additive migration before worker SQL.
+    const deliveryDiagnosticsMigration = await readFile(resolve(root, "drizzle/0052_delivery_diagnostics.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, deliveryDiagnosticsMigration);
+
     // The Trading tier queue is worker-critical too. Apply its idempotent DDL
     // here so hosts using this runtime-schema bridge cannot start with the
     // ledger writer enqueueing into a missing table. The journal still tracks
@@ -142,6 +148,10 @@ async function main() {
     await executeCompatibleMigrationSql(db, nullablePolicyDurationBoundsMigration);
     const fxSnapshotSourceTimestampMigration = await readFile(resolve(root, "drizzle/0095_fx_snapshot_source_timestamp_precision.sql"), "utf8");
     await executeCompatibleMigrationSql(db, fxSnapshotSourceTimestampMigration);
+    const settlementReviewTimestampMigration = await readFile(resolve(root, "drizzle/0096_trade_settlement_review_timestamp.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, settlementReviewTimestampMigration);
+    const dailyExecutionAttemptAccountingMigration = await readFile(resolve(root, "drizzle/0097_trading_daily_execution_attempt_accounting.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, dailyExecutionAttemptAccountingMigration);
 
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],

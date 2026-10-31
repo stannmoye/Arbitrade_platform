@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const databaseSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const deliveryQuotaSource = readFileSync(new URL("./modules/trading-delivery-quota.ts", import.meta.url), "utf8");
 const qualificationWorkerStart = databaseSource.indexOf("export async function runTradingTierQualificationWorkerCycle(");
 const qualificationWorkerEnd = databaseSource.indexOf("\nexport async function getCustomerTradingEligibility(", qualificationWorkerStart);
 const qualificationWorkerSource = databaseSource.slice(qualificationWorkerStart, qualificationWorkerEnd);
@@ -90,6 +91,14 @@ describe("Automatic Trading tier qualification", () => {
   });
 
   it("shows assigned Trading tiers and cumulative qualifying USD on the admin customer view without changing transfers", () => {
+    const customerListStart = databaseSource.indexOf("export async function listAdminCustomers()");
+    const customerListEnd = databaseSource.indexOf("\nexport async function createAdminCustomer", customerListStart);
+    const customerListSource = databaseSource.slice(customerListStart, customerListEnd);
+    expect(customerListStart).toBeGreaterThanOrEqual(0);
+    expect(customerListEnd).toBeGreaterThan(customerListStart);
+    expect(customerListSource).toContain("COALESCE(SUM(");
+    expect(customerListSource).toContain(".groupBy(balanceLedger.userId)");
+    expect(customerListSource).not.toContain("qualifyingDepositUsdMinor:balanceLedger.qualifyingDepositUsdMinor");
     expect(databaseSource).toContain("qualifyingDepositUsd:qualifyingUsdMinor/100");
     expect(databaseSource).toContain('inArray(balanceLedger.entryType,["admin_manual_deposit_credit","admin_manual_deposit_reversal"])');
     expect(customerAppSource).toContain("Qualifying USD:");
@@ -193,13 +202,14 @@ describe("Automatic Trading tier qualification", () => {
   });
 
   it("uses the tier popup cap when the admin policy has no explicit cap", () => {
-    expect(databaseSource).toContain("const policyCap=configuredCap>0?configuredCap:quotaFor(subscription)");
-    expect(databaseSource).toContain("tierCap>0?Math.min(policyCap,tierCap):policyCap");
+    expect(deliveryQuotaSource).toContain("const policyDailyCap = policyCap > 0 ? policyCap : quota");
+    expect(deliveryQuotaSource).toContain("const tierDailyCap = packageCap > 0 ? Math.min(policyDailyCap, packageCap) : policyDailyCap");
   });
 
   it("enforces the tier popup cap in the runtime delivery allowance", () => {
     expect(databaseSource).toContain("packageMaxPopupsPerDay:packages.maxPopupsPerDay");
-    expect(databaseSource).toContain("Math.min(policyCap,tierCap)");
+    expect(databaseSource).toContain("packageMaxPopupsPerDay:snapshot.maxPopupsPerDay??subscription.packageMaxPopupsPerDay");
+    expect(deliveryQuotaSource).toContain("packageCap > 0 ? Math.min(policyDailyCap, packageCap) : policyDailyCap");
   });
 
   it("keeps opportunity-policy reads aligned with saved administrator-managed tiers and fails closed when policy is missing", () => {

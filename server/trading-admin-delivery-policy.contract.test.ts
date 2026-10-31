@@ -17,13 +17,13 @@ describe("administrator Trading delivery policy controls", () => {
       "requirePreviousSettlement", "minSettlementDelaySeconds", "maxSettlementDelaySeconds",
       "minimumRewardBps", "maxDailyRewardMinor", "maxRewardPerTradeMinor", "closePolicy",
     ]) {
-      expect(app).toContain(field);
+      expect(policyEditor).toContain(field);
       expect(router).toContain(field);
       expect(schema).toContain(field);
     }
-    expect(app).toContain("enabled:Boolean(x.enabled),automaticDelivery:Boolean(x.automaticDelivery),automaticTradingEnabled:Boolean(x.automaticTradingEnabled)");
-    expect(app).toContain("minimumPayoutRateBps:x.minimumPayoutRateBps");
-    expect(app).toContain("companyRotationCountryNames:String(x.companyRotationCountryNames??\"\")");
+    expect(app).toContain("enabled:x.enabled===true,automaticDelivery:x.automaticDelivery===true,automaticTradingEnabled:x.automaticTradingEnabled===true");
+    expect(app).toContain("minimumPayoutRateBps:x.minimumPayoutRateBps??null");
+    expect(app).toContain("companyRotationCountryNames:x.companyRotationCountryNames??\"\"");
     expect(policyEditor).toContain("value={row.enabled?\"true\":\"false\"}");
     expect(app).toContain("({...x,packageName:x.packageName");
     for (const binding of [
@@ -31,6 +31,21 @@ describe("administrator Trading delivery policy controls", () => {
       "value={row.maxIntervalSeconds}", "value={row.maxTradeAttemptsPerDay}",
       "value={row.maxDailyRewardMinor}",
     ]) expect(policyEditor).toContain(binding);
+  });
+
+  it("routes the Customer tiers menu to the editable package catalogue", () => {
+    expect(app).toContain('(!focus||focus==="tiers")&&<AdminTradingPackageCatalogue/>');
+    expect(app).toContain('section==="packages"&&<AdminPackages focus={focus as "tiers"|"quotas"|"retries"|"display"|"delivery"|"rotation"|undefined}/>');
+  });
+
+  it("submits only changed tier policy fields instead of replaying stale full-row snapshots", () => {
+    expect(app).toContain("function AdminTradingPolicySettings(");
+    expect(app).toContain("buildChangedPolicyPatches(policyBaseline,policyRows)");
+    expect(router).toContain("maxPopupsPerDay: z.number().int().min(1).max(1000).optional()");
+    expect(router).toContain("maxVisibleOffers: z.number().int().min(1).max(10000).optional()");
+    expect(router).toContain("minimumTradeUnits: z.number().int().min(1).max(2147483647).optional()");
+    expect(router).toContain("burstEnabled: z.boolean().optional()");
+    expect(database).toContain("...supplied,packageName:policy.packageName,updatedBy");
   });
 
   it("merges partial policy updates against locked rows before a transactional, versioned and audited write", () => {
@@ -46,13 +61,13 @@ describe("administrator Trading delivery policy controls", () => {
     expect(database).toContain('action:"trading_delivery_policy_updated"');
     expect(database).toContain("validatePackageAutomationPolicy(automation)");
     expect(router).toContain("updatePackagePolicies: adminProcedure.input");
-    expect(app).toContain('onError:error=>{setPolicyMessage(error.message);window.alert("Trading policy could not be saved.');
-    expect(app).toContain('if(policyReason.trim().length<5){window.alert("Requirement not met: A reason for changing Trading tier policies is required for audit.');
+    expect(app).toContain("onError:error=>setPolicyMessage(error.message)");
+    expect(app).toContain('if(policyReason.trim().length<5){setPolicyMessage("Enter at least 5 characters explaining this policy change.");return;}');
   });
 
   it("keeps display timeout presentation-only and avoids promising a configured reward as earned profit", () => {
     expect(policyEditor).toContain("Controls display only; must not cancel an active trade.");
-    expect(app).toContain("active trade snapshots were preserved");
+    expect(app).toContain("Active trade snapshots were preserved.");
     expect(policyEditor).toContain("This is a minimum eligibility constraint, not a generated or guaranteed return.");
     expect(database).toContain("packagePolicyVersionSnapshot:snapshotVersion");
   });

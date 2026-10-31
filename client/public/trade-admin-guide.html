@@ -237,8 +237,8 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <div class="eyebrow">07 · Timing rules</div><h2>Trade Duration & Closing Rules</h2>
 <p>This page is in <strong>Set up trades → How trades finish</strong>. It has internal tabs for Ticket, Email, Trade and Password/Security; choose the Trade tab. The focused submenu opens the trade timing area directly.</p>
 <div class="field-list">
-<div class="field"><b>Settlement time (minutes)</b><span>Configured settlement delay value used by the timing policy.</span></div>
-<div class="field"><b>Wallet credit delay after trade completion (seconds)</b><span>Separates completion/settlement from when a wallet credit is posted.</span></div>
+<div class="field"><b>Settlement review delay (minutes)</b><span>Wait after the saved trade completion time before an administrator may review and confirm the actual result. The server persists this as settlementReviewAt.</span></div>
+<div class="field"><b>Wallet credit delay after review becomes due (seconds)</b><span>Added to settlementReviewAt to create creditAt. An administrator must still confirm the actual result; if confirmation is late and creditAt has passed, the worker may post immediately after confirmation.</span></div>
 <div class="field"><b>Cooldown before next automatic trade (seconds)</b><span>Wait after wallet credit before another automatic allocation may be allowed.</span></div>
 <div class="field"><b>Formula delay before next popup (seconds)</b><span>Server-side delay before another opportunity calculation/delivery can happen.</span></div>
 <div class="field"><b>Popup cooldown (seconds)</b><span>Minimum spacing between customer popup notifications.</span></div>
@@ -262,15 +262,15 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <div class="field"><b>Save fee policy</b><span>Saves an audited, versioned fee policy. Each settlement retains the fee rate, rounding rule and policy version used.</span></div>
 </div>
 <h3>Manual settlement queue</h3>
-<p>The queue shows trades awaiting administrator confirmation. Review the customer/trade ID, due status, evidence health, principal, and reserved reward. A reserved reward is an estimate—not an actual result.</p>
+<p>The queue shows trades awaiting administrator review and trades whose actual result is confirmed but whose wallet credit is still waiting. Review the customer/trade ID, review deadline, credit deadline, evidence reference, principal, and reserved reward. A reserved reward is an estimate—not an actual result.</p>
 <div class="field-list">
 <div class="field"><b>Actual gross profit/loss (minor units)</b><span>Enter the independently verified actual result in the currency's smallest unit. A negative value represents a loss.</span></div>
 <div class="field"><b>Settlement evidence reference</b><span>Required reference to the evidence supporting the actual result. Do not invent a reference.</span></div>
-<div class="field"><b>Confirm actual result</b><span>Submits the result for server-side due-time/evidence checks and atomic ledger settlement. If it is early or invalid, the server rejects it.</span></div>
+<div class="field"><b>Confirm actual result</b><span>Submits the actual result for server-side review-time/evidence checks and saves the confirmation. It does not post wallet funds; the monitored worker posts the ledger and wallet changes only when creditAt is reached.</span></div>
 </div>
 <h3>Wallet reconciliation</h3>
 <p>The read-only reconciliation compares available wallet balances with signed ledger entries and flags differences. It is for investigation; it does not let an administrator edit ledger history.</p>
-<div class="callout warn">Never settle a trade because the countdown reached zero. Verify the underlying evidence and confirm only the actual gross result. Principal, gross result, fee, net result and total credit are separate amounts.</div>
+<div class="callout warn">Never confirm a trade because the countdown reached zero. Verify the underlying evidence and confirm only the actual gross result. Confirmation leaves principal locked; wallet credit happens later at creditAt. Principal, gross result, fee, net result and total credit are separate amounts.</div>
 </section>
 
 <section class="section anchor" id="monitor">
@@ -325,16 +325,16 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <li>The customer can press <strong>Refresh</strong> to reload progress. Refresh does not create or activate a tier.</li>
 </ul>
 <h3>B. Trading Opportunities list</h3>
-<p>When an eligible opportunity is available, its company/reference name and logo may be shown only if the company is currently marked Verified by an authorized administrator and is not Archived. The customer pop-up may also show supplied symbol or code, venue/reference details, catalogue Logo ID, country-folder metadata and listing-status notes. Required capital, available balance, any shortfall, configured rate and configured duration are displayed when those values exist. If no currently approved company matches, the opportunity appears without a company identity; it never falls back to an Unverified or Archived company.</p>
+<p>When an eligible opportunity is available, its company/reference name and logo may be shown only if the company is currently marked Verified, enabled and not Archived by an authorized administrator. The customer pop-up may also show supplied symbol or code, venue/reference details, catalogue Logo ID, country-folder metadata and listing-status notes. Required capital, available balance, any shortfall, configured rate and configured duration are displayed when those values exist. If no currently approved company matches, the opportunity appears without a company identity; it never falls back to an Unverified or Archived company.</p>
 <p>Country-folder and ticker details are reference information. The customer display explicitly warns that listing verification is not implied. A logo or company name is not proof that a market trade occurred.</p>
 <h3>C. Insufficient balance</h3>
 <p>If the available balance is below the required capital, the customer can see a missed opportunity with required amount, available amount at the time, shortfall and reason. It is marked <strong>Missed — insufficient balance</strong>. No capital is debited, no trade is allocated and no profit is credited.</p>
 <h3>D. Company reference catalogue</h3>
-<p>The customer can search the existing catalogue by company name, domain, ticker or exchange, filter by country folder, and move through results in groups of up to 100 using <strong>Previous 100</strong> and <strong>Next 100</strong>. The page shows Logo ID, supplied ticker/code, exchange/code, workbook status and any parent/historical/placeholder classification. This is a separate informational reference library: search results do not create opportunities and are never used as the company identity source for customer pop-ups. Only the currently admin-verified, non-archived pool can supply a pop-up company identity.</p>
+<p>The customer can search only the companies currently approved and enabled by an administrator, by company name, domain, ticker or exchange, filter by country folder, and move through approved results in groups of up to 100 using <strong>Previous 100</strong> and <strong>Next 100</strong>. The server applies the current Verified allowlist minus Disabled and Archived IDs before returning search results or counts. Unverified, pending, rejected, disabled and archived companies are not retrievable by customer accounts; removing approval, disabling or archiving a company takes effect on the next customer read, including previously selected active pop-up references. The complete 1,811-record source catalogue and direct lookup tools remain administrator-only. Customer search results are informational and never create opportunities or replace the company identity source for customer pop-ups.</p>
 <h3>E. Automatic opportunity popup and pre-alert</h3>
 <ul>
 <li>A pre-alert may show <strong>Market Signal Preview</strong>, the symbol being evaluated, the configured preview duration and a <strong>Dismiss preview</strong> button. It can be withdrawn before an opportunity is published; it is not a trade.</li>
-<li>An opportunity popup shows the configured package badge when present, and may show a company reference/logo only from a company currently marked Verified and not Archived by an authorized administrator. If the approved pool is empty or no approved company matches the filters, the opportunity has no company identity; there is no unverified fallback.</li>
+<li>An opportunity popup shows the configured package badge when present, and may show a company reference/logo only from a company currently marked Verified, enabled and not Archived by an authorized administrator. If the approved pool is empty or no approved company matches the filters, the opportunity has no company identity; there is no unverified, disabled or archived fallback.</li>
 <li>Active customer pop-up responses re-check current approval status. Removing approval or archiving a company immediately hides its identity from active pop-ups without rewriting completed historical trade snapshots. The customer preview uses the same verified-only pool.</li>
 <li>When an automatic trade record exists, the popup shows lifecycle progress and whether settlement/reward credit/wallet update is pending or complete.</li>
 <li>For a non-automatic review card, the current code path provides <strong>Review details</strong> and <strong>Dismiss notification</strong>. Dismissing the notification is not settlement and does not itself change wallet accounting.</li>

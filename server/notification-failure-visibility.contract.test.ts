@@ -48,12 +48,18 @@ describe("financial notification delivery observability", () => {
     expect(dbSource).toContain("support-ticket:${ticketId}:message:${committed.messageId}");
   });
 
-  it("keeps trade allocation and settlement notices tied to committed trade identifiers", () => {
+  it("keeps trade allocation notices tied to committed trades and delays settlement notices until wallet posting", () => {
     expect(source).toContain("auto-trade-allocation:${trade.tradeId}");
     expect(source).toContain("trade-reward:${settlement.tradeId}");
-    expect(source).toContain("buildTradeSettlementNotices({");
-    expect(source).toContain("tradeId:result.tradeId,");
     expect(source).toContain("await manuallySettleTrade(input.tradeId,ctx.user.id,input)");
+    expect(source).not.toContain("buildTradeSettlementNotices({");
+    const creditStart = dbSource.indexOf("export async function processConfirmedTradeCredits(");
+    const creditEnd = dbSource.indexOf("\nexport async function createOpportunityOffer(", creditStart);
+    const creditPosting = dbSource.slice(creditStart, creditEnd);
+    expect(creditStart).toBeGreaterThanOrEqual(0);
+    expect(creditEnd).toBeGreaterThan(creditStart);
+    expect(creditPosting).toContain("buildTradeSettlementNotices({");
+    expect(creditPosting).toContain("await Promise.allSettled(notices.map(notice=>createNotification(");
     expect(notificationEventsSource).toContain("trade-settlement:${input.tradeId}:principal");
     expect(notificationEventsSource).toContain("trade-settlement:${input.tradeId}:reward");
   });

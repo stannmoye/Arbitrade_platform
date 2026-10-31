@@ -59,3 +59,7 @@ jobs:
         run: pnpm exec tsx scripts/trading-wallet-adjustment-idempotency.integration.ts
         env:
           DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_wallet_adjustment_test
+      - name: Exercise authenticated wallet API and customer authorization
+        run: pnpm exec tsx scripts/trading-wallet-authenticated-api.integration.ts
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_wallet_adjustment_test

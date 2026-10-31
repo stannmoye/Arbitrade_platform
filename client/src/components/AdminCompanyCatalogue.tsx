@@ -3,7 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { getPageCount } from "../trading-catalogue-pagination";
 
 const PAGE_SIZE = 10;
-type AdminCompanyStatus = "verified" | "unverified" | "archived";
+type AdminCompanyStatus = "verified" | "unverified" | "disabled" | "archived";
 
 export default function AdminCompanyCatalogue() {
   const [search, setSearch] = useState("");
@@ -73,13 +73,13 @@ export default function AdminCompanyCatalogue() {
   });
   const clearSelection = () => setSelectedIds(new Set());
 
-  const applyStatus = async (status: AdminCompanyStatus) => {
+  const applyStatus = async (status: "verified" | "unverified" | "disabled" | "enabled" | "archived") => {
     const ids = [...selectedIds];
     if (!ids.length || updateStatus.isPending) return;
-    const label = status === "archived" ? "archive" : status === "verified" ? "mark as admin-verified" : "mark as unverified";
+    const label = status === "archived" ? "archive" : status === "verified" ? "mark as admin-verified" : status === "disabled" ? "disable" : status === "enabled" ? "enable" : "mark as unverified";
     const confirmed = window.confirm(`You are about to ${label} ${ids.length.toLocaleString()} selected compan${ids.length === 1 ? "y" : "ies"}. Continue?`);
     if (!confirmed) return;
-    const reason = status === "archived" ? "Administrator archived selected catalogue records." : status === "verified" ? "Administrator marked selected catalogue records as verified." : "Administrator marked selected catalogue records as unverified.";
+    const reason = status === "archived" ? "Administrator archived selected catalogue records." : status === "verified" ? "Administrator marked selected catalogue records as verified." : status === "disabled" ? "Administrator disabled selected catalogue records." : status === "enabled" ? "Administrator enabled selected catalogue records." : "Administrator marked selected catalogue records as unverified.";
     await updateStatus.mutateAsync({ ids, status, reason });
   };
 
@@ -95,7 +95,7 @@ export default function AdminCompanyCatalogue() {
       <div>
         <div className="eyebrow">Trade · Company reference catalogue</div>
         <h1>Company names shown</h1>
-        <p>Manage the saved company/logo reference collection. Admin verification is an internal catalogue label that approves Verified companies for customer opportunity pop-up display; Unverified and Archived companies are excluded. This is display approval only, not stock-market listing or trade-execution verification.</p>
+        <p>Manage the saved company/logo reference collection. Admin verification is an internal catalogue label that approves Verified companies for customer opportunity pop-up display; Unverified, Disabled and Archived companies are excluded. Enable/disable is separate from verification: only records that are both admin-verified and enabled can appear in customer Trade surfaces. This is display approval only, not stock-market listing or trade-execution verification.</p>
       </div>
       <button className="secondary-button" type="button" onClick={() => { void summary.refetch(); void records.refetch(); void adminState.refetch(); }} disabled={summary.isFetching || records.isFetching || adminState.isFetching}>Refresh catalogue</button>
     </div>
@@ -120,9 +120,10 @@ export default function AdminCompanyCatalogue() {
         </label>
         <label>Catalogue status
           <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "all" | AdminCompanyStatus)}>
-            <option value="all">All active companies</option>
+            <option value="all">All non-archived companies</option>
             <option value="unverified">Unverified</option>
             <option value="verified">Admin marked verified</option>
+            <option value="disabled">Disabled</option>
             <option value="archived">Archived / deleted</option>
           </select>
         </label>
@@ -151,7 +152,7 @@ export default function AdminCompanyCatalogue() {
         {displayedRecords.map((company) => {
           const logoId = company.id.replace(/^logo-brand-/, "");
           const status = (statuses[company.id]?.status ?? "unverified") as AdminCompanyStatus;
-          const statusLabel = status === "verified" ? "Admin marked verified" : status === "archived" ? "Archived" : "Unverified";
+          const statusLabel = status === "verified" ? "Admin marked verified" : status === "archived" ? "Archived" : status === "disabled" ? "Disabled" : "Unverified";
           return <article className={`company-catalogue-row ${selectedIds.has(company.id) ? "is-selected" : ""}`} key={company.id}>
             <label className="company-catalogue-select" aria-label={`Select ${company.name}`}>
               <input type="checkbox" checked={selectedIds.has(company.id)} onChange={(event) => toggleCompany(company.id, event.target.checked)} />
@@ -187,7 +188,7 @@ export default function AdminCompanyCatalogue() {
 
       <div className="company-catalogue-bulk-actions">
         <button className="primary-button" type="button" onClick={() => void applyStatus("verified")} disabled={!selectedCount || updateStatus.isPending}>Mark selected verified</button>
-        <button className="secondary-button" type="button" onClick={() => void applyStatus("unverified")} disabled={!selectedCount || updateStatus.isPending}>Mark selected unverified</button>
+        <button className="secondary-button" type="button" onClick={() => void applyStatus("unverified")} disabled={!selectedCount || updateStatus.isPending}>Reject / mark unverified</button>\n        <button className="secondary-button" type="button" onClick={() => void applyStatus("enabled")} disabled={!selectedCount || updateStatus.isPending}>Enable selected</button>\n        <button className="secondary-button" type="button" onClick={() => void applyStatus("disabled")} disabled={!selectedCount || updateStatus.isPending}>Disable selected</button>
         {statusFilter === "archived"
           ? <button className="secondary-button" type="button" onClick={() => void restoreSelected()} disabled={!selectedCount || updateStatus.isPending}>Restore selected</button>
           : <button className="secondary-button danger-button" type="button" onClick={() => void applyStatus("archived")} disabled={!selectedCount || updateStatus.isPending}>Delete selected</button>}
@@ -195,6 +196,6 @@ export default function AdminCompanyCatalogue() {
       {updateStatus.isError && <p className="admin-ops-empty error" role="alert">{updateStatus.error.message}</p>}
       {updateStatus.isSuccess && <p className="company-catalogue-success" role="status">Catalogue changes saved.</p>}
     </section>
-    <p className="company-catalogue-disclaimer">Delete moves records to Archived; it does not permanently remove the source catalogue. Archived records can be restored. Only Verified, non-archived records can appear as company references in customer opportunity pop-ups. Admin verification is display approval only: all records remain reference-only and ineligible for verified securities/trade execution.</p>
+    <p className="company-catalogue-disclaimer">Delete moves records to Archived; it does not permanently remove the source catalogue. Archived records can be restored. Only Verified, enabled, non-archived records can appear in customer-facing company search and opportunity pop-ups. Admin verification is display approval only: all records remain reference-only and ineligible for verified securities/trade execution.</p>
   </div>;
 }

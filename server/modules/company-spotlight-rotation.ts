@@ -18,23 +18,58 @@ export function normalizeCompanyRotationCountryNames(raw:unknown):string {
 export type CompanyCatalogueAdminState = {
   verifiedIds: readonly string[];
   archivedIds: readonly string[];
+  disabledIds?: readonly string[];
 };
 
 /** Malformed or missing administrator state fails closed: no company is approved for customer display. */
 export function parseCompanyCatalogueAdminState(raw: unknown): CompanyCatalogueAdminState {
-  let parsed: any = raw;
+  let parsed: unknown = raw;
   try {
     if (typeof raw === "string") parsed = JSON.parse(raw || "{}");
   } catch {
-    parsed = null;
+    return { verifiedIds: [], archivedIds: [], disabledIds: [] };
   }
-  const validIds = (value: unknown): string[] => Array.isArray(value)
-    ? [...new Set(value.filter((id): id is string => typeof id === "string" && /^logo-brand-\d{4}$/.test(id)))]
-    : [];
-  return {
-    verifiedIds: validIds(parsed?.verifiedIds),
-    archivedIds: validIds(parsed?.archivedIds),
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return { verifiedIds: [], archivedIds: [], disabledIds: [] };
+  }
+  const state = parsed as Record<string, unknown>;
+  const parseIds = (value: unknown, optional = false): string[] | null => {
+    if (value === undefined && optional) return [];
+    if (!Array.isArray(value) || value.some(id => typeof id !== "string" || !/^logo-brand-\d{4}$/.test(id))) {
+      return null;
+    }
+    return [...new Set(value as string[])];
   };
+  // Older valid states predate disabledIds, so that one field is optional.
+  // A malformed approval or exclusion list invalidates the entire state: never
+  // turn a corrupt archived/disabled list into permission to show a company.
+  const verifiedIds = parseIds(state.verifiedIds);
+  const archivedIds = parseIds(state.archivedIds);
+  const disabledIds = parseIds(state.disabledIds, true);
+  if (!verifiedIds || !archivedIds || !disabledIds) {
+    return { verifiedIds: [], archivedIds: [], disabledIds: [] };
+  }
+  return { verifiedIds, archivedIds, disabledIds };
+}
+
+/** Customer reads must revalidate persisted snapshots against current admin approval. */
+export function createCompanySpotlightDisplayGuard(
+  adminState: CompanyCatalogueAdminState,
+): (companyId: unknown) => boolean {
+  const verifiedIds = new Set(adminState.verifiedIds);
+  const archivedIds = new Set(adminState.archivedIds);
+  const disabledIds = new Set(adminState.disabledIds ?? []);
+  return (companyId: unknown) => typeof companyId === "string" &&
+    verifiedIds.has(companyId) &&
+    !archivedIds.has(companyId) &&
+    !disabledIds.has(companyId);
+}
+
+export function isCompanySpotlightDisplayAllowed(
+  companyId: unknown,
+  adminState: CompanyCatalogueAdminState,
+): boolean {
+  return createCompanySpotlightDisplayGuard(adminState)(companyId);
 }
 
 export function buildCompanySpotlightPool(
@@ -45,11 +80,12 @@ export function buildCompanySpotlightPool(
   const selected = new Set(normalizeCompanyRotationCountryNames(countryNames).split(",").map(name => name.trim()).filter(Boolean));
   const verified = new Set(adminState.verifiedIds);
   const archived = new Set(adminState.archivedIds);
-  // Administrator approval is required for customer spotlight display. Archived
-  // always wins, including malformed/stale state containing an ID in both sets.
+  const disabled = new Set(adminState.disabledIds ?? []);
+  // Administrator approval is required for customer spotlight display. Archived and disabled
+  // always win, including stale state that also contains an ID in verifiedIds.
   const pool = catalogue.filter(company =>
     company.id && company.name && company.logoUrl &&
-    verified.has(company.id) && !archived.has(company.id) &&
+    verified.has(company.id) && !archived.has(company.id) && !disabled.has(company.id) &&
     (!selected.size || selected.has(company.countryName)),
   );
   if (new Set(pool.map(company => company.id)).size !== pool.length) {

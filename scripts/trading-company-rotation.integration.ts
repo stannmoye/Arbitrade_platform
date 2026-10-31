@@ -3,11 +3,11 @@ import crypto from "node:crypto";
 import mysql from "mysql2/promise";
 import { spawnSync } from "node:child_process";
 import { eq, inArray } from "drizzle-orm";
-import { closeDbPool, getDb } from "../server/db";
+import { closeDbPool, getDb, updateCompanyCatalogueAdminState } from "../server/db";
 import { ensurePopupDeliveries } from "../server/opportunityLifecycle";
 import { COMPANY_REFERENCE_CATALOGUE } from "../server/modules/company-catalogue-reference";
 import { buildCompanySpotlightPool, type CompanySpotlightRepeatPolicy } from "../server/modules/company-spotlight-rotation";
-import { appSettings, opportunityOffers, opportunityPopupEvents, users } from "../drizzle/schema";
+import { appSettings, opportunityOffers, opportunityPopupEvents, users, v5AuditEvents } from "../drizzle/schema";
 
 type PopupDelivery = Parameters<typeof ensurePopupDeliveries>[0][number];
 
@@ -27,6 +27,7 @@ const mainPackage = "RotationTest-" + token;
 const poolPackage = "RotationPool-" + token;
 const verificationPackage = "VerificationFilter-" + token;
 const emptyPackage = "EmptyVerified-" + token;
+const disabledPackage = "DisabledCompany-" + token;
 const catalogueAdminStateKey = "trade.companyCatalogue.adminState";
 let originalCatalogueAdminState: { settingValue: string; updatedBy: number | null } | null | undefined;
 const quotaDay = new Date().toISOString().slice(0, 10);
@@ -159,6 +160,7 @@ try {
   stateKeys.push(
     "trading.companyRotation." + userId + "." + verificationPackage,
     "trading.companyRotation." + userId + "." + emptyPackage,
+    "trading.companyRotation." + userId + "." + disabledPackage,
   );
 
   const priorCatalogueRows = await db.select({
@@ -172,11 +174,35 @@ try {
     verifiedIds: COMPANY_REFERENCE_CATALOGUE.map(company => company.id),
     archivedIds: [],
   };
-  const setCatalogueAdminState = async (verifiedIds: string[], archivedIds: string[] = []) => {
-    const settingValue = JSON.stringify({ verifiedIds, archivedIds });
+  const setCatalogueAdminState = async (verifiedIds: string[], archivedIds: string[] = [], disabledIds: string[] = []) => {
+    const settingValue = JSON.stringify({ verifiedIds, archivedIds, disabledIds });
     await db!.insert(appSettings).values({ settingKey: catalogueAdminStateKey, settingValue, updatedBy: userId! })
       .onDuplicateKeyUpdate({ set: { settingValue, updatedBy: userId! } });
   };
+  await setCatalogueAdminState([...allVerifiedState.verifiedIds]);
+
+  // Exercise persisted admin enable/disable and approval transitions, not only JSON fixtures.
+  const adminStatusTestId = COMPANY_REFERENCE_CATALOGUE[0]!.id;
+  await updateCompanyCatalogueAdminState({ ids: [adminStatusTestId], status: "disabled", reason: "Integration test: disable company", updatedBy: userId! });
+  let savedAdminState = JSON.parse(String((await db.select({ settingValue: appSettings.settingValue }).from(appSettings).where(eq(appSettings.settingKey, catalogueAdminStateKey)).limit(1))[0]?.settingValue || "{}"));
+  assert.ok(savedAdminState.disabledIds.includes(adminStatusTestId), "disable action must persist its ID");
+  assert.ok(savedAdminState.verifiedIds.includes(adminStatusTestId), "disable must preserve the separate verification decision");
+  await updateCompanyCatalogueAdminState({ ids: [adminStatusTestId], status: "enabled", reason: "Integration test: enable company", updatedBy: userId! });
+  savedAdminState = JSON.parse(String((await db.select({ settingValue: appSettings.settingValue }).from(appSettings).where(eq(appSettings.settingKey, catalogueAdminStateKey)).limit(1))[0]?.settingValue || "{}"));
+  assert.ok(!savedAdminState.disabledIds.includes(adminStatusTestId), "enable action must clear disabled status");
+  assert.ok(savedAdminState.verifiedIds.includes(adminStatusTestId), "enable must not grant or remove verification");
+  await updateCompanyCatalogueAdminState({ ids: [adminStatusTestId], status: "unverified", reason: "Integration test: reject company", updatedBy: userId! });
+  savedAdminState = JSON.parse(String((await db.select({ settingValue: appSettings.settingValue }).from(appSettings).where(eq(appSettings.settingKey, catalogueAdminStateKey)).limit(1))[0]?.settingValue || "{}"));
+  assert.ok(!savedAdminState.verifiedIds.includes(adminStatusTestId), "reject/unverify must revoke customer approval");
+  await updateCompanyCatalogueAdminState({ ids: [adminStatusTestId], status: "verified", reason: "Integration test: re-approve company", updatedBy: userId! });
+  await updateCompanyCatalogueAdminState({ ids: [adminStatusTestId], status: "archived", reason: "Integration test: archive company", updatedBy: userId! });
+  savedAdminState = JSON.parse(String((await db.select({ settingValue: appSettings.settingValue }).from(appSettings).where(eq(appSettings.settingKey, catalogueAdminStateKey)).limit(1))[0]?.settingValue || "{}"));
+  assert.ok(savedAdminState.archivedIds.includes(adminStatusTestId), "archive action must persist archived status");
+  assert.ok(!savedAdminState.verifiedIds.includes(adminStatusTestId), "archive must revoke customer approval");
+  await updateCompanyCatalogueAdminState({ ids: [adminStatusTestId], status: "unverified", reason: "Integration test: restore company", updatedBy: userId! });
+  savedAdminState = JSON.parse(String((await db.select({ settingValue: appSettings.settingValue }).from(appSettings).where(eq(appSettings.settingKey, catalogueAdminStateKey)).limit(1))[0]?.settingValue || "{}"));
+  assert.ok(!savedAdminState.archivedIds.includes(adminStatusTestId), "restore must remove archived status");
+  assert.ok(!savedAdminState.verifiedIds.includes(adminStatusTestId), "restored companies must return as unverified");
   await setCatalogueAdminState([...allVerifiedState.verifiedIds]);
 
   const countryNames = new Set(COMPANY_REFERENCE_CATALOGUE.map(row => row.countryName).filter(Boolean));
@@ -200,7 +226,7 @@ try {
   assert.ok(exhaustionPool.length >= 3, "exhaustion test requires a multi-company filtered pool");
   assert.equal(exhaustionPool.length, countryCounts.get(smallestCountry), "test fixture count must agree with the runtime filter");
 
-  const requiredOffers = 10 + exhaustionPool.length + 1;
+  const requiredOffers = 11 + exhaustionPool.length + 1;
   for (let index = 0; index < requiredOffers; index++) await addOffer(index);
 
   // Two independent worker invocations race on the exact same user:offer:quotaDay.
@@ -292,6 +318,13 @@ try {
   assert.equal(metadataOf(verifiedOnlyEvent).adminCatalogueStatus, "verified");
   assert.equal(metadataOf(verifiedOnlyEvent).listingStatus, "unverified", "admin display approval must not rewrite source listing verification");
 
+  // A currently verified company must be hidden when an administrator disables it.
+  await setCatalogueAdminState([verificationCandidates[0]!.id], [], [verificationCandidates[0]!.id]);
+  await ensurePopupDeliveries([makeDelivery(offerIds[10]!, disabledPackage, smallestCountry)]);
+  const disabledCompanyEvent = await readEvent(offerIds[10]!);
+  assert.ok(disabledCompanyEvent);
+  assert.equal(disabledCompanyEvent.companyReferenceId, null, "disabled companies must never enter customer opportunity snapshots");
+
   // With no verified IDs, the opportunity may still be delivered but no company
   // identity is attached; the worker must never substitute an unverified record.
   await setCatalogueAdminState([]);
@@ -341,7 +374,7 @@ try {
 
   // Exhaust the smallest actual country-folder pool to prove no repeat occurs in cycle 1,
   // and that the next assignment starts cycle 2 under avoid-until-exhausted.
-  const poolOfferIds = offerIds.slice(10, 10 + exhaustionPool.length + 1);
+  const poolOfferIds = offerIds.slice(11, 11 + exhaustionPool.length + 1);
   const poolRows: NonNullable<Awaited<ReturnType<typeof readEvent>>>[] = [];
   for (let index = 0; index < exhaustionPool.length; index++) {
     const offerId = poolOfferIds[index]!;
@@ -371,6 +404,7 @@ try {
     transactionRollbackRestoredCursor: true,
     verifiedOnlySelection: verifiedOnlyEvent.companyReferenceId === verificationCandidates[0]!.id,
     emptyVerifiedPoolOmitsCompany: noCompanyEvent.companyReferenceId === null,
+    disabledCompanyHidden: disabledCompanyEvent.companyReferenceId === null,
     poolExhaustionSize: exhaustionPool.length,
     cycleAfterExhaustion: metadataOf(overflowEvent).rotationCycle,
   }));
@@ -398,6 +432,7 @@ try {
       }
     }
     if (offerIds.length) await db.delete(opportunityOffers).where(inArray(opportunityOffers.id, offerIds));
+    if (userId !== undefined) await db.delete(v5AuditEvents).where(eq(v5AuditEvents.actorUserId, userId));
     if (userId !== undefined) await db.delete(users).where(eq(users.id, userId));
   } finally {
     await closeDbPool();

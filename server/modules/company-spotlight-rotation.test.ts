@@ -1,6 +1,7 @@
+import { readFileSync } from "node:fs";
 import {describe,expect,it} from "vitest";
 import {COMPANY_REFERENCE_CATALOGUE} from "./company-catalogue-reference";
-import {buildCompanySpotlightPool,nextCompanySpotlight,normalizeCompanyRotationCountryNames,parseCompanyCatalogueAdminState} from "./company-spotlight-rotation";
+import {buildCompanySpotlightPool,isCompanySpotlightDisplayAllowed,nextCompanySpotlight,normalizeCompanyRotationCountryNames,parseCompanyCatalogueAdminState} from "./company-spotlight-rotation";
 
 const allVerifiedState={verifiedIds:COMPANY_REFERENCE_CATALOGUE.map(company=>company.id),archivedIds:[]};
 
@@ -13,14 +14,21 @@ describe("package-scoped company spotlight rotation",()=>{
   });
   it("includes only admin-verified IDs and always excludes archived IDs",()=>{
     const [verified,archived,alsoVerified]=COMPANY_REFERENCE_CATALOGUE.slice(0,3);
-    const pool=buildCompanySpotlightPool("",{verifiedIds:[verified!.id,archived!.id,alsoVerified!.id],archivedIds:[archived!.id]});
-    expect(pool.map(company=>company.id)).toEqual([verified!.id,alsoVerified!.id]);
+    const pool=buildCompanySpotlightPool("",{verifiedIds:[verified!.id,archived!.id,alsoVerified!.id],archivedIds:[archived!.id],disabledIds:[alsoVerified!.id]});
+    expect(pool.map(company=>company.id)).toEqual([verified!.id]);
     expect(buildCompanySpotlightPool("",{verifiedIds:[],archivedIds:[]})).toEqual([]);
   });
   it("fails closed when the administrator status setting is missing or malformed",()=>{
-    expect(parseCompanyCatalogueAdminState(null)).toEqual({verifiedIds:[],archivedIds:[]});
-    expect(parseCompanyCatalogueAdminState("{not-json")).toEqual({verifiedIds:[],archivedIds:[]});
-    expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001","invalid"],archivedIds:["logo-brand-0001"]})).toEqual({verifiedIds:["logo-brand-0001"],archivedIds:["logo-brand-0001"]});
+    expect(parseCompanyCatalogueAdminState(null)).toEqual({verifiedIds:[],archivedIds:[],disabledIds:[]});
+    expect(parseCompanyCatalogueAdminState("{not-json")).toEqual({verifiedIds:[],archivedIds:[],disabledIds:[]});
+    expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001"],archivedIds:[],disabledIds:["logo-brand-0001"]})).toEqual({verifiedIds:["logo-brand-0001"],archivedIds:[],disabledIds:["logo-brand-0001"]});
+    const closed = {verifiedIds:[],archivedIds:[],disabledIds:[]};
+    expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001","invalid"],archivedIds:["logo-brand-0001"]})).toEqual(closed);
+    expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001"],archivedIds:"corrupt"})).toEqual(closed);
+    expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001"],archivedIds:[],disabledIds:"corrupt"})).toEqual(closed);
+    expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001"],archivedIds:[],disabledIds:[42]})).toEqual(closed);
+    // Legacy state without the newer disabledIds property remains readable.
+    expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001"],archivedIds:[]})).toEqual({verifiedIds:["logo-brand-0001"],archivedIds:[],disabledIds:[]});
   });
   it("normalizes exact country-folder filters and rejects unknown labels",()=>{
     const country=COMPANY_REFERENCE_CATALOGUE[0]!.countryName;
@@ -65,5 +73,55 @@ describe("package-scoped company spotlight rotation",()=>{
     expect(pool.some(company=>company.id===result.company.id)).toBe(true);
     expect(result.state.repeatPolicy).toBe("allow_repeats");
     expect(result.state.requestCount).toBe(1);
+  });
+});
+
+
+describe("current customer company snapshot authorization",()=>{
+  it("hides previously selected snapshots immediately after unverify, reject, archive, or disable",()=>{
+    const companyId=COMPANY_REFERENCE_CATALOGUE[0]!.id;
+    const approved={verifiedIds:[companyId],archivedIds:[]};
+    expect(isCompanySpotlightDisplayAllowed(companyId,approved)).toBe(true);
+    expect(isCompanySpotlightDisplayAllowed(companyId,{...approved,disabledIds:[companyId]})).toBe(false);
+    // Pending/rejected entries are absent from the verified allowlist; disabled and
+    // archived IDs are independently denied even when they remain verified.
+    for(const state of [
+      {verifiedIds:[],archivedIds:[]},
+      {verifiedIds:[],archivedIds:[companyId]},
+    ]) expect(isCompanySpotlightDisplayAllowed(companyId,state)).toBe(false);
+  });
+  it("fails closed for stale, malformed, or non-string snapshot references",()=>{
+    const state=parseCompanyCatalogueAdminState("{malformed");
+    for(const id of [null,undefined,42,"logo-brand-0000","logo-brand-0001"]) {
+      expect(isCompanySpotlightDisplayAllowed(id,state)).toBe(false);
+    }
+  });
+});
+
+describe("customer company catalogue access boundary",()=>{
+  const routerSource=readFileSync(new URL("../routers.ts",import.meta.url),"utf8");
+  const customerPortal=readFileSync(new URL("../../client/src/App.tsx",import.meta.url),"utf8");
+  const adminCatalogue=readFileSync(new URL("../../client/src/components/AdminCompanyCatalogue.tsx",import.meta.url),"utf8");
+  it("keeps the full catalogue and direct lookup endpoints administrator-only",()=>{
+    for(const endpoint of ["summary","count","search","byId","bySymbol","random","next"]) {
+      const match=routerSource.match(new RegExp(endpoint+": adminProcedure"));
+      expect(match,endpoint+" must require administrator authorization").not.toBeNull();
+    }
+  });
+  it("exposes separate administrator verify, reject, enable, disable, and archive controls",()=>{
+    for(const action of ["Mark selected verified","Reject / mark unverified","Enable selected","Disable selected","Delete selected"]) expect(adminCatalogue).toContain(action);
+    expect(adminCatalogue).toContain('<option value="disabled">Disabled</option>');
+  });
+  it("uses customer-only catalogue routes that filter current approvals before pagination",()=>{
+    expect(routerSource).toContain("customerSearch: protectedProcedure");
+    expect(routerSource).toContain("customerCount: protectedProcedure");
+    expect(routerSource).toContain("customerSummary: protectedProcedure");
+    expect(routerSource).toContain("const companyDisplayAllowed = createCompanySpotlightDisplayGuard(adminState)");
+    expect(routerSource).toContain(".filter((company) => companyDisplayAllowed(company.id))");
+    expect(routerSource).toContain(".slice(offset, offset + limit)");
+    expect(customerPortal).toContain("companyCatalogueReference.customerSearch.useQuery");
+    expect(customerPortal).toContain("companyCatalogueReference.customerCount.useQuery");
+    expect(customerPortal).toContain("companyCatalogueReference.customerSummary.useQuery");
+    expect(customerPortal).not.toContain("companyCatalogueReference.search.useQuery");
   });
 });

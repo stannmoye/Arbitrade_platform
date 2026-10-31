@@ -1,3 +1,70 @@
+## 2026-10-31 — Stage 1 customer wallet API and ledger-history validation
+
+- Stage 1 implementation/test head: `39bb4565eb9a235e481d597f1190de027c5780e2`. At that exact head all 10 PR workflow groups passed, including the wallet administrator-idempotency integration on MySQL 8.4 and MariaDB 11.4, application verification, TypeScript/tests/build, installer validation, worker/tier/settlement/company-rotation integrations, Mining regression and Trading recovery checks.
+- Added `customer.walletLedger`, a customer-role-only protected query that returns only the authenticated customer's persisted ledger columns, newest first, defaulting to 50 and capped at 100. The customer Wallet page now renders the saved entries, signed native-currency amounts and ledger timestamps. No owner ID or other customer's row is returned.
+- Added an authenticated HTTP integration using the production `appRouter`, Express tRPC adapter and `createContext`; test identities are inserted into the disposable database and receive signed sessions from the production local-session helper. It verifies anonymous/stale-session denial, customer/admin authorization, customer wallet isolation, customer-only ledger-history access, admin customer credit, administrator self-credit exclusion, qualifying and unrelated credits, non-USD credit-time conversion, persisted USD attribution/FX evidence, request-key replay and mismatch rejection.
+- FX provider HTTP is stubbed deterministically at the external network boundary only; the real rate-conversion service, request router, session verification, transactional ledger writes and persisted FX snapshot remain under test. No production customer, wallet or database data is used.
+- Existing database integration already exercises successful and failed FX quotes, qualifying-credit/reversal attribution, duplicate credit handling, worker enqueue and transaction rollback. No new migration was required.
+- **Remaining Stage 1 boundary:** branch inspection did not find a customer-to-customer wallet-transfer route or service. The non-qualifying credit and qualification-worker exclusion paths are tested, but ordinary wallet-transfer behaviour has not been independently exercised. Do not claim transfer regression coverage until an actual supported transfer path is identified and tested.
+- Stage 1 is therefore **incomplete** pending that transfer boundary check. Stage 2 has not been started. PR #258 must remain open, draft and unmerged; no deployment, merge or production migration has been performed.
+
+---
+## 2026-10-31 — Stage 3C.3 previous-settlement gate — verified
+
+- Final implementation head: `93d6f625b011fdb3bef239658bafea3f65a9eaa9` on `fix/trade-lifecycle-and-admin-policy-completion`; PR #258 remains open, draft and unmerged. The initial gate-only implementation was `208ee15`; the final head also includes deferred retry and release of both attempt budgets.
+- Enforced `requirePreviousSettlement` inside the customer-locked trade-allocation transaction. When enabled for the selected tier, any earlier non-cancelled trade for that customer, across all tiers, must have both `status=settled` and `settlementStatus=completed` before a new allocation can proceed.
+- Administrator confirmation alone does not clear the gate; the confirmed trade remains blocking until the wallet-credit transaction commits. The prior trade row is locked during the check. A disabled setting removes only this gate for the selected tier.
+- The gate runs after idempotent replay detection, so a retry of an already-allocated event remains safe and does not create a new allocation.
+- When the worker encounters the gate, it defers the opportunity for the configured retry delay instead of marking it missed. It releases both the per-opportunity technical attempt and the customer-wide daily attempt; the delivered opportunity remains eligible for retry after settlement.
+- Reviewed global allocation pause semantics: the persisted pause is checked inside `createTrade` for new allocations; settlement review, confirmed wallet-credit posting and reconciliation do not depend on that pause setting.
+- Disposable opportunity-worker integration emitted `previousSettlementGateBlocked=true` on both MySQL 8.4 and MariaDB 11.4. It verified one trade only and unchanged wallet/ledger state after the blocked allocation.
+- All 10 exact-head workflow groups passed on final implementation head `93d6f625`, including TypeScript, tests, production build, browser recovery, installer/migration validation, Mining regression, settlement, wallet idempotency, tier qualification, opportunity worker and company rotation.
+- No production database migration, merge or deployment occurred.
+
+---
+
+## 2026-10-31 — Stage 3C.2 UTC rollover accounting — verified
+
+- Code and database test head: `d55da4ccb64f3eb742d551dab2064a5bf98c8dca`; PR #258 remains open, draft and unmerged.
+- Daily usage sums `executionDailyAttemptCount` by customer and current UTC `executionDailyAttemptDay`; it includes opportunity events across package names. The attempted event's saved package policy supplies the configured limit, as required by the canonical specification.
+- UTC rollover resets only the daily counter. Lifetime technical retry counts and `executionRetryDay` remain independent, and daily-cap deferral does not rewrite the technical retry-window marker.
+- Migration 0097 adds an indexed daily counter. No historical backfill is possible without per-attempt timestamps: legacy `executionAttemptCount` is cumulative and `executionRetryDay` stores only the latest retry-window day. Legacy daily values intentionally remain `0/NULL`; future claims populate the current UTC day.
+- Integration coverage includes multiple opportunities across two tier policies, customer-wide cap enforcement, preservation of the retry-window marker on deferral, and UTC rollover with the lifetime count still cumulative.
+- Exact-head CI passed all 10 workflow groups on code head `d55da4c`. MySQL 8.4 and MariaDB 11.4 opportunity-worker, tier-qualification, settlement and company-rotation integrations all passed. Wallet idempotency passed on both engines; installer fresh-MariaDB, MySQL 8.4 compatibility/recovery, migration regression, application checks and customer-portal browser recovery also passed.
+- No merge, production migration or deployment occurred; DB validation used disposable CI databases only.
+
+---
+
+## 2026-10-31 — Stage 3C.2: daily attempt budget versus retry ceiling
+
+- Work remains on `fix/trade-lifecycle-and-admin-policy-completion`; PR #258 remains draft and must not be merged without explicit authorization.
+- Corrected a policy mismatch: `maxTradeAttemptsPerDay` now limits the customer's total automatic execution claims across opportunities for the UTC day, including transient technical retries. It is no longer treated as the per-event retry maximum.
+- Claims lock the customer row before the opportunity row (matching trade-allocation lock order), read the persisted policy for the attempted event's package, and sum `executionDailyAttemptCount` values whose `executionDailyAttemptDay` matches the current UTC day across all of that customer's package opportunities. This serializes cross-event and cross-package claims. The selected event's policy supplies the configured limit; a value of zero disables the cap.
+- The per-opportunity transient retry ceiling is enforced at claim time from the event's current UTC-day counter, so repeated worker crashes cannot bypass it. Lifetime `executionAttemptCount` remains diagnostic; retry decisions use the per-event daily attempt number. Temporary pause/settlement deferrals release both per-event and customer-wide counters. A policy value of zero disables the daily cap. Exhausted daily budget defers not-yet-attempted opportunities until next UTC day; no wallet or ledger operation occurs.
+- Added exact-head worker DB coverage for cross-opportunity and cross-package daily cap exhaustion. MySQL 8.4 and MariaDB 11.4 integration results passed on code head `d55da4c`.
+
+---
+
+## 2026-10-31 — Stage 3C.1: durable delivery cadence and post-completion timing
+
+- Work remains isolated on `fix/trade-lifecycle-and-admin-policy-completion`; PR #258 remains draft and must not be merged without explicit authorization.
+- Reconciled the remaining schedule gap: daily opportunity allowance and simultaneous visible-offer capacity were already separate, but min/max cadence and randomization were not applied by the worker. A stable deadline is now derived from the durable delivery-event ID, customer ID and policy version, so all workers/restarts calculate the same inclusive interval without a new migration.
+- The post-completion gap now anchors to the most recent settled trade's persisted completion timestamp, rather than the last popup delivery. Both schedule gates must expire before the worker creates another delivery.
+- Added helper tests and source-contract coverage. Exact-head CI and DB integrations are pending for this increment.
+
+---
+
+## 2026-10-31 — Stage 2 settlement confirmation and delayed wallet-credit lifecycle
+
+- Work branch: `fix/trade-lifecycle-and-admin-policy-completion`, based on verified `main` SHA `048620efa2c68d707c87fb22ba63ebeb6a924772`. Keep this work isolated until exact-head CI, disposable MySQL/MariaDB integration and final review pass.
+- Part 2 now separates `settlesAt` (trade duration end), `settlementReviewAt` (review eligibility after saved settlement delay), and `creditAt` (earliest wallet posting time after the review deadline and configured credit delay). Existing rows with null review timestamps use their prior `creditAt` as the review gate when available, otherwise `settlesAt`; null credit timestamps fall back to the review deadline. Historical timestamps are not rewritten.
+- Administrator confirmation stores the actual result, evidence reference claim, confirmation actor/time and fee-policy snapshot under transaction, but does not post ledger entries, change wallet balances, release principal, finalize the reward reservation, or mark the popup terminal.
+- The bounded monitored `settlement-credit-posting` worker posts only a confirmed result after `creditAt`. It locks and verifies the trade, reference claim, saved fee calculation, reservation and principal; then commits ledger entries, wallet balance changes, reservation finalization and terminal trade state atomically. Settlement notifications and popup completion happen after this commit.
+- Additive migration `0096_trade_settlement_review_timestamp.sql` is registered in the Drizzle journal, guarded migration verification, runtime schema bridge, portal migration runner, installer recovery diagnostics and worker schema contracts.
+- Regression tests and the disposable database integration script cover confirmation-before-credit, late confirmation, no timer-only posting, concurrent worker idempotency, replay and wallet/ledger consistency. These checks remain pending exact-head CI; do not mark the stage complete or merge until the CI and MySQL 8.4/MariaDB 11.4 jobs pass.
+
+---
+
 # Trading Implementation Coordination
 
 **Updated:** 2026-10-29  
@@ -209,6 +276,6 @@ Shared paths requiring coordination include `server/_core/index.ts`, `server/_co
 
 - PR [#256 — Show only admin-verified companies in customer pop-ups](https://github.com/stannmoye/Arbitrade_platform/pull/256) was squash-merged into `main` as `9b83dd507bc7e466b961737bc15ee0038038ea7c`.
 - The current `trade.companyCatalogue.adminState` setting is the authority for customer pop-up identity: include only current `verifiedIds`, always exclude `archivedIds` (Archived takes precedence), apply country filters after approval, and fail closed with no company identity when the state is missing/malformed or no approved company matches.
-- The customer preview uses the same approved pool. Active customer pop-up reads re-check current status so unverify/archive changes hide company identity immediately; immutable historical snapshots remain unchanged.
-- The searchable customer catalogue remains a separate informational reference surface. It must never be used as a fallback or alternate source for opportunity pop-up identity. Admin approval is display-only and does not establish securities listing or trade-execution eligibility.
+- The customer preview uses the same approved pool. Active customer pop-up reads re-check current status so unverify, disable or archive changes hide company identity immediately; immutable historical snapshots remain unchanged.
+- The customer-facing company search is restricted server-side to the current admin-verified, enabled, non-archived allowlist; it must not expose the full 1,811-record source catalogue. Full catalogue search and direct lookup are administrator-only. Customer search filters approval before pagination/counting and rechecks current state on each read so unverify/disable/archive immediately removes stale active references. Admin approval is display-only and does not establish securities listing or trade-execution eligibility.
 - All 25 exact-head PR checks passed before merge. Post-merge checks were still running/queued at the last recorded poll. No production deployment or database modification was performed.

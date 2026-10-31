@@ -40,22 +40,34 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
       trading_tier_qualification_jobs_user_status_idx: { unique: false, columns: ["userId", "status"] },
     },
   },
+  opportunity_delivery_events: {
+    columns: ["id", "userId", "offerId", "quotaDay", "deliveredAt", "status", "attemptCount", "lastErrorCode", "expiresAt", "policyVersion"],
+    dataTypes: { id: "int", userId: "int", offerId: "int", quotaDay: "varchar", deliveredAt: "timestamp", status: "enum", attemptCount: "int", lastErrorCode: "varchar", expiresAt: "timestamp", policyVersion: "int" },
+    exactColumnTypes: { status: "enum('pending','delivered','expired','failed')" },
+    nullable: { lastErrorCode: true, expiresAt: true },
+    indexes: {
+      PRIMARY: { unique: true, columns: ["id"] },
+      opportunity_delivery_user_offer_day_unique: { unique: true, columns: ["userId", "offerId", "quotaDay"] },
+      opportunity_delivery_user_day_idx: { unique: false, columns: ["userId", "quotaDay", "deliveredAt"] },
+    },
+  },
   opportunity_popup_events: {
     // Delivery diagnostics, execution fencing, and immutable customer/trade
     // snapshots are one contract for this table; duplicate object keys silently
     // discarded the lease checks in the prior merged source.
-    columns: ["id", "eventKey", "deliveryStatus", "deliveryAttemptCount", "lastErrorCode", "receivedAt", "renderedAt", "expiredAt", "tradeId", "policyVersion", "executionLeaseToken", "durationSeconds", "badgeLabel", "badgeStyle", "configuredProfitRateBps", "configuredDurationSeconds", "configuredPopupDisplaySeconds", "packagePolicyVersionSnapshot", "packageBadgeLabel", "companyReferenceId", "companyDisplayName", "companyLogoUrl", "companyReferenceMetadataJson", "companyReferenceOnly"],
-    dataTypes: { id: "int", eventKey: "varchar", deliveryStatus: "enum", deliveryAttemptCount: "int", lastErrorCode: "varchar", receivedAt: "timestamp", renderedAt: "timestamp", expiredAt: "timestamp", tradeId: "int", policyVersion: "int", executionLeaseToken: "varchar", durationSeconds: "int", badgeLabel: "varchar", badgeStyle: "varchar", configuredProfitRateBps: "int", configuredDurationSeconds: "int", configuredPopupDisplaySeconds: "int", packagePolicyVersionSnapshot: "int", packageBadgeLabel: "varchar", companyReferenceId: "varchar", companyDisplayName: "varchar", companyLogoUrl: "varchar", companyReferenceMetadataJson: "text", companyReferenceOnly: "tinyint" },
-    nullable: { lastErrorCode: true, receivedAt: true, renderedAt: true, expiredAt: true, tradeId: true, executionLeaseToken: true, durationSeconds: true, badgeLabel: true, packageBadgeLabel: true, companyReferenceId: true, companyDisplayName: true, companyLogoUrl: true, companyReferenceMetadataJson: true },
+    columns: ["id", "eventKey", "deliveryStatus", "deliveryAttemptCount", "lastErrorCode", "receivedAt", "renderedAt", "expiredAt", "tradeId", "policyVersion", "executionLeaseToken", "durationSeconds", "badgeLabel", "badgeStyle", "configuredProfitRateBps", "configuredDurationSeconds", "configuredPopupDisplaySeconds", "packagePolicyVersionSnapshot", "packageBadgeLabel", "companyReferenceId", "companyDisplayName", "companyLogoUrl", "companyReferenceMetadataJson", "companyReferenceOnly", "executionDailyAttemptCount", "executionDailyAttemptDay"],
+    dataTypes: { id: "int", eventKey: "varchar", deliveryStatus: "enum", deliveryAttemptCount: "int", lastErrorCode: "varchar", receivedAt: "timestamp", renderedAt: "timestamp", expiredAt: "timestamp", tradeId: "int", policyVersion: "int", executionLeaseToken: "varchar", durationSeconds: "int", badgeLabel: "varchar", badgeStyle: "varchar", configuredProfitRateBps: "int", configuredDurationSeconds: "int", configuredPopupDisplaySeconds: "int", packagePolicyVersionSnapshot: "int", packageBadgeLabel: "varchar", companyReferenceId: "varchar", companyDisplayName: "varchar", companyLogoUrl: "varchar", companyReferenceMetadataJson: "text", companyReferenceOnly: "tinyint", executionDailyAttemptCount: "int", executionDailyAttemptDay: "varchar" },
+    nullable: { lastErrorCode: true, receivedAt: true, renderedAt: true, expiredAt: true, tradeId: true, executionLeaseToken: true, durationSeconds: true, badgeLabel: true, packageBadgeLabel: true, companyReferenceId: true, companyDisplayName: true, companyLogoUrl: true, companyReferenceMetadataJson: true, executionDailyAttemptDay: true },
     indexes: {
       PRIMARY: { unique: true, columns: ["id"] },
       opportunity_popup_event_key_unique: { unique: true, columns: ["eventKey"] },
+      opportunity_popup_user_daily_attempt_day_idx: { unique: false, columns: ["userId", "executionDailyAttemptDay"] },
     },
   },
   trade_positions: {
-    columns: ["walletFundingPlanJson"],
-    dataTypes: { walletFundingPlanJson: "text" },
-    nullable: { walletFundingPlanJson: true },
+    columns: ["walletFundingPlanJson", "settlementReviewAt"],
+    dataTypes: { walletFundingPlanJson: "text", settlementReviewAt: "timestamp" },
+    nullable: { walletFundingPlanJson: true, settlementReviewAt: true },
     indexes: {},
   },
   admin_wallet_adjustment_idempotency: {
