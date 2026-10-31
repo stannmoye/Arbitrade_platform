@@ -872,3 +872,23 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
   .admin-portal .admin-nav-group.is-open { border-width: 2px !important; }
   .admin-portal .admin-nav-item-wrap { padding: 6px !important; }
 }
+
+
+/* Secondary administrator drawer navigation. */
+.admin-secondary-drawer{grid-template-rows:auto auto auto auto minmax(0,1fr) auto}
+.admin-secondary-nav{display:grid;align-content:start;gap:9px;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.admin-secondary-group{display:grid;gap:5px;padding:0 0 8px;border-bottom:1px solid rgba(143,177,190,.1)}
+.admin-secondary-group-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 10px;width:100%;padding:8px 9px;border:1px solid rgba(143,177,190,.12);border-radius:11px;color:#dcebea;background:rgba(255,255,255,.025);text-align:left;cursor:pointer}
+.admin-secondary-group-heading>span{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.admin-secondary-group-heading small{grid-column:1;color:#7893a2;font-size:8px;line-height:1.35}
+.admin-secondary-group-heading>b{grid-column:2;grid-row:1/3;align-self:center;color:#7ce7c2;font-size:17px;font-weight:500}
+.admin-secondary-group-heading:hover,.admin-secondary-group-heading:focus-visible{border-color:rgba(124,231,194,.28);background:rgba(124,231,194,.06)}
+.admin-secondary-item-wrap{display:grid;gap:2px}
+.admin-secondary-item-wrap .admin-slide-item{min-height:44px}
+.admin-secondary-item-wrap .admin-slide-item.is-active{border-color:rgba(124,231,194,.24);color:#effbf6;background:linear-gradient(100deg,rgba(124,231,194,.12),rgba(124,231,194,.035) 74%,transparent);box-shadow:inset 2px 0 #7ce7c2}
+.admin-secondary-submenu{display:grid;gap:2px;margin:0 0 4px 42px;padding-left:12px;border-left:1px solid rgba(124,231,194,.2)}
+.admin-secondary-submenu button{min-height:28px;padding:5px 8px;border:0;border-radius:7px;color:#91aab5;background:transparent;text-align:left;font-size:9px;cursor:pointer}
+.admin-secondary-submenu button:hover,.admin-secondary-submenu button:focus-visible{color:#effbf6;background:rgba(124,231,194,.08)}
+.admin-secondary-drawer .admin-slide-footer{padding-top:8px}
+.admin-secondary-drawer .admin-slide-footer-note{padding:0;color:#7893a2;line-height:1.5;text-align:left}
+@media(max-width:600px){.admin-secondary-group-heading{padding:9px}.admin-secondary-item-wrap .admin-slide-item{min-height:46px}}
