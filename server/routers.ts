@@ -20,7 +20,7 @@ import { isEmailAdminConfigured, listEmailRecipients, publicEmailConfig, runDail
 import * as mining from "./mining";
 import * as miningAdmin from "./mining-admin";
 import { normalizeAppearanceSettings } from "./appearance-settings";
-import { ADMIN_BROADCAST_CATEGORIES, buildTradeSettlementNotices } from "./modules/notification-events";
+import { ADMIN_BROADCAST_CATEGORIES } from "./modules/notification-events";
 import { isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 import { invalidateUserSessions } from "./authSessions";
 import { getLocalSessionFromRequest } from "./_core/localAuth";
