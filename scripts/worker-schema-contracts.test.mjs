@@ -261,13 +261,15 @@ describe("worker schema contracts", () => {
     // 0048 and 0055 remain authoritative standalone/portal-chain sources.
     // The journaled 0062 bridge intentionally provides their worker tables to
     // deployments that run only Drizzle's standard migration path.
-    for (const table of Object.keys(WORKER_SCHEMA_CONTRACTS).filter((name) => !["trading_tier_qualification_jobs", "opportunity_popup_events", "trade_positions", "admin_wallet_adjustment_idempotency"].includes(name))) {
+    for (const table of Object.keys(WORKER_SCHEMA_CONTRACTS).filter((name) => !["trading_tier_qualification_jobs", "opportunity_popup_events", "opportunity_delivery_events", "trade_positions", "admin_wallet_adjustment_idempotency"].includes(name))) {
       expect(mainSql).toContain(table);
     }
     for (const column of WORKER_SCHEMA_CONTRACTS.mining_pending_boost_rewards.columns) {
       expect(miningSql).toContain(column);
       expect(mainSql).toContain(column);
     }
+    expect(deliveryDiagnosticsMigration).toContain("ALTER TABLE `opportunity_delivery_events`");
+    expect(deliveryDiagnosticsMigration).toContain("ADD COLUMN IF NOT EXISTS `status`");
     for (const table of ["notification_campaigns", "notification_campaign_deliveries"]) {
       expect(portalSql).toContain(table);
       expect(mainSql).toContain(table);
