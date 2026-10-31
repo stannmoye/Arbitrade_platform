@@ -37,10 +37,10 @@ export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyM
     {show("quotas")&&<>
     <div className="eyebrow">Daily delivery</div>
     <div className="form-two">
-      <label>Maximum pop-ups per day<input aria-label={row.packageName+" maximum pop-ups per day"} type="number" min="1" max="1000" step="1" value={row.maxPopupsPerDay} onChange={e=>updateRow(index,"maxPopupsPerDay",Number(e.target.value))}/></label>
-      <label>Maximum visible offers<input aria-label={row.packageName+" maximum visible offers"} type="number" min="1" max="10000" step="1" value={row.maxVisibleOffers} onChange={e=>updateRow(index,"maxVisibleOffers",Number(e.target.value))}/></label>
-      <label>Daily delivery target<input type="number" min="0" max="10000" step="1" value={row.dailyPopupTarget} onChange={e=>updateRow(index,"dailyPopupTarget",Number(e.target.value))}/></label>
-      <label>Daily quota window<select value={row.schedulingPeriod} onChange={e=>updateRow(index,"schedulingPeriod",e.target.value)}><option value="rolling_24h">Rolling 24 hours</option><option value="calendar_day">Calendar day (UTC)</option></select></label>
+      <label>Maximum pop-ups per day<input aria-label={row.packageName+" maximum pop-ups per day"} type="number" min="1" max="1000" step="1" value={row.maxPopupsPerDay} onChange={e=>updateRow(index,"maxPopupsPerDay",Number(e.target.value))}/><small>Hard daily ceiling for this tier; the eligible quotas of multiple tiers are cumulative.</small></label>
+      <label>Maximum visible offers at once<input aria-label={row.packageName+" maximum visible offers at once"} type="number" min="1" max="10000" step="1" value={row.maxVisibleOffers} onChange={e=>updateRow(index,"maxVisibleOffers",Number(e.target.value))}/><small>Limits simultaneous pending or displayed pop-ups. It does not reduce the daily allowance.</small></label>
+      <label>Daily delivery target (0 = full tier allowance)<input type="number" min="0" max="10000" step="1" value={row.dailyPopupTarget} onChange={e=>updateRow(index,"dailyPopupTarget",Number(e.target.value))}/><small>A positive target caps distinct opportunities delivered for this tier; retries of the same offer count once.</small></label>
+      <label>Daily quota window<select value={row.schedulingPeriod} onChange={e=>updateRow(index,"schedulingPeriod",e.target.value)}><option value="rolling_24h">Rolling 24 hours</option><option value="calendar_day">Calendar day (UTC)</option></select><small>When a customer has multiple eligible tiers, rolling 24 hours is used if any active tier requires it; otherwise the UTC calendar day applies.</small></label>
     </div>
     </>}
     {show("tiers")&&<>
