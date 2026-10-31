@@ -455,6 +455,15 @@ async function main() {
     currentMigration = null;
     currentStatement = null;
 
+    // The worker contract includes delivery diagnostics, which historically lived
+    // in the portal migration chain. Apply its idempotent additive DDL here too,
+    // before validating worker SQL, so main-migration-only hosts cannot start with
+    // a stale opportunity_delivery_events table.
+    currentMigration = "delivery-diagnostics-schema-reconciliation";
+    currentStatement = { index: null, label: "opportunity delivery diagnostics schema repair" };
+    const deliveryDiagnosticsSql = await readFile(resolve(root, "drizzle", "0052_delivery_diagnostics.sql"), "utf8");
+    await executeCompatibleMigrationSql(connection, deliveryDiagnosticsSql);
+
     currentMigration = "post-migration-schema-verification";
     currentStatement = { index: null, label: "worker schema contract verification" };
     const verified = await assertWorkerSchemaContracts(connection);
