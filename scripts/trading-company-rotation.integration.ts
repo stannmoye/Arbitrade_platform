@@ -27,6 +27,7 @@ const mainPackage = "RotationTest-" + token;
 const poolPackage = "RotationPool-" + token;
 const verificationPackage = "VerificationFilter-" + token;
 const emptyPackage = "EmptyVerified-" + token;
+const disabledPackage = "DisabledCompany-" + token;
 const catalogueAdminStateKey = "trade.companyCatalogue.adminState";
 let originalCatalogueAdminState: { settingValue: string; updatedBy: number | null } | null | undefined;
 const quotaDay = new Date().toISOString().slice(0, 10);
@@ -159,6 +160,7 @@ try {
   stateKeys.push(
     "trading.companyRotation." + userId + "." + verificationPackage,
     "trading.companyRotation." + userId + "." + emptyPackage,
+    "trading.companyRotation." + userId + "." + disabledPackage,
   );
 
   const priorCatalogueRows = await db.select({
@@ -172,8 +174,8 @@ try {
     verifiedIds: COMPANY_REFERENCE_CATALOGUE.map(company => company.id),
     archivedIds: [],
   };
-  const setCatalogueAdminState = async (verifiedIds: string[], archivedIds: string[] = []) => {
-    const settingValue = JSON.stringify({ verifiedIds, archivedIds });
+  const setCatalogueAdminState = async (verifiedIds: string[], archivedIds: string[] = [], disabledIds: string[] = []) => {
+    const settingValue = JSON.stringify({ verifiedIds, archivedIds, disabledIds });
     await db!.insert(appSettings).values({ settingKey: catalogueAdminStateKey, settingValue, updatedBy: userId! })
       .onDuplicateKeyUpdate({ set: { settingValue, updatedBy: userId! } });
   };
@@ -292,6 +294,13 @@ try {
   assert.equal(metadataOf(verifiedOnlyEvent).adminCatalogueStatus, "verified");
   assert.equal(metadataOf(verifiedOnlyEvent).listingStatus, "unverified", "admin display approval must not rewrite source listing verification");
 
+  // A currently verified company must be hidden when an administrator disables it.
+  await setCatalogueAdminState([verificationCandidates[0]!.id], [], [verificationCandidates[0]!.id]);
+  await ensurePopupDeliveries([makeDelivery(offerIds[10]!, disabledPackage, smallestCountry)]);
+  const disabledCompanyEvent = await readEvent(offerIds[10]!);
+  assert.ok(disabledCompanyEvent);
+  assert.equal(disabledCompanyEvent.companyReferenceId, null, "disabled companies must never enter customer opportunity snapshots");
+
   // With no verified IDs, the opportunity may still be delivered but no company
   // identity is attached; the worker must never substitute an unverified record.
   await setCatalogueAdminState([]);
@@ -371,6 +380,7 @@ try {
     transactionRollbackRestoredCursor: true,
     verifiedOnlySelection: verifiedOnlyEvent.companyReferenceId === verificationCandidates[0]!.id,
     emptyVerifiedPoolOmitsCompany: noCompanyEvent.companyReferenceId === null,
+    disabledCompanyHidden: disabledCompanyEvent.companyReferenceId === null,
     poolExhaustionSize: exhaustionPool.length,
     cycleAfterExhaustion: metadataOf(overflowEvent).rotationCycle,
   }));
