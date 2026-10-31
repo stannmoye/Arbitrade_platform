@@ -352,7 +352,7 @@ export function AdminTransactionReview({ focus }: { focus?: "capital" | "fees" |
                 ? reserved === 0 && !trade.reservationStatus
                 : Number.isSafeInteger(reservationAmount) && reservationAmount === reserved && trade.reservationStatus === "reserved";
               const dueAt = trade.settlementReviewAt || trade.settlesAt;
-              const creditDueAt = trade.creditAt || trade.settlesAt;
+              const creditDueAt = trade.creditAt || trade.settlementReviewAt || trade.settlesAt;
               const isDue = !!dueAt && Number.isFinite(new Date(dueAt).getTime()) && new Date(dueAt).getTime() <= Date.now();
               const alreadyConfirmed = trade.settlementStatus === "confirmed_awaiting_credit";
               const canConfirm = trade.settlementStatus === "pending" && isDue && reservationConsistent && draft.grossProfitMinor.trim() !== "" && Number.isSafeInteger(enteredGross) && draft.reference.trim().length >= 3;
