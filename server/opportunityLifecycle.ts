@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import mysql from "mysql2/promise";
 import { mysqlConnectionOptions } from "./_core/mysql";
-import { buildCompanySpotlightPool, nextCompanySpotlight, type CompanySpotlightState, type CompanySpotlightRepeatPolicy } from "./modules/company-spotlight-rotation";
+import { buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, type CompanySpotlightState, type CompanySpotlightRepeatPolicy } from "./modules/company-spotlight-rotation";
 
 type PopupDelivery = {
   userId: number;
@@ -54,10 +54,18 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
 
         let company: { id: string; name: string; logoUrl: string; metadataJson: string; rotationCycle: number; rotationSequence: number; poolFingerprint: string } | null = null;
         if (item.companyRotationEnabled) {
-          const stateKey = "trading.companyRotation." + item.userId + "." + item.packageName;
-          if (stateKey.length > 120) throw new Error("Company rotation scope key exceeds the storage limit.");
-          const pool = buildCompanySpotlightPool(item.companyRotationCountryNames);
-          await connection.execute(
+          // Read-lock the administrator catalogue state for this transaction so a
+          // concurrent verify/unverify/archive action cannot race this selection.
+          const [catalogueRows] = await connection.query<any[]>(
+            "SELECT settingValue FROM app_settings WHERE settingKey=? LIMIT 1 LOCK IN SHARE MODE",
+            ["trade.companyCatalogue.adminState"],
+          );
+          const catalogueState = parseCompanyCatalogueAdminState(String(catalogueRows[0]?.settingValue || "{}"));
+          const pool = buildCompanySpotlightPool(item.companyRotationCountryNames, catalogueState);
+          if (pool.length) {
+            const stateKey = "trading.companyRotation." + item.userId + "." + item.packageName;
+            if (stateKey.length > 120) throw new Error("Company rotation scope key exceeds the storage limit.");
+            await connection.execute(
             "INSERT INTO app_settings (settingKey,settingValue,updatedBy) VALUES (?,?,?) ON DUPLICATE KEY UPDATE settingKey=VALUES(settingKey)",
             [stateKey, "", item.userId],
           );
@@ -127,6 +135,7 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
               headquartersCountry: selection.company.headquartersCountry,
               instrumentType: selection.company.instrumentType,
               recordCompleteness: selection.company.recordCompleteness,
+              adminCatalogueStatus: "verified",
               referenceOnly: true,
             }),
           };
@@ -134,8 +143,9 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
             "UPDATE app_settings SET settingValue=?,updatedBy=?,updatedAt=CURRENT_TIMESTAMP WHERE settingKey=?",
             [JSON.stringify(selection.state), item.userId, stateKey],
           );
-          // The opportunity row and its company/rotation snapshot are inserted in
-          // this same transaction. A rollback therefore restores the cursor too.
+            // The opportunity row and its company/rotation snapshot are inserted in
+            // this same transaction. A rollback therefore restores the cursor too.
+          }
         }
 
         await connection.execute(

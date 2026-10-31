@@ -76,9 +76,9 @@ export default function TradingDeliveryPolicyEditor({ policyRows, policyMessage,
     </div>
     <div className="eyebrow">Company spotlight rotation</div>
     <div className="form-two">
-      <label>Enable company spotlight rotation<select value={row.companyRotationEnabled?"true":"false"} onChange={e=>updateRow(index,"companyRotationEnabled",e.target.value==="true")}><option value="true">Enabled</option><option value="false">Disabled</option></select><small>Informational company references only; this never creates or authorizes a trade.</small></label>
+      <label>Enable company spotlight rotation<select value={row.companyRotationEnabled?"true":"false"} onChange={e=>updateRow(index,"companyRotationEnabled",e.target.value==="true")}><option value="true">Enabled</option><option value="false">Disabled</option></select><small>Informational company references only; this never creates or authorizes a trade. Only administrator-verified, non-archived companies appear in customer opportunity pop-ups.</small></label>
       <label>Repeat policy<select value={row.companyRotationRepeatPolicy} onChange={e=>updateRow(index,"companyRotationRepeatPolicy",e.target.value as TradingDeliveryPolicyRow["companyRotationRepeatPolicy"])}><option value="avoid_until_exhausted">Avoid repeats until the pool is traversed</option><option value="allow_repeats">Allow repeats</option></select></label>
-      <label>Country-folder filters<input type="text" maxLength={2000} value={row.companyRotationCountryNames} onChange={e=>updateRow(index,"companyRotationCountryNames",e.target.value)}/><small>Comma-separated exact catalogue folder labels; blank includes all 1,811 records. Country folders do not verify headquarters or listing status.</small></label>
+      <label>Country-folder filters<input type="text" maxLength={2000} value={row.companyRotationCountryNames} onChange={e=>updateRow(index,"companyRotationCountryNames",e.target.value)}/><small>Comma-separated exact catalogue folder labels; blank includes all administrator-verified, non-archived records. Country folders do not verify headquarters or listing status.</small></label>
     </div>
     <div className="eyebrow">Reward policy limits</div>
     <div className="form-two">

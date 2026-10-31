@@ -56,16 +56,18 @@ Database changes should use ordered forward migrations and retry-safe server-sid
 - The imported candidate snapshot is `server/data/company-trading-symbol-candidates-1811.json.gz.b64`; the service validates its 1,811 rows and 814 public candidates at startup.
 - Join candidate ticker data to the image catalogue using the stable sequential logo ID, never fuzzy name matching.
 - The source workbook includes 637 invented placeholder codes, 265 parent-brand ticker references, and 95 historical tickers. Those values must not be exposed as active candidates.
-- The 814 rows marked Public are still unverified research candidates. Keep all entries ineligible for verified trade rotation until independent authoritative verification, source URL, provider instrument ID, and verification timestamp are recorded.
+- The 814 rows marked Public are still unverified research candidates. Keep all entries ineligible for securities/trade execution until independent authoritative verification, source URL, provider instrument ID, and verification timestamp are recorded.
 - Do not use ticker search results to authorize live orders, market quotes, or settlement.
 
 
 ### Company catalogue UI integration
+
+- Customer company search remains an informational view of the source catalogue; customer opportunity pop-up/spotlight assignment is a separate server-side path and must use only current admin-verified, non-archived IDs.
 - The company catalogue contains 1,811 logo-ID-aligned records and is searchable from the customer Trading Opportunities page.
 - Keep company ID, local logo, country folder, supplied ticker, exchange, and dataset status associated on the same result.
 - Search endpoint may return up to 1,811 records, but the customer UI should request and render at most 100 results at a time.
 - Display supplied ticker values as supplied; do not imply they are verified or guaranteed to resolve with a market-data provider.
-- The administrator company catalogue may maintain a separate, audited admin label (`verified`, `unverified`, or `archived`). `verified` means only that an administrator marked the reference row in the catalogue UI; it must never modify the static source listing verification markers, `referenceOnly`, or `eligibleForVerifiedTradeRotation`. Delete in this UI means archive/soft-delete only; preserve the 1,811 source records and stable Logo IDs.
+- The administrator company catalogue maintains a separate, audited admin label (`verified`, `unverified`, or `archived`). For customer opportunity pop-up display only, the server-side rotation pool must include IDs in persisted `verifiedIds` and exclude every `archivedIds` entry; Unverified and Archived companies must never appear. Apply country filters after this approval filter. If no verified company matches, omit the company identity and do not fall back. Recheck current status when returning active customer pop-ups so an unverify/archive action immediately hides the identity; preserve immutable historical trade snapshots. This admin label must never modify static source listing verification markers, `referenceOnly`, or `eligibleForVerifiedTradeRotation` (securities/trade-execution eligibility). Delete in this UI means archive/soft-delete only; preserve the 1,811 source records and stable Logo IDs.
 
 - Import every row and every column from `company_trading_symbols.xlsx` aligned by its 1-based `#` field to Logo ID; preserve supplied ticker, exchange, status, parent ticker, and reason fields even for placeholder, parent, and historical rows.
 - Placeholder codes are display-only and must not be passed to market-data or order APIs. Historical and parent-company ticker references must remain visibly classified; do not silently convert them into direct listings.

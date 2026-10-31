@@ -15,11 +15,48 @@ export function normalizeCompanyRotationCountryNames(raw:unknown):string {
   if(invalid.length) throw new Error("Unknown company catalogue country-folder label: "+invalid.slice(0,3).join(", "));
   return unique.join(", ");
 }
-export function buildCompanySpotlightPool(countryNames:string,catalogue=COMPANY_REFERENCE_CATALOGUE):CompanyReferenceRecord[] {
-  const selected=new Set(normalizeCompanyRotationCountryNames(countryNames).split(",").map(name=>name.trim()).filter(Boolean));
-  const pool=catalogue.filter(company=>company.id&&company.name&&company.logoUrl&&(!selected.size||selected.has(company.countryName)));
-  if(!pool.length) throw new Error("No company reference records match this package's rotation filters.");
-  if(new Set(pool.map(company=>company.id)).size!==pool.length) throw new Error("Company spotlight pool contains duplicate Logo IDs.");
+export type CompanyCatalogueAdminState = {
+  verifiedIds: readonly string[];
+  archivedIds: readonly string[];
+};
+
+/** Malformed or missing administrator state fails closed: no company is approved for customer display. */
+export function parseCompanyCatalogueAdminState(raw: unknown): CompanyCatalogueAdminState {
+  let parsed: any = raw;
+  try {
+    if (typeof raw === "string") parsed = JSON.parse(raw || "{}");
+  } catch {
+    parsed = null;
+  }
+  const validIds = (value: unknown): string[] => Array.isArray(value)
+    ? [...new Set(value.filter((id): id is string => typeof id === "string" && /^logo-brand-\d{4}$/.test(id)))]
+    : [];
+  return {
+    verifiedIds: validIds(parsed?.verifiedIds),
+    archivedIds: validIds(parsed?.archivedIds),
+  };
+}
+
+export function buildCompanySpotlightPool(
+  countryNames: string,
+  adminState: CompanyCatalogueAdminState,
+  catalogue: readonly CompanyReferenceRecord[] = COMPANY_REFERENCE_CATALOGUE,
+): CompanyReferenceRecord[] {
+  const selected = new Set(normalizeCompanyRotationCountryNames(countryNames).split(",").map(name => name.trim()).filter(Boolean));
+  const verified = new Set(adminState.verifiedIds);
+  const archived = new Set(adminState.archivedIds);
+  // Administrator approval is required for customer spotlight display. Archived
+  // always wins, including malformed/stale state containing an ID in both sets.
+  const pool = catalogue.filter(company =>
+    company.id && company.name && company.logoUrl &&
+    verified.has(company.id) && !archived.has(company.id) &&
+    (!selected.size || selected.has(company.countryName)),
+  );
+  if (new Set(pool.map(company => company.id)).size !== pool.length) {
+    throw new Error("Company spotlight pool contains duplicate Logo IDs.");
+  }
+  // An empty approved pool is valid: callers omit the company identity rather
+  // than falling back to an unverified or archived catalogue record.
   return pool;
 }
 export function nextCompanySpotlight(pool:CompanyReferenceRecord[],priorState:unknown,userId:number,packageName:string,repeatPolicy:CompanySpotlightRepeatPolicy):{company:CompanyReferenceRecord;state:CompanySpotlightState;rotationCycle:number;rotationSequence:number;poolFingerprint:string}{
