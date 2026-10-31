@@ -1,3 +1,15 @@
+## 2026-10-31 — Malformed company-status state hardening and documentation alignment
+
+- Continued the whole-branch review and found a fail-open edge case in `parseCompanyCatalogueAdminState`: invalid IDs were silently filtered, and a malformed `archivedIds` or `disabledIds` field could be treated as an empty exclusion list while valid `verifiedIds` remained active. This contradicted the fail-closed customer-display contract.
+- Hardened the parser: `verifiedIds` and `archivedIds` must be valid arrays; `disabledIds` may be absent only for backward compatibility with older valid state records; any malformed list or invalid ID now returns empty allow/exclusion lists so no customer company can be displayed. Existing legacy state without `disabledIds` remains readable.
+- Expanded executable unit coverage for malformed approval, archive and disable arrays, invalid ID members, and backward-compatible legacy state. Source commit: `dc82bf329675023739d8e3494e100b98ab1f7d39`; regression-test commit: `4b76e8469af6e0e04ba1588b2f3d7304c3574e84`.
+- Completed the related disabled-state wording audit in the canonical Trading specification, admin configuration manual, admin portal menu guide, standalone Trade admin HTML guide, and company catalogue admin UI. Customer search, counts, summaries, previews, rotation and active popup identities now consistently require current verification and enabled/non-archived status.
+- Current branch head before this progress entry: `645a5a235214a49df3c4f8c96ad9c91a34398cfc`. The earlier source/test head `b967b3ce5fd7bc67a1ccb23657a5345295c23e96` had 10/10 required workflow groups pass; the parser and subsequent documentation/UI changes are newer and must be validated on their own exact head.
+- Final exact-head CI for the parser hardening and current docs/UI is pending. The dedicated complete authenticated customer and administrator Trade end-to-end workflows and final performance/security acceptance remain open; customer portal recovery checks alone are not full workflow acceptance.
+- PR #258 remains open, draft and unmerged. No production database, production migration, deployment or merge was performed.
+
+---
+
 ## 2026-10-31 — PR #258 exact-head review continuation
 
 - Re-verified PR #258 directly through GitHub: open, draft, unmerged; base `main` at `048620efa2c68d707c87fb22ba63ebeb6a924772`; branch `fix/trade-lifecycle-and-admin-policy-completion`. Before this progress update, the documentation follow-up head was `8a3fb85487d471bdadc1c9b81a93dd21e03e0a98`, 215 commits ahead and 0 behind `main`.
