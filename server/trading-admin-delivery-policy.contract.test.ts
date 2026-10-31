@@ -21,7 +21,7 @@ describe("administrator Trading delivery policy controls", () => {
       expect(router).toContain(field);
       expect(schema).toContain(field);
     }
-    expect(app).toContain("enabled:Boolean(x.enabled),automaticDelivery:Boolean(x.automaticDelivery),automaticTradingEnabled:Boolean(x.automaticTradingEnabled)");
+    expect(app).toContain("enabled:x.enabled===true,automaticDelivery:x.automaticDelivery===true,automaticTradingEnabled:x.automaticTradingEnabled===true");
     expect(app).toContain("minimumPayoutRateBps:x.minimumPayoutRateBps");
     expect(app).toContain("companyRotationCountryNames:String(x.companyRotationCountryNames??\"\")");
     expect(policyEditor).toContain("value={row.enabled?\"true\":\"false\"}");
