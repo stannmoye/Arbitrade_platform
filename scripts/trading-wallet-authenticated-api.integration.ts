@@ -251,11 +251,14 @@ try {
 
   const otherCustomerBalanceRead = await callQuery("customer.balances", undefined, otherCustomerCookie);
   assert.equal(otherCustomerBalanceRead.status, 200);
-  assert.equal(
-    (otherCustomerBalanceRead.data?.balances ?? []).some((row: any) => row.currency === testCurrencyCode),
-    false,
-    "A different authenticated customer must not see another customer's wallet rows.",
-  );
+  const otherCustomerWallet = (otherCustomerBalanceRead.data?.balances ?? [])
+    .find((row: any) => row.currency === testCurrencyCode);
+  assert.ok(otherCustomerWallet, "The customer's wallet API lists enabled currencies with zero balances when no wallet row exists.");
+  assert.equal(Number(otherCustomerWallet.availableMinor), 0,
+    "A different authenticated customer must not see another customer's available balance.");
+  assert.equal(Number(otherCustomerWallet.lockedMinor), 0);
+  assert.equal(Number(otherCustomerWallet.promotionalMinor), 0);
+  assert.equal(Number(otherCustomerWallet.earnedMinor), 0);
 
   const adminCustomerBalances = await callQuery("adminOperations.customerBalances", { userId: customerId }, adminCookie);
   assert.equal(adminCustomerBalances.status, 200);
