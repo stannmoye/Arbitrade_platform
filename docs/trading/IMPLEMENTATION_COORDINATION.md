@@ -203,3 +203,12 @@ Shared paths requiring coordination include `server/_core/index.ts`, `server/_co
 4. Run `pnpm install --frozen-lockfile`, `pnpm check`, `pnpm test`, `pnpm build`, and relevant MySQL/MariaDB integration tests on the exact branch head when a runnable workspace is available.
 5. Record exact commit SHA and CI URLs. A source change is not evidence of passing tests; CI green is not production acceptance.
 6. Part branches remain unmerged and undeployed. Part 6 owns integration review.
+
+
+## 2026-10-31 — Verified-only customer company identity policy merged
+
+- PR [#256 — Show only admin-verified companies in customer pop-ups](https://github.com/stannmoye/Arbitrade_platform/pull/256) was squash-merged into `main` as `9b83dd507bc7e466b961737bc15ee0038038ea7c`.
+- The current `trade.companyCatalogue.adminState` setting is the authority for customer pop-up identity: include only current `verifiedIds`, always exclude `archivedIds` (Archived takes precedence), apply country filters after approval, and fail closed with no company identity when the state is missing/malformed or no approved company matches.
+- The customer preview uses the same approved pool. Active customer pop-up reads re-check current status so unverify/archive changes hide company identity immediately; immutable historical snapshots remain unchanged.
+- The searchable customer catalogue remains a separate informational reference surface. It must never be used as a fallback or alternate source for opportunity pop-up identity. Admin approval is display-only and does not establish securities listing or trade-execution eligibility.
+- All 25 exact-head PR checks passed before merge. Post-merge checks were still running/queued at the last recorded poll. No production deployment or database modification was performed.
