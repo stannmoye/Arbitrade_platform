@@ -7,6 +7,7 @@ import {
   closeDbPool,
   createTrade,
   getDb,
+  listCustomerOpportunities,
 } from "../server/db";
 import {
   balanceLedger,
@@ -145,6 +146,16 @@ try {
     executionAttemptCount: 0,
   });
   eventId = Number(eventInsert[0].insertId);
+
+  await db.update(opportunityPackagePolicies).set({ maxVisibleOffers: 1, dailyPopupTarget: 1 })
+    .where(eq(opportunityPackagePolicies.packageName, packageName));
+  const quotaSnapshot = await listCustomerOpportunities(userId);
+  assert.equal(quotaSnapshot.delivery.maxPopupsPerDay, 1, "The tier entitlement remains the daily delivery cap.");
+  assert.equal(quotaSnapshot.delivery.maxVisibleOffers, 1, "The policy sets a separate simultaneous visible-offer cap.");
+  assert.equal(quotaSnapshot.delivery.activeVisibleCount, 1, "The existing delivered popup occupies one visible slot.");
+  assert.equal(quotaSnapshot.delivery.remainingDailyQuota, 1, "A visible-offer cap does not consume the remaining daily entitlement.");
+  assert.equal(quotaSnapshot.delivery.remainingVisibleSlots, 0, "No further popup can appear while the visible slot is occupied.");
+  assert.equal(quotaSnapshot.delivery.remainingQuota, 0, "Delivery stops when simultaneous visible capacity is exhausted.");
 
   const secondOfferInsert = await db.insert(opportunityOffers).values({
     symbol: "TEST2",
