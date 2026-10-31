@@ -22,7 +22,7 @@ import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry } from "./modules/trade-execution-retry";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
 import { isAllowedAttachmentRequest, isSupportAttachmentStorageKeyForTicket, isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
-import { assertNotificationPayloadMatches, buildNotificationEventKey, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
+import { assertNotificationPayloadMatches, buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
@@ -4387,12 +4387,21 @@ export async function processConfirmedTradeCredits(input?: { limit?: number }) {
         {tradeId:trade.id,userId:trade.userId,eventType:"wallet_credit_posted",stage:"Wallet Updated",payloadJson:JSON.stringify({principalMinor:principal,grossProfitMinor:grossProfit,platformFeeMinor:savedFee,netProfitMinor:savedNet,reference,confirmedAt:trade.settlementConfirmedAt,creditedAt:now.toISOString()})},
         {tradeId:trade.id,userId:trade.userId,eventType:"trade_completed",stage:"Trade Completed",payloadJson:JSON.stringify({reference,outcome:trade.settlementOutcome,realizedGrossProfitMinor:grossProfit,platformFeeMinor:savedFee,netProfitMinor:savedNet})},
       ]);
-      return {userId:trade.userId,offerId:trade.offerId,tradeId:trade.id};
+      return {userId:trade.userId,offerId:trade.offerId,tradeId:trade.id,currency:trade.currency,principalMinor:principal,rewardMinor:Math.max(0,accounting.netProfitMinor),grossProfitMinor:grossProfit,platformFeeMinor:savedFee,netProfitMinor:savedNet,outcome:String(trade.settlementOutcome)};
     });
     if(posted){
       credited++;
       try { await updatePopupLifecycleForOffer(posted.userId,posted.offerId,"settled"); }
       catch(error){ console.error("[TradeCreditPosting] popup lifecycle update failed after committed wallet credit",error instanceof Error?error.message:"unknown error"); }
+      const notices=buildTradeSettlementNotices({
+        tradeId:posted.tradeId,currency:posted.currency,principalMinor:posted.principalMinor,
+        rewardMinor:posted.rewardMinor,grossProfitMinor:posted.grossProfitMinor,
+        platformFeeMinor:posted.platformFeeMinor,netProfitMinor:posted.netProfitMinor,outcome:posted.outcome,
+      });
+      const notificationResults=await Promise.allSettled(notices.map(notice=>createNotification(posted.userId,notice.title,notice.body,{
+        eventKey:notice.eventKey,category:notice.category,priority:notice.priority,
+      })));
+      if(notificationResults.some(result=>result.status==="rejected")) console.error("[Notifications] One or more trade settlement notices failed after wallet credit commit.");
     } else skipped++;
   }
   return {scanned:due.length,credited,skipped,limit,asOf:now.toISOString()};
