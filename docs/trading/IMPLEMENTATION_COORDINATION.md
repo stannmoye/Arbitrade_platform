@@ -1,3 +1,12 @@
+## 2026-10-31 — Stage 3C.1: durable delivery cadence and post-completion timing
+
+- Work remains isolated on `fix/trade-lifecycle-and-admin-policy-completion`; PR #258 remains draft and must not be merged without explicit authorization.
+- Reconciled the remaining schedule gap: daily opportunity allowance and simultaneous visible-offer capacity were already separate, but min/max cadence and randomization were not applied by the worker. A stable deadline is now derived from the durable delivery-event ID, customer ID and policy version, so all workers/restarts calculate the same inclusive interval without a new migration.
+- The post-completion gap now anchors to the most recent settled trade's persisted completion timestamp, rather than the last popup delivery. Both schedule gates must expire before the worker creates another delivery.
+- Added helper tests and source-contract coverage. Exact-head CI and DB integrations are pending for this increment.
+
+---
+
 ## 2026-10-31 — Stage 2 settlement confirmation and delayed wallet-credit lifecycle
 
 - Work branch: `fix/trade-lifecycle-and-admin-policy-completion`, based on verified `main` SHA `048620efa2c68d707c87fb22ba63ebeb6a924772`. Keep this work isolated until exact-head CI, disposable MySQL/MariaDB integration and final review pass.

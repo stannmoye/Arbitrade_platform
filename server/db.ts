@@ -18,7 +18,7 @@ import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, 
 import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
-import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow } from "./modules/trading-delivery-quota";
+import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule } from "./modules/trading-delivery-quota";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry } from "./modules/trade-execution-retry";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
@@ -3178,7 +3178,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     popupDisplaySeconds:Math.max(1,Number(policy?.popupDisplayTargetSeconds||120)),
     popupMaxPerHour:maxPopupsPerDay,
     popupPreAlertProbabilityBps:0,popupPreAlertSeconds:0,popupWithdrawalProbabilityBps:0,
-    popupJitterSeconds:Math.max(0,Number(policy?.maxIntervalSeconds||0)-Number(policy?.minIntervalSeconds||0)),
+    popupJitterSeconds:policy?.randomizationEnabled?Math.max(0,Number(policy?.maxIntervalSeconds||0)-Number(policy?.minIntervalSeconds||0)):0,
   };
   const offerRows=await db.select().from(opportunityOffers).where(and(eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt).limit(5000);
   const tradeHistory=await listTrades(userId);
@@ -3223,8 +3223,26 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const deliveryStatus=String(row.deliveryStatus||"pending").toLowerCase();
     return ["DELIVERED","NOTICED","OPENED"].includes(eventStatus)&&["pending","delivered","received","rendered"].includes(deliveryStatus);
   }).length;
-  const lastDelivery=Number(policy?.postCompletionIntervalSeconds||0)>0?(await db.select({deliveredAt:opportunityDeliveryEvents.deliveredAt}).from(opportunityDeliveryEvents).where(eq(opportunityDeliveryEvents.userId,userId)).orderBy(desc(opportunityDeliveryEvents.deliveredAt)).limit(1))[0]:undefined;
-  const formulaReadyAt=lastDelivery?new Date(new Date(lastDelivery.deliveredAt).getTime()+Number(policy?.postCompletionIntervalSeconds||0)*1000):null;
+  const schedulePolicyEnabled=configuredPolicies.some((row:any)=>Number(row.minIntervalSeconds||0)>0||Number(row.maxIntervalSeconds||0)>0||Number(row.postCompletionIntervalSeconds||0)>0);
+  const lastDelivery=schedulePolicyEnabled?(await db.select({
+    id:opportunityDeliveryEvents.id,deliveredAt:opportunityDeliveryEvents.deliveredAt,policyVersion:opportunityDeliveryEvents.policyVersion,
+  }).from(opportunityDeliveryEvents).where(and(eq(opportunityDeliveryEvents.userId,userId),notInArray(opportunityDeliveryEvents.status,["failed"])))
+    .orderBy(desc(opportunityDeliveryEvents.deliveredAt)).limit(1))[0]:undefined;
+  const deliverySchedule=resolveTradingDeliverySchedule({
+    lastDeliveredAt:lastDelivery?.deliveredAt??null,deliveryEventId:Number(lastDelivery?.id||0),userId,
+    policyVersion:Number(lastDelivery?.policyVersion||0),
+    minIntervalSeconds:Math.max(0,Number(policy?.minIntervalSeconds||0)),
+    maxIntervalSeconds:Math.max(0,Number(policy?.maxIntervalSeconds||0)),
+    randomizationEnabled:Boolean(policy?.randomizationEnabled),
+  });
+  const postCompletionIntervalSeconds=Math.max(0,Number(policy?.postCompletionIntervalSeconds||0));
+  const lastCompletedTrade=postCompletionIntervalSeconds>0?(await db.select({completionAt:tradePositions.completionAt})
+    .from(tradePositions).where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"settled"),isNotNull(tradePositions.completionAt)))
+    .orderBy(desc(tradePositions.completionAt)).limit(1))[0]:undefined;
+  const postCompletionReadyAt=lastCompletedTrade?.completionAt
+    ?new Date(new Date(lastCompletedTrade.completionAt).getTime()+postCompletionIntervalSeconds*1000):null;
+  const readyDeadlines=[deliverySchedule.readyAt,postCompletionReadyAt].filter((value):value is Date=>value instanceof Date);
+  const formulaReadyAt=readyDeadlines.length?new Date(Math.max(...readyDeadlines.map(value=>value.getTime()))):null;
   const formulaCooling=Boolean(formulaReadyAt&&formulaReadyAt.getTime()>now.getTime());
   const dailyCap=maxPopupsPerDay;
   const deliveryCapacity=calculateTradingDeliveryCapacity({dailyCap,deliveredOfferCount,maxVisibleOffers,activeVisibleCount});

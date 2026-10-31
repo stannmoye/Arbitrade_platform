@@ -68,3 +68,50 @@ export function calculateTierDeliveryCaps(tiers: readonly {
     maxVisibleOffers: maxVisibleOffers || combinedQuota,
   };
 }
+
+
+/**
+ * Resolve a stable server-side delivery deadline from the last durable delivery
+ * event. The event ID, customer ID and policy version are the seed, so a worker
+ * restart or another application instance reproduces the same interval.
+ */
+export function resolveTradingDeliverySchedule(input: {
+  lastDeliveredAt: Date | null;
+  deliveryEventId: number;
+  userId: number;
+  policyVersion: number;
+  minIntervalSeconds: number;
+  maxIntervalSeconds: number;
+  randomizationEnabled: boolean;
+}) {
+  if (input.lastDeliveredAt === null) return { intervalSeconds: 0, readyAt: null as Date | null };
+  const deliveredAt = input.lastDeliveredAt instanceof Date
+    ? input.lastDeliveredAt.getTime()
+    : Number.NaN;
+  const min = input.minIntervalSeconds;
+  const max = input.maxIntervalSeconds;
+  if (!Number.isFinite(deliveredAt) ||
+      !Number.isSafeInteger(input.deliveryEventId) || input.deliveryEventId <= 0 ||
+      !Number.isSafeInteger(input.userId) || input.userId <= 0 ||
+      !Number.isSafeInteger(input.policyVersion) || input.policyVersion < 0 ||
+      !Number.isSafeInteger(min) || min < 0 ||
+      !Number.isSafeInteger(max) || max < min) {
+    throw new RangeError("Trading delivery schedule inputs are invalid");
+  }
+
+  let intervalSeconds = min;
+  if (input.randomizationEnabled && max > min) {
+    const seed = `${input.userId}:${input.deliveryEventId}:${input.policyVersion}`;
+    let hash = 2166136261;
+    for (let index = 0; index < seed.length; index += 1) {
+      hash = Math.imul(hash ^ seed.charCodeAt(index), 16777619) >>> 0;
+    }
+    intervalSeconds = min + (hash % (max - min + 1));
+  }
+
+  const readyAt = new Date(deliveredAt + intervalSeconds * 1000);
+  if (!Number.isFinite(readyAt.getTime())) {
+    throw new RangeError("Trading delivery deadline is outside the supported date range");
+  }
+  return { intervalSeconds, readyAt };
+}

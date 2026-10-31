@@ -45,3 +45,22 @@ describe("runtime Trading delivery quota semantics", () => {
     expect(editor).toContain("rolling 24 hours is used if any active tier requires it");
   });
 });
+
+
+describe("server-owned delivery cadence and completion timing", () => {
+  it("anchors randomized delivery intervals to the last persisted delivery event", () => {
+    expect(delivery).toContain("resolveTradingDeliverySchedule({");
+    expect(delivery).toContain("deliveryEventId:Number(lastDelivery?.id||0)");
+    expect(delivery).toContain("policyVersion:Number(lastDelivery?.policyVersion||0)");
+    expect(delivery).toContain("randomizationEnabled:Boolean(policy?.randomizationEnabled)");
+    expect(delivery).toContain("orderBy(desc(opportunityDeliveryEvents.deliveredAt))");
+  });
+
+  it("anchors post-completion delay to a settled trade completion, not popup delivery", () => {
+    expect(delivery).toContain("eq(tradePositions.status,\"settled\")");
+    expect(delivery).toContain("isNotNull(tradePositions.completionAt)");
+    expect(delivery).toContain("postCompletionReadyAt");
+    expect(delivery).toContain("Math.max(...readyDeadlines.map(value=>value.getTime()))");
+    expect(delivery).not.toContain("lastDelivery.deliveredAt).getTime()+Number(policy?.postCompletionIntervalSeconds");
+  });
+});

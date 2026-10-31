@@ -1,3 +1,14 @@
+## 2026-10-31 — Stage 3C.1: durable delivery cadence and post-completion gate
+
+- Latest verified branch head before this increment: `b12787a2fca63608aa075c89a41d55ed93e1b3f5`; PR #258 remained open/draft and was not merged. All 10 exact-head workflow groups on that commit completed successfully.
+- Confirmed that the cumulative daily cap and simultaneous visible-offer cap were already enforced separately, and rolling-24-hour / UTC calendar-day quota windows were already present. The remaining cadence gap was that saved minimum/maximum interval and randomization settings were not gating delivery, while `postCompletionIntervalSeconds` was incorrectly measured from the last popup delivery.
+- Added a deterministic, restart-stable delivery interval derived from the persisted delivery-event ID, customer ID and policy version. Randomized intervals stay within configured inclusive bounds; disabling randomization uses the minimum interval. No schema migration is required because the schedule is reproducible from the durable event identity and timestamp.
+- Corrected the post-completion gate to use the latest settled trade's persisted `completionAt` timestamp (written with wallet posting), independently of the delivery cadence. A new delivery is eligible only after both deadlines pass.
+- Added unit and runtime-contract tests and updated the canonical Trading specification, admin configuration manual, implementation coordination and this handoff.
+- Validation for this increment is pending exact-head GitHub Actions. Do not claim the new tests, build or database integrations have passed until the new commit's workflows finish. No merge, production migration, production database access or deployment has occurred.
+
+---
+
 ## 2026-10-31 — Stage 2: evidence-confirmed settlement and delayed wallet-credit lifecycle (implementation and CI validation complete; awaiting overall Trade review)
 
 - Verified base: `main` at `048620efa2c68d707c87fb22ba63ebeb6a924772`. Isolated work branch: `fix/trade-lifecycle-and-admin-policy-completion`. No changes have been pushed to `main`.

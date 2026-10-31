@@ -4,6 +4,7 @@ import {
   calculateTradingDeliveryCapacity,
   countConsumedDeliveryOffers,
   resolveTradingQuotaWindow,
+  resolveTradingDeliverySchedule,
 } from "./trading-delivery-quota";
 
 describe("Trading quota windows", () => {
@@ -79,5 +80,46 @@ describe("Trading daily delivery consumption", () => {
       maxVisibleOffers: 5,
       activeVisibleCount: -2,
     })).toEqual({ dailyRemaining: 4, visibleRemaining: 5, remainingQuota: 4 });
+  });
+});
+
+
+describe("Durable Trading delivery cadence", () => {
+  const deliveredAt = new Date("2026-10-31T10:00:00.000Z");
+  const base = {
+    lastDeliveredAt: deliveredAt,
+    deliveryEventId: 421,
+    userId: 27,
+    policyVersion: 8,
+    minIntervalSeconds: 300,
+    maxIntervalSeconds: 1800,
+    randomizationEnabled: true,
+  };
+
+  it("reproduces the same randomized deadline from the persisted delivery identity", () => {
+    const first = resolveTradingDeliverySchedule(base);
+    const afterRestart = resolveTradingDeliverySchedule({ ...base });
+    expect(first).toEqual(afterRestart);
+    expect(first.intervalSeconds).toBeGreaterThanOrEqual(300);
+    expect(first.intervalSeconds).toBeLessThanOrEqual(1800);
+    expect(first.readyAt?.getTime()).toBe(deliveredAt.getTime() + first.intervalSeconds * 1000);
+  });
+
+  it("uses the configured minimum as a fixed interval when randomization is disabled", () => {
+    const result = resolveTradingDeliverySchedule({ ...base, randomizationEnabled: false });
+    expect(result.intervalSeconds).toBe(300);
+    expect(result.readyAt?.toISOString()).toBe("2026-10-31T10:05:00.000Z");
+  });
+
+  it("does not schedule an initial delivery when no prior durable event exists", () => {
+    expect(resolveTradingDeliverySchedule({ ...base, lastDeliveredAt: null })).toEqual({
+      intervalSeconds: 0,
+      readyAt: null,
+    });
+  });
+
+  it("rejects malformed interval bounds and event identities", () => {
+    expect(() => resolveTradingDeliverySchedule({ ...base, maxIntervalSeconds: 299 })).toThrow(RangeError);
+    expect(() => resolveTradingDeliverySchedule({ ...base, deliveryEventId: 0 })).toThrow(RangeError);
   });
 });
