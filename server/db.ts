@@ -4204,10 +4204,11 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     if((trade.status==="settled"&&trade.settlementStatus==="completed"||trade.status==="confirmed"&&trade.settlementStatus==="confirmed_awaiting_credit")&&trade.settlementReference===reference){
       if(trade.settlementOutcome==="legacy_unrecorded") throw new Error("This historical settlement has no recorded gross-profit result; replay requires manual financial review.");
       if(Number(trade.realizedGrossProfitMinor)!==input.grossProfitMinor) throw new Error("Settlement reference was already used with a different actual result");
-      return {tradeId,userId:trade.userId,offerId:trade.offerId,currency:trade.currency,principalMinor:Number(trade.principalMinor),grossProfitMinor:Number(trade.realizedGrossProfitMinor),platformFeeMinor:Number(trade.platformFeeMinor),netProfitMinor:Number(trade.netProfitMinor),rewardMinor:Math.max(0,Number(trade.netProfitMinor)),totalMinor:Number(trade.principalMinor)+Number(trade.netProfitMinor),feeRateBps:Number(trade.platformFeeRateBps),roundingMode:String(trade.platformFeeRoundingMode) as FeeRoundingMode,feePolicyVersion:Number(trade.feePolicyVersion),outcome:String(trade.settlementOutcome),reference,legacyUnrecorded:false,walletCreditPending:trade.status!=="settled",creditAt:trade.creditAt||trade.settlesAt};
+      return {tradeId,userId:trade.userId,offerId:trade.offerId,currency:trade.currency,principalMinor:Number(trade.principalMinor),grossProfitMinor:Number(trade.realizedGrossProfitMinor),platformFeeMinor:Number(trade.platformFeeMinor),netProfitMinor:Number(trade.netProfitMinor),rewardMinor:Math.max(0,Number(trade.netProfitMinor)),totalMinor:Number(trade.principalMinor)+Number(trade.netProfitMinor),feeRateBps:Number(trade.platformFeeRateBps),roundingMode:String(trade.platformFeeRoundingMode) as FeeRoundingMode,feePolicyVersion:Number(trade.feePolicyVersion),outcome:String(trade.settlementOutcome),reference,legacyUnrecorded:false,walletCreditPending:trade.status!=="settled",creditAt:trade.creditAt||trade.settlementReviewAt||trade.settlesAt};
     }
     if(trade.status!=="confirmed"||trade.settlementStatus!=="pending") throw new Error("Trade is not pending manual settlement");
-    // Review is allowed when the trade duration ends. creditAt controls wallet posting.
+    // The saved review timestamp includes the configured settlement delay.
+    // creditAt separately includes the wallet-credit delay after review becomes due.
     const settlementDueAt=trade.settlementReviewAt||trade.settlesAt;
     if(!settlementDueAt||!Number.isFinite(new Date(settlementDueAt).getTime())||new Date(settlementDueAt).getTime()>Date.now()) {
       throw new Error("Trade is not yet due for settlement confirmation");
@@ -4327,7 +4328,7 @@ export async function processConfirmedTradeCredits(input?: { limit?: number }) {
   const due=await db.select({id:tradePositions.id}).from(tradePositions).where(and(
     eq(tradePositions.status,"confirmed"),
     eq(tradePositions.settlementStatus,"confirmed_awaiting_credit"),
-    or(lte(tradePositions.creditAt,now),and(isNull(tradePositions.creditAt),lte(tradePositions.settlesAt,now))),
+    or(lte(tradePositions.creditAt,now),and(isNull(tradePositions.creditAt),or(lte(tradePositions.settlementReviewAt,now),and(isNull(tradePositions.settlementReviewAt),lte(tradePositions.settlesAt,now))))),
   )).orderBy(tradePositions.creditAt).limit(limit);
   let credited=0;
   let skipped=0;
@@ -4335,7 +4336,7 @@ export async function processConfirmedTradeCredits(input?: { limit?: number }) {
     const posted=await db.transaction(async tx=>{
       const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,item.id)).limit(1).for("update"))[0];
       if(!trade||trade.status!=="confirmed"||trade.settlementStatus!=="confirmed_awaiting_credit"||trade.walletUpdatedAt) return null;
-      const creditDueAt=trade.creditAt||trade.settlesAt;
+      const creditDueAt=trade.creditAt||trade.settlementReviewAt||trade.settlesAt;
       if(!creditDueAt||new Date(creditDueAt).getTime()>now.getTime()) return null;
       if(!trade.settlementConfirmedAt||!trade.settlementConfirmedBy||!trade.settlementReference||trade.settlementOutcome==="legacy_unrecorded") {
         throw new Error("Confirmed trade is missing its evidence-backed settlement record");
