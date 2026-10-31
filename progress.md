@@ -1,3 +1,14 @@
+## 2026-10-31 — Stage 3C.2: separate daily attempt budget from per-opportunity retries
+
+- Latest pre-change head `1c3a17c0846318a345e09d924d5fa9a19a574552` completed all 10 GitHub workflow groups successfully, including customer-portal browser recovery acceptance. PR #258 remains open/draft and unmerged.
+- Found that `maxTradeAttemptsPerDay` was incorrectly passed as the maximum retry count for one popup event, while the policy and UI describe a customer-wide daily attempt budget.
+- Changed durable claim logic to serialize per-customer attempts using the same customer-row-first lock order as trade allocation, read the tier's persisted daily cap, and sum all durable execution attempt counts for that customer and UTC day before granting a new lease.
+- Every automatic execution claim, including transient retries, consumes one daily attempt. Paused allocations release their claim as before. A zero policy value means no daily cap. Exhausted budgets defer unattempted opportunities until the next UTC day rather than recording a financial allocation or permanently marking them missed.
+- Kept a separate bounded five-attempt technical retry ceiling per opportunity; it is no longer sourced from the daily cap setting. Updated the administrator editor, canonical Trading specification, admin manual, unit/source contracts and MySQL/MariaDB worker integration fixture. The integration fixture now checks that a fifth attempt across distinct opportunities is rejected when the customer daily cap is four.
+- Exact-head CI and database integrations for this increment are pending. Do not claim these new checks have passed until their workflows complete. No merge, production migration, production database access or deployment has occurred.
+
+---
+
 ## 2026-10-31 — Stage 3C.1: durable delivery cadence and post-completion gate
 
 - Latest verified branch head before this increment: `b12787a2fca63608aa075c89a41d55ed93e1b3f5`; PR #258 remained open/draft and was not merged. All 10 exact-head workflow groups on that commit completed successfully.
