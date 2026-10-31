@@ -13,7 +13,8 @@ describe("Administrator company catalogue navigation and pagination", () => {
     const catalogue = readFileSync(new URL("../client/src/components/AdminCompanyCatalogue.tsx", import.meta.url), "utf8");
     expect(navigation).toContain('id: "trade-company-catalogue", target: "companyCatalogue"');
     expect(navigation).not.toContain('id: "trade-company-catalogue", target: "opportunity"');
-    expect(adminApp).toContain('section==="companyCatalogue"&&<Suspense');
+    expect(adminApp).toContain('section==="companyCatalogue"&&<>');
+    expect(adminApp).toContain('<AdminTradingPolicySettings focus="rotation"/>');
     expect(catalogue).toContain("const PAGE_SIZE = 10");
     expect(catalogue).toContain("trpc.companyCatalogueReference.search.useQuery");
     expect(catalogue).toContain("limit: 1811");
@@ -29,16 +30,27 @@ describe("Administrator company catalogue navigation and pagination", () => {
     expect(catalogue).toContain("internal catalogue label");
   });
 
-  it("paginates all tier policy cards in groups of five without truncating the saved policy payload", () => {
+  it("routes every policy submenu through one authoritative editor and keeps tier catalogue visible", () => {
     const start = adminApp.indexOf("function AdminPackages({focus}");
-    const end = adminApp.indexOf("function AdminTradeAllocationControl()", start);
+    const end = adminApp.indexOf("function AdminSignupFeatures()", start);
+    const packageSurface = adminApp.slice(start, end);
+    const opportunityStart = adminApp.indexOf("function AdminOpportunityEngine()");
+    const portalStart = adminApp.indexOf("function AdminPortal()", opportunityStart);
+    const opportunity = adminApp.slice(opportunityStart, portalStart);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    const editor = adminApp.slice(start, end);
-    expect(editor).toContain("const policyPageSize=5");
-    expect(editor).toContain("paginateItems(draft,policyPage,policyPageSize)");
-    expect(editor).toContain("policies:draft.map");
-    expect(editor).toContain('aria-label="Tier policy pagination"');
+    expect(packageSurface).toContain("<AdminTradingPackageCatalogue/>");
+    expect(packageSurface).toContain("<AdminTradingPolicySettings focus={focus}/>");
+    expect(adminApp).toContain("function AdminTradingPolicySettings(");
+    expect(opportunity).not.toContain("TradingDeliveryPolicyEditor");
+    expect(adminApp).toContain('section==="opportunity"&&focus==="delivery"&&<AdminPackages focus="delivery"/>');
+    expect(adminApp).toContain('<AdminTradingPolicySettings focus="rotation"/>');
+    expect(policyEditor).toContain("focus?: PolicyEditorFocus;");
+    expect(policyEditor).toContain('show("quotas")');
+    expect(policyEditor).toContain('show("delivery")');
+    expect(policyEditor).toContain('show("display")');
+    expect(policyEditor).toContain('show("retries")');
+    expect(policyEditor).toContain('show("rotation")');
   });
 });
 
@@ -154,13 +166,13 @@ describe("Trading tier policy audit and versioning", () => {
     expect(update).toContain("Each Trading tier may appear only once");
     expect(serverRouters).toContain("reason: z.string().trim().min(5).max(500)");
     expect(serverRouters).toContain("updateOpportunityPackagePolicies(ctx.user.id, input.policies, input.reason)");
-    expect(adminApp).toContain("Reason for changing Trading tier policies (required for audit)");
+    expect(policyEditor).toContain("Reason for changing Trading tier policies (required for audit)");
     expect(policyEditor).toContain("onClick={onSave}");
-    expect(adminApp).toContain("Requirement not met: A reason for changing Trading tier policies is required for audit.");
-    expect(adminApp).toContain("Trading policy saved successfully. The saved settings have been reloaded");
+    expect(adminApp).toContain("Enter at least 5 characters explaining this policy change.");
+    expect(adminApp).toContain("Trading policy saved successfully. Active trade snapshots were preserved.");
     expect(adminApp).toContain("reason:policyReason.trim()})");
     expect(adminApp).toContain("policies.data.map(x=>({...x,packageName:x.packageName");
-    expect(adminApp).toContain("updatePolicies.mutate({policies:policyRows,reason:policyReason.trim()})");
+    expect(adminApp).toContain("buildChangedPolicyPatches(policyBaseline,policyRows)");
   });
 });
 
@@ -174,39 +186,26 @@ describe("Trading fee-policy navigation", () => {
 });
 
 describe("Trading customer-display navigation", () => {
-  it("opens the persisted package display-timing controls, not the read-only delivery summary", () => {
+  it("opens the persisted customer display controls in the shared policy editor", () => {
     const item = navigation.match(/id: "trade-popup-display", target: "([^"]+)"/);
     expect(item?.[1]).toBe("tradeCustomerDisplay");
     expect(adminApp).toContain('{section==="tradeCustomerDisplay"&&<AdminPackages focus="display"/>}');
-
-    const start = adminApp.indexOf("function AdminPackages({focus}");
-    const end = adminApp.indexOf("function AdminTradeAllocationControl()", start);
-    expect(start).toBeGreaterThanOrEqual(0);
-    expect(end).toBeGreaterThan(start);
-    const packageEditor = adminApp.slice(start, end);
-    expect(packageEditor).toContain("popupDisplayTargetSeconds");
-    expect(packageEditor).toContain("completionDisplaySeconds");
-    expect(packageEditor).toContain("These settings affect presentation only, not allocation, trade execution, or settlement.");
-    expect(packageEditor).toContain('{!focus&&<><AdminTradingPackageCatalogue/><AdminTradeAllocationControl/></>}');
+    expect(policyEditor).toContain("value={row.popupDisplayTargetSeconds}");
+    expect(policyEditor).toContain("value={row.completionDisplaySeconds}");
+    expect(policyEditor).toContain("Controls display only; must not cancel an active trade.");
+    expect(adminApp).toContain('(!focus||focus==="tiers")&&<AdminTradingPackageCatalogue/>');
   });
 });
 
 describe("Trading retry-policy navigation", () => {
-  it("opens the package retry controls instead of the read-only delivery summary", () => {
+  it("opens retry controls in the shared policy editor and states the current retry-window boundary", () => {
     const item = navigation.match(/id: "trade-retries-carry-forward", target: "([^"]+)"/);
     expect(item?.[1]).toBe("tradeRetryPolicy");
     expect(adminApp).toContain('{section==="tradeRetryPolicy"&&<AdminPackages focus="retries"/>}');
-
-    const start = adminApp.indexOf("function AdminPackages({focus}");
-    const end = adminApp.indexOf("function AdminTradeAllocationControl()", start);
-    expect(start).toBeGreaterThanOrEqual(0);
-    expect(end).toBeGreaterThan(start);
-    const packageEditor = adminApp.slice(start, end);
-    expect(packageEditor).toContain("maxTradeAttemptsPerDay");
-    expect(packageEditor).toContain("tradeRetryDelaySeconds");
-    expect(packageEditor).toContain("Carry-forward controls are not available yet.");
-    expect(packageEditor).toContain('{(!focus||focus==="quotas")&&<div className="package-policy-section"><strong>Daily customer allowance</strong>');
-    expect(packageEditor).toContain('focus==="quotas"');
+    expect(policyEditor).toContain("value={row.maxTradeAttemptsPerDay}");
+    expect(policyEditor).toContain("value={row.tradeRetryDelaySeconds}");
+    expect(policyEditor).toContain("Carry-forward across daily windows is not enabled. A retry window that expires is marked failed for review.");
+    expect(policyEditor).toContain('show("quotas")');
   });
 });
 

@@ -6,8 +6,11 @@ const signupStart = source.indexOf("export async function provisionSignupCredit(
 const signupEnd = source.indexOf("\nconst defaultCurrencies", signupStart);
 const signup = source.slice(signupStart, signupEnd);
 const settlementStart = source.indexOf("export async function manuallySettleTrade(");
-const settlementEnd = source.indexOf("\nexport async function createOpportunityOffer(", settlementStart);
+const settlementEnd = source.indexOf("\nexport async function processConfirmedTradeCredits(", settlementStart);
 const settlement = source.slice(settlementStart, settlementEnd);
+const creditStart = source.indexOf("export async function processConfirmedTradeCredits(");
+const creditEnd = source.indexOf("\nexport async function createOpportunityOffer(", creditStart);
+const creditPosting = source.slice(creditStart, creditEnd);
 
 describe("wallet-changing transaction boundaries", () => {
   it("serializes signup-credit retries and writes wallet plus ledger inside one transaction", () => {
@@ -31,19 +34,27 @@ describe("wallet-changing transaction boundaries", () => {
     expect(signup).not.toContain("await db.insert(balanceLedger)");
   });
 
-  it("keeps manual settlement claim, wallet and ledger changes in a transaction", () => {
+  it("commits only the evidence-backed result and unique reference claim during admin confirmation", () => {
     expect(settlementStart).toBeGreaterThanOrEqual(0);
     expect(settlementEnd).toBeGreaterThan(settlementStart);
     expect(settlement).toContain("db.transaction(async tx=>");
     const claim = settlement.indexOf("tx.insert(tradeSettlementReferenceClaims)");
-    const firstLedgerPost = settlement.indexOf("tx.insert(balanceLedger)");
-    const walletUpdate = settlement.indexOf("tx.update(customerBalances)");
-    const tradeUpdate = settlement.indexOf("tx.update(tradePositions)");
+    const stateWrite = settlement.indexOf('settlementStatus:"confirmed_awaiting_credit"');
     expect(claim).toBeGreaterThanOrEqual(0);
-    expect(firstLedgerPost).toBeGreaterThan(claim);
+    expect(stateWrite).toBeGreaterThan(claim);
+    expect(settlement).not.toContain("tx.insert(balanceLedger)");
+    expect(settlement).not.toContain("tx.update(customerBalances)");
+  });
+
+  it("commits delayed wallet and ledger postings atomically with the terminal trade state", () => {
+    expect(creditPosting).toContain("db.transaction(async tx=>");
+    const firstLedgerPost = creditPosting.indexOf("tx.insert(balanceLedger)");
+    const walletUpdate = creditPosting.indexOf("tx.update(customerBalances)");
+    const tradeUpdate = creditPosting.indexOf("tx.update(tradePositions)");
+    expect(firstLedgerPost).toBeGreaterThanOrEqual(0);
     expect(walletUpdate).toBeGreaterThan(firstLedgerPost);
     expect(tradeUpdate).toBeGreaterThan(walletUpdate);
-    expect(settlement).not.toContain("await db.insert(balanceLedger)");
-    expect(settlement).not.toContain("await db.update(customerBalances)");
+    expect(creditPosting).toContain("assertExactlyOneAffectedRow(walletUpdate");
+    expect(creditPosting).toContain("assertExactlyOneAffectedRow(stateUpdate");
   });
 });

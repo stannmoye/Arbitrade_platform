@@ -1,3 +1,126 @@
+## 2026-10-31 — Exact-head corrective validation and production-readiness checkpoint
+
+- Reviewed PR #258 against `main`. The current branch is `fix/trade-lifecycle-and-admin-policy-completion`; the PR remains open and draft. No merge, deployment, production migration, or production database access occurred.
+- The first exact-head matrix on `e8e895c66a2a867a2f9cfb66c515fa8dcf3010be` exposed one obsolete contract assertion: the company-spotlight test still expected the former customer search label after the customer catalogue was restricted to approved references. The assertion was updated to require the current approved-company label and customer-only search endpoint, and to reject use of the former unrestricted customer search endpoint.
+- Corrective test commit: `052c9bd4ee6252afc45c428eb2f745d18b86b8d6`.
+- All 10 required workflow groups passed on that exact source commit: application verification; Trading recovery validation; tier qualification; administrator wallet idempotency/FX/rollback; opportunity-worker concurrency/recovery; settlement reconciliation; durable company rotation; installer validation; Mining regression; and production source typecheck/tests/build plus customer/portal browser recovery checks.
+- Database evidence on that exact commit includes MySQL 8.4 and MariaDB 11.4 coverage for tier qualification and reversals, wallet idempotency/FX/rollback, opportunity-worker lifecycle, settlement reconciliation, company rotation, and installer fresh-install/migration recovery. The installer group validated fresh disposable MySQL and MariaDB databases; no production schema was touched.
+- Reviewed migrations 0096 and 0097 against Drizzle schema, migration journal, main/portal/runtime migration paths, and worker schema contracts. The settlement-review timestamp and UTC daily execution-attempt columns/index are represented consistently. Migration and runtime integration jobs passed on both database engines.
+- Rechecked the manual qualifying-credit path: only an explicitly classified administrator wallet credit to a customer creates `admin_manual_deposit_credit`; the server obtains a fresh API FX rate for the exact wallet configuration, persists USD attribution and rate/provider/time evidence, and commits the ledger row and unique tier-qualification outbox job atomically. Other credit types do not enter the qualifying ledger query. Admin tier/package management routes remain administrator-only.
+- Rechecked company catalogue route separation: full catalogue operations are administrator-only; customer summary/count/search are customer-only and filtered against current verified, enabled, non-archived state. The active popup display guard strips stale identities after status changes. The corrective contract test now protects the customer-only search path.
+- The production source build, TypeScript checks, automated tests, installer validation, browser recovery checks, and all 10 workflow groups succeeded on the corrective source commit. This progress-only handoff update creates a new branch head; its own exact-head workflow matrix must be checked before final approval.
+- Remaining release boundary: keep PR #258 open and draft; do not merge, deploy, or run production migrations. Final approval remains withheld until the documentation handoff head also passes its exact-head matrix and the final review evidence is refreshed.
+
+---
+
+## 2026-10-31 — Explicit company disable state and admin lifecycle validation
+
+- Added persisted `disabledIds` to the existing audited company catalogue state. A company must be currently verified, enabled and non-archived to enter customer search, preview, rotation or active popup responses. Disabled and archived status override stale verification entries.
+- Added administrator actions for enable/disable, with enable deliberately separate from verification. Verify, reject/unverify, enable, disable, archive and restore remain admin-only, row-locked and audited. Restore returns a company as unverified.
+- Extended company unit/contract tests and the disposable MySQL/MariaDB rotation integration to cover disabled exclusion, enable preserving verification, unverify revocation, archive/restore persistence, audit cleanup, and no-company fallback. Reserved distinct test offer IDs so the disabled-company scenario does not overlap the rotation-pool exhaustion fixture.
+- Updated `AGENTS.md`, README, canonical Trading specification, admin configuration manual, implementation coordination guide, admin menu guide and customer/admin HTML guide to state that disabled records are excluded and that enabling never grants approval.
+- Exact-head Actions for code head `73a235bd2c7029be5bbc0066cad4f7eead08e45f` were created: 10 workflow groups (application/typecheck/build, production build, Trading tier qualification, wallet idempotency, company rotation, opportunity worker recovery, settlement reconciliation, Trading recovery, installer, Mining regression). At the last poll all were queued/pending; no new code-test result is claimed. An earlier `9de0ee0` attempt failed four obsolete contract assertions, which were updated before the current head.
+- PR #258 remains open, draft and unmerged against `main`. No merge, deployment or production migration was performed. Stage C–F acceptance remains open until the exact final head's workflows complete and any failures are fixed.
+
+---
+
+## 2026-10-31 — Company catalogue access and admin status completion
+
+- Stage A review of PR #258 against `main` found that customer Trading still used public full-catalogue company search/count/summary routes. This exposed unverified and archived source records outside the popup selector. Replaced the customer calls with authenticated customer-only endpoints; full catalogue search/count/summary and direct lookup/symbol/random/next routes now require administrator authorization.
+- Customer endpoints filter the full source set against current `verifiedIds`, `disabledIds`, and `archivedIds` before pagination/counting. Missing or malformed state fails closed. Active popup snapshots are rechecked at customer read time using a shared Set-backed guard; durable worker selection and preview use the same verified/enabled/non-archived policy.
+- Completed the administrator company status controls: verify, reject/unverify, enable, disable, archive and restore. Enable/disable is independent of verification; enabling never approves a company. Status writes remain row-locked, transactional and audited. Added unit/contract coverage and expanded the MySQL/MariaDB company-rotation integration to exercise persisted status transitions, disable exclusion, archived precedence and empty approved pools.
+- Updated the canonical Trading specification, admin configuration manual, `AGENTS.md`, README, implementation coordination guide, admin menu guide and customer/admin guide to remove the conflicting full-catalogue customer-browse rule and document disabled-state exclusion.
+- Migration review remains consistent: 0096/0097 are journaled, portal/recovery-runner compatible, and runtime contracts cover the worker-critical fields. The MySQL compatibility runner handles idempotent index/column syntax; no production database was touched.
+- A previous exact-head CI attempt on `9de0ee0` exposed four stale contract assertions after the customer route/label refactor (old public endpoint/status/label assumptions); TypeScript check passed. Those assertions were updated to the new protected routes and admin actions. The subsequent exact-head CI attempt was cancelled while its jobs were queued by a newer commit. Current code/documentation head before this progress update: `f264bda1624bd7a857dd5ea05d0d74a95e4ef6c6`; its fresh 10-workflow matrix must be checked after this documentation commit.
+- PR #258 remains open, draft and unmerged. No merge, deployment or production migration was performed. Stage C–F end-to-end, migration, regression and performance acceptance remains pending exact-head CI and final review.
+
+---
+
+## 2026-10-31 — Final review follow-up: close customer company catalogue exposure
+
+- Whole-branch review found a customer-facing search surface not covered by the original verified-only pop-up filter: `CustomerOpportunities` queried the public `companyCatalogueReference.search/count/summary` routes and displayed the full 1,811-record catalogue, including unverified and archived records. The canonical specification, administrator manual, repository instructions and customer guide still described that older behavior.
+- Restricted full-catalogue summary/search/count and direct lookup/symbol/random/next routes to `adminProcedure`. Added customer-only protected summary/count/search routes that read current `trade.companyCatalogue.adminState`, fail closed on missing/malformed state, filter by current `verifiedIds` minus `archivedIds` before pagination/counting, and reject non-customer roles.
+- Switched the customer Trading page to the customer-only endpoints and updated its labels/help text to describe approved references only. The administrator catalogue retains the full 1,811-record source and its existing status-management actions.
+- Centralized the active-popup snapshot guard and added a prebuilt Set-based predicate so customer reads and customer catalogue queries revalidate approval efficiently. Extended executable unit/contract coverage for immediate revocation, archived precedence, malformed/stale IDs, admin-only full-catalogue routes and customer-only filtered routes.
+- Updated `AGENTS.md`, `README.md`, `docs/TRADING_SYSTEM_SPECIFICATION.md`, `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md`, `docs/trading/IMPLEMENTATION_COORDINATION.md`, `docs/admin-portal-menu-guide.md`, and `client/public/trade-admin-guide.html` to remove the conflicting instruction that customers may browse the full unverified catalogue. The canonical requirement is now consistent: only currently admin-verified, non-archived companies are retrievable or displayable in customer-facing Trade surfaces; the full catalogue is administrator-only.
+- Current PR head after these changes: `fa370f6a82267a661de53dce66bc9d3db0f108a9`. PR #258 remains open, draft and unmerged. The 10/10 workflow groups passed on earlier head `4e139c3550da03b41403190323a83e143d127258`; no workflow runs or commit statuses are currently exposed for this latest head, so the new changes are **not yet CI-verified**. No local Node/pnpm runtime is available in this connector session to execute tests, and no production database, migration, merge or deployment was used.
+- Remaining: trigger/obtain exact-head CI, review the remaining customer/admin end-to-end and migration/performance paths, resolve any new failures, and refresh this record only after exact-head validation.
+
+---
+
+## 2026-10-31 — Final whole-branch review: current company approval guard
+
+- Reviewed PR #258 against `main` at base `048620efa2c68d707c87fb22ba63ebeb6a924772`; the branch was at `4e139c3550da03b41403190323a83e143d127258` before this review change. PR remains open, draft and unmerged.
+- Rechecked the customer company selection path in `ensurePopupDeliveries`, durable company rotation, the customer opportunity read path, and the administrator catalogue state. New rotation pools already fail closed unless an ID is in the current admin `verifiedIds` allowlist and not in `archivedIds`. Customer reads also strip company identity from persisted active popup snapshots when current approval has been revoked.
+- Centralized the current customer-display authorization predicate as `isCompanySpotlightDisplayAllowed` and used it in `listCustomerOpportunities` for both candidate allocation data and returned popup snapshots. This avoids two independently maintained allowlist checks and keeps stale references fail-closed.
+- Extended the executable company-rotation unit tests for immediate revocation after unverify/reject/disable, archive precedence, malformed state, and stale/non-string snapshot IDs. Existing MySQL/MariaDB rotation integration already verifies approved-only selection and no-company behavior when the approved pool is empty.
+- Reviewed migrations 0096/0097 and the compatibility runner: both are registered in the journal and portal/recovery runners; the runner translates idempotent index creation and column additions for MySQL compatibility. No production database was accessed.
+- Exact-head CI for this review follow-up is pending; do not treat earlier 10/10 workflow success on `4e139c3` as validation of this new code. Next: inspect fresh workflow results, finish customer/admin workflow and package-policy audits, then refresh this record with the exact final head and CI outcome.
+
+---
+
+## 2026-10-31 — Stage 3C.3 previous-settlement gate — verified
+
+- Final implementation head: `93d6f625b011fdb3bef239658bafea3f65a9eaa9` on `fix/trade-lifecycle-and-admin-policy-completion`; PR #258 remains open, draft and unmerged. The initial gate-only implementation was `208ee15`; the final head also includes deferred retry and release of both attempt budgets.
+- Enforced `requirePreviousSettlement` inside the customer-locked trade-allocation transaction. When enabled for the selected tier, any earlier non-cancelled trade for that customer, across all tiers, must have both `status=settled` and `settlementStatus=completed` before a new allocation can proceed.
+- Administrator confirmation alone does not clear the gate; the confirmed trade remains blocking until the wallet-credit transaction commits. The prior trade row is locked during the check. A disabled setting removes only this gate for the selected tier.
+- The gate runs after idempotent replay detection, so a retry of an already-allocated event remains safe and does not create a new allocation.
+- When the worker encounters the gate, it defers the opportunity for the configured retry delay instead of marking it missed. It releases both the per-opportunity technical attempt and the customer-wide daily attempt; the delivered opportunity remains eligible for retry after settlement.
+- Reviewed global allocation pause semantics: the persisted pause is checked inside `createTrade` for new allocations; settlement review, confirmed wallet-credit posting and reconciliation do not depend on that pause setting.
+- Disposable opportunity-worker integration emitted `previousSettlementGateBlocked=true` on both MySQL 8.4 and MariaDB 11.4. It verified one trade only and unchanged wallet/ledger state after the blocked allocation.
+- All 10 exact-head workflow groups passed on final implementation head `93d6f625`, including TypeScript, tests, production build, browser recovery, installer/migration validation, Mining regression, settlement, wallet idempotency, tier qualification, opportunity worker and company rotation.
+- No production database migration, merge or deployment occurred.
+
+---
+
+## 2026-10-31 — Stage 3C.2 daily attempt accounting — verified
+
+- Code and database test head: `d55da4ccb64f3eb742d551dab2064a5bf98c8dca` on `fix/trade-lifecycle-and-admin-policy-completion`; PR #258 remains open, draft and unmerged.
+- Customer-wide UTC-day usage sums `executionDailyAttemptCount` where `executionDailyAttemptDay` is the current UTC day. The attempted opportunity's persisted tier policy supplies the configured limit; usage aggregation spans all of the customer's opportunity events, including events under different package policies.
+- UTC rollover resets only the dedicated daily counter. Lifetime `executionAttemptCount` and `executionRetryDay` remain separate; daily-cap deferral preserves the technical retry-window marker.
+- Migration 0097 adds the daily fields and the `(userId, executionDailyAttemptDay)` index. It deliberately does not backfill legacy events: cumulative lifetime attempts and a latest retry-day marker cannot reconstruct the UTC day of every historical attempt. Legacy daily values therefore start at `0/NULL`, avoiding false charges to an arbitrary day.
+- The worker integration covers a customer reaching the cap through opportunities attached to two tier policies, cap deferral preserving an older retry marker, and a previous-day counter rolling to one current-day attempt while the lifetime count remains cumulative.
+- All 10 GitHub Actions workflow groups completed successfully on exact code head `d55da4c`: Trading recovery, application verification, production TypeScript/tests/build and browser recovery, installer validation, Mining regression, administrator wallet idempotency, tier qualification, settlement reconciliation, opportunity-worker lifecycle, and company rotation. Opportunity-worker, tier-qualification, settlement and company-rotation integrations passed on both MySQL 8.4 and MariaDB 11.4; wallet idempotency passed on both engines; installer fresh-MariaDB and MySQL 8.4 compatibility/recovery passed.
+- No merge, production database migration or deployment occurred. Database validation used disposable CI databases only.
+
+---
+
+## 2026-10-31 — Stage 3C.2: separate daily attempt budget from per-opportunity retries
+
+- Latest pre-change head `1c3a17c0846318a345e09d924d5fa9a19a574552` completed all 10 GitHub workflow groups successfully, including customer-portal browser recovery acceptance. PR #258 remains open/draft and unmerged.
+- Found that `maxTradeAttemptsPerDay` was incorrectly passed as the maximum retry count for one popup event, while the policy and UI describe a customer-wide daily attempt budget.
+- Changed durable claim logic to serialize per-customer attempts using the same customer-row-first lock order as trade allocation, read the tier's persisted daily cap, and sum all durable execution attempt counts for that customer and UTC day before granting a new lease.
+- Every automatic execution claim, including transient retries, consumes one daily attempt. Paused allocations release their claim as before. A zero policy value means no daily cap. Exhausted budgets defer unattempted opportunities until the next UTC day rather than recording a financial allocation or permanently marking them missed.
+- Kept a separate bounded five-attempt technical retry ceiling per opportunity; it is enforced at claim time from that event's current UTC-day counter so repeated worker crashes cannot bypass it. Lifetime `executionAttemptCount` remains diagnostic; retry decisions use the per-event daily attempt number. Temporary pause/settlement deferrals release both per-event and customer-wide counters. Updated the administrator editor, canonical Trading specification, admin manual, unit/source contracts and MySQL/MariaDB worker integration fixture. The integration fixture now checks that a fifth attempt across distinct opportunities is rejected when the customer daily cap is four.
+- Exact-head CI and database integrations for this increment are pending. Do not claim these new checks have passed until their workflows complete. No merge, production migration, production database access or deployment has occurred.
+
+---
+
+## 2026-10-31 — Stage 3C.1: durable delivery cadence and post-completion gate
+
+- Latest verified branch head before this increment: `b12787a2fca63608aa075c89a41d55ed93e1b3f5`; PR #258 remained open/draft and was not merged. All 10 exact-head workflow groups on that commit completed successfully.
+- Confirmed that the cumulative daily cap and simultaneous visible-offer cap were already enforced separately, and rolling-24-hour / UTC calendar-day quota windows were already present. The remaining cadence gap was that saved minimum/maximum interval and randomization settings were not gating delivery, while `postCompletionIntervalSeconds` was incorrectly measured from the last popup delivery.
+- Added a deterministic, restart-stable delivery interval derived from the persisted delivery-event ID, customer ID and policy version. Randomized intervals stay within configured inclusive bounds; disabling randomization uses the minimum interval. No schema migration is required because the schedule is reproducible from the durable event identity and timestamp.
+- Corrected the post-completion gate to use the latest settled trade's persisted `completionAt` timestamp (written with wallet posting), independently of the delivery cadence. A new delivery is eligible only after both deadlines pass.
+- Added unit and runtime-contract tests and updated the canonical Trading specification, admin configuration manual, implementation coordination and this handoff.
+- Validation for this increment is pending exact-head GitHub Actions. Do not claim the new tests, build or database integrations have passed until the new commit's workflows finish. No merge, production migration, production database access or deployment has occurred.
+
+---
+
+## 2026-10-31 — Stage 2: evidence-confirmed settlement and delayed wallet-credit lifecycle (implementation and CI validation complete; awaiting overall Trade review)
+
+- Verified base: `main` at `048620efa2c68d707c87fb22ba63ebeb6a924772`. Isolated work branch: `fix/trade-lifecycle-and-admin-policy-completion`. No changes have been pushed to `main`.
+- Reworked manual settlement so an authorized administrator can review after the saved `settlementReviewAt`, record the actual gross result/evidence reference and immutable fee-policy snapshot, and transition the trade to `confirmed_awaiting_credit` without writing wallet or ledger entries. Principal remains locked and the reward reservation remains reserved.
+- Added a bounded, monitored `settlement-credit-posting` worker. It processes only administrator-confirmed trades after `creditAt`, locks and verifies the trade/reference claim/reservation/wallet, recomputes the saved fee calculation, and commits ledger entries, wallet balances, reservation state and terminal trade status in one transaction. Row locking plus conditional state transition prevents duplicate concurrent/restart credits.
+- Added nullable `settlementReviewAt` in forward-only migration `0096_trade_settlement_review_timestamp.sql`. New trades persist `settlesAt`, `settlementReviewAt = settlesAt + settlementDelaySeconds`, and `creditAt = settlementReviewAt + creditDelaySeconds`. Legacy rows are not rewritten: null review timestamps use the prior `creditAt` as the review gate when available, otherwise `settlesAt`; null credit timestamps fall back to review time.
+- Registered migration 0096 in the Drizzle journal, guarded main migration contract, worker runtime schema bridge, portal migration runner, installer recovery list, and worker schema contract. No historical migration or settlement row is destructively changed.
+- Updated the admin queue and timing labels to distinguish review-ready from confirmed-awaiting-credit, show the saved result/reference/credit time, and prevent a second confirmation. Settlement notifications and popup terminal completion now occur only after the wallet-credit transaction commits.
+- Updated the canonical Trade specification, admin configuration manual, embedded admin guide, settlement contract tests, and the disposable MySQL/MariaDB integration script. Integration coverage now checks review before credit time, no ledger/wallet mutation on confirmation, delayed posting, concurrent worker idempotency, reservation finalization and duplicate-cycle safety.
+- Exact-head validation: commit `5b875e96512951ec4feb90117fc86e6f92189e51` passed all 25 GitHub Actions checks. This includes TypeScript validation, the full application test suite (109 files passed, 3 skipped; 860 tests passed, 17 skipped), production build/bundle budgets/server smoke test, static customer-portal build and real-browser recovery acceptance, installer/migration checks, deployment-package validation, and MySQL 8.4 plus MariaDB 11.4 settlement, worker, company-rotation, wallet-idempotency/FX and tier-qualification integrations. Both settlement database integrations returned `ok: true` and verified timer-only non-payment, confirmation without wallet/ledger mutation, early/overdue credit timing, concurrent one-time posting, replay idempotency, and rollback safety. The first exact-head CI run exposed a duplicate query projection, optional worker-limit typing issue, stale migration-journal expectations, and a notification-test source-range error; these were corrected, and the final exact head passed 25/25 checks.
+- Pull request #258 remains open as a draft against `main` (`048620efa2c68d707c87fb22ba63ebeb6a924772`). Stage 2 implementation and CI validation are complete on the branch, but this is not the overall Trade completion gate: the remaining Trade policy/quota/retry/editor/documentation audit and final whole-branch diff review remain outstanding. No merge, production migration, production database access, or deployment has occurred.
+
+---
+
 ## 2026-10-31 — Verified-only customer company pop-ups (merged into main)
 
 - Canonical base before implementation: `main` at `a4f8cdd392f339c81762bd8a6584797881579aa9`; implementation branch: `feat/verified-company-popups`; PR #256 merged into `main` as `9b83dd507bc7e466b961737bc15ee0038038ea7c`.

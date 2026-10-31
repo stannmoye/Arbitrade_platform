@@ -18,6 +18,7 @@ export function normalizeCompanyRotationCountryNames(raw:unknown):string {
 export type CompanyCatalogueAdminState = {
   verifiedIds: readonly string[];
   archivedIds: readonly string[];
+  disabledIds?: readonly string[];
 };
 
 /** Malformed or missing administrator state fails closed: no company is approved for customer display. */
@@ -34,7 +35,28 @@ export function parseCompanyCatalogueAdminState(raw: unknown): CompanyCatalogueA
   return {
     verifiedIds: validIds(parsed?.verifiedIds),
     archivedIds: validIds(parsed?.archivedIds),
+    disabledIds: validIds(parsed?.disabledIds),
   };
+}
+
+/** Customer reads must revalidate persisted snapshots against current admin approval. */
+export function createCompanySpotlightDisplayGuard(
+  adminState: CompanyCatalogueAdminState,
+): (companyId: unknown) => boolean {
+  const verifiedIds = new Set(adminState.verifiedIds);
+  const archivedIds = new Set(adminState.archivedIds);
+  const disabledIds = new Set(adminState.disabledIds ?? []);
+  return (companyId: unknown) => typeof companyId === "string" &&
+    verifiedIds.has(companyId) &&
+    !archivedIds.has(companyId) &&
+    !disabledIds.has(companyId);
+}
+
+export function isCompanySpotlightDisplayAllowed(
+  companyId: unknown,
+  adminState: CompanyCatalogueAdminState,
+): boolean {
+  return createCompanySpotlightDisplayGuard(adminState)(companyId);
 }
 
 export function buildCompanySpotlightPool(
@@ -45,11 +67,12 @@ export function buildCompanySpotlightPool(
   const selected = new Set(normalizeCompanyRotationCountryNames(countryNames).split(",").map(name => name.trim()).filter(Boolean));
   const verified = new Set(adminState.verifiedIds);
   const archived = new Set(adminState.archivedIds);
-  // Administrator approval is required for customer spotlight display. Archived
-  // always wins, including malformed/stale state containing an ID in both sets.
+  const disabled = new Set(adminState.disabledIds ?? []);
+  // Administrator approval is required for customer spotlight display. Archived and disabled
+  // always win, including stale state that also contains an ID in verifiedIds.
   const pool = catalogue.filter(company =>
     company.id && company.name && company.logoUrl &&
-    verified.has(company.id) && !archived.has(company.id) &&
+    verified.has(company.id) && !archived.has(company.id) && !disabled.has(company.id) &&
     (!selected.size || selected.has(company.countryName)),
   );
   if (new Set(pool.map(company => company.id)).size !== pool.length) {

@@ -4,6 +4,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { countCompanyReferences, findCompanyReferencesBySymbol, getCompanyReferenceById, getCompanyReferenceSummary, getRandomCompanyReference, searchCompanyReferences } from "./modules/company-catalogue-reference";
+import { createCompanySpotlightDisplayGuard, parseCompanyCatalogueAdminState } from "./modules/company-spotlight-rotation";
 import { z } from "zod";
 import { communicationSettingsInput, getAdminCommunicationSettings, getCustomerCommunicationOptions, saveAdminCommunicationSettings, validateCommunicationSettingsInput } from "./communicationSettings";
 import { TRPCError } from "@trpc/server";
@@ -20,7 +21,7 @@ import { isEmailAdminConfigured, listEmailRecipients, publicEmailConfig, runDail
 import * as mining from "./mining";
 import * as miningAdmin from "./mining-admin";
 import { normalizeAppearanceSettings } from "./appearance-settings";
-import { ADMIN_BROADCAST_CATEGORIES, buildTradeSettlementNotices } from "./modules/notification-events";
+import { ADMIN_BROADCAST_CATEGORIES } from "./modules/notification-events";
 import { isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 import { invalidateUserSessions } from "./authSessions";
 import { getLocalSessionFromRequest } from "./_core/localAuth";
@@ -30,6 +31,16 @@ import { createHeartbeatJob, deleteHeartbeatJob, listHeartbeatJobs, updateHeartb
 import { getWorkerHealthSummary, requeueDeadQualificationJob } from "./_core/workerHealth";
 import { getSystemDiagnosticsReport } from "./_core/systemDiagnostics";
 
+async function getCustomerApprovedCompanyReferences(
+  filters: Parameters<typeof searchCompanyReferences>[0] = {},
+) {
+  const raw = await getAppSetting("trade.companyCatalogue.adminState", "{}");
+  const adminState = parseCompanyCatalogueAdminState(raw);
+  const companyDisplayAllowed = createCompanySpotlightDisplayGuard(adminState);
+  return searchCompanyReferences({ ...filters, offset: 0, limit: 1811 })
+    .filter((company) => companyDisplayAllowed(company.id));
+}
+
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
@@ -38,25 +49,53 @@ export const appRouter = router({
   ),
 
   companyCatalogueReference: router({
-    summary: publicProcedure.query(() => getCompanyReferenceSummary()),
-    count: publicProcedure.input(z.object({
+    // The complete source catalogue and its status controls are administrator-only.
+    summary: adminProcedure.query(() => getCompanyReferenceSummary()),
+    count: adminProcedure.input(z.object({
       search: z.string().trim().max(100).optional(),
       countryName: z.string().trim().min(1).max(100).optional(),
     }).optional()).query(({ input }) => countCompanyReferences(input ?? {})),
-    search: publicProcedure.input(z.object({
+    search: adminProcedure.input(z.object({
       search: z.string().trim().max(100).optional(),
       countryName: z.string().trim().min(1).max(100).optional(),
       offset: z.number().int().min(0).max(1810).optional(),
       limit: z.number().int().min(1).max(1811).optional(),
     }).optional()).query(({ input }) => searchCompanyReferences(input ?? {})),
+    customerSummary: protectedProcedure.query(async ({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Customer company references are available only to customer accounts." });
+      const approved = await getCustomerApprovedCompanyReferences();
+      const countryCounts = new Map<string, number>();
+      for (const company of approved) countryCounts.set(company.countryName, (countryCounts.get(company.countryName) ?? 0) + 1);
+      return { total: approved.length, countryCounts: Object.fromEntries([...countryCounts].sort(([a], [b]) => a.localeCompare(b))) };
+    }),
+    customerCount: protectedProcedure.input(z.object({
+      search: z.string().trim().max(100).optional(),
+      countryName: z.string().trim().min(1).max(100).optional(),
+    }).optional()).query(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Customer company references are available only to customer accounts." });
+      return (await getCustomerApprovedCompanyReferences(input ?? {})).length;
+    }),
+    customerSearch: protectedProcedure.input(z.object({
+      search: z.string().trim().max(100).optional(),
+      countryName: z.string().trim().min(1).max(100).optional(),
+      offset: z.number().int().min(0).max(1810).optional(),
+      limit: z.number().int().min(1).max(1811).optional(),
+    }).optional()).query(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Customer company references are available only to customer accounts." });
+      const offset = input?.offset ?? 0;
+      const limit = input?.limit ?? 50;
+      return (await getCustomerApprovedCompanyReferences(input ?? {})).slice(offset, offset + limit);
+    }),
     adminState: adminProcedure.query(async () => {
       const raw = await getAppSetting("trade.companyCatalogue.adminState", "{}");
       try {
-        const parsed = JSON.parse(raw || "{}") as { verifiedIds?: string[]; archivedIds?: string[] };
+        const parsed = JSON.parse(raw || "{}") as { verifiedIds?: string[]; archivedIds?: string[]; disabledIds?: string[] };
         const verifiedIds = (parsed.verifiedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
         const archivedIds = (parsed.archivedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
-        const statusById: Record<string, { status: "verified" | "archived" }> = {};
+        const disabledIds = (parsed.disabledIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
+        const statusById: Record<string, { status: "verified" | "archived" | "disabled" }> = {};
         for (const id of verifiedIds) statusById[id] = { status: "verified" };
+        for (const id of disabledIds) statusById[id] = { status: "disabled" };
         for (const id of archivedIds) statusById[id] = { status: "archived" };
         return { statusById };
       } catch {
@@ -65,7 +104,7 @@ export const appRouter = router({
     }),
     updateAdminState: adminProcedure.input(z.object({
       ids: z.array(z.string().regex(/^logo-brand-\d{4}$/)).min(1).max(1811),
-      status: z.enum(["verified", "unverified", "archived"]),
+      status: z.enum(["verified", "unverified", "archived", "disabled", "enabled"]),
       reason: z.string().trim().min(3).max(500),
     })).mutation(async ({ ctx, input }) => {
       const ids = [...new Set(input.ids)];
@@ -74,14 +113,14 @@ export const appRouter = router({
       }
       return updateCompanyCatalogueAdminState({ ...input, ids, updatedBy: ctx.user.id });
     }),
-    byId: publicProcedure.input(z.object({
+    byId: adminProcedure.input(z.object({
       id: z.string().trim().min(1).max(180),
     })).query(({ input }) => getCompanyReferenceById(input.id) ?? null),
-    bySymbol: publicProcedure.input(z.object({
+    bySymbol: adminProcedure.input(z.object({
       symbol: z.string().trim().min(1).max(40),
     })).query(({ input }) => findCompanyReferencesBySymbol(input.symbol)),
-    random: publicProcedure.query(() => getRandomCompanyReference()),
-    next: publicProcedure.input(z.object({
+    random: adminProcedure.query(() => getRandomCompanyReference()),
+    next: adminProcedure.input(z.object({
       excludeId: z.string().trim().min(1).max(180).optional(),
     }).optional()).mutation(({ input }) => getRandomCompanyReference(Math.random, input?.excludeId ? [input.excludeId] : [])),
   }),
@@ -554,22 +593,9 @@ export const appRouter = router({
       settlementReference: z.string().trim().min(3).max(160),
       notes: z.string().trim().max(2000).optional(),
     })).mutation(async ({ ctx, input }) => {
-      const result=await manuallySettleTrade(input.tradeId,ctx.user.id,input);
-      const notices=buildTradeSettlementNotices({
-        tradeId:result.tradeId,
-        currency:result.currency,
-        principalMinor:result.principalMinor,
-        rewardMinor:result.rewardMinor,
-        grossProfitMinor:result.grossProfitMinor,
-        platformFeeMinor:result.platformFeeMinor,
-        netProfitMinor:result.netProfitMinor,
-        outcome:result.outcome,
-      });
-      const outcomes=await Promise.allSettled(notices.map(notice=>createNotification(result.userId,notice.title,notice.body,{
-        eventKey:notice.eventKey,category:notice.category,priority:notice.priority,
-      })));
-      if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] One or more trade settlement notices failed after ledger commit.");
-      return result;
+      // Confirmation records the evidence-backed result; wallet-credit notices are
+      // intentionally not sent until the delayed posting worker commits the ledger.
+      return await manuallySettleTrade(input.tradeId,ctx.user.id,input);
     }),
     customerBalances: adminProcedure.input(z.object({ userId: z.number().int().positive() })).query(({ input }) => listBalances(input.userId)),
     currencies: adminProcedure.query(() => listCurrencies()),
@@ -629,17 +655,17 @@ export const appRouter = router({
       reason: z.string().trim().min(5).max(500),
       policies: z.array(z.object({
         packageName: z.string().trim().min(1).max(80),
-        // Core existing controls are explicit; omitted advanced settings are
-        // merged from the locked policy row by updateOpportunityPackagePolicies.
-        maxPopupsPerDay: z.number().int().min(1).max(1000),
-        maxVisibleOffers: z.number().int().min(1).max(10000),
-        minimumTradeUnits: z.number().int().min(1).max(2147483647),
-        maximumTradeUnits: z.number().int().min(1).max(2147483647),
-        minHourlyTarget: z.number().int().min(0).max(100),
-        normalHourlyTarget: z.number().int().min(0).max(100),
-        marketInfluenceBps: z.number().int().min(0).max(10000),
-        burstEnabled: z.boolean(),
-        maxBurstSize: z.number().int().min(0).max(100),
+        // All policy fields are patchable; omitted fields are merged from the
+        // locked current row so stale browser snapshots cannot overwrite them.
+        maxPopupsPerDay: z.number().int().min(1).max(1000).optional(),
+        maxVisibleOffers: z.number().int().min(1).max(10000).optional(),
+        minimumTradeUnits: z.number().int().min(1).max(2147483647).optional(),
+        maximumTradeUnits: z.number().int().min(1).max(2147483647).optional(),
+        minHourlyTarget: z.number().int().min(0).max(100).optional(),
+        normalHourlyTarget: z.number().int().min(0).max(100).optional(),
+        marketInfluenceBps: z.number().int().min(0).max(10000).optional(),
+        burstEnabled: z.boolean().optional(),
+        maxBurstSize: z.number().int().min(0).max(100).optional(),
         enabled: z.boolean().optional(),
         automaticDelivery: z.boolean().optional(),
         automaticTradingEnabled: z.boolean().optional(),
