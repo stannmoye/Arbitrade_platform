@@ -60,7 +60,7 @@ describe("administrator company catalogue bulk controls", () => {
 
   it("keeps the admin label separate from verified listing and trade eligibility", () => {
     expect(catalogue).toContain("internal catalogue label");
-    expect(catalogue).toContain("ineligible for verified trade rotation");
+    expect(catalogue).toContain("ineligible for verified securities/trade execution");
     expect(specification).toContain("does not certify a public securities listing");
     expect(specification).toContain("or change `referenceOnly` / `eligibleForVerifiedTradeRotation`");
     expect(specification).toContain("only IDs in the persisted administrator `verifiedIds` set are eligible");
