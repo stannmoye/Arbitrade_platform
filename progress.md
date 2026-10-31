@@ -1,3 +1,14 @@
+## 2026-10-31 — Stage 1 final transfer-boundary review and exact-head CI confirmation
+
+- Rechecked PR #258 at branch head `7e42180b9391c62f018cf07b01ac07e02ae01209`: PR remains open, draft, unmerged, and targets `main`.
+- All 10 workflow groups attached to that exact head completed successfully. The production-source workflow completed TypeScript validation, automated tests and production build. The customer browser recovery job reported 1,021 checks passed and 0 failures. Wallet idempotency/FX/rollback, tier qualification, settlement reconciliation, opportunity-worker lifecycle, company rotation, Trading recovery, installer and Mining regression groups all passed. MySQL 8.4 and MariaDB 11.4 disposable-database integrations passed.
+- Re-inspected all `transfer` references in the branch's `server/routers.ts`, `server/db.ts` and customer `client/src/App.tsx`. The customer Wallet Transfer shortcut only invokes the informational notification `notify("Transfer flow", ...)`; it does not call an API or write a ledger entry. The only backend transfer references relate to manual payout destination/external-transfer confirmation, not customer wallet-to-wallet transfers. No customer-to-customer wallet-transfer API or service exists in this branch.
+- Consequently, the requested ordinary-transfer exclusion is satisfied by the current absence of an executable ordinary-transfer path, not by a transfer transaction integration test. The UI shortcut must not be described as a working transfer feature. If a real transfer workflow is introduced later, it requires its own authenticated, transactional regression test proving it never creates `admin_manual_deposit_credit` attribution or tier-qualification jobs.
+- Stage 1 wallet/admin-credit implementation, authenticated ledger-history coverage, qualifying/non-qualifying credit checks, admin self-credit exclusion, credit-time FX evidence, replay/mismatch handling and disposable database verification are complete. The ordinary-transfer boundary is documented as not implemented/not applicable to current executable routes. Stage 1 may be treated as complete for the existing implemented wallet-credit scope; no transfer feature was added.
+- This progress update is documentation-only and creates a new branch head. The exact-head CI evidence above applies to `7e42180b9391c62f018cf07b01ac07e02ae01209`; recheck the new documentation head's workflows before using it as an exact-head validation attestation.
+- Stage 2 has not been started. No production database, production customer/wallet data, production migration, deployment, merge, or PR state change occurred.
+
+---
 ## 2026-10-31 — Stage 1 wallet API, FX, idempotency and customer ledger-history work
 
 - PR #258 remains open, draft and unmerged, targeting `main`. Stage 1 implementation/test head: `39bb4565eb9a235e481d597f1190de027c5780e2`.
