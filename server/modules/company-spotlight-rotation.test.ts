@@ -1,6 +1,6 @@
 import {describe,expect,it} from "vitest";
 import {COMPANY_REFERENCE_CATALOGUE} from "./company-catalogue-reference";
-import {buildCompanySpotlightPool,nextCompanySpotlight,normalizeCompanyRotationCountryNames,parseCompanyCatalogueAdminState} from "./company-spotlight-rotation";
+import {buildCompanySpotlightPool,isCompanySpotlightDisplayAllowed,nextCompanySpotlight,normalizeCompanyRotationCountryNames,parseCompanyCatalogueAdminState} from "./company-spotlight-rotation";
 
 const allVerifiedState={verifiedIds:COMPANY_REFERENCE_CATALOGUE.map(company=>company.id),archivedIds:[]};
 
@@ -65,5 +65,26 @@ describe("package-scoped company spotlight rotation",()=>{
     expect(pool.some(company=>company.id===result.company.id)).toBe(true);
     expect(result.state.repeatPolicy).toBe("allow_repeats");
     expect(result.state.requestCount).toBe(1);
+  });
+});
+
+
+describe("current customer company snapshot authorization",()=>{
+  it("hides previously selected snapshots immediately after unverify, reject, archive, or disable",()=>{
+    const companyId=COMPANY_REFERENCE_CATALOGUE[0]!.id;
+    const approved={verifiedIds:[companyId],archivedIds:[]};
+    expect(isCompanySpotlightDisplayAllowed(companyId,approved)).toBe(true);
+    // Pending, rejected, and disabled entries are represented by absence from the
+    // administrator-approved ID set; archived IDs are independently denied.
+    for(const state of [
+      {verifiedIds:[],archivedIds:[]},
+      {verifiedIds:[],archivedIds:[companyId]},
+    ]) expect(isCompanySpotlightDisplayAllowed(companyId,state)).toBe(false);
+  });
+  it("fails closed for stale, malformed, or non-string snapshot references",()=>{
+    const state=parseCompanyCatalogueAdminState("{malformed");
+    for(const id of [null,undefined,42,"logo-brand-0000","logo-brand-0001"]) {
+      expect(isCompanySpotlightDisplayAllowed(id,state)).toBe(false);
+    }
   });
 });
