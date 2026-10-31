@@ -1,3 +1,18 @@
+## 2026-10-31 — Exact-head corrective validation and production-readiness checkpoint
+
+- Reviewed PR #258 against `main`. The current branch is `fix/trade-lifecycle-and-admin-policy-completion`; the PR remains open and draft. No merge, deployment, production migration, or production database access occurred.
+- The first exact-head matrix on `e8e895c66a2a867a2f9cfb66c515fa8dcf3010be` exposed one obsolete contract assertion: the company-spotlight test still expected the former customer search label after the customer catalogue was restricted to approved references. The assertion was updated to require the current approved-company label and customer-only search endpoint, and to reject use of the former unrestricted customer search endpoint.
+- Corrective test commit: `052c9bd4ee6252afc45c428eb2f745d18b86b8d6`.
+- All 10 required workflow groups passed on that exact source commit: application verification; Trading recovery validation; tier qualification; administrator wallet idempotency/FX/rollback; opportunity-worker concurrency/recovery; settlement reconciliation; durable company rotation; installer validation; Mining regression; and production source typecheck/tests/build plus customer/portal browser recovery checks.
+- Database evidence on that exact commit includes MySQL 8.4 and MariaDB 11.4 coverage for tier qualification and reversals, wallet idempotency/FX/rollback, opportunity-worker lifecycle, settlement reconciliation, company rotation, and installer fresh-install/migration recovery. The installer group validated fresh disposable MySQL and MariaDB databases; no production schema was touched.
+- Reviewed migrations 0096 and 0097 against Drizzle schema, migration journal, main/portal/runtime migration paths, and worker schema contracts. The settlement-review timestamp and UTC daily execution-attempt columns/index are represented consistently. Migration and runtime integration jobs passed on both database engines.
+- Rechecked the manual qualifying-credit path: only an explicitly classified administrator wallet credit to a customer creates `admin_manual_deposit_credit`; the server obtains a fresh API FX rate for the exact wallet configuration, persists USD attribution and rate/provider/time evidence, and commits the ledger row and unique tier-qualification outbox job atomically. Other credit types do not enter the qualifying ledger query. Admin tier/package management routes remain administrator-only.
+- Rechecked company catalogue route separation: full catalogue operations are administrator-only; customer summary/count/search are customer-only and filtered against current verified, enabled, non-archived state. The active popup display guard strips stale identities after status changes. The corrective contract test now protects the customer-only search path.
+- The production source build, TypeScript checks, automated tests, installer validation, browser recovery checks, and all 10 workflow groups succeeded on the corrective source commit. This progress-only handoff update creates a new branch head; its own exact-head workflow matrix must be checked before final approval.
+- Remaining release boundary: keep PR #258 open and draft; do not merge, deploy, or run production migrations. Final approval remains withheld until the documentation handoff head also passes its exact-head matrix and the final review evidence is refreshed.
+
+---
+
 ## 2026-10-31 — Explicit company disable state and admin lifecycle validation
 
 - Added persisted `disabledIds` to the existing audited company catalogue state. A company must be currently verified, enabled and non-archived to enter customer search, preview, rotation or active popup responses. Disabled and archived status override stale verification entries.
