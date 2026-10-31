@@ -120,6 +120,7 @@ function metadataOf(row: NonNullable<Awaited<ReturnType<typeof readEvent>>>) {
     countryName: string;
     listingStatus: string;
     referenceOnly: boolean;
+    adminCatalogueStatus: string;
   };
 }
 
