@@ -40,7 +40,7 @@ describe("worker schema contracts", () => {
 
   it("creates and validates the durable Trading tier queue in the runtime schema bridge", async () => {
     const root = new URL("../", import.meta.url);
-    const [runtimeSchema, migration, opportunityWorkerMigration, healthMigration, mainPopupPolicySnapshotMigration, executionLeaseMigration, packagePolicySchemaMigration, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration, walletFundingPlanMigration, walletAdjustmentIdempotencyMigration, nullablePolicyDurationBoundsMigration, fxSnapshotSourceTimestampMigration, portalRunner, installerRecovery] = await Promise.all([
+    const [runtimeSchema, migration, opportunityWorkerMigration, healthMigration, mainPopupPolicySnapshotMigration, executionLeaseMigration, packagePolicySchemaMigration, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration, walletFundingPlanMigration, walletAdjustmentIdempotencyMigration, nullablePolicyDurationBoundsMigration, fxSnapshotSourceTimestampMigration, settlementReviewTimestampMigration, portalRunner, installerRecovery] = await Promise.all([
       readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
       readFile(new URL("drizzle/0082_trading_tier_qualification_jobs.sql", root), "utf8"),
       readFile(new URL("drizzle/0083_trading_opportunity_worker_indexes.sql", root), "utf8"),
@@ -55,6 +55,7 @@ describe("worker schema contracts", () => {
       readFile(new URL("drizzle/0093_admin_wallet_adjustment_idempotency.sql", root), "utf8"),
       readFile(new URL("drizzle/0094_trading_policy_duration_bounds_nullable.sql", root), "utf8"),
       readFile(new URL("drizzle/0095_fx_snapshot_source_timestamp_precision.sql", root), "utf8"),
+      readFile(new URL("drizzle/0096_trade_settlement_review_timestamp.sql", root), "utf8"),
       readFile(new URL("scripts/apply-portal-migrations.mjs", root), "utf8"),
       readFile(new URL("installer/migration-recovery-status.mjs", root), "utf8"),
     ]);
@@ -94,6 +95,9 @@ describe("worker schema contracts", () => {
     expect(runtimeSchema).toContain('drizzle/0095_fx_snapshot_source_timestamp_precision.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, fxSnapshotSourceTimestampMigration)");
     expect(fxSnapshotSourceTimestampMigration).toContain("MODIFY COLUMN `sourceDate` varchar(64) NULL");
+    expect(runtimeSchema).toContain('drizzle/0096_trade_settlement_review_timestamp.sql');
+    expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, settlementReviewTimestampMigration)");
+    expect(settlementReviewTimestampMigration).toContain("ADD COLUMN IF NOT EXISTS `settlementReviewAt` timestamp NULL");
     expect(walletAdjustmentIdempotencyMigration).toContain("CREATE TABLE IF NOT EXISTS `admin_wallet_adjustment_idempotency`");
     expect(WORKER_SCHEMA_CONTRACTS.admin_wallet_adjustment_idempotency.indexes).toHaveProperty("admin_wallet_adjustment_key_uq");
     expect(portalRunner).toContain('"0093_admin_wallet_adjustment_idempotency.sql"');
@@ -102,6 +106,10 @@ describe("worker schema contracts", () => {
     expect(installerRecovery).toContain('"0094_trading_policy_duration_bounds_nullable.sql"');
     expect(portalRunner).toContain('"0095_fx_snapshot_source_timestamp_precision.sql"');
     expect(installerRecovery).toContain('"0095_fx_snapshot_source_timestamp_precision.sql"');
+    expect(portalRunner).toContain('"0096_trade_settlement_review_timestamp.sql"');
+    expect(installerRecovery).toContain('"0096_trade_settlement_review_timestamp.sql"');
+    expect(WORKER_SCHEMA_CONTRACTS.trade_positions.columns).toContain("settlementReviewAt");
+    expect(WORKER_SCHEMA_CONTRACTS.trade_positions.nullable?.settlementReviewAt).toBe(true);
     expect(walletFundingPlanMigration).toContain("ALTER TABLE `trade_positions`");
     expect(walletFundingPlanMigration).toContain("ADD COLUMN IF NOT EXISTS `walletFundingPlanJson` TEXT NULL");
     expect(portalRunner).toContain('"0092_trading_trade_wallet_funding_plan_snapshot.sql"');
@@ -189,8 +197,8 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(last.tag).toBe("0095_fx_snapshot_source_timestamp_precision");
-    expect(journal.entries.slice(-24).map((entry) => entry.tag)).toEqual([
+    expect(last.tag).toBe("0096_trade_settlement_review_timestamp");
+    expect(journal.entries.slice(-25).map((entry) => entry.tag)).toEqual([
       "0072_wallet_ledger_reconciliation_indexes",
       "0073_trade_settlement_recovery_cases",
       "0074_trade_execution_retries",
@@ -215,6 +223,7 @@ describe("worker schema contracts", () => {
       "0093_admin_wallet_adjustment_idempotency",
       "0094_trading_policy_duration_bounds_nullable",
       "0095_fx_snapshot_source_timestamp_precision",
+      "0096_trade_settlement_review_timestamp",
     ]);
     expect(portalRunner).toContain('"0076_trading_admin_policy_read_repair.sql"');
     expect(portalRunner).toContain('"0077_trading_package_catalogue_schema_repair.sql"');
