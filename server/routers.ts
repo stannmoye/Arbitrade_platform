@@ -554,22 +554,9 @@ export const appRouter = router({
       settlementReference: z.string().trim().min(3).max(160),
       notes: z.string().trim().max(2000).optional(),
     })).mutation(async ({ ctx, input }) => {
-      const result=await manuallySettleTrade(input.tradeId,ctx.user.id,input);
-      const notices=buildTradeSettlementNotices({
-        tradeId:result.tradeId,
-        currency:result.currency,
-        principalMinor:result.principalMinor,
-        rewardMinor:result.rewardMinor,
-        grossProfitMinor:result.grossProfitMinor,
-        platformFeeMinor:result.platformFeeMinor,
-        netProfitMinor:result.netProfitMinor,
-        outcome:result.outcome,
-      });
-      const outcomes=await Promise.allSettled(notices.map(notice=>createNotification(result.userId,notice.title,notice.body,{
-        eventKey:notice.eventKey,category:notice.category,priority:notice.priority,
-      })));
-      if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] One or more trade settlement notices failed after ledger commit.");
-      return result;
+      // Confirmation records the evidence-backed result; wallet-credit notices are
+      // intentionally not sent until the delayed posting worker commits the ledger.
+      return await manuallySettleTrade(input.tradeId,ctx.user.id,input);
     }),
     customerBalances: adminProcedure.input(z.object({ userId: z.number().int().positive() })).query(({ input }) => listBalances(input.userId)),
     currencies: adminProcedure.query(() => listCurrencies()),
