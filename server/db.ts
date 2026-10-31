@@ -3016,7 +3016,7 @@ export async function claimOpportunityExecutionAttempt(userId:number, offer:any)
       id:opportunityPopupEvents.id,eventStatus:opportunityPopupEvents.eventStatus,tradeId:opportunityPopupEvents.tradeId,
       packageName:opportunityPopupEvents.packageName,
       executionStatus:opportunityPopupEvents.executionStatus,executionAttemptCount:opportunityPopupEvents.executionAttemptCount,executionLeaseToken:opportunityPopupEvents.executionLeaseToken,
-      executionRetryAfter:opportunityPopupEvents.executionRetryAfter,executionRetryDay:opportunityPopupEvents.executionRetryDay,executionLastErrorCode:opportunityPopupEvents.executionLastErrorCode,
+      executionRetryAfter:opportunityPopupEvents.executionRetryAfter,executionRetryDay:opportunityPopupEvents.executionRetryDay,executionDailyAttemptCount:opportunityPopupEvents.executionDailyAttemptCount,executionDailyAttemptDay:opportunityPopupEvents.executionDailyAttemptDay,executionLastErrorCode:opportunityPopupEvents.executionLastErrorCode,
     }).from(opportunityPopupEvents).where(and(eq(opportunityPopupEvents.id,Number(offer.deliveryEventId)),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,Number(offer.offerId)))).limit(1).for("update"))[0];
     if(!event||event.tradeId||["TRADED","SETTLED"].includes(String(event.eventStatus))||String(event.executionStatus)==="SUCCEEDED") return {claimed:false,reason:"terminal"};
     if(String(event.executionStatus)==="FAILED") return {claimed:false,reason:"failed",errorCode:String((event as any).executionLastErrorCode||"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED")};
@@ -3034,13 +3034,13 @@ export async function claimOpportunityExecutionAttempt(userId:number, offer:any)
     const dailyAttemptLimit=Number(policy.maxTradeAttemptsPerDay);
     if(!Number.isSafeInteger(dailyAttemptLimit)||dailyAttemptLimit<0) return {claimed:false,reason:"policy-invalid"};
     if(dailyAttemptLimit>0){
-      const usedRows=await tx.execute(sql`SELECT COALESCE(SUM(executionAttemptCount),0) AS count
-        FROM opportunity_popup_events WHERE userId=${userId} AND executionRetryDay=${day}`) as any;
+      const usedRows=await tx.execute(sql`SELECT COALESCE(SUM(executionDailyAttemptCount),0) AS count
+        FROM opportunity_popup_events WHERE userId=${userId} AND executionDailyAttemptDay=${day}`) as any;
       const usedAttempts=Number(usedRows?.[0]?.[0]?.count||0);
       if(usedAttempts>=dailyAttemptLimit){
         const nextDayStart=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+1));
         await tx.update(opportunityPopupEvents).set({
-          executionStatus:"RETRYING",executionRetryAfter:nextDayStart,executionRetryDay:day,
+          executionStatus:"RETRYING",executionRetryAfter:nextDayStart,
           executionLastErrorCode:"DAILY_TRADE_ATTEMPT_LIMIT_REACHED",updatedAt:now,
         }).where(eq(opportunityPopupEvents.id,event.id));
         return {claimed:false,reason:"daily-attempt-limit",usedAttempts,dailyAttemptLimit};
@@ -3049,6 +3049,8 @@ export async function claimOpportunityExecutionAttempt(userId:number, offer:any)
     const executionLeaseToken=crypto.randomUUID();
     await tx.update(opportunityPopupEvents).set({
       executionStatus:"RUNNING",executionAttemptCount:attempts+1,executionLeaseToken,
+      executionDailyAttemptCount:String(event.executionDailyAttemptDay||"")===day?Number(event.executionDailyAttemptCount||0)+1:1,
+      executionDailyAttemptDay:day,
       executionRetryAfter:new Date(now.getTime()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),executionRetryDay:day,updatedAt:now,
     }).where(eq(opportunityPopupEvents.id,event.id));
     return {claimed:true,attemptNumber:attempts+1,eventId:Number(event.id),executionLeaseToken};

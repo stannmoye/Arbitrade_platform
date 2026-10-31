@@ -150,6 +150,8 @@ async function main() {
     await executeCompatibleMigrationSql(db, fxSnapshotSourceTimestampMigration);
     const settlementReviewTimestampMigration = await readFile(resolve(root, "drizzle/0096_trade_settlement_review_timestamp.sql"), "utf8");
     await executeCompatibleMigrationSql(db, settlementReviewTimestampMigration);
+    const dailyExecutionAttemptAccountingMigration = await readFile(resolve(root, "drizzle/0097_trading_daily_execution_attempt_accounting.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, dailyExecutionAttemptAccountingMigration);
 
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],

@@ -1,3 +1,13 @@
+## 2026-10-31 — Stage 3C.2 UTC rollover accounting correction
+
+- Replaced daily-cap aggregation over lifetime `executionAttemptCount` with dedicated `executionDailyAttemptCount` and `executionDailyAttemptDay` fields.
+- UTC rollover resets only the daily counter; lifetime technical retry count and `executionRetryDay` retain separate semantics. Daily-cap deferral no longer rewrites the retry-window marker.
+- Added additive migration 0097, Drizzle schema/journal registration, runtime-schema bridge and worker schema contract coverage.
+- Added worker integration assertions for historical lifetime attempts with a previous-day daily counter rolling to one current-day attempt. Exact-head CI and MySQL/MariaDB integration validation remain pending.
+- No merge, production migration, database operation or deployment has occurred.
+
+---
+
 ## 2026-10-31 — Stage 3C.2: separate daily attempt budget from per-opportunity retries
 
 - Latest pre-change head `1c3a17c0846318a345e09d924d5fa9a19a574552` completed all 10 GitHub workflow groups successfully, including customer-portal browser recovery acceptance. PR #258 remains open/draft and unmerged.

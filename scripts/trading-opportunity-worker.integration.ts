@@ -377,6 +377,30 @@ try {
     assert.equal((dailyLimitClaim as any).dailyAttemptLimit, 4);
   }
 
+  // UTC rollover resets only the daily counter; lifetime technical retries
+  // and the retry-window marker remain independent.
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const yesterdayUtc = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  await db.update(opportunityPackagePolicies).set({ maxTradeAttemptsPerDay: 0 })
+    .where(eq(opportunityPackagePolicies.packageName, packageName));
+  await db.update(opportunityPopupEvents).set({
+    executionStatus: "RETRYING", executionAttemptCount: 7, executionRetryDay: todayUtc,
+    executionRetryAfter: new Date(Date.now() - 1000), executionDailyAttemptCount: 6,
+    executionDailyAttemptDay: yesterdayUtc,
+  }).where(eq(opportunityPopupEvents.id, thirdEventId));
+  const rolloverClaim = await claimOpportunityExecutionAttempt(userId, thirdOffer);
+  assert.equal(rolloverClaim.claimed, true, "The same-day retry window remains claimable after daily-counter rollover.");
+  const [rolloverState] = await db.select({
+    executionAttemptCount: opportunityPopupEvents.executionAttemptCount,
+    executionDailyAttemptCount: opportunityPopupEvents.executionDailyAttemptCount,
+    executionDailyAttemptDay: opportunityPopupEvents.executionDailyAttemptDay,
+    executionRetryDay: opportunityPopupEvents.executionRetryDay,
+  }).from(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, thirdEventId)).limit(1);
+  assert.equal(Number(rolloverState.executionAttemptCount), 8, "Lifetime retry count remains cumulative.");
+  assert.equal(Number(rolloverState.executionDailyAttemptCount), 1, "Prior-day attempts are not charged to today's budget.");
+  assert.equal(String(rolloverState.executionDailyAttemptDay), todayUtc);
+  assert.equal(String(rolloverState.executionRetryDay), todayUtc, "The retry-window marker remains intact.");
+
   const allocationResults = await Promise.allSettled([
     createTrade(userId, {
       offerId,

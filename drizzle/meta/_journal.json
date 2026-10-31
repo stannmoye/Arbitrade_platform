@@ -463,6 +463,13 @@
       "when": 1793404800012,
       "tag": "0096_trade_settlement_review_timestamp",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1793404800013,
+      "tag": "0097_trading_daily_execution_attempt_accounting",
+      "breakpoints": true
     }
   ]
 }

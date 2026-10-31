@@ -261,6 +261,8 @@ export const opportunityPopupEvents = mysqlTable("opportunity_popup_events", {
   executionRetryAfter: timestamp("executionRetryAfter"),
   executionLeaseToken: varchar("executionLeaseToken", { length: 64 }),
   executionRetryDay: varchar("executionRetryDay", { length: 10 }),
+  executionDailyAttemptCount: int("executionDailyAttemptCount").default(0).notNull(),
+  executionDailyAttemptDay: varchar("executionDailyAttemptDay", { length: 10 }),
   executionLastErrorCode: varchar("executionLastErrorCode", { length: 80 }),
   receivedAt: timestamp("receivedAt"),
   renderedAt: timestamp("renderedAt"),
