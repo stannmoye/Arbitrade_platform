@@ -15,7 +15,7 @@ describe("evidence-confirmed delayed wallet-credit lifecycle", () => {
   it("allows administrator review at trade completion, independently of the wallet-credit time", () => {
     expect(confirmationStart).toBeGreaterThanOrEqual(0);
     expect(confirmationEnd).toBeGreaterThan(confirmationStart);
-    expect(confirmation).toContain("const settlementDueAt=trade.settlesAt");
+    expect(confirmation).toContain("const settlementDueAt=trade.settlementReviewAt||trade.settlesAt");
     expect(confirmation).not.toContain("const settlementDueAt=trade.creditAt||trade.settlesAt");
     expect(confirmation).toContain('settlementStatus:"confirmed_awaiting_credit"');
   });
