@@ -3788,7 +3788,7 @@ export async function listTrades(userId:number){
   return rows.map(row=>{
     const settled=row.status==="settled";
     const pending=row.status==="pending";
-    const hasActualBreakdown=settled&&row.settlementOutcome!=="legacy_unrecorded";
+    const hasActualBreakdown=Boolean(row.settlementConfirmedAt)&&row.settlementOutcome!=="legacy_unrecorded";
     const stage=settled?"Trade Completed":row.lifecycleStage||(pending?"Trade Allocated":new Date(row.settlesAt).getTime()<=Date.now()?"Awaiting Settlement Confirmation":"Trade Executing");
     return {
       ...row,
@@ -4372,7 +4372,6 @@ export async function processConfirmedTradeCredits(input?: { limit?: number }) {
         lifecycleStage:"Trade Completed",
         settlementStatus:"completed",
         rewardCreditedMinor:accounting.rewardCreditedMinor,
-        rewardReservedMinor:0,
         walletUpdatedAt:now,
         completionAt:now,
       }).where(and(eq(tradePositions.id,trade.id),eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"confirmed_awaiting_credit"),isNull(tradePositions.walletUpdatedAt)));
