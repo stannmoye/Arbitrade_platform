@@ -20,7 +20,7 @@ import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule } from "./modules/trading-delivery-quota";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
-import { decideTradeExecutionRetry } from "./modules/trade-execution-retry";
+import { decideTradeExecutionRetry, MAX_TRANSIENT_RETRIES_PER_OPPORTUNITY } from "./modules/trade-execution-retry";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
 import { isAllowedAttachmentRequest, isSupportAttachmentStorageKeyForTicket, isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 import { assertNotificationPayloadMatches, buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
@@ -3005,11 +3005,16 @@ async function markOpportunityExecuted(userId:number,offerId:number,executionLea
   await db.update(opportunityPopupEvents).set({executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,updatedAt:new Date()})
     .where(and(eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offerId),eq(opportunityPopupEvents.eventStatus,"TRADED"),eq(opportunityPopupEvents.executionLeaseToken,executionLeaseToken)));
 }
-export async function claimOpportunityExecutionAttempt(userId:number, offer:any, maxAttempts:number){
+export async function claimOpportunityExecutionAttempt(userId:number, offer:any){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   return db.transaction(async tx=>{
+    // Match createTrade's customer-first lock order and serialize all claims for
+    // this customer, including claims on different opportunity events.
+    const userLock=await tx.execute(sql`SELECT id FROM users WHERE id=${userId} FOR UPDATE`) as any;
+    if(!userLock?.[0]?.[0]?.id) return {claimed:false,reason:"customer-unavailable"};
     const event=(await tx.select({
       id:opportunityPopupEvents.id,eventStatus:opportunityPopupEvents.eventStatus,tradeId:opportunityPopupEvents.tradeId,
+      packageName:opportunityPopupEvents.packageName,
       executionStatus:opportunityPopupEvents.executionStatus,executionAttemptCount:opportunityPopupEvents.executionAttemptCount,executionLeaseToken:opportunityPopupEvents.executionLeaseToken,
       executionRetryAfter:opportunityPopupEvents.executionRetryAfter,executionRetryDay:opportunityPopupEvents.executionRetryDay,executionLastErrorCode:opportunityPopupEvents.executionLastErrorCode,
     }).from(opportunityPopupEvents).where(and(eq(opportunityPopupEvents.id,Number(offer.deliveryEventId)),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,Number(offer.offerId)))).limit(1).for("update"))[0];
@@ -3023,9 +3028,23 @@ export async function claimOpportunityExecutionAttempt(userId:number, offer:any,
       return {claimed:false,reason:"retry-window-expired"};
     }
     if(event.executionRetryAfter&&new Date(event.executionRetryAfter).getTime()>now.getTime()) return {claimed:false,reason:"waiting"};
-    if(!Number.isSafeInteger(maxAttempts)||maxAttempts<1||attempts>=maxAttempts){
-      await tx.update(opportunityPopupEvents).set({executionStatus:"FAILED",executionRetryAfter:null,executionLastErrorCode:"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED",updatedAt:now}).where(eq(opportunityPopupEvents.id,event.id));
-      return {claimed:false,reason:"attempts-exhausted"};
+    const policy=(await tx.select({maxTradeAttemptsPerDay:opportunityPackagePolicies.maxTradeAttemptsPerDay})
+      .from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,String(event.packageName||""))).limit(1).for("update"))[0];
+    if(!policy) return {claimed:false,reason:"policy-unavailable"};
+    const dailyAttemptLimit=Number(policy.maxTradeAttemptsPerDay);
+    if(!Number.isSafeInteger(dailyAttemptLimit)||dailyAttemptLimit<0) return {claimed:false,reason:"policy-invalid"};
+    if(dailyAttemptLimit>0){
+      const usedRows=await tx.execute(sql`SELECT COALESCE(SUM(executionAttemptCount),0) AS count
+        FROM opportunity_popup_events WHERE userId=${userId} AND executionRetryDay=${day}`) as any;
+      const usedAttempts=Number(usedRows?.[0]?.[0]?.count||0);
+      if(usedAttempts>=dailyAttemptLimit){
+        const nextDayStart=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+1));
+        await tx.update(opportunityPopupEvents).set({
+          executionStatus:"RETRYING",executionRetryAfter:nextDayStart,executionRetryDay:day,
+          executionLastErrorCode:"DAILY_TRADE_ATTEMPT_LIMIT_REACHED",updatedAt:now,
+        }).where(eq(opportunityPopupEvents.id,event.id));
+        return {claimed:false,reason:"daily-attempt-limit",usedAttempts,dailyAttemptLimit};
+      }
     }
     const executionLeaseToken=crypto.randomUUID();
     await tx.update(opportunityPopupEvents).set({
@@ -3070,8 +3089,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
       continue;
     }
     const terms=calculateTradeTerms(userId,offer,requestedAmount);
-    const maxAttempts=Number.isSafeInteger(Number(offer.maxTradeAttemptsPerDay))?Number(offer.maxTradeAttemptsPerDay):5;
-    const claim=await claimOpportunityExecutionAttempt(userId,offer,maxAttempts);
+    const claim=await claimOpportunityExecutionAttempt(userId,offer);
     if(!claim.claimed){
       if(claim.reason==="retry-window-expired"||claim.reason==="attempts-exhausted"||claim.reason==="failed"){
         const reason=claim.reason==="retry-window-expired"?"TEMPORARY_EXECUTION_RETRY_WINDOW_EXPIRED":claim.reason==="failed"?String((claim as any).errorCode||"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED"):"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED";
@@ -3105,7 +3123,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
         await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:new Date(Date.now()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),errorCode:"ALLOCATION_PAUSED",attemptNumber:claim.attemptNumber,releaseAttempt:true,executionLeaseToken});
         continue;
       }
-      const decision=decideTradeExecutionRetry(error,Number(claim.attemptNumber),Math.max(1,maxAttempts),new Date(),Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30)));
+      const decision=decideTradeExecutionRetry(error,Number(claim.attemptNumber),MAX_TRANSIENT_RETRIES_PER_OPPORTUNITY,new Date(),Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30)));
       if(decision.kind==="retry"){
         await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:decision.retryAt,errorCode:decision.errorCode,executionLeaseToken});
         continue;
