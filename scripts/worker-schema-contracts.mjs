@@ -53,9 +53,9 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
     },
   },
   trade_positions: {
-    columns: ["walletFundingPlanJson"],
-    dataTypes: { walletFundingPlanJson: "text" },
-    nullable: { walletFundingPlanJson: true },
+    columns: ["walletFundingPlanJson", "settlementReviewAt"],
+    dataTypes: { walletFundingPlanJson: "text", settlementReviewAt: "timestamp" },
+    nullable: { walletFundingPlanJson: true, settlementReviewAt: true },
     indexes: {},
   },
   admin_wallet_adjustment_idempotency: {
