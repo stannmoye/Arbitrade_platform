@@ -1,3 +1,14 @@
+## 2026-10-31 — Explicit company disable state and admin lifecycle validation
+
+- Added persisted `disabledIds` to the existing audited company catalogue state. A company must be currently verified, enabled and non-archived to enter customer search, preview, rotation or active popup responses. Disabled and archived status override stale verification entries.
+- Added administrator actions for enable/disable, with enable deliberately separate from verification. Verify, reject/unverify, enable, disable, archive and restore remain admin-only, row-locked and audited. Restore returns a company as unverified.
+- Extended company unit/contract tests and the disposable MySQL/MariaDB rotation integration to cover disabled exclusion, enable preserving verification, unverify revocation, archive/restore persistence, audit cleanup, and no-company fallback. Reserved distinct test offer IDs so the disabled-company scenario does not overlap the rotation-pool exhaustion fixture.
+- Updated `AGENTS.md`, README, canonical Trading specification, admin configuration manual, implementation coordination guide, admin menu guide and customer/admin HTML guide to state that disabled records are excluded and that enabling never grants approval.
+- Exact-head Actions for code head `73a235bd2c7029be5bbc0066cad4f7eead08e45f` were created: 10 workflow groups (application/typecheck/build, production build, Trading tier qualification, wallet idempotency, company rotation, opportunity worker recovery, settlement reconciliation, Trading recovery, installer, Mining regression). At the last poll all were queued/pending; no new code-test result is claimed. An earlier `9de0ee0` attempt failed four obsolete contract assertions, which were updated before the current head.
+- PR #258 remains open, draft and unmerged against `main`. No merge, deployment or production migration was performed. Stage C–F acceptance remains open until the exact final head's workflows complete and any failures are fixed.
+
+---
+
 ## 2026-10-31 — Company catalogue access and admin status completion
 
 - Stage A review of PR #258 against `main` found that customer Trading still used public full-catalogue company search/count/summary routes. This exposed unverified and archived source records outside the popup selector. Replaced the customer calls with authenticated customer-only endpoints; full catalogue search/count/summary and direct lookup/symbol/random/next routes now require administrator authorization.
