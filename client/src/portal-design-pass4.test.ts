@@ -133,3 +133,26 @@ describe("customer menu responsive visibility", () => {
     expect(customerSlideMenu).toContain("customer-slide-portal");
   });
 });
+
+
+describe("mobile administrator navigation scrolling", () => {
+  it("overrides the compact layout's horizontal/visible overflow with a vertically scrollable menu", () => {
+    const recoveryRule = css.slice(css.lastIndexOf("/* Mobile administrator navigation scroll recovery */"));
+    expect(recoveryRule).toContain("@media(max-width:900px)");
+    expect(recoveryRule).toContain(".admin-portal .portal-rail");
+    expect(recoveryRule).toContain("overflow:hidden!important");
+    expect(recoveryRule).toContain("flex-direction:column!important");
+    expect(recoveryRule).toContain("min-height:0!important");
+    expect(recoveryRule).toContain("overflow-y:auto!important");
+    expect(recoveryRule).toContain("overflow-x:hidden!important");
+    expect(recoveryRule).toContain("overscroll-behavior-y:contain!important");
+    expect(recoveryRule).toContain("-webkit-overflow-scrolling:touch");
+    expect(recoveryRule).not.toContain("overflow:visible!important");
+  });
+
+  it("leaves the desktop navigation layout outside the mobile-only recovery rule", () => {
+    const recoveryRule = css.slice(css.lastIndexOf("/* Mobile administrator navigation scroll recovery */"));
+    expect(recoveryRule).toContain("@media(max-width:900px)");
+    expect(recoveryRule).not.toContain("@media(min-width:901px)");
+  });
+});
