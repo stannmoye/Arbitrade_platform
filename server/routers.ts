@@ -4,6 +4,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { countCompanyReferences, findCompanyReferencesBySymbol, getCompanyReferenceById, getCompanyReferenceSummary, getRandomCompanyReference, searchCompanyReferences } from "./modules/company-catalogue-reference";
+import { isCompanySpotlightDisplayAllowed, parseCompanyCatalogueAdminState } from "./modules/company-spotlight-rotation";
 import { z } from "zod";
 import { communicationSettingsInput, getAdminCommunicationSettings, getCustomerCommunicationOptions, saveAdminCommunicationSettings, validateCommunicationSettingsInput } from "./communicationSettings";
 import { TRPCError } from "@trpc/server";
@@ -30,6 +31,15 @@ import { createHeartbeatJob, deleteHeartbeatJob, listHeartbeatJobs, updateHeartb
 import { getWorkerHealthSummary, requeueDeadQualificationJob } from "./_core/workerHealth";
 import { getSystemDiagnosticsReport } from "./_core/systemDiagnostics";
 
+async function getCustomerApprovedCompanyReferences(
+  filters: Parameters<typeof searchCompanyReferences>[0] = {},
+) {
+  const raw = await getAppSetting("trade.companyCatalogue.adminState", "{}");
+  const adminState = parseCompanyCatalogueAdminState(raw);
+  return searchCompanyReferences({ ...filters, offset: 0, limit: 1811 })
+    .filter((company) => isCompanySpotlightDisplayAllowed(company.id, adminState));
+}
+
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
@@ -38,17 +48,43 @@ export const appRouter = router({
   ),
 
   companyCatalogueReference: router({
-    summary: publicProcedure.query(() => getCompanyReferenceSummary()),
-    count: publicProcedure.input(z.object({
+    // The complete source catalogue and its status controls are administrator-only.
+    summary: adminProcedure.query(() => getCompanyReferenceSummary()),
+    count: adminProcedure.input(z.object({
       search: z.string().trim().max(100).optional(),
       countryName: z.string().trim().min(1).max(100).optional(),
     }).optional()).query(({ input }) => countCompanyReferences(input ?? {})),
-    search: publicProcedure.input(z.object({
+    search: adminProcedure.input(z.object({
       search: z.string().trim().max(100).optional(),
       countryName: z.string().trim().min(1).max(100).optional(),
       offset: z.number().int().min(0).max(1810).optional(),
       limit: z.number().int().min(1).max(1811).optional(),
     }).optional()).query(({ input }) => searchCompanyReferences(input ?? {})),
+    customerSummary: protectedProcedure.query(async ({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Customer company references are available only to customer accounts." });
+      const approved = await getCustomerApprovedCompanyReferences();
+      const countryCounts = new Map<string, number>();
+      for (const company of approved) countryCounts.set(company.countryName, (countryCounts.get(company.countryName) ?? 0) + 1);
+      return { total: approved.length, countryCounts: Object.fromEntries([...countryCounts].sort(([a], [b]) => a.localeCompare(b))) };
+    }),
+    customerCount: protectedProcedure.input(z.object({
+      search: z.string().trim().max(100).optional(),
+      countryName: z.string().trim().min(1).max(100).optional(),
+    }).optional()).query(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Customer company references are available only to customer accounts." });
+      return (await getCustomerApprovedCompanyReferences(input ?? {})).length;
+    }),
+    customerSearch: protectedProcedure.input(z.object({
+      search: z.string().trim().max(100).optional(),
+      countryName: z.string().trim().min(1).max(100).optional(),
+      offset: z.number().int().min(0).max(1810).optional(),
+      limit: z.number().int().min(1).max(1811).optional(),
+    }).optional()).query(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Customer company references are available only to customer accounts." });
+      const offset = input?.offset ?? 0;
+      const limit = input?.limit ?? 50;
+      return (await getCustomerApprovedCompanyReferences(input ?? {})).slice(offset, offset + limit);
+    }),
     adminState: adminProcedure.query(async () => {
       const raw = await getAppSetting("trade.companyCatalogue.adminState", "{}");
       try {
@@ -74,14 +110,14 @@ export const appRouter = router({
       }
       return updateCompanyCatalogueAdminState({ ...input, ids, updatedBy: ctx.user.id });
     }),
-    byId: publicProcedure.input(z.object({
+    byId: adminProcedure.input(z.object({
       id: z.string().trim().min(1).max(180),
     })).query(({ input }) => getCompanyReferenceById(input.id) ?? null),
-    bySymbol: publicProcedure.input(z.object({
+    bySymbol: adminProcedure.input(z.object({
       symbol: z.string().trim().min(1).max(40),
     })).query(({ input }) => findCompanyReferencesBySymbol(input.symbol)),
-    random: publicProcedure.query(() => getRandomCompanyReference()),
-    next: publicProcedure.input(z.object({
+    random: adminProcedure.query(() => getRandomCompanyReference()),
+    next: adminProcedure.input(z.object({
       excludeId: z.string().trim().min(1).max(180).optional(),
     }).optional()).mutation(({ input }) => getRandomCompanyReference(Math.random, input?.excludeId ? [input.excludeId] : [])),
   }),
