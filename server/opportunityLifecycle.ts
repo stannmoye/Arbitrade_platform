@@ -135,7 +135,8 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
               headquartersCountry: selection.company.headquartersCountry,
               instrumentType: selection.company.instrumentType,
               recordCompleteness: selection.company.recordCompleteness,
-              adminCatalogueStatus: "verified",\n              referenceOnly: true,
+              adminCatalogueStatus: "verified",
+              referenceOnly: true,
             }),
           };
           await connection.execute(
