@@ -40,6 +40,17 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
       trading_tier_qualification_jobs_user_status_idx: { unique: false, columns: ["userId", "status"] },
     },
   },
+  opportunity_delivery_events: {
+    columns: ["id", "userId", "offerId", "quotaDay", "deliveredAt", "status", "attemptCount", "lastErrorCode", "expiresAt", "policyVersion"],
+    dataTypes: { id: "int", userId: "int", offerId: "int", quotaDay: "varchar", deliveredAt: "timestamp", status: "enum", attemptCount: "int", lastErrorCode: "varchar", expiresAt: "timestamp", policyVersion: "int" },
+    exactColumnTypes: { status: "enum('pending','delivered','expired','failed')" },
+    nullable: { lastErrorCode: true, expiresAt: true },
+    indexes: {
+      PRIMARY: { unique: true, columns: ["id"] },
+      opportunity_delivery_user_offer_day_unique: { unique: true, columns: ["userId", "offerId", "quotaDay"] },
+      opportunity_delivery_user_day_idx: { unique: false, columns: ["userId", "quotaDay", "deliveredAt"] },
+    },
+  },
   opportunity_popup_events: {
     // Delivery diagnostics, execution fencing, and immutable customer/trade
     // snapshots are one contract for this table; duplicate object keys silently
