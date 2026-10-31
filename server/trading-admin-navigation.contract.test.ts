@@ -37,7 +37,7 @@ describe("Administrator company catalogue navigation and pagination", () => {
     const editor = adminApp.slice(start, end);
     expect(editor).toContain("const policyPageSize=5");
     expect(editor).toContain("paginateItems(draft,policyPage,policyPageSize)");
-    expect(editor).toContain("policies:draft.map");
+    expect(editor).toContain("buildChangedPolicyPatches(baseline,draft)");
     expect(editor).toContain('aria-label="Tier policy pagination"');
   });
 });
@@ -160,7 +160,7 @@ describe("Trading tier policy audit and versioning", () => {
     expect(adminApp).toContain("Trading policy saved successfully. The saved settings have been reloaded");
     expect(adminApp).toContain("reason:policyReason.trim()})");
     expect(adminApp).toContain("policies.data.map(x=>({...x,packageName:x.packageName");
-    expect(adminApp).toContain("updatePolicies.mutate({policies:policyRows,reason:policyReason.trim()})");
+    expect(adminApp).toContain("buildChangedPolicyPatches(policyBaseline,policyRows)");
   });
 });
 
@@ -187,7 +187,7 @@ describe("Trading customer-display navigation", () => {
     expect(packageEditor).toContain("popupDisplayTargetSeconds");
     expect(packageEditor).toContain("completionDisplaySeconds");
     expect(packageEditor).toContain("These settings affect presentation only, not allocation, trade execution, or settlement.");
-    expect(packageEditor).toContain('{!focus&&<><AdminTradingPackageCatalogue/><AdminTradeAllocationControl/></>}');
+    expect(packageEditor).toContain('{(!focus||focus==="tiers")&&<><AdminTradingPackageCatalogue/>');
   });
 });
 
