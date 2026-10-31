@@ -124,7 +124,7 @@ export async function setAppSetting(key: string, value: string, updatedBy?: numb
 
 export async function updateCompanyCatalogueAdminState(input: {
   ids: string[];
-  status: "verified" | "unverified" | "archived";
+  status: "verified" | "unverified" | "archived" | "disabled" | "enabled";
   reason: string;
   updatedBy: number;
 }) {
@@ -142,6 +142,7 @@ export async function updateCompanyCatalogueAdminState(input: {
     const row = (await tx.select().from(appSettings).where(eq(appSettings.settingKey, settingKey)).limit(1).for("update"))[0];
     let verifiedIds: string[] = [];
     let archivedIds: string[] = [];
+    let disabledIds: string[] = [];
     try {
       const parsed = JSON.parse(row?.settingValue ?? "{}") as { verifiedIds?: string[]; archivedIds?: string[] };
       verifiedIds = (parsed.verifiedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
@@ -149,19 +150,23 @@ export async function updateCompanyCatalogueAdminState(input: {
     } catch {
       verifiedIds = [];
       archivedIds = [];
+      disabledIds = [];
     }
     const verified = new Set(verifiedIds);
     const archived = new Set(archivedIds);
+    const disabled = new Set(disabledIds);
     const updatedAt = new Date().toISOString();
     for (const id of ids) {
-      verified.delete(id);
-      archived.delete(id);
-      if (input.status === "verified") verified.add(id);
-      if (input.status === "archived") archived.add(id);
+      if (input.status === "verified") { verified.add(id); archived.delete(id); disabled.delete(id); }
+      if (input.status === "unverified") { verified.delete(id); archived.delete(id); disabled.delete(id); }
+      if (input.status === "archived") { verified.delete(id); disabled.delete(id); archived.add(id); }
+      if (input.status === "disabled") disabled.add(id);
+      if (input.status === "enabled") disabled.delete(id);
     }
     const nextValue = JSON.stringify({
       verifiedIds: [...verified].sort(),
       archivedIds: [...archived].sort(),
+      disabledIds: [...disabled].sort(),
       lastAction: { status: input.status, count: ids.length, reason: input.reason.trim(), updatedAt, updatedBy: input.updatedBy },
     });
     await tx.update(appSettings).set({ settingValue: nextValue, updatedBy: input.updatedBy, updatedAt: new Date() }).where(eq(appSettings.settingKey, settingKey));
