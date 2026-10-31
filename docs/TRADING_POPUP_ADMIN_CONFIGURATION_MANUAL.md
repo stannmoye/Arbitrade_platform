@@ -202,3 +202,6 @@ Acceptance must cover:
 - Worker shutdown contract: `docs/server-worker-shutdown.md`
 
 If this manual and the canonical specification conflict, stop and reconcile both before implementation. Update both in the same change when these requirements change.
+
+
+**Maximum trade attempts per day:** Customer-wide daily cap across all opportunities, including technical retries. The worker serializes claims and counts durable execution attempts for the UTC day. This is separate from the per-opportunity technical retry ceiling. Set to 0 for no daily cap.
