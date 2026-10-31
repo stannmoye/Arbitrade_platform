@@ -692,3 +692,13 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 - Restored the pre-existing customer Trade overflow rules for the customer opportunity header and company-reference panel; the administrator clipping fixes remain scoped to administrator Trade navigation, headers and package cards.
 - Removed customer-page clipping assertions from the new administrator regression test. Existing customer feature-coverage tests were left intact and no customer portal implementation was redesigned.
 - PR #252 remains administrator-portal-only. Exact-head CI and authenticated administrator browser acceptance are required before merge.
+
+## 2026-10-31 — Authenticated Trading portal acceptance audit
+
+- Rechecked PR #258 on head `9d48a4c392ae2206f246e6dacee5958c42ccc268`; it remains open, draft, unmerged and targets `main`.
+- Confirmed `scripts/trading-ui-browser-acceptance.cjs` already provides a real Playwright browser harness using existing authenticated storage states and unmocked application APIs. It covers eligible and unqualified customer states, customer denial of the admin package API, refresh/offline/recovery, admin package-policy navigation and persistence, invalid-setting rejection, responsive views, and admin visibility of package/assignment IDs, status and terms version.
+- The harness performs no financial or wallet mutations, but it does perform a temporary administrator policy update and restores the original setting; it must only run against a dedicated disposable non-production deployment with test-only accounts/data.
+- Added `docs/trading/AUTHENTICATED_BROWSER_ACCEPTANCE.md` with exact prerequisites, invocation, coverage and safety limits. Storage-state files and credentials must remain outside Git.
+- This connector session has no isolated running test deployment or seeded authenticated browser storage states, and cannot execute the repository's Node/Playwright process. Therefore the real authenticated portal harness has **not** been run and is not claimed as passed. The existing mocked browser recovery checks and authenticated wallet API integration remain distinct evidence, not substitutes for the full portal run.
+- No production URL, production database, production customer data, financial mutation, deployment or merge was used. PR #258 remains open and draft.
+- Next acceptance action: run the documented Playwright harness against a disposable seeded non-production deployment, retain its JSON result, then recheck exact-head CI. Do not proceed to merge or production release while this acceptance gate remains pending.
