@@ -86,7 +86,7 @@ describe("manual trade settlement idempotency", () => {
   });
 
   it("allows evidence review at trade completion without waiting for the later wallet-credit timestamp", () => {
-    expect(implementation).toContain("const settlementDueAt=trade.settlementReviewAt||trade.settlesAt");
+    expect(implementation).toContain("const settlementDueAt=trade.settlementReviewAt||trade.creditAt||trade.settlesAt");
     expect(implementation).toContain("Trade is not yet due for settlement confirmation");
     expect(implementation).toContain("new Date(settlementDueAt).getTime()>Date.now()");
     expect(implementation).toContain('settlementStatus:"confirmed_awaiting_credit"');
