@@ -35,7 +35,7 @@ The storage-state files must already exist in Playwright's `{ cookies, origins }
 
 ## Run
 
-Install the repository's locked dependencies, then run:
+Install the repository's locked dependencies and the Playwright Chromium browser. Playwright is provisioned with `npx` in the existing CI workflow rather than declared as a direct application dependency, so expose its temporary package to Node with `NODE_PATH`:
 
 ```sh
 TRADING_ACCEPTANCE_BASE_URL=https://<isolated-test-host> \
