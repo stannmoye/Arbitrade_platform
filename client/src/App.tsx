@@ -533,9 +533,9 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
   const [catalogueSearch,setCatalogueSearch]=useState("");
   const [catalogueCountry,setCatalogueCountry]=useState("");
   const [catalogueOffset,setCatalogueOffset]=useState(0);
-  const companyCatalogueSummary=trpc.companyCatalogueReference.summary.useQuery();
-  const companyCatalogueCount=trpc.companyCatalogueReference.count.useQuery({search:catalogueSearch,countryName:catalogueCountry||undefined});
-  const companyCatalogueQuery=trpc.companyCatalogueReference.search.useQuery({search:catalogueSearch,countryName:catalogueCountry||undefined,offset:catalogueOffset,limit:100});
+  const companyCatalogueSummary=trpc.companyCatalogueReference.customerSummary.useQuery();
+  const companyCatalogueCount=trpc.companyCatalogueReference.customerCount.useQuery({search:catalogueSearch,countryName:catalogueCountry||undefined});
+  const companyCatalogueQuery=trpc.companyCatalogueReference.customerSearch.useQuery({search:catalogueSearch,countryName:catalogueCountry||undefined,offset:catalogueOffset,limit:100});
   const feed:any=opportunityData||{};
   const offers:any[]=feed.offers||[];
   const missed:any[]=feed.missed||[];
@@ -612,14 +612,14 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
     </section>
     <section className="customer-panel company-reference-panel">
       <div className="customer-panel-head">
-        <div><div className="eyebrow">Company catalogue · 1,811 records</div><h2>Search company references</h2></div>
+        <div><div className="eyebrow">Administrator-approved companies · {companyCatalogueSummary.data?.total ?? 0} records</div><h2>Search approved company references</h2></div>
         <span>{companyCatalogueQuery.data?.length ?? 0} shown</span>
       </div>
       <label className="company-catalogue-search-label" htmlFor="company-catalogue-search">Search by company name, domain, ticker, or exchange</label>
       <input id="company-catalogue-search" className="company-catalogue-search" type="search" value={catalogueSearch} onChange={event=>{setCatalogueSearch(event.target.value);setCatalogueOffset(0);}} placeholder="e.g. Apple, AAPL, NASDAQ" autoComplete="off" />
       <label className="company-catalogue-search-label" htmlFor="company-catalogue-country">Filter by country folder</label>
       <select id="company-catalogue-country" className="company-catalogue-search" value={catalogueCountry} onChange={event=>{setCatalogueCountry(event.target.value);setCatalogueOffset(0);}}>
-        <option value="">All country folders ({companyCatalogueSummary.data?.total ?? 1811} records)</option>
+        <option value="">All approved country folders ({companyCatalogueSummary.data?.total ?? 0} records)</option>
         {Object.entries((companyCatalogueSummary.data?.countryCounts ?? {}) as Record<string,number>).sort(([left],[right])=>left.localeCompare(right)).map(([country,count])=><option key={country} value={country}>{country} ({count})</option>)}
       </select>
       {companyCatalogueQuery.isLoading ? <div className="empty-state">Loading company catalogue…</div>
@@ -648,7 +648,7 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
         <span>{companyCatalogueCount.isLoading?"Counting matching records…":(companyCatalogueQuery.data?.length??0)===0?`No records on this page (${companyCatalogueCount.data??0} total matches)`:`Records ${catalogueOffset+1}–${catalogueOffset+(companyCatalogueQuery.data?.length??0)} of ${companyCatalogueCount.data??0} matching records`}</span>
         <button className="secondary-button" type="button" onClick={()=>setCatalogueOffset(catalogueOffset+100)} disabled={companyCatalogueQuery.isLoading||companyCatalogueCount.isLoading||catalogueOffset+(companyCatalogueQuery.data?.length??0)>=(companyCatalogueCount.data??0)}>Next 100</button>
       </div>
-      <small>Search covers all 1,811 catalogue records and shows up to 100 matches. Country filtering uses the image folder label, not verified headquarters or listing evidence. All workbook rows remain aligned by stable Logo ID, including placeholder, parent-company, and historical entries. Placeholder codes are display-only and must not be used for market-data lookup or orders.</small>
+      <small>Search returns only companies currently approved by an administrator. Unverified and archived records are excluded by the server, including after an earlier approval is revoked. Country filtering uses the image folder label, not verified headquarters or listing evidence. Company references do not establish market listing or trade execution.</small>
     </section>
   </div>;
 }
