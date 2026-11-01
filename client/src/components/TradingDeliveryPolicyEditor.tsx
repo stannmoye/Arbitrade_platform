@@ -8,6 +8,7 @@ type Props = {
   focus?: PolicyEditorFocus;
   policyRows: TradingDeliveryPolicyRow[];
   policyMessage: string;
+  policyMessageKind: "success" | "error";
   policyReason: string;
   isLoading: boolean;
   isSaving: boolean;
@@ -17,7 +18,7 @@ type Props = {
   onSave: () => void;
 };
 
-export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyMessage, policyReason, isLoading, isSaving, updateRow, onPolicyReasonChange, policyRowValid, onSave }: Props) {
+export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyMessage, policyMessageKind, policyReason, isLoading, isSaving, updateRow, onPolicyReasonChange, policyRowValid, onSave }: Props) {
   const show = (section: PolicyEditorFocus) => !focus || focus === section;
   return <div className="settings-card package-policy-card">
   <div className="eyebrow">Administrator-managed Trading settings</div>
@@ -25,7 +26,7 @@ export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyM
   <p>Each section below edits only the settings named on this page. Changes are validated, audited and versioned by the server. Existing customer entitlement snapshots and active trade records are not silently rewritten. Automatic financial execution remains protected OFF.</p>
   {focus==="quotas"&&<div className="admin-policy-note" role="note"><strong>Important: two different limits.</strong> The daily opportunity entitlement is set in <strong>Trade Settings → Tiers &amp; Eligibility</strong>. This page sets delivery ceilings that can reduce that entitlement. To make a 600-per-day tier allowance available, set the hard daily pop-up ceiling to at least 600 and leave the optional target at 0. Existing customer entitlements keep their original saved quota; edits apply to future automatic assignments.</div>}
   {focus==="policy"&&<div className="admin-policy-note" role="note"><strong>Scope:</strong> This page contains offer eligibility and capital bounds only. The shared Trading controls panel above this page is the single place to turn policy and pop-up delivery ON or OFF. Tier threshold, duration and daily opportunity entitlement are maintained only in <strong>Tiers &amp; Eligibility</strong>.</div>}
-  {policyMessage&&<div className="test-notice" role="status" aria-live="polite">{policyMessage}</div>}
+  {policyMessage&&<div className={"test-notice "+(policyMessageKind==="error"?"error":"success")} role={policyMessageKind==="error"?"alert":"status"} aria-live="polite">{policyMessage}</div>}
   {policyRows.map((row,index)=><article className="package-admin-card" key={row.packageName} style={{marginBottom:16}}>
     <div className="package-admin-head"><div><span className="eyebrow">Tier policy</span><h3>{row.packageName}</h3></div><span className="admin-live-chip">Versioned</span></div>
     {show("quotas")&&<>
