@@ -4,19 +4,32 @@ import { adminNavigationGroups, adminPrimaryNavigationGroups, adminSecondaryNavi
 describe("Trading administrator navigation", () => {
   const group = (id: string) => adminNavigationGroups.find((item) => item.id === id);
 
-  it("keeps the Trading destinations in their existing admin navigation groups", () => {
-    expect(group("trade-setup")?.items.map((item) => item.label)).toEqual([
-      "Trading home", "Customer tiers", "Daily trade allowance", "How trades finish",
+  it("keeps all Trading destinations in one clearly named Trade Settings group", () => {
+    const tradeGroup = group("trade-settings");
+    expect(tradeGroup?.label).toBe("Trade Settings");
+    expect(tradeGroup?.items.map((item) => item.label)).toEqual([
+      "Trading Overview",
+      "Tiers & Eligibility",
+      "Daily Delivery Caps",
+      "Offer Rules & Capital Limits",
+      "Publish & Manage Opportunities",
+      "Delivery Schedule",
+      "Trade Duration & Closing",
+      "Customer Pop-up Display",
+      "Company Rotation Rules",
+      "Company Catalogue",
+      "Capital & Wallet Funding Rules",
+      "Fees & Earnings Limits",
+      "Retries & Carry-Forward",
+      "Active & Pending Opportunities",
+      "Settlement & Reconciliation",
+      "System Pause & Safety",
+      "Worker Health & Recovery",
+      "Audit & Policy History",
+      "Trade Settings Guide",
     ]);
-    expect(group("trade-offers")?.items.map((item) => item.label)).toEqual([
-      "When offers appear", "Customer pop-up timing", "Company names shown",
-    ]);
-    expect(group("trade-results")?.items.map((item) => item.label)).toEqual([
-      "Returns and fees", "Try failed trades again", "Check finished trades",
-    ]);
-    expect(group("trade-monitoring")?.items.map((item) => item.label)).toEqual([
-      "Open and waiting work", "Pause new trades", "Worker health",
-    ]);
+    expect(adminNavigationGroups.filter((item) => item.id.startsWith("trade-"))).toHaveLength(1);
+    expect(adminNavigationGroups.some((item) => ["trade-setup", "trade-offers", "trade-results", "trade-monitoring", "trade-history"].includes(item.id))).toBe(false);
   });
 
   it("places the plain-language guide after Worker Health as the final Trading submenu", () => {
@@ -29,11 +42,15 @@ describe("Trading administrator navigation", () => {
     expect(tradeItems[guideIndex]?.target).toBe("tradeAdminGuide");
   });
 
-  it("keeps the existing destinations for Trading operational screens", () => {
-    expect(group("trade-setup")?.items.map((item) => item.target)).toEqual(["tradeSystemOverview", "packages", "packages", "tradeDurationRules"]);
-    expect(group("trade-offers")?.items.map((item) => item.target)).toEqual(["opportunity", "tradeCustomerDisplay", "opportunity"]);
-    expect(group("trade-results")?.items.map((item) => item.target)).toEqual(["transactionReview", "tradeRetryPolicy", "transactionReview"]);
-    expect(group("trade-monitoring")?.items.map((item) => item.target)).toEqual(["deliveryMonitor", "tradeSystemHealth", "tradeWorkerHealth"]);
+  it("routes each Trade Settings submenu to its single intended screen", () => {
+    expect(group("trade-settings")?.items.map((item) => item.target)).toEqual([
+      "tradeSystemOverview", "packages", "packages", "packages", "opportunity", "packages",
+      "tradeDurationRules", "tradeCustomerDisplay", "packages", "companyCatalogue",
+      "transactionReview", "transactionReview", "tradeRetryPolicy", "deliveryMonitor",
+      "transactionReview", "tradeSystemHealth", "tradeWorkerHealth", "audit", "tradeAdminGuide",
+    ]);
+    expect(group("trade-settings")?.items.find((item) => item.id === "trade-company-rotation")?.focus).toBe("rotation");
+    expect(group("trade-settings")?.items.find((item) => item.id === "trade-company-catalogue")?.target).toBe("companyCatalogue");
   });
 
   it("moves the five requested administrative sections and all their submenu entries to the right drawer", () => {
