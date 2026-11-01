@@ -224,8 +224,19 @@ async function runAdminAppearanceInteractionCheck(browser) {
       return checks;
     }
 
-    await page.getByRole("button", { name: /Platform Configuration/ }).click();
-    await page.getByRole("button", { name: /Appearance & Themes/ }).click();
+    // Platform Configuration now lives in the right-side Admin Menus drawer.
+    await page.getByRole("button", { name: "Open Admin Menus" }).click();
+    const adminDrawer = page.locator("#admin-navigation-drawer");
+    await adminDrawer.waitFor({ state: "visible" });
+    const platformConfigurationGroup = adminDrawer.locator(".admin-secondary-group-heading")
+      .filter({ hasText: "Platform Configuration" });
+    await platformConfigurationGroup.waitFor({ state: "visible" });
+    // Secondary drawer groups are expanded by default. Only toggle the group
+    // when it is collapsed, otherwise the click would hide its menu items.
+    if (await platformConfigurationGroup.getAttribute("aria-expanded") !== "true") {
+      await platformConfigurationGroup.click();
+    }
+    await adminDrawer.getByRole("button", { name: /Appearance & Themes/ }).click();
     // AdminAppearance is intentionally lazy-loaded to keep admin-only settings
     // out of the customer-facing entry bundle. Wait for that async route chunk.
     await page.getByRole("heading", { name: "Theme management" }).waitFor({
@@ -612,8 +623,16 @@ async function runAdminAppearanceInteractionCheck(browser) {
     // before asserting that its controls have hydrated.
     await page.goto(`${BASE_URL}/ops-console-7f3a`, { waitUntil: "domcontentloaded" });
     await page.getByRole("heading", { name: "Control centre" }).waitFor({ state: "visible", timeout: 15000 });
-    await page.getByRole("button", { name: /Platform Configuration/ }).click();
-    await page.getByRole("button", { name: /Appearance & Themes/ }).click();
+    await page.getByRole("button", { name: "Open Admin Menus" }).click();
+    const reopenedAdminDrawer = page.locator("#admin-navigation-drawer");
+    await reopenedAdminDrawer.waitFor({ state: "visible" });
+    const reopenedPlatformConfigurationGroup = reopenedAdminDrawer.locator(".admin-secondary-group-heading")
+      .filter({ hasText: "Platform Configuration" });
+    await reopenedPlatformConfigurationGroup.waitFor({ state: "visible" });
+    if (await reopenedPlatformConfigurationGroup.getAttribute("aria-expanded") !== "true") {
+      await reopenedPlatformConfigurationGroup.click();
+    }
+    await reopenedAdminDrawer.getByRole("button", { name: /Appearance & Themes/ }).click();
     await page.getByRole("heading", { name: "Theme management" }).waitFor({ state: "visible", timeout: 15000 });
     await page.getByLabel("Default theme").waitFor({ state: "visible" });
     await page.getByRole("status").filter({ hasText: "Customer theme selection is enabled" }).waitFor({ state: "visible" });
@@ -666,10 +685,10 @@ async function runAdminAppearanceInteractionCheck(browser) {
         note: "Reload/refetch uses mocked settings storage; live database persistence remains an independent acceptance gate.",
       });
 
-    // Navigate while the desktop quick-action trigger is unobstructed, then resize
-    // the populated financial page to mobile width for the keyboard-scroll check.
-    const quickActionsTrigger = page.getByRole("button", { name: "Open Quick Actions" });
-    const triggerHitTarget = await quickActionsTrigger.evaluate(element => {
+    // Validate the replacement Admin Menus navigation drawer and then
+    // return to the primary Wallet & Ledger section for the mobile table checks.
+    const adminMenusTrigger = page.getByRole("button", { name: "Open Admin Menus" });
+    const triggerHitTarget = await adminMenusTrigger.evaluate(element => {
       const rect = element.getBoundingClientRect();
       const x = rect.left + rect.width / 2;
       const y = rect.top + rect.height / 2;
@@ -682,96 +701,105 @@ async function runAdminAppearanceInteractionCheck(browser) {
         bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
       };
     });
-    record("quick-actions-trigger-pointer-hit-target",
+    record("admin-menus-trigger-pointer-hit-target",
       triggerHitTarget.visible && triggerHitTarget.hitTargetMatches,
       triggerHitTarget);
-    await quickActionsTrigger.focus();
+    await adminMenusTrigger.focus();
 
-    const closedDrawerFocusability = await page.locator("#admin-navigation-drawer").evaluate(drawer => ({
+    const adminMenusDialog = page.locator("#admin-navigation-drawer");
+    const closedDrawerFocusability = await adminMenusDialog.evaluate(drawer => ({
       hidden: drawer.getAttribute("aria-hidden") === "true",
-      searchTabIndex: drawer.querySelector('input[aria-label="Search actions and destinations"]')?.tabIndex ?? null,
+      searchTabIndex: drawer.querySelector('input[aria-label="Search admin sections"]')?.tabIndex ?? null,
       unintendedTabStops: drawer.querySelectorAll('a[href]:not([tabindex="-1"]):not([aria-disabled="true"]),button:not([tabindex="-1"]):not([disabled]),input:not([tabindex="-1"]):not([disabled]),select:not([tabindex="-1"]):not([disabled]),textarea:not([tabindex="-1"]):not([disabled]),[tabindex]:not([tabindex="-1"]):not([disabled]),[contenteditable="true"]').length,
     }));
-    record("quick-actions-closed-drawer-has-no-tab-stops",
+    record("admin-menus-closed-drawer-has-no-tab-stops",
       closedDrawerFocusability.hidden &&
       closedDrawerFocusability.searchTabIndex === -1 &&
       closedDrawerFocusability.unintendedTabStops === 0,
       closedDrawerFocusability);
 
     await page.keyboard.press("Enter");
-    const quickActionsDialog = page.getByRole("dialog", { name: "Quick Actions" });
     await page.waitForFunction(() => {
       const drawer = document.querySelector("#admin-navigation-drawer");
       return drawer?.getAttribute("aria-hidden") === "false" &&
         Boolean(drawer?.contains(document.activeElement));
     });
-    const dialogSemantics = await quickActionsDialog.evaluate(element => ({
+    const dialogSemantics = await adminMenusDialog.evaluate(element => ({
       visible: element.getAttribute("aria-hidden") === "false",
       modal: element.getAttribute("aria-modal"),
       focusInside: element.contains(document.activeElement),
     }));
     const triggerExpandedWhileOpen = await page.locator(".admin-slide-trigger").getAttribute("aria-expanded");
-    const adminPortalPlacement = await quickActionsDialog.evaluate(element => ({
+    const adminPortalPlacement = await adminMenusDialog.evaluate(element => ({
       layerClassPresent: element.parentElement?.classList.contains("admin-slide-portal-layer") ?? false,
       attachedDirectlyToBody: element.parentElement?.parentElement === document.body,
     }));
-    record("quick-actions-dialog-uses-body-level-portal",
+    const allSecondaryGroups = await adminMenusDialog.locator(".admin-secondary-group-heading").allTextContents();
+    const expectedSecondaryGroups = [
+      "Verification & Risk",
+      "Communications",
+      "Platform Configuration",
+      "Integrations",
+      "Governance & Reports",
+    ];
+    const allSecondaryGroupsPresent = expectedSecondaryGroups.every(expected =>
+      allSecondaryGroups.some(actual => actual.includes(expected))
+    );
+    record("admin-menus-dialog-uses-body-level-portal",
       adminPortalPlacement.layerClassPresent && adminPortalPlacement.attachedDirectlyToBody,
       adminPortalPlacement);
-    record("quick-actions-dialog-accessibility-and-focus",
+    record("admin-menus-dialog-accessibility-and-focus",
       dialogSemantics.visible && dialogSemantics.modal === "true" &&
       dialogSemantics.focusInside && triggerExpandedWhileOpen === "true",
       { ...dialogSemantics, triggerExpandedWhileOpen });
+    record("admin-menus-contains-all-five-secondary-navigation-groups",
+      allSecondaryGroupsPresent,
+      { expectedSecondaryGroups, actualSecondaryGroups: allSecondaryGroups });
 
-    const commandSearch = quickActionsDialog.getByRole("textbox", {
-      name: "Search actions and destinations",
+    const adminMenusSearch = adminMenusDialog.getByRole("textbox", {
+      name: "Search admin sections",
     });
-    await commandSearch.fill("wallet");
-    const walletDestinationVisible = await quickActionsDialog.getByRole("button", {
-      name: "Wallet & ledger",
+    await adminMenusSearch.fill("Platform Configuration");
+    const platformGroupVisible = await adminMenusDialog.locator(".admin-secondary-group-heading")
+      .filter({ hasText: "Platform Configuration" }).isVisible();
+    const appearanceDestinationVisible = await adminMenusDialog.getByRole("button", {
+      name: /Appearance & Themes/,
     }).isVisible();
-    const addCustomerHiddenForWallet = await quickActionsDialog.getByRole("button", {
-      name: /Add Customer/,
-    }).count() === 0;
-    await commandSearch.fill("support");
-    const supportCounterVisible = await quickActionsDialog.getByRole("button", {
-      name: /Open tickets/,
+    await adminMenusSearch.fill("Governance & Reports");
+    const governanceGroupVisible = await adminMenusDialog.locator(".admin-secondary-group-heading")
+      .filter({ hasText: "Governance & Reports" }).isVisible();
+    const reportsDestinationVisible = await adminMenusDialog.getByRole("button", {
+      name: /Reports & Exports/,
     }).isVisible();
-    const walletDestinationHiddenForSupport = await quickActionsDialog.getByRole("button", {
-      name: "Wallet & ledger",
-    }).count() === 0;
-    await commandSearch.fill("no-such-action-or-destination");
-    const noResultsFeedback = await quickActionsDialog.getByRole("status")
-      .filter({ hasText: "No matching actions or destinations." }).isVisible();
-    await commandSearch.fill("");
-    record("quick-actions-search-filters-actions-and-destinations",
-      walletDestinationVisible && addCustomerHiddenForWallet &&
-      supportCounterVisible && walletDestinationHiddenForSupport && noResultsFeedback,
+    await adminMenusSearch.fill("no-such-admin-section");
+    const noResultsFeedback = await adminMenusDialog.getByRole("status")
+      .filter({ hasText: "No matching admin sections." }).isVisible();
+    await adminMenusSearch.fill("");
+    record("admin-menus-search-filters-navigation-groups-and-destinations",
+      platformGroupVisible && appearanceDestinationVisible &&
+      governanceGroupVisible && reportsDestinationVisible && noResultsFeedback,
       {
-        walletDestinationVisible,
-        addCustomerHiddenForWallet,
-        supportCounterVisible,
-        walletDestinationHiddenForSupport,
+        platformGroupVisible,
+        appearanceDestinationVisible,
+        governanceGroupVisible,
+        reportsDestinationVisible,
         noResultsFeedback,
       });
 
-    // Dialogs must remain operable when the on-screen keyboard leaves very little
-    // vertical space. Exercise the real rendered dialog at a compact phone size.
+    // The drawer must remain usable at a narrow phone viewport.
     await page.setViewportSize({ width: 320, height: 568 });
-    // The drawer may still be completing its entrance animation from the desktop
-    // viewport. Wait for its transformed bounds to settle before measuring layout.
     await page.waitForFunction(() => {
       const drawer = document.querySelector("#admin-navigation-drawer");
       if (!(drawer instanceof HTMLElement)) return false;
       const rect = drawer.getBoundingClientRect();
       return rect.left >= 0 && rect.right <= window.innerWidth + 1;
     });
-    const compactDialogLayout = await quickActionsDialog.evaluate(element => {
+    const compactDialogLayout = await adminMenusDialog.evaluate(element => {
       const rect = element.getBoundingClientRect();
       const style = getComputedStyle(element);
-      const close = element.querySelector('.admin-slide-close');
-      const search = element.querySelector('input[aria-label="Search actions and destinations"]');
-      const nav = element.querySelector('.admin-slide-nav');
+      const close = element.querySelector(".admin-slide-close");
+      const search = element.querySelector('input[aria-label="Search admin sections"]');
+      const nav = element.querySelector(".admin-slide-nav");
       const navStyle = nav ? getComputedStyle(nav) : null;
       const withinViewport = rect.left >= 0 && rect.top >= 0 &&
         rect.right <= window.innerWidth + 1 && rect.bottom <= window.innerHeight + 1;
@@ -789,9 +817,9 @@ async function runAdminAppearanceInteractionCheck(browser) {
         documentWidth: document.documentElement.scrollWidth,
       };
     });
-    const compactCloseButtonVisible = await quickActionsDialog.locator('.admin-slide-close').isVisible();
-    const compactSearchVisible = await commandSearch.isVisible();
-    record("quick-actions-dialog-fits-compact-mobile-viewport",
+    const compactCloseButtonVisible = await adminMenusDialog.locator(".admin-slide-close").isVisible();
+    const compactSearchVisible = await adminMenusSearch.isVisible();
+    record("admin-menus-dialog-fits-compact-mobile-viewport",
       compactDialogLayout.withinViewport &&
       compactDialogLayout.bounds.width <= 320 &&
       compactDialogLayout.bounds.height <= 568 &&
@@ -802,27 +830,27 @@ async function runAdminAppearanceInteractionCheck(browser) {
       compactSearchVisible &&
       compactDialogLayout.documentWidth <= 320,
       { ...compactDialogLayout, compactCloseButtonVisible, compactSearchVisible });
-    await page.setViewportSize({ width: 1440, height: 1000 });
-    await quickActionsDialog.evaluate(element => { element.scrollTop = 0; });
 
-    const dialogFocusable = quickActionsDialog.locator(
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await adminMenusDialog.evaluate(element => { element.scrollTop = 0; });
+    const drawerFocusable = adminMenusDialog.locator(
       'button:not([tabindex="-1"]), input:not([tabindex="-1"])'
     );
-    const dialogFocusableCount = await dialogFocusable.count();
-    const firstDialogFocusable = dialogFocusable.first();
-    const lastDialogFocusable = dialogFocusable.last();
-    await firstDialogFocusable.focus();
+    const drawerFocusableCount = await drawerFocusable.count();
+    const firstDrawerFocusable = drawerFocusable.first();
+    const lastDrawerFocusable = drawerFocusable.last();
+    await firstDrawerFocusable.focus();
     await page.keyboard.press("Shift+Tab");
-    const reverseFocusWrapped = await lastDialogFocusable.evaluate(element =>
+    const reverseFocusWrapped = await lastDrawerFocusable.evaluate(element =>
       document.activeElement === element
     );
     await page.keyboard.press("Tab");
-    const forwardFocusWrapped = await firstDialogFocusable.evaluate(element =>
+    const forwardFocusWrapped = await firstDrawerFocusable.evaluate(element =>
       document.activeElement === element
     );
-    record("quick-actions-dialog-traps-keyboard-focus",
-      dialogFocusableCount >= 2 && reverseFocusWrapped && forwardFocusWrapped,
-      { dialogFocusableCount, reverseFocusWrapped, forwardFocusWrapped });
+    record("admin-menus-dialog-traps-keyboard-focus",
+      drawerFocusableCount >= 2 && reverseFocusWrapped && forwardFocusWrapped,
+      { drawerFocusableCount, reverseFocusWrapped, forwardFocusWrapped });
 
     await page.keyboard.press("Escape");
     await page.waitForFunction(() =>
@@ -832,47 +860,47 @@ async function runAdminAppearanceInteractionCheck(browser) {
     const focusRestored = await page.locator(".admin-slide-trigger").evaluate(element =>
       document.activeElement === element
     );
-    record("quick-actions-dialog-escape-closes-and-restores-focus", focusRestored, { focusRestored });
+    record("admin-menus-dialog-escape-closes-and-restores-focus", focusRestored, { focusRestored });
 
-    await quickActionsTrigger.focus();
+    await adminMenusTrigger.focus();
     await page.keyboard.press("Enter");
-
-    // Exercise the actual navigation drawer as an accessible modal dialog:
-    // initial focus, keyboard-loop boundaries, Escape close, and focus restore.
-    // Reuse the dialog locator created earlier in this interaction check.
-    await quickActionsDialog.waitFor({ state: "visible" });
-    const dialogState = await quickActionsDialog.evaluate(element => ({
+    await page.waitForFunction(() => {
+      const drawer = document.querySelector("#admin-navigation-drawer");
+      return drawer?.getAttribute("aria-hidden") === "false" &&
+        document.activeElement?.getAttribute("aria-label") === "Close Admin Menus";
+    });
+    const dialogState = await adminMenusDialog.evaluate(element => ({
       modal: element.getAttribute("aria-modal"),
       hidden: element.getAttribute("aria-hidden"),
-      triggerExpanded: document.querySelector('[aria-label="Close Quick Actions"]')?.getAttribute("aria-expanded"),
       bodyOverflow: document.body.style.overflow,
       activeLabel: document.activeElement?.getAttribute("aria-label") || "",
       activeTag: document.activeElement?.tagName.toLowerCase() || "",
     }));
-    record("admin-quick-actions-dialog-opens-with-close-focus",
+    record("admin-menus-dialog-opens-with-close-focus",
       dialogState.modal === "true" && dialogState.hidden === "false" &&
       dialogState.bodyOverflow === "hidden" &&
-      dialogState.activeLabel === "Close Quick Actions" &&
+      dialogState.activeLabel === "Close Admin Menus" &&
       dialogState.activeTag === "button",
       dialogState);
 
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => {
-      const trigger = document.querySelector('[aria-label="Open Quick Actions"]');
+      const trigger = document.querySelector('[aria-label="Open Admin Menus"]');
       return Boolean(trigger && trigger.getAttribute("aria-expanded") === "false" && document.activeElement === trigger);
     });
-    const dialogClosed = await page.locator("#admin-navigation-drawer").getAttribute("aria-hidden") === "true";
+    const dialogClosed = await adminMenusDialog.getAttribute("aria-hidden") === "true";
     const closeRestoredOverflow = await page.evaluate(() => document.body.style.overflow !== "hidden");
-    record("admin-quick-actions-dialog-escape-closes-and-restores-focus",
+    record("admin-menus-dialog-escape-closes-and-restores-focus",
       dialogClosed && closeRestoredOverflow,
-      { dialogClosed, closeRestoredOverflow, focusedTrigger: await page.evaluate(() => document.activeElement?.getAttribute("aria-label") || "") });
+      {
+        dialogClosed,
+        closeRestoredOverflow,
+        focusedTrigger: await page.evaluate(() => document.activeElement?.getAttribute("aria-label") || ""),
+      });
 
-    const reopenedTrigger = page.getByRole("button", { name: "Open Quick Actions" });
-    await reopenedTrigger.focus();
-    await page.keyboard.press("Enter");
-    await quickActionsDialog.waitFor({ state: "visible" });
-    await page.getByRole("button", { name: /Wallet & ledger/ }).waitFor({ state: "visible" });
-    await page.getByRole("button", { name: /Wallet & ledger/ }).click();
+    // Wallet & Ledger remains in the primary left navigation. Reopen the main
+    // destination directly rather than searching for it in the secondary drawer.
+    await page.getByRole("button", { name: "Wallet & Ledger" }).click();
     await page.getByRole("heading", { name: "Transaction review" }).waitFor({ state: "visible" });
     await page.setViewportSize({ width: 390, height: 844 });
 

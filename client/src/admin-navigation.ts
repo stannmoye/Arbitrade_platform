@@ -126,13 +126,22 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
   ]},
 ];
 
-export const quickActionItems = [
-  { target: "customers", label: "Add Customer", detail: "Create an account", icon: Users },
-  { target: "credit", label: "Credit Adjustment", detail: "Open audited wallet credit", icon: CircleDollarSign },
-  { target: "debit", label: "Debit Adjustment", detail: "Open audited wallet debit", icon: ReceiptText },
-  { target: "opportunity", label: "Create Offer", detail: "Open offer management", icon: Zap },
-  { target: "smtpCenter", label: "Compose Email", detail: "Open the canonical composer", icon: Mail },
+/** Groups shown in the right-side secondary navigation drawer. */
+export const adminSecondaryNavigationGroupIds = [
+  "verification-risk",
+  "communications",
+  "platform-configuration",
+  "integrations",
+  "governance-reports",
 ] as const;
+
+export const adminSecondaryNavigationGroups = adminNavigationGroups.filter((group) =>
+  adminSecondaryNavigationGroupIds.includes(group.id as typeof adminSecondaryNavigationGroupIds[number])
+);
+
+export const adminPrimaryNavigationGroups = adminNavigationGroups.filter((group) =>
+  !adminSecondaryNavigationGroupIds.includes(group.id as typeof adminSecondaryNavigationGroupIds[number])
+);
 
 export const allAdminNavigationItems = adminNavigationGroups.flatMap((group) => group.items);
 export function getAdminNavigationItem(target: string) { return allAdminNavigationItems.find((item) => item.target === target); }

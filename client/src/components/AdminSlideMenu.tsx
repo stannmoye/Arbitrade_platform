@@ -1,39 +1,29 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Activity, CircleDollarSign, Clock3, Database, FileText, Mail, Menu, RefreshCw, Search, ShieldAlert, ShieldCheck, TicketCheck, Users, WalletCards, X, Zap, type LucideIcon } from "lucide-react";
-import { quickActionItems } from "../admin-navigation";
+import { Activity, Menu, Search, X, type LucideIcon } from "lucide-react";
+import { adminSecondaryNavigationGroups } from "../admin-navigation";
 
-type AdminSlideMenuProps = { section: string; onNavigate: (section: string) => void };
+type AdminSlideMenuProps = { section: string; onNavigate: (section: string, focus?: string) => void };
+
+const drawerFocusableSelector = 'a[href]:not([tabindex="-1"]):not([aria-disabled="true"]),button:not([tabindex="-1"]):not([disabled]),input:not([tabindex="-1"]):not([disabled]),select:not([tabindex="-1"]):not([disabled]),textarea:not([tabindex="-1"]):not([disabled]),[tabindex]:not([tabindex="-1"]):not([disabled]),[contenteditable="true"]';
 
 export function AdminSlideMenu({ section, onNavigate }: AdminSlideMenuProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(adminSecondaryNavigationGroups.map((group) => [group.id, true]))
+  );
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLElement | null>(null);
-  const activeLabel = section === "suiteTickets" ? "Support Tickets" : section === "deliveryMonitor" ? "Delivery & Lifecycle" : section === "smtpCenter" ? "Email & SMTP Settings" : section === "credit" ? "Credit Adjustment" : section === "debit" ? "Debit Adjustment" : section === "opportunity" ? "Offers" : section === "customers" ? "Customer Directory" : "Admin workspace";
-  const counters = [
-    { label: "Pending KYC", value: "Review queue", target: "verificationOversight", icon: ShieldCheck },
-    { label: "Open tickets", value: "Support queue", target: "suiteTickets", icon: TicketCheck },
-    { label: "Risk alerts", value: "Risk watchlist", target: "riskWatchlist", icon: ShieldAlert },
-  ];
-  const recent = [
-    { label: "Administrative audit log", target: "audit", icon: FileText },
-    { label: "Wallet & ledger", target: "transactionReview", icon: WalletCards },
-    { label: "Provider readiness", target: "apis", icon: Database },
-  ];
-  const matchesQuery = (item: { label: string; target: string; detail?: string; value?: string }) => {
-    const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) return true;
-    return [item.label, item.target, item.detail, item.value]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase()
-      .includes(normalizedQuery);
-  };
-  const filteredActions = quickActionItems.filter(matchesQuery);
-  const filteredCounters = counters.filter(matchesQuery);
-  const filteredRecent = recent.filter(matchesQuery);
-  const hasSearchResults = filteredActions.length + filteredCounters.length + filteredRecent.length > 0;
+  const activeLabel = adminSecondaryNavigationGroups.flatMap((group) => group.items).find((item) => item.target === section)?.label || "Admin workspace";
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleGroups = adminSecondaryNavigationGroups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) =>
+      !normalizedQuery || [group.label, group.detail, item.label, item.detail, item.target, ...(item.children || []).flatMap((child) => [child.label, child.detail])]
+        .join(" ").toLowerCase().includes(normalizedQuery)
+    ),
+  })).filter((group) => group.items.length > 0);
 
   useEffect(() => {
     if (!open) return;
@@ -42,13 +32,15 @@ export function AdminSlideMenu({ section, onNavigate }: AdminSlideMenuProps) {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); close(); return; }
       if (event.key !== "Tab") return;
-      const focusable = Array.from(menuRef.current?.querySelectorAll<HTMLElement>(
-        'a[href]:not([tabindex="-1"]):not([aria-disabled="true"]),button:not([tabindex="-1"]):not([disabled]),input:not([tabindex="-1"]):not([disabled]),select:not([tabindex="-1"]):not([disabled]),textarea:not([tabindex="-1"]):not([disabled]),[tabindex]:not([tabindex="-1"]):not([disabled]),[contenteditable="true"]'
-      ) || []);
+      const focusable = Array.from(menuRef.current?.querySelectorAll<HTMLElement>(drawerFocusableSelector) || [])
+        .filter((element) => !element.closest('[hidden], [aria-hidden="true"]'));
       if (!focusable.length) return;
       const first = focusable[0]; const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      if (event.shiftKey && (document.activeElement === first || !menuRef.current?.contains(document.activeElement))) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !menuRef.current?.contains(document.activeElement))) {
+        event.preventDefault(); first.focus();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     window.requestAnimationFrame(() => menuRef.current?.querySelector<HTMLElement>("input,button:not([tabindex=\"-1\"])")?.focus());
@@ -56,29 +48,46 @@ export function AdminSlideMenu({ section, onNavigate }: AdminSlideMenuProps) {
   }, [open]);
 
   const close = () => { setOpen(false); window.requestAnimationFrame(() => triggerRef.current?.focus()); };
-  const navigate = (target: string) => { onNavigate(target); close(); };
+  const navigate = (target: string, focus?: string) => { onNavigate(target, focus); close(); };
 
-  return <><div className={`admin-slide-layer arb-page${open ? " is-open" : ""}`}>
-    <button ref={triggerRef} className="admin-slide-trigger" type="button" aria-label={open ? "Close Quick Actions" : "Open Quick Actions"} aria-controls="admin-navigation-drawer" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setOpen(true)}>
-      <span className="admin-slide-trigger-icon"><Menu size={18} /></span><span className="admin-slide-trigger-copy">QUICK ACTIONS</span><span className="admin-slide-trigger-led" />
+  return <>{typeof document !== "undefined" && createPortal(
+      <>
+    <button ref={triggerRef} className="admin-slide-trigger admin-slide-portal-trigger" type="button" aria-label={open ? "Close Admin Menus" : "Open Admin Menus"} aria-controls="admin-navigation-drawer" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setOpen(true)}>
+      <span className="admin-slide-trigger-icon"><Menu size={18} /></span><span className="admin-slide-trigger-copy">ADMIN MENUS</span><span className="admin-slide-trigger-led" />
     </button>
-    </div>{typeof document !== "undefined" && createPortal(
-      <div className={`admin-slide-layer admin-slide-portal-layer arb-page${open ? " is-open" : ""}`}>
-    <button className="admin-slide-backdrop" type="button" aria-label="Close Quick Actions" tabIndex={open ? 0 : -1} onClick={close} />
-    <aside id="admin-navigation-drawer" ref={menuRef} className="admin-slide-drawer quick-actions-drawer" aria-label="Quick Actions" aria-hidden={!open} role="dialog" aria-modal={open}>
-      <div className="admin-slide-drawer-topline"><span><i /> COMMAND PANEL</span><span className="admin-slide-count">ROLE-AWARE</span></div>
-      <div className="admin-slide-heading"><div className="admin-slide-mark"><img src="/arbitrade-mark.svg" alt="" /></div><div className="admin-slide-title"><span>CANONICAL DESTINATIONS</span><h2>Quick Actions</h2></div><button className="admin-slide-close" type="button" onClick={close} aria-label="Close Quick Actions" tabIndex={open ? 0 : -1}><X size={17} /></button></div>
-      <div className="admin-slide-current"><span className="admin-slide-current-icon"><Activity size={15} /></span><span><small>YOU ARE IN</small><strong>{activeLabel}</strong></span><span className="admin-slide-current-dot" /></div>
-      <div className="quick-actions-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search actions and destinations" aria-label="Search actions and destinations" tabIndex={open ? 0 : -1} /></div>
-      <nav className="admin-slide-nav quick-actions-nav" aria-label="Quick Actions command panel">
-        <section className="admin-slide-group"><div className="admin-slide-group-title"><span>Quick-create</span><i /></div><div className="admin-slide-items">{filteredActions.map((item) => { const Icon = item.icon as LucideIcon; return <button key={item.label} type="button" className="admin-slide-item" tabIndex={open ? 0 : -1} onClick={() => navigate(item.target)}><span className="admin-slide-item-icon"><Icon size={17} /></span><span className="admin-slide-item-copy"><strong>{item.label}</strong><small>{item.detail}</small></span></button>; })}</div></section>
-        <section className="admin-slide-group"><div className="admin-slide-group-title"><span>Assigned work</span><i /></div><div className="quick-actions-counter-list">{filteredCounters.map((item) => { const Icon = item.icon; return <button key={item.label} type="button" className="quick-actions-counter" tabIndex={open ? 0 : -1} onClick={() => navigate(item.target)}><Icon size={15} /><span><strong>{item.label}</strong><small>{item.value}</small></span><span className="quick-actions-counter-arrow">→</span></button>; })}</div></section>
-        <section className="admin-slide-group"><div className="admin-slide-group-title"><span>Recent activity</span><i /></div><div className="quick-actions-recent-list">{filteredRecent.map((item) => { const Icon = item.icon; return <button key={item.label} type="button" className="quick-actions-recent" tabIndex={open ? 0 : -1} onClick={() => navigate(item.target)}><Icon size={14} /><span>{item.label}</span></button>; })}</div></section>
-        {!hasSearchResults && <p className="quick-actions-empty" role="status">No matching actions or destinations.</p>}
+      <div className={`admin-slide-layer admin-slide-portal-layer${open ? " is-open" : ""}`}>
+    <button className="admin-slide-backdrop" type="button" aria-label="Close Admin Menus" tabIndex={open ? 0 : -1} onClick={close} />
+    <aside id="admin-navigation-drawer" ref={menuRef} className="admin-slide-drawer quick-actions-drawer admin-secondary-drawer" aria-label="Additional admin navigation" aria-hidden={!open} inert={!open} role="dialog" aria-modal={open}>
+      <div className="admin-slide-drawer-topline"><span><i /> ADMINISTRATION</span><span className="admin-slide-count">MORE SECTIONS</span></div>
+      <div className="admin-slide-heading"><div className="admin-slide-mark"><img src="/arbitrade-mark.svg" alt="" /></div><div className="admin-slide-title"><span>SECONDARY NAVIGATION</span><h2>Admin Menus</h2></div><button className="admin-slide-close" type="button" onClick={close} aria-label="Close Admin Menus" tabIndex={open ? 0 : -1}><X size={17} /></button></div>
+      <div className="admin-slide-current"><span className="admin-slide-current-icon"><Activity size={15} /></span><span><small>CURRENT SECTION</small><strong>{activeLabel}</strong></span><span className="admin-slide-current-dot" /></div>
+      <div className="quick-actions-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search admin sections" aria-label="Search admin sections" tabIndex={open ? 0 : -1} /></div>
+      <nav className="admin-slide-nav quick-actions-nav admin-secondary-nav" aria-label="Additional admin sections">
+        {visibleGroups.map((group) => {
+          const expanded = normalizedQuery.length > 0 || Boolean(expandedGroups[group.id]);
+          return <section className={`admin-slide-group admin-secondary-group${expanded ? " is-open" : ""}`} key={group.id}>
+            <button type="button" className="admin-secondary-group-heading" aria-expanded={expanded} tabIndex={open ? 0 : -1} onClick={() => setExpandedGroups((current) => ({ ...current, [group.id]: !current[group.id] }))}>
+              <span>{group.label}</span><small>{group.detail}</small><b aria-hidden="true">{expanded ? "−" : "+"}</b>
+            </button>
+            {expanded && <div className="admin-slide-items">{group.items.map((item) => {
+              const Icon = item.icon as LucideIcon;
+              return <div className="admin-secondary-item-wrap" key={item.id}>
+                <button type="button" className={`admin-slide-item${section === item.target ? " is-active" : ""}`} tabIndex={open ? 0 : -1} aria-current={section === item.target ? "page" : undefined} onClick={() => navigate(item.target, item.focus)}>
+                  <span className="admin-slide-item-icon"><Icon size={16} /></span><span className="admin-slide-item-copy"><strong>{item.label}</strong><small>{item.detail}</small></span>
+                </button>
+                {item.children?.length ? <div className="admin-secondary-submenu">{item.children.map((child) =>
+                  <button key={child.label} type="button" tabIndex={open ? 0 : -1} title={child.detail} onClick={() => navigate(item.target, item.focus)}>{child.label}</button>
+                )}</div> : null}
+              </div>;
+            })}</div>}
+          </section>;
+        })}
+        {!visibleGroups.length && <p className="quick-actions-empty" role="status">No matching admin sections.</p>}
       </nav>
-      <div className="admin-slide-footer"><div className="quick-actions-status"><span><span className="quick-actions-status-dot" /> System status</span><strong>Connected</strong><small>Database and portal runtime</small></div><button className="admin-slide-exit" type="button" tabIndex={open ? 0 : -1} onClick={() => window.location.reload()}><RefreshCw size={15} /> Refresh status</button><div className="admin-slide-footer-note">Counters and actions link to the canonical menu tree.</div></div>
+      <div className="admin-slide-footer"><div className="admin-slide-footer-note">Use these sections to manage verification, communications, platform settings, integrations and governance.</div></div>
     </aside>
-      </div>,
+      </div>
+      </>,
       document.body
     )}</>;
 }
