@@ -236,7 +236,10 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("minimumPayoutRateBps:200,maximumPayoutRateBps:300");
     expect(databaseSource).toContain("minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900");
     expect(databaseSource).toContain("automaticTradingEnabled:false");
-    expect(databaseSource).toContain("New Trading tiers must be created disabled.");
+    expect(databaseSource).not.toContain("New Trading tiers must be created disabled.");
+    expect(databaseSource).toContain("companyRotationEnabled:true");
+    expect(databaseSource).toContain("burstEnabled:true,maxBurstSize:3");
+    expect(databaseSource).toContain("expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1");
     expect(databaseSource).toContain("Save and enable a valid pop-up delivery policy with payout-rate and duration bounds before enabling this Trading tier.");
     expect(databaseSource).toContain("Automatic financial execution is a separate control");
     expect(routerSource).toContain("enabled: z.boolean().optional(),");
@@ -262,7 +265,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(customerAppSource).toContain('startsAt:"",expiresAt:"",reason:"",enabled:false}');
     expect(customerAppSource).toContain('maxPopupsPerDay:0,maxActiveInvestments:0');
     expect(customerAppSource).toContain("no package threshold or quota is preselected");
-    expect(customerAppSource).toContain("New tiers start disabled.");
+    expect(customerAppSource).toContain("New tiers are enabled when created.");
     expect(databaseSource).toContain("const DEFAULT_NEW_TIER_POLICY = {");
   });
 
