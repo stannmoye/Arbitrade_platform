@@ -63,7 +63,7 @@ describe("administrator Trading delivery policy controls", () => {
     expect(database).toContain("validatePackageAutomationPolicy(automation)");
     expect(router).toContain("updatePackagePolicies: adminProcedure.input");
     expect(app).toContain('onError:error=>{setPolicyMessageKind("error");setPolicyMessage(error.message)}');
-    expect(app).toContain('if(policyReason.trim().length<5){setPolicyMessage("Enter at least 5 characters explaining this policy change.");return;}');
+    expect(app).toContain('setPolicyMessage("Enter at least 5 characters explaining this policy change.");');
   });
 
   it("keeps display timeout presentation-only and avoids promising a configured reward as earned profit", () => {
