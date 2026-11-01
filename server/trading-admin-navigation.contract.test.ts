@@ -310,9 +310,10 @@ describe("Trading overview and duration navigation", () => {
     expect(navigation).toContain('label: "Per-tier Delivery Schedule"');
     expect(navigation).toContain('label: "Per-tier Pop-up Display"');
     expect(adminApp).toContain('<AdminSettings focus="tradeDuration"/>');
-    expect(adminApp).toContain("Manage global settlement, wallet-credit and pop-up timing defaults.");
+    expect(adminApp).toContain('section==="tradeDurationRules"&&<Suspense');
+    expect(operationsUi).toContain("Manage global settlement, wallet-credit and pop-up timing defaults.");
     expect(adminApp).toContain("Scheduled time is not proof of execution or settlement.");
-    expect(adminApp).toContain("settlementDelaySeconds");
+    expect(operationsUi).toContain("settlementDelaySeconds");
 
     const settingsStart = operationsUi.indexOf("export function AdminSettings({focus}");
     const settingsEnd = operationsUi.indexOf("export function AdminOpportunityDelivery()", settingsStart);
