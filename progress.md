@@ -1,3 +1,16 @@
+## 2026-11-01 — Persistent administrator Trading control panel
+
+- Working branch: `feat/admin-global-trading-control-panel`; based on canonical `main` at `e5800f221f08a28e56c46e33427da49f3a52d781`. The implementation/test head immediately before this progress update was `d6c61b882ba36c549cdf641e087c9607c8ad1089`.
+- Added a persistent, responsive Trading control panel immediately above the selected page content in `AdminPortal`. It remains visible while navigating between admin pages and reads the persisted package-policy registry.
+- Exposed per-package controls for tier policy enablement, pop-up delivery, company rotation, randomized timing and burst delivery. Changes use the existing admin-only partial-update mutation, include an audit reason and refetch the saved rows. Added a global pause action that turns off new delivery and automatic-execution policy flags without deleting pending work or bypassing settlement/reconciliation.
+- Added automatic-execution and prior-settlement status to the visible panel. The administrator UI no longer offers a path to enable unattended automatic financial execution; an existing enabled value can only be disabled. The prior-settlement guard can only be enabled, not disabled. Settlement-delay edits are clamped/validated to a 900-second (15-minute) minimum in the UI.
+- Added a dedicated contract test for persistent rendering, policy switches, audited update wiring, execution/settlement safeguards, responsive styles and documentation. Updated the canonical Trading specification and admin configuration manual.
+- The companion PDF `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.pdf` is not present at that path (GitHub returned 404); the Markdown manual and canonical specification were updated, but no PDF update is claimed.
+- Validation status: contract test added but not yet run; full `pnpm check`, `pnpm test`, and `pnpm build` plus exact-head GitHub Actions remain pending. No migration, production database update, production deployment, merge, or main-branch change was performed.
+- Safety/acceptance boundary: this increment exposes safe package controls and pause actions but does not activate automatic financial execution, wallet allocation, or one-minute settlement. Existing active/pending records continue through their established review and reconciliation lifecycle.
+
+---
+
 ## 2026-11-01 — Customer company rotation identity and pop-up delivery gate
 
 - Preserved the administrator company controls: Verified, Unverified, Enabled, Disabled, Archived and Restore. The live rotation pool continues to require current administrator verification and enabled status, while excluding Disabled and Archived IDs; country filters, saved per-customer/package rotation state and repeat rules remain server-controlled.
