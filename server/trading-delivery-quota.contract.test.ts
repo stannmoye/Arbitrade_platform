@@ -17,6 +17,17 @@ describe("runtime Trading delivery quota semantics", () => {
     expect(app).toContain("delivery?.enabled&&policy");
   });
 
+
+  it("persists popup rows before consuming daily quota and repairs interrupted writes", () => {
+    const popupPersistence = delivery.indexOf("const lifecycleIds=await ensurePopupDeliveries");
+    const quotaLedgerWrite = delivery.indexOf("await db.insert(opportunityDeliveryEvents).values(newlyEligible");
+    expect(popupPersistence).toBeGreaterThanOrEqual(0);
+    expect(quotaLedgerWrite).toBeGreaterThan(popupPersistence);
+    expect(delivery).toContain("Popup persistence did not return delivery IDs for every eligible opportunity");
+    expect(delivery).toContain("popupRowsMissingLedger");
+    expect(delivery).toContain("POPUP_EVENT_MISSING");
+  });
+
   it("uses the configured true rolling-24-hour or UTC calendar-day window for delivery and allocation counts", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
