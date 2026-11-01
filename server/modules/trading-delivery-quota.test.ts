@@ -5,6 +5,7 @@ import {
   countConsumedDeliveryOffers,
   resolveTradingQuotaWindow,
   resolveTradingDeliverySchedule,
+  resolveTradingBurstLimit,
 } from "./trading-delivery-quota";
 
 describe("Trading quota windows", () => {
@@ -121,5 +122,18 @@ describe("Durable Trading delivery cadence", () => {
   it("rejects malformed interval bounds and event identities", () => {
     expect(() => resolveTradingDeliverySchedule({ ...base, maxIntervalSeconds: 299 })).toThrow(RangeError);
     expect(() => resolveTradingDeliverySchedule({ ...base, deliveryEventId: 0 })).toThrow(RangeError);
+  });
+});
+
+
+describe("Trading burst delivery limits", () => {
+  it("delivers one popup per cycle when burst delivery is disabled", () => {
+    expect(resolveTradingBurstLimit({ burstEnabled: false, maxBurstSize: 3 })).toBe(1);
+  });
+
+  it("honours the configured burst size with a hard safety cap", () => {
+    expect(resolveTradingBurstLimit({ burstEnabled: true, maxBurstSize: 3 })).toBe(3);
+    expect(resolveTradingBurstLimit({ burstEnabled: true, maxBurstSize: 100 })).toBe(10);
+    expect(resolveTradingBurstLimit({ burstEnabled: true, maxBurstSize: 0 })).toBe(1);
   });
 });

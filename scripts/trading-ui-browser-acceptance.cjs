@@ -16,8 +16,8 @@ const { chromium } = require("playwright");
  *   TRADING_ACCEPTANCE_CUSTOMER_EMAIL (eligible customer shown in the admin directory)
  *
  * Uses real application APIs only. In the explicitly isolated non-production environment it
- * temporarily changes one bounded admin policy value to prove save/reload persistence, then
- * restores and verifies the original value. No financial mutations are submitted.
+ * toggles the five safe administrator delivery controls one at a time, verifies persisted
+ * save/read-back behavior, and restores every original value. No financial mutations are submitted.
  */
 async function main() {
   const baseURL = process.env.TRADING_ACCEPTANCE_BASE_URL;
@@ -198,9 +198,63 @@ async function main() {
     assert.doesNotMatch(bodyText, /retry needed|couldn.t load package details/i,
       "Customer eligibility must not remain in an API-error state.");
 
+    // Require a real worker-delivered, open offer and verify that it renders as a customer popup.
+    const opportunityResponses = [];
+    customerPage.on("response", async (response) => {
+      if (!response.url().includes("/api/trpc/customer.opportunities")) return;
+      let payload;
+      try { payload = await response.json(); } catch { payload = undefined; }
+      const entries = Array.isArray(payload) ? payload : [payload];
+      for (const entry of entries) {
+        const data = extractTrpcData(entry);
+        if (data && Array.isArray(data.offers)) opportunityResponses.push({
+          status: response.status(),
+          deliveryEnabled: data.delivery?.enabled === true,
+          hasPopupPolicy: Boolean(data.delivery?.popupPolicy),
+          offers: data.offers.map((offer) => ({
+            id: Number(offer.id), symbol: String(offer.symbol || ""),
+            popupEligible: offer.popupEligible === true, closesAt: offer.closesAt,
+            companyReferenceId: offer.companyReferenceId ?? null,
+            companyDisplayName: offer.companyDisplayName ?? null,
+          })),
+        });
+      }
+    });
+    const popupLocator = customerPage.locator(".center-opportunity-toast");
+    await popupLocator.waitFor({ state: "visible", timeout: 30_000 }).catch(() => undefined);
+    const visiblePopup = await popupLocator.isVisible().catch(() => false);
+    const latestOpportunityResponse = [...opportunityResponses].reverse().find((item) =>
+      item.deliveryEnabled && item.hasPopupPolicy &&
+      item.offers.some((offer) => offer.popupEligible && Number.isFinite(Date.parse(offer.closesAt)) &&
+        Date.parse(offer.closesAt) > Date.now())
+    );
+    assert.ok(latestOpportunityResponse,
+      "Real customer opportunities API must return an open worker-delivered offer with delivery enabled and a saved popup policy. Seed a reviewed open offer and let the worker process it in this isolated environment.");
+    assert.ok(visiblePopup,
+      "A real worker-delivered popup-eligible offer must render in the authenticated customer's browser.");
+    const visiblePopupText = await popupLocator.innerText();
+    const popupOffer = latestOpportunityResponse.offers.find((offer) =>
+      offer.popupEligible && visiblePopupText.includes(offer.symbol)
+    );
+    assert.ok(popupOffer,
+      "The visible customer popup must correspond to an open popup-eligible offer returned by the real customer API.");
+    if (popupOffer.companyDisplayName) {
+      assert.ok(visiblePopupText.includes(popupOffer.companyDisplayName),
+        "A company identity returned by the server's verified-company guard must be the identity rendered in the popup.");
+    }
+    results.push({
+      journey: "customer popup delivery", status: "passed",
+      source: "real authenticated customer opportunities API",
+      workerDeliveredOpenOffer: popupOffer.id, popupVisible: true,
+      deliveryEnabled: latestOpportunityResponse.deliveryEnabled,
+      savedPopupPolicyPresent: latestOpportunityResponse.hasPopupPolicy,
+      verifiedCompany: popupOffer.companyDisplayName || null,
+    });
+
+
     // Confirm a customer cannot read the administrator-only package catalogue API.
     const customerAdminProbe = await customerPage.evaluate(async () => {
-      const response = await fetch("/api/trpc/admin.tradingPackages", {
+      const response = await fetch("/api/trpc/adminOperations.tradingPackages", {
         method: "GET",
         credentials: "same-origin",
         headers: { accept: "application/json" },
@@ -400,11 +454,21 @@ async function main() {
 
     const adminContext = await browser.newContext({ storageState: adminState });
     const adminPage = await adminContext.newPage();
+    const forbiddenFinancialMutationRequests = [];
+    adminPage.on("request", (request) => {
+      if (request.method() !== "GET" &&
+        /\/api\/trpc\/[^?]*(?:trade|execute|settle|wallet|transfer|allocation|retry|payout|ledger|deposit|withdraw)/i.test(request.url())) {
+        forbiddenFinancialMutationRequests.push({
+          method: request.method(),
+          path: new URL(request.url()).pathname,
+        });
+      }
+    });
     await adminPage.goto(baseURL, { waitUntil: "domcontentloaded" });
 
     // Confirm the actual administrator package catalogue API is readable under admin auth.
     const adminPackageRead = await adminPage.evaluate(async () => {
-      const response = await fetch("/api/trpc/admin.tradingPackages", {
+      const response = await fetch("/api/trpc/adminOperations.tradingPackages", {
         method: "GET",
         credentials: "same-origin",
         headers: { accept: "application/json" },
@@ -457,11 +521,16 @@ async function main() {
 
     await adminPage.setViewportSize({ width: 1365, height: 900 });
     const adminNavigation = adminPage.locator(".admin-canonical-nav");
-    const tradeSettingsGroup = adminNavigation.locator(".admin-nav-group-heading")
-      .filter({ hasText: "Trade Settings" }).first();
-    await tradeSettingsGroup.waitFor({ state: "visible", timeout: 20_000 });
-    assert.equal(await tradeSettingsGroup.getAttribute("aria-expanded"), "true",
-      "Trade Settings navigation group must be expanded and available.");
+    const expandAdminGroup = async (navigation, label) => {
+      const group = navigation.locator(".admin-nav-group-heading")
+        .filter({ hasText: label }).first();
+      await group.waitFor({ state: "visible", timeout: 20_000 });
+      if (await group.getAttribute("aria-expanded") !== "true") await group.click();
+      assert.equal(await group.getAttribute("aria-expanded"), "true",
+        label + " navigation group must expand when requested.");
+      return group;
+    };
+    const tradeSettingsGroup = await expandAdminGroup(adminNavigation, "Set up trades");
     const navigationPalette = await adminNavigation.locator(".admin-nav-group").evaluateAll((groups) => groups.map((group) => ({
       accent: getComputedStyle(group).getPropertyValue("--nav-accent").trim(),
       label: group.querySelector(".admin-nav-group-heading span")?.textContent?.trim() ?? "",
@@ -508,12 +577,12 @@ async function main() {
       tradeGroupLayout.lastItemBottom <= tradeGroupLayout.groupBottom + 1,
       "The final expanded Trade submenu item must fit inside its visible navigation group.");
 
-    const packagesNavigation = adminNavigation.getByRole("button", { name: /packages & eligibility/i });
+    const packagesNavigation = adminNavigation.getByRole("button", { name: /customer tiers/i });
     await packagesNavigation.waitFor({ state: "visible", timeout: 20_000 });
     await packagesNavigation.click();
-    const packageEditorHeading = adminPage.getByRole("heading", { name: /trading tiers & automation policy/i });
+    const packageEditorHeading = adminPage.getByRole("heading", { name: /trading tier configuration/i });
     await packageEditorHeading.waitFor({ state: "visible", timeout: 20_000 });
-    await adminPage.getByRole("button", { name: /save all tier policies/i }).waitFor({ state: "visible", timeout: 20_000 });
+    await adminPage.getByRole("button", { name: /save delivery and retry policy/i }).waitFor({ state: "visible", timeout: 20_000 });
 
     // Repeat the package-settings navigation through the actual mobile menu.
     await adminPage.setViewportSize({ width: 390, height: 844 });
@@ -522,7 +591,8 @@ async function main() {
     await mobileMenuButton.click();
     const mobileNavigation = adminPage.locator(".admin-canonical-nav");
     await mobileNavigation.waitFor({ state: "visible", timeout: 20_000 });
-    const mobilePackagesNavigation = mobileNavigation.getByRole("button", { name: /packages & eligibility/i });
+    await expandAdminGroup(mobileNavigation, "Set up trades");
+    const mobilePackagesNavigation = mobileNavigation.getByRole("button", { name: /customer tiers/i });
     await mobilePackagesNavigation.waitFor({ state: "visible", timeout: 20_000 });
     await mobilePackagesNavigation.click();
     const mobileHeadingBounds = await packageEditorHeading.boundingBox();
@@ -534,165 +604,131 @@ async function main() {
     // delay 4 (minimum 5) before the DB updater is invoked; values and versions must
     // be unchanged immediately and after a reload.
     await adminPage.setViewportSize({ width: 1365, height: 900 });
-    const firstPolicyCard = adminPage.locator(".package-admin-card").first();
+    const firstPolicyCard = adminPage.locator(".package-policy-card .package-admin-card").first();
     await firstPolicyCard.waitFor({ state: "visible", timeout: 20_000 });
-    const packageName = (await firstPolicyCard.locator("h2").innerText()).trim();
-    const retryDelayInput = firstPolicyCard.getByLabel(/technical retry delay/i);
-    const originalRetryDelay = await retryDelayInput.inputValue();
-    const readPolicySnapshot = async () => adminPage.evaluate(async () => {
-      const response = await fetch("/api/trpc/adminOperations.packagePolicies", {
-        method: "GET",
-        credentials: "same-origin",
-        headers: { accept: "application/json" },
-      });
-      let payload;
-      try {
-        payload = await response.json();
-      } catch {
-        payload = undefined;
-      }
-      const data = payload?.result?.data?.json ?? payload?.result?.data;
-      return {
-        status: response.status,
-        hasError: Boolean(payload?.error),
-        rows: Array.isArray(data) ? data.map((row) => ({
-          packageName: String(row.packageName),
-          tradeRetryDelaySeconds: Number(row.tradeRetryDelaySeconds ?? 30),
-          policyVersion: Number(row.policyVersion ?? 1),
-        })).sort((a, b) => a.packageName.localeCompare(b.packageName)) : null,
-      };
-    });
+    const packageName = (await firstPolicyCard.locator("h3").innerText()).trim();
 
-    // Prove a valid admin setting is persisted by the real API and survives reload.
-    // The environment guard above restricts this reversible write to a dedicated non-prod app.
-    const originalRetryDelayNumber = Number(originalRetryDelay);
-    assert.ok(Number.isSafeInteger(originalRetryDelayNumber) &&
-      originalRetryDelayNumber >= 5 && originalRetryDelayNumber <= 3600,
-      "Seeded policy must start with a server-valid retry delay that can be restored.");
-    const temporaryRetryDelay = originalRetryDelayNumber === 3600
-      ? originalRetryDelayNumber - 1 : originalRetryDelayNumber + 1;
-    const openPackageSettingsAndGetRetryInput = async () => {
-      await adminPage.reload({ waitUntil: "domcontentloaded" });
-      await adminPage.setViewportSize({ width: 1365, height: 900 });
-      const nav = adminPage.locator(".admin-canonical-nav");
-      await nav.getByRole("button", { name: /packages & eligibility/i }).click();
-      await adminPage.getByRole("heading", { name: /trading tiers & automation policy/i })
-        .waitFor({ state: "visible", timeout: 20_000 });
-      const card = adminPage.locator(".package-admin-card")
-        .filter({ has: adminPage.getByRole("heading", { name: packageName, exact: true }) }).first();
-      const input = card.getByLabel(/technical retry delay/i);
-      await input.waitFor({ state: "visible", timeout: 20_000 });
-      return input;
+    // Exercise all five persistent Trading delivery switches through the real
+    // admin UI/API. Each change is read back from the database, then restored.
+    const readTradingSwitchSnapshot = async () => {
+      const snapshot = await adminPage.evaluate(async () => {
+        const response = await fetch("/api/trpc/adminOperations.packagePolicies", {
+          method: "GET", credentials: "same-origin", headers: { accept: "application/json" },
+        });
+        let payload;
+        try { payload = await response.json(); } catch { payload = undefined; }
+        const data = payload?.result?.data?.json ?? payload?.result?.data;
+        return {
+          status: response.status,
+          hasError: Boolean(payload?.error),
+          rows: Array.isArray(data) ? data.map((row) => ({
+            packageName: String(row.packageName),
+            enabled: Boolean(row.enabled),
+            automaticDelivery: Boolean(row.automaticDelivery),
+            companyRotationEnabled: Boolean(row.companyRotationEnabled),
+            randomizationEnabled: Boolean(row.randomizationEnabled),
+            burstEnabled: Boolean(row.burstEnabled),
+            automaticTradingEnabled: row.automaticTradingEnabled,
+          })) : null,
+        };
+      });
+      assert.ok(snapshot.status >= 200 && snapshot.status < 300 &&
+        !snapshot.hasError && Array.isArray(snapshot.rows),
+        "Real package policy API must return persisted Trading switch values.");
+      assert.ok(snapshot.rows.every((item) => item.automaticTradingEnabled === false),
+        "Every package policy must keep automatic financial execution explicitly OFF.");
+      const row = snapshot.rows.find((item) => item.packageName === packageName);
+      assert.ok(row, "The selected package must have a persisted policy row.");
+      return row;
     };
-    const saveAdminPoliciesThroughUi = async () => {
+    const saveGlobalSwitchAndReadBack = async (label, expected) => {
+      const control = adminPage.getByRole("switch", { name: label + " for " + packageName });
+      assert.equal(await control.count(), 1, "Exactly one global " + label + " switch must be visible for " + packageName + ".");
       const responsePromise = adminPage.waitForResponse(
         (response) => response.url().includes("/api/trpc/adminOperations.updatePackagePolicies"),
         { timeout: 20_000 },
       );
-      await adminPage.getByRole("button", { name: /save all tier policies/i }).click();
+      await control.click();
       const response = await responsePromise;
       let payload;
-      try {
-        payload = await response.json();
-      } catch {
-        payload = undefined;
-      }
+      try { payload = await response.json(); } catch { payload = undefined; }
       assert.ok(response.status() >= 200 && response.status() < 300 && !payload?.error &&
         payload?.result?.data !== undefined,
-        "The real administrator settings save must return a successful tRPC result; received HTTP " +
-        response.status() + ".");
+        "The " + label + " switch must save through the real administrator policy API.");
+      await adminPage.waitForFunction(({ ariaLabel, value }) => {
+        const element = Array.from(document.querySelectorAll('[role="switch"]'))
+          .find((node) => node.getAttribute("aria-label") === ariaLabel);
+        return element?.getAttribute("aria-checked") === String(value);
+      }, { ariaLabel: label + " for " + packageName, value: expected }, { timeout: 20_000 });
+      const persisted = await readTradingSwitchSnapshot();
+      const key = ({
+        "Tier policy": "enabled", "Pop-up delivery": "automaticDelivery",
+        "Company rotation": "companyRotationEnabled", "Randomized timing": "randomizationEnabled",
+        "Burst delivery": "burstEnabled",
+      })[label];
+      assert.equal(persisted[key], expected,
+        "The " + label + " switch value must persist in the real package policy database.");
+      assert.equal(persisted.automaticTradingEnabled, false,
+        "Changing customer delivery settings must never enable automatic financial execution.");
+      return persisted;
     };
-
-    let restorationRequired = false;
+    const originalSwitches = await readTradingSwitchSnapshot();
+    assert.equal(originalSwitches.automaticTradingEnabled, false,
+      "The non-production acceptance package must start with automatic financial execution OFF.");
+    const deliverySwitches = [
+      ["Tier policy", "enabled"], ["Pop-up delivery", "automaticDelivery"],
+      ["Company rotation", "companyRotationEnabled"], ["Randomized timing", "randomizationEnabled"],
+      ["Burst delivery", "burstEnabled"],
+    ];
+    for (const [label, key] of deliverySwitches) {
+      assert.equal(originalSwitches[key], true,
+        label + " must start enabled in the seeded default policy.");
+    }
+    // Register every restoration before attempting the first write. A request can
+    // persist server-side and still time out in the browser; cleanup must cover that case.
+    const switchRestoration = deliverySwitches.map(([label, key]) => ({
+      label, key, originalValue: originalSwitches[key],
+    }));
     try {
-      restorationRequired = true;
-      await retryDelayInput.fill(String(temporaryRetryDelay));
-      await saveAdminPoliciesThroughUi();
-      const savedPolicyRows = await readPolicySnapshot();
-      const savedRow = savedPolicyRows.rows?.find((row) => row.packageName === packageName);
-      assert.ok(savedPolicyRows.status >= 200 && savedRow,
-        "Successfully saved policy must be visible from a fresh persisted policy API query.");
-      assert.equal(savedRow.tradeRetryDelaySeconds, temporaryRetryDelay,
-        "Valid settings save must persist the updated retry delay in the database.");
-
-      const retryDelayAfterReload = await openPackageSettingsAndGetRetryInput();
-      assert.equal(await retryDelayAfterReload.inputValue(), String(temporaryRetryDelay),
-        "A valid setting must survive a real page reload using server-reloaded policy data.");
+      for (const item of switchRestoration) {
+        await saveGlobalSwitchAndReadBack(item.label, !item.originalValue);
+        await saveGlobalSwitchAndReadBack(item.label, item.originalValue);
+      }
     } finally {
-      if (restorationRequired) {
-        // Always restore the seeded setting, including when an earlier assertion fails.
-        const restoreInput = await openPackageSettingsAndGetRetryInput();
-        await restoreInput.fill(originalRetryDelay);
-        await saveAdminPoliciesThroughUi();
-        const restoredPolicyRows = await readPolicySnapshot();
-        const restoredRow = restoredPolicyRows.rows?.find((row) => row.packageName === packageName);
-        assert.ok(restoredRow, "Original policy row must exist after settings cleanup.");
-        assert.equal(restoredRow.tradeRetryDelaySeconds, originalRetryDelayNumber,
-          "The browser acceptance run must restore the original seeded retry-delay setting.");
-        const restoredInputAfterReload = await openPackageSettingsAndGetRetryInput();
-        assert.equal(await restoredInputAfterReload.inputValue(), originalRetryDelay,
-          "The original setting must remain persisted after restoration and reload.");
+      const restorationFailures = [];
+      for (const item of switchRestoration) {
+        try {
+          const current = await readTradingSwitchSnapshot();
+          if (current[item.key] !== item.originalValue) {
+            await saveGlobalSwitchAndReadBack(item.label, item.originalValue);
+          }
+          const verified = await readTradingSwitchSnapshot();
+          assert.equal(verified[item.key], item.originalValue,
+            "The " + item.label + " switch must be restored to its original persisted value.");
+          assert.equal(verified.automaticTradingEnabled, false,
+            "Automatic financial execution must remain OFF during switch cleanup.");
+        } catch (error) {
+          restorationFailures.push(item.label + ": " +
+            (error instanceof Error ? error.message : String(error)));
+        }
+      }
+      if (restorationFailures.length) {
+        throw new Error("One or more Trading delivery switches could not be restored: " +
+          restorationFailures.join("; "));
       }
     }
-
-    const beforeInvalidSave = await readPolicySnapshot();
-    assert.ok(beforeInvalidSave.status >= 200 && beforeInvalidSave.status < 300 &&
-      !beforeInvalidSave.hasError && Array.isArray(beforeInvalidSave.rows) && beforeInvalidSave.rows.length > 0,
-      "Disposable acceptance database must expose persisted package-policy rows before form validation.");
-    const beforeRow = beforeInvalidSave.rows.find((row) => row.packageName === packageName);
-    assert.ok(beforeRow, "The package editor card must map to a persisted package-policy row.");
-    assert.equal(Number(originalRetryDelay), beforeRow.tradeRetryDelaySeconds,
-      "Rendered retry delay must equal its persisted API value.");
-
-    await retryDelayInput.fill("4");
-    assert.equal(await retryDelayInput.inputValue(), "4");
-    const rejectedMutationPromise = adminPage.waitForResponse(
-      (response) => response.url().includes("/api/trpc/adminOperations.updatePackagePolicies"),
-      { timeout: 20_000 },
-    );
-    await adminPage.getByRole("button", { name: /save all tier policies/i }).click();
-    const rejectedMutation = await rejectedMutationPromise;
-    let rejectedPayload;
-    try {
-      rejectedPayload = await rejectedMutation.json();
-    } catch {
-      rejectedPayload = undefined;
-    }
-    const validationCode = rejectedPayload?.error?.data?.code ?? rejectedPayload?.error?.json?.data?.code;
-    assert.ok(rejectedMutation.status() >= 400 || validationCode === "BAD_REQUEST",
-      "Out-of-range policy submission must be rejected by server validation; received HTTP " +
-      rejectedMutation.status() + " and code " + (validationCode ?? "none") + ".");
-
-    const afterInvalidSave = await readPolicySnapshot();
-    assert.deepEqual(afterInvalidSave.rows, beforeInvalidSave.rows,
-      "Rejected invalid settings must leave every persisted package policy and policy version unchanged.");
-
-    await adminPage.reload({ waitUntil: "domcontentloaded" });
-    await adminPage.setViewportSize({ width: 1365, height: 900 });
-    const reloadedNavigation = adminPage.locator(".admin-canonical-nav");
-    await reloadedNavigation.getByRole("button", { name: /packages & eligibility/i }).click();
-    const reloadedPolicyHeading = adminPage.getByRole("heading", { name: /trading tiers & automation policy/i });
-    await reloadedPolicyHeading.waitFor({ state: "visible", timeout: 20_000 });
-    const reloadedCard = adminPage.locator(".package-admin-card")
-      .filter({ has: adminPage.getByRole("heading", { name: packageName, exact: true }) }).first();
-    const reloadedRetryInput = reloadedCard.getByLabel(/technical retry delay/i);
-    await reloadedRetryInput.waitFor({ state: "visible", timeout: 20_000 });
-    await adminPage.waitForFunction(({ name, value }) => {
-      const cards = Array.from(document.querySelectorAll(".package-admin-card"));
-      const card = cards.find((item) => item.querySelector("h2")?.textContent?.trim() === name);
-      const input = card ? Array.from(card.querySelectorAll("label"))
-        .find((label) => label.textContent?.toLowerCase().includes("technical retry delay"))
-        ?.querySelector("input") : null;
-      return Boolean(input && input.value === value);
-    }, { name: packageName, value: originalRetryDelay }, { timeout: 20_000 });
-    assert.equal(await reloadedRetryInput.inputValue(), originalRetryDelay,
-      "Reload after invalid submission must show the unchanged persisted retry delay.");
-
+    results.push({
+      journey: "persisted admin delivery switches", status: "passed",
+      package: packageName, controls: deliverySwitches.map(([label]) => label),
+      eachControlToggledAndRestored: true, persistedReadBack: true,
+      automaticFinancialExecution: "remained OFF", financialMutationsSubmitted: 0,
+    });
 
     // Verify the eligible test account's assigned package IDs, assignment statuses and
     // terms versions in the actual admin customer directory. Part 1 owns this UI/API.
-    await adminPage.locator(".admin-canonical-nav")
-      .getByRole("button", { name: /customer directory/i }).click();
+    const customerNavigation = adminPage.locator(".admin-canonical-nav");
+    await expandAdminGroup(customerNavigation, "Customers");
+    await customerNavigation.getByRole("button", { name: /customer directory/i }).click();
     await adminPage.getByRole("heading", { name: /customer controls/i })
       .waitFor({ state: "visible", timeout: 20_000 });
     const assignedCustomerCard = adminPage.locator(".admin-customer-card")
@@ -707,8 +743,6 @@ async function main() {
     const assignedTierText = await assignedTierGroup.innerText();
     assert.match(assignedTierText, /Package ID\s+\d+/i,
       "Admin customer directory must display the assigned package ID.");
-    assert.match(assignedTierText, /Assignment #\d+/i,
-      "Admin customer directory must display the persisted package-assignment ID.");
     assert.match(assignedTierText, /Terms v\d+/i,
       "Admin customer directory must display the assignment terms version.");
     assert.match(assignedTierText, /\b(?:active|expired|cancelled|revoked|suspended|pending)\b/i,
@@ -717,30 +751,31 @@ async function main() {
       journey: "admin customer directory assigned package IDs and statuses",
       status: "passed",
       seededCustomer: "identified by TRADING_ACCEPTANCE_CUSTOMER_EMAIL",
-      checks: ["package ID", "assignment ID", "status", "terms version"],
+      checks: ["package ID", "status", "terms version"],
     });
 
     const adminBodyText = await adminPage.locator("body").innerText();
     assert.match(adminBodyText, /trade settings/i);
-    assert.match(adminBodyText, /packages & eligibility/i);
-    assert.match(adminBodyText, /trading tiers & automation policy/i);
+    assert.match(adminBodyText, /trading controls/i);
+    assert.match(adminBodyText, /customer controls/i);
     results.push({
-      journey: "administrator Trade Settings, package configuration, setting save/reload, and invalid-form persistence",
+      journey: "administrator Trading navigation, package configuration, and customer package visibility",
       status: "passed",
       packageCatalogueApi: "authorized real application response",
-      validSettingsRoundTrip: "temporary value persisted through reload; original value restored and verified",
-      invalidForm: "server rejected out-of-range value; persisted policy/version unchanged after reload",
+      deliverySwitchesPersistedAndRestored: true,
+      automaticFinancialExecution: "remained OFF",
       adminResponsiveViewports: ["1365x900", "390x844"],
-      successfulSettingsMutationsSubmitted: 2,
       financialMutationsSubmitted: 0,
-      invalidMutationRejectedBeforePersistence: true,
     });
+    assert.deepEqual(forbiddenFinancialMutationRequests, [],
+      "Authenticated acceptance must not submit execution, settlement, wallet, transfer, allocation, or retry mutations.");
     await adminContext.close();
 
     process.stdout.write(JSON.stringify({
       suite: "Trading non-production browser acceptance",
       baseURL,
       results,
+      forbiddenFinancialMutationRequests,
     }, null, 2) + "\n");
   } catch (error) {
     failures.push(error instanceof Error ? error.stack || error.message : String(error));

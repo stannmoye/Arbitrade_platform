@@ -63,3 +63,7 @@ jobs:
         run: pnpm exec tsx scripts/trading-opportunity-worker.integration.ts
         env:
           DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_opportunity_worker_test
+      - name: Verify qualified customer popup delivery without financial mutations
+        run: pnpm exec tsx scripts/trading-popup-delivery.integration.ts
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_opportunity_worker_test

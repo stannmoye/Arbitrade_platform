@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const executionOffMigrationSource = readFileSync(new URL("../drizzle/0098_disable_automatic_financial_execution.sql", import.meta.url), "utf8");
 
 describe("server-side automatic Trading tier eligibility", () => {
   it("blocks automatic opportunity delivery without a matching active auto-assigned tier", () => {
@@ -61,8 +62,41 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(defaults).toContain("minimumPayoutRateBps:200,maximumPayoutRateBps:300");
     expect(defaults).toContain("minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900");
     expect(defaults).toContain("enabled:true,automaticDelivery:true");
+    expect(defaults).toContain("companyRotationEnabled:true");
+    expect(defaults).toContain("randomizationEnabled:true");
+    expect(defaults).toContain("burstEnabled:true,maxBurstSize:3");
     expect(defaults).toContain("automaticTradingEnabled:false");
     expect(defaults).toContain("policyVersion:1");
+  });
+
+
+  it("keeps unattended financial execution disabled while preserving pop-up delivery", () => {
+    expect(source).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false;");
+    expect(source).toContain("AUTOMATIC_FINANCIAL_EXECUTION_ENABLED && options.workerCycle");
+    expect(source).toContain("effective.automaticTradingEnabled=false;");
+    expect(source).toContain("requested.some(policy=>policy.automaticTradingEnabled===true)");
+    expect(executionOffMigrationSource).toContain("SET `automaticTradingEnabled` = 0");
+    expect(executionOffMigrationSource).toContain("WHERE `automaticTradingEnabled` <> 0");
+  });
+
+  it("returns the package's persisted enabled state from package creation", () => {
+    const start = source.indexOf("export async function createAdminTradingPackage(");
+    const end = source.indexOf("\\nexport async function updateAdminTradingPackage(", start);
+    const implementation = source.slice(start, end);
+    expect(implementation).toContain("enabled:input.enabled,termsVersion:1");
+    expect(implementation).not.toContain("enabled:false,termsVersion:1");
+  });
+
+  it("keeps popup delivery running while a settlement gate blocks automatic execution", () => {
+    const start = source.indexOf("export async function runAutoTradeCycle(");
+    const end = source.indexOf("\\nexport async function createTrade(", start);
+    const implementation = source.slice(start, end);
+    expect(implementation).toContain("pausedUntilSettled=outstandingTrades>0");
+    expect(implementation).not.toContain("return {customers:0,allocations:0");
+    expect(implementation).toContain("allowAutomaticExecution:!pausedUntilSettled");
+    const deliveryStart = source.indexOf("export async function listCustomerOpportunities(");
+    const deliveryEnd = source.indexOf("export async function runAutoTradeCycle(", deliveryStart);
+    expect(source.slice(deliveryStart, deliveryEnd)).toContain("options.allowAutomaticExecution!==false");
   });
 
   it("rechecks auto-assigned tier eligibility inside the trade-allocation transaction", () => {

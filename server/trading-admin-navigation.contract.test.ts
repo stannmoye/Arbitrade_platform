@@ -64,7 +64,7 @@ describe("Trading tier creation defaults", () => {
     expect(editor).toContain('minimumQualifyingBalanceUsdMinor:"",durationMonths:"",opportunitiesPerDay:""');
     expect(editor).toContain('newTier.minimumQualifyingBalanceUsdMinor===""?"":');
     expect(editor).toContain('e.target.value===""?"":Number(e.target.value)');
-    expect(editor).toContain("no package threshold or quota is preselected");
+    expect(editor).toContain("New tiers are enabled when created.");
     expect(editor).not.toContain('minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6');
     const editFields = editor.slice(editor.indexOf("{visiblePackageRows.map"));
     expect(editFields).toContain('draft.minimumQualifyingBalanceUsdMinor===""?"":');
@@ -139,6 +139,7 @@ describe("Admin customer Trading tier visibility", () => {
     expect(end).toBeGreaterThan(start);
     const listing = serverDb.slice(start, end);
     expect(listing).toContain("assignedTierDetails");
+    expect(adminApp).toContain('role="group" aria-label="Automatic Trading tier assignments"');
     expect(listing).toContain("customerPackageSubscriptions.packageId");
     expect(listing).toContain("customerPackageSubscriptions.status");
     expect(listing).toContain('startsWith("auto-tier:")');
@@ -277,8 +278,8 @@ describe("Trading tier creation defaults", () => {
     expect(editor).toContain('minimumQualifyingBalanceUsdMinor:"",durationMonths:"",opportunitiesPerDay:""');
     expect(editor).toContain('newTier.minimumQualifyingBalanceUsdMinor===""?"":');
     expect(editor).toContain('e.target.value===""?"":Number(e.target.value)');
-    expect(editor).toContain("no package threshold or quota is preselected");
-    expect(editor).toContain("enabled:false})");
+    expect(editor).toContain("New tiers are enabled when created.");
+    expect(editor).toContain("enabled:true})");
     expect(editor).not.toContain('minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6');
     expect(editor).not.toContain('<label>Enabled <input type="checkbox" checked={Boolean(newTier.enabled)}');
   });

@@ -115,3 +115,17 @@ export function resolveTradingDeliverySchedule(input: {
   }
   return { intervalSeconds, readyAt };
 }
+
+
+/**
+ * Bound the number of eligible popups created in one worker cycle.
+ * Burst mode is deliberately capped so a policy cannot flood a customer session.
+ */
+export function resolveTradingBurstLimit(input: {
+  burstEnabled: boolean;
+  maxBurstSize: number;
+}) {
+  if (!input.burstEnabled) return 1;
+  if (!Number.isSafeInteger(input.maxBurstSize) || input.maxBurstSize < 1) return 1;
+  return Math.min(input.maxBurstSize, 10);
+}

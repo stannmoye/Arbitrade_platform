@@ -22,7 +22,7 @@ export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyM
   return <div className="settings-card package-policy-card">
   <div className="eyebrow">Administrator-managed Trading policy</div>
   <h2>{focus==="quotas"?"Daily delivery allowance":focus==="delivery"?"Offer delivery cadence":focus==="display"?"Customer display timing":focus==="retries"?"Retry and settlement controls":focus==="rotation"?"Company spotlight rotation":"Tier policy and automation"}</h2>
-  <p>Every row is loaded from saved administrator policy. Changes are validated and versioned by the server; active trade snapshots are not rewritten. Newly created tiers remain disabled until their delivery policy is configured and saved. USD capital limits in this legacy policy are expressed in whole USD units.</p>
+  <p>Every row is loaded from saved administrator policy. Changes are validated and versioned by the server; active trade snapshots are not rewritten. New tiers are enabled by default for eligible customer pop-up delivery. Package activation and delivery controls remain independently switchable by administrators; financial execution remains separately protected. USD capital limits in this legacy policy are expressed in whole USD units.</p>
   {policyMessage&&<div className="test-notice" role="status" aria-live="polite">{policyMessage}</div>}
   {policyRows.map((row,index)=><article className="package-admin-card" key={row.packageName} style={{marginBottom:16}}>
     <div className="package-admin-head"><div><span className="eyebrow">Tier policy</span><h3>{row.packageName}</h3></div><span className="admin-live-chip">Versioned</span></div>

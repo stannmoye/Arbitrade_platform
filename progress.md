@@ -1,3 +1,69 @@
+## 2026-11-01 — Authenticated Trading staging acceptance runner prepared
+
+- Added `.github/workflows/trading-authenticated-staging-acceptance.yml`, a manual-only GitHub Actions workflow using the protected `trading-staging` environment. It checks out the exact requested deployed SHA and runs the existing `scripts/trading-ui-browser-acceptance.cjs` against real, unmocked same-origin APIs.
+- The workflow requires five environment secrets: isolated staging base URL, eligible customer Playwright storage state JSON, unqualified customer storage state JSON, admin storage state JSON, and eligible customer email. Browser-state files are written with restrictive permissions to the ephemeral runner and removed after execution; only the report is uploaded.
+- Updated `docs/trading/AUTHENTICATED_BROWSER_ACCEPTANCE.md` with environment provisioning, required seeded fixtures, protected environment setup and dispatch instructions. No credentials or customer data were added to Git.
+- The 1,032 passing Chromium assertions on the previous CI head are static-preview/mock-auth evidence only. They are not authenticated staging acceptance.
+- Authenticated staging acceptance remains **not run**: the isolated deployment, exact deployed SHA, seeded browser storage states and protected environment secrets are not available in this session. Do not run against production. Do not merge PR #269 until the protected staging workflow passes and its report is reviewed.
+- No deployment, merge, production database operation, wallet mutation, financial execution or settlement was performed. Automatic financial execution remains OFF.
+- New workflow/documentation changes are committed to the existing PR branch; exact-head CI must validate this increment.
+
+---
+
+## 2026-11-01 — Pop-up delivery root-cause fixes and database acceptance
+
+- Investigated the complete customer pop-up path: qualifying tier assignment, package enablement, saved policy validation, open/published opportunity source, durable worker claim, quota accounting, popup lifecycle persistence, customer API response, and browser rendering.
+- Fixed a worker-wide settlement coupling bug: the global outstanding-trade gate previously returned before claiming any customers, preventing informational pop-ups across the entire customer base while any trade awaited settlement. The worker now continues customer popup delivery while suppressing the optional automatic-execution pass for that cycle.
+- Fixed quota/popup persistence ordering: the worker now persists the customer popup lifecycle before consuming a delivery quota entry, verifies every popup lifecycle ID, and repairs interrupted prior writes. Orphaned quota entries without a popup are marked failed and may be retried; persisted popup rows missing a quota ledger entry are reconciled using their `quotaDay`.
+- Fixed the package-creation response to return the persisted `input.enabled` value rather than falsely reporting a newly enabled package as disabled.
+- Fixed customer popup rendering's premature seen-state: previously an opportunity was marked seen before the browser had passed the delivery-enabled, current-offer and cross-tab-lock gates. A temporary switch pause or lock conflict could therefore suppress the popup for the rest of that browser session. The client now tracks in-flight rendering separately and marks an offer seen only after the popup is committed to the UI.
+- Improved admin manual opportunity publishing feedback: success is reported only after the server confirms persistence; errors are visible; CSV validation is bounded to supported row/field limits and now reports pending, success, file-read and server failures accurately.
+- Added `scripts/trading-popup-delivery.integration.ts` and wired it into the MySQL 8.4 / MariaDB 11.4 worker integration. It creates a disposable active eligible tier and reviewed open offer, runs the actual customer delivery path with automatic financial execution explicitly disabled, verifies one durable popup row and one quota row, confirms normal customer reads return the popup, repeats the worker cycle to prove idempotency, and verifies wallet balances, ledger entries and trade rows remain unchanged.
+- Added `server/trading-customer-popup-rendering.contract.test.ts` to protect the client display gate and retry semantics.
+- Exact-head source CI at `5424f07348030b3bd5881ad233be7c818893ef8a`: TypeScript, automated application tests, production build, application verification, MySQL/MariaDB popup delivery + worker concurrency/recovery, tier qualification, company rotation, settlement reconciliation and wallet-credit idempotency passed. The generic static customer-browser recovery job was still running when this record was prepared.
+- The new client popup-rendering contract test was added after that successful CI head; exact-head checks for current branch commit `de300b0153d4a75e936d53ada77cbf2f18252006` are pending. Authenticated live-browser acceptance is still deferred because an isolated non-production deployment and its three seeded authenticated browser storage states are unavailable. The generic preview browser checks and DB integration are not a substitute for authenticated end-to-end customer verification.
+- Existing policy OFF choices remain preserved. Automatic financial execution stays OFF for new package policies and was not enabled by these changes. No production database, deployment, customer wallet, financial transaction or settlement was touched.
+
+---
+
+## 2026-11-01 — Authenticated popup and administrator switch acceptance expanded
+
+- Extended `scripts/trading-ui-browser-acceptance.cjs`, the existing real-browser runner that uses actual authenticated browser storage states and unmocked same-origin tRPC APIs.
+- Added an acceptance requirement for a real customer opportunities API response containing an open, worker-delivered, popup-eligible offer with delivery enabled and a saved popup policy, followed by verification that the corresponding customer popup is visibly rendered. The test also checks that any company identity displayed matches the server-filtered company identity returned by the customer API.
+- Added real API/database read-back coverage for all five persistent admin delivery switches: tier policy, pop-up delivery, company rotation, randomized timing and burst delivery. Each switch is toggled and restored through the admin UI; the runner asserts automatic financial execution remains OFF.
+- Added cleanup/restoration behavior for temporary switch changes and updated `docs/trading/AUTHENTICATED_BROWSER_ACCEPTANCE.md` with fixture requirements and limitations.
+- The existing 1,022-check generic browser job uses mocked auth/tRPC for interaction coverage and static Vite preview for layout. It is not the authenticated runner and is not evidence of real API/database persistence.
+- The authenticated runner has **not** been executed in this connector session. It requires an isolated disposable non-production deployment, a seeded eligible customer with a worker-delivered reviewed open opportunity, a separate unqualified customer, and an admin Playwright storage state. No such host or storage states are available here. Do not substitute production credentials or run the script against production.
+- No wallet mutation, allocation, automatic financial execution, settlement, production database, deployment or merge was performed. Exact-head GitHub CI must validate the runner changes; authenticated non-production acceptance remains pending environment provisioning.
+
+---
+
+## 2026-11-01 — Empty opportunity registry warning and browser navigation regression
+
+- Added an explicit status warning to the Admin Opportunity Engine when the published/open offer registry is empty. It explains that customer pop-ups require reviewed, source-backed published opportunities or validated CSV import, and that market refresh does not create offers.
+- Added a contract assertion for the empty-registry warning and the no-synthetic-opportunity guard.
+- CI on source commit `ea582cd2c1b68df989cbd0d8eeb67cecf9efa103`: TypeScript, automated tests, production build, installer/migration checks, settlement, tier qualification, company rotation, wallet idempotency and opportunity-worker concurrency passed.
+- Browser acceptance on that commit reached 1,020/1,021 checks. The only failure was a stale test assumption: it tried to click **Wallet & Ledger** while the **Finance** navigation group was intentionally collapsed. The application navigation itself was behaving as designed. Updated the browser script to expand Finance before selecting Wallet & Ledger.
+- The empty-registry UI warning, its new contract assertion, and the browser-script navigation correction were committed after the successful source CI run. GitHub Actions has not yet revalidated those latest commits; re-run CI before considering this increment merge-ready.
+- No production deployment, production database changes, wallet operations, or customer transactions were performed.
+
+---
+
+## 2026-11-01 — Enabled-by-default Trading tier and customer pop-up delivery defaults
+
+- Working branch: `fix/trading-popup-defaults-and-package-activation`; pull request #269 targets `main`.
+- New administrator-created Trading packages are enabled by default. Creation persists the submitted enabled state and no longer rejects enabled=true. The admin form defaults the new-tier state to enabled; threshold, duration and daily quota remain explicit required inputs. Customers still cannot browse or activate packages.
+- New tier policy defaults: policy enabled, pop-up delivery enabled, verified-company rotation enabled, randomized timing enabled, bounded burst delivery enabled (default max three pop-ups per customer worker cycle), and automatic financial execution OFF. Existing saved OFF/pause choices are not overwritten. Administrators retain persistent per-policy controls.
+- Implemented a bounded burst limit in the customer opportunity delivery loop, with a hard maximum of ten per worker cycle. Added unit coverage for disabled, normal and over-limit burst settings.
+- Updated the canonical Trading specification, admin configuration manual, customer-facing admin guide, and contract assertions to reflect the new enabled-by-default policy.
+- Verified the actual pop-up gate: active automatically assigned tier, enabled package, valid enabled policy, automatic delivery, positive remaining quota, open/published opportunity, delivery worker, and customer alert eligibility. The customer response requires `delivery.enabled`, popup policy and eligible/unexpired offers.
+- **Opportunity source remains deliberately manual:** market refresh stores reference instruments/FX and expires stale offers; it returns `generationDisabled: true` and creates zero offers. Administrators must publish reviewed, source-backed opportunities or import validated CSV. Do not synthesize reward rates, venues, prices, quotes or financial results.
+- Financial execution remains separate and OFF by default. No wallet allocation, unattended trade execution, or settlement behaviour was changed.
+- Exact-head CI for `ea582cd2c1b68df989cbd0d8eeb67cecf9efa103`: company-rotation integration, administrator wallet idempotency integration, mining regression checks and tier-qualification integration passed; application/build, worker, installer, settlement and recovery workflows were still running at the time of this update. No merge, deployment, production database change or customer transaction was performed.
+- Remaining acceptance: complete exact-head CI, then perform authenticated browser verification of package creation, policy switch persistence, admin publishing, customer pop-up rendering and menu navigation. The Markdown manual and HTML guide were updated; the companion PDF is absent and has not been updated.
+
+---
+
 ## 2026-11-01 — Admin Home menus collapsed on entry
 
 - Follow-up to `ff52d43ea10486938860b7d64dda88cc6cea560c`: the global Trading panel had been hidden from Home, but the primary navigation still defaulted to expanded groups and could preserve an expanded Trade Settings group after returning Home.
@@ -780,3 +846,51 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 - Added regression contracts verifying the mobile scroll rule's cascade order and required overflow/touch behaviour, and that the rule is scoped to the mobile breakpoint.
 - Work branch: `fix/admin-mobile-navigation-scroll`. No navigation destinations, access permissions, customer UI, Trading logic, APIs, database schema or migrations were changed.
 - Validation: source-level regression test added; full `pnpm check`, `pnpm test`, `pnpm build`, and narrow-screen browser interaction checks must pass on the final PR head before merge. No local Node/pnpm/browser runtime or hosted deployment was available in this connector session; no test pass is claimed here. No production deployment or database operation was performed.
+
+
+## 2026-11-01 — Hardened authenticated Trading acceptance runner
+
+- Corrected staging workflow verification to compare the requested candidate SHA with the actual checked-out commit, rather than comparing it with the dispatch event's `GITHUB_SHA`; staging base URLs must use HTTPS and cannot embed credentials.
+- Hardened delivery-switch cleanup: original values are registered for restoration before the first mutation, all five controls are independently restored even if one cleanup attempt fails, every persisted value is read back, and automatic financial execution is rechecked as OFF. Removed the trade-retry-delay mutation from this browser acceptance harness; it now verifies pop-up administration only and asserts that no trade execution/retry, settlement, wallet, allocation or transfer mutation was submitted.
+- Confirmed GitHub requires a `workflow_dispatch` file to exist on the default branch before manual dispatch. PR #269 therefore needs a separate workflow-only registration change on `main` before its isolated staging harness can be launched without merging the application candidate.
+- These code changes are committed to the existing PR branch. The new exact-head CI run and authenticated staging run remain pending; no staging URL, seeded test accounts, or protected environment secrets were available during this session.
+
+## 2026-11-01 — Default-on delivery assertions added to staging acceptance
+
+- The candidate branch's `DEFAULT_NEW_TIER_POLICY` has `enabled:true`, `automaticDelivery:true`, `companyRotationEnabled:true`, `randomizationEnabled:true`, and `burstEnabled:true`, with `automaticTradingEnabled:false`; the tier qualification source contract asserts the critical defaults.
+- Extended the authenticated staging harness to verify all five delivery switches start enabled on the seeded default package and that **every** package policy returned by the real API has automatic financial execution explicitly false. The test now preserves the raw execution flag so a missing value cannot be silently interpreted as false.
+- Broadened the non-GET Trading financial mutation detector to include trade, execution, settlement, wallet, transfer, allocation, retry, payout, ledger, deposit and withdrawal API paths.
+- The staging fixture instructions now explicitly require all five safe delivery controls to start enabled. Exact-head CI must pass again on the latest commit; authenticated staging still requires the isolated deployment and protected environment secrets.
+
+
+## 2026-11-01 — Legacy policy safety reviewed
+
+- Confirmed the candidate's default object applies to newly created tiers; pre-existing policy rows are not silently rewritten. The older 0089_trading_popup_policy_ranges.sql migration intentionally disables policy rows with missing or invalid published rate/duration bounds.
+- Preserving that fail-closed behavior is necessary: blindly changing all existing rows to enabled could override an intentional administrator pause or enable an incomplete, unreviewed policy.
+- Expanded the package-eligibility contract test to assert all five new-tier delivery defaults explicitly: tier enabled, automatic delivery, company rotation, randomized timing and burst delivery. Automatic financial execution remains explicitly OFF.
+- Expanded the staging guide: use a new post-deployment test tier to verify automatic defaults; legacy tiers must first be reviewed and saved by an authorized administrator. Do not force-enable incomplete legacy policies.
+- CI must be green on the latest test/documentation commit before code validation is marked complete. Authenticated staging still requires the protected trading-staging environment and isolated test deployment.
+
+
+## 2026-11-01 — Global unattended-execution lock enforced
+
+- Found that the legacy worker could still call automatic trade creation if any existing package policy retained automaticTradingEnabled=true, even though new-tier defaults were false.
+- Added a server-side constant hard gate so the opportunity worker continues customer popup delivery but never invokes its automatic trade-creation helper.
+- Package-policy writes now reject an explicit attempt to set automaticTradingEnabled=true and force the persisted field to false on safe policy updates.
+- Added migration 0098_disable_automatic_financial_execution.sql and registered it in the Drizzle journal; it idempotently sets automaticTradingEnabled=0 for every existing package policy without changing delivery flags, quotas, wallets, trades or ledger rows.
+- Added a contract test for the global worker guard, write rejection, forced-off persistence and migration behavior. Latest CI must validate the new migration and code before this is considered complete.
+
+
+## 2026-11-01 — Global execution lock integration test strengthened
+
+- The real MySQL/MariaDB popup-delivery integration now checks the migrated baseline package policies all have automaticTradingEnabled=false.
+- It then deliberately changes only its disposable test package policy back to automaticTradingEnabled=true to simulate a stale/unsafe legacy value, runs the actual delivery worker cycle without passing allowAutomaticExecution=false, and asserts the server-side global lock still delivers the popup without creating trades or changing wallet/ledger state.
+- This proves the execution lock is enforced by the server rather than by a test-only caller flag. The test runs only against CI's disposable database and cleans up its records in a finally block.
+- Latest CI for this test commit is running; do not treat the global execution-lock change as validated until the complete latest run passes.
+
+
+## 2026-11-01 — Worker contract regression corrected
+
+- The first CI run after the global financial-execution lock correctly exposed two stale source-contract assertions that expected the old optional caller flag to gate automatic trade creation.
+- Updated those assertions to require the immutable server-side false constant and the exact guarded worker condition. The existing contract still verifies the scheduled cycle calls customer delivery and that customer API reads cannot trigger worker processing.
+- A new full exact-head CI cycle was triggered for commit 1308900000e5c96dff438b65f69fe81a83348049; results are being rechecked.

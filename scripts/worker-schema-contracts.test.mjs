@@ -40,7 +40,7 @@ describe("worker schema contracts", () => {
 
   it("creates and validates the durable Trading tier queue in the runtime schema bridge", async () => {
     const root = new URL("../", import.meta.url);
-    const [runtimeSchema, mainMigrationRunner, migration, opportunityWorkerMigration, healthMigration, deliveryDiagnosticsMigration, mainPopupPolicySnapshotMigration, executionLeaseMigration, packagePolicySchemaMigration, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration, walletFundingPlanMigration, walletAdjustmentIdempotencyMigration, nullablePolicyDurationBoundsMigration, fxSnapshotSourceTimestampMigration, settlementReviewTimestampMigration, dailyAttemptAccountingMigration, portalRunner, installerRecovery] = await Promise.all([
+    const [runtimeSchema, mainMigrationRunner, migration, opportunityWorkerMigration, healthMigration, deliveryDiagnosticsMigration, mainPopupPolicySnapshotMigration, executionLeaseMigration, packagePolicySchemaMigration, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration, walletFundingPlanMigration, walletAdjustmentIdempotencyMigration, nullablePolicyDurationBoundsMigration, fxSnapshotSourceTimestampMigration, settlementReviewTimestampMigration, dailyAttemptAccountingMigration, automaticFinancialExecutionOffMigration, portalRunner, installerRecovery] = await Promise.all([
       readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
       readFile(new URL("scripts/guarded-main-migrate.mjs", root), "utf8"),
       readFile(new URL("drizzle/0082_trading_tier_qualification_jobs.sql", root), "utf8"),
@@ -59,6 +59,7 @@ describe("worker schema contracts", () => {
       readFile(new URL("drizzle/0095_fx_snapshot_source_timestamp_precision.sql", root), "utf8"),
       readFile(new URL("drizzle/0096_trade_settlement_review_timestamp.sql", root), "utf8"),
       readFile(new URL("drizzle/0097_trading_daily_execution_attempt_accounting.sql", root), "utf8"),
+      readFile(new URL("drizzle/0098_disable_automatic_financial_execution.sql", root), "utf8"),
       readFile(new URL("scripts/apply-portal-migrations.mjs", root), "utf8"),
       readFile(new URL("installer/migration-recovery-status.mjs", root), "utf8"),
     ]);
@@ -110,6 +111,11 @@ describe("worker schema contracts", () => {
     expect(settlementReviewTimestampMigration).toContain("ADD COLUMN IF NOT EXISTS `settlementReviewAt` timestamp NULL");
     expect(runtimeSchema).toContain('drizzle/0097_trading_daily_execution_attempt_accounting.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, dailyExecutionAttemptAccountingMigration)");
+    expect(runtimeSchema).toContain('drizzle/0098_disable_automatic_financial_execution.sql');
+    expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, automaticFinancialExecutionOffMigration)");
+    expect(automaticFinancialExecutionOffMigration).toContain("SET `automaticTradingEnabled` = 0");
+    expect(portalRunner).toContain('"0098_disable_automatic_financial_execution.sql"');
+    expect(installerRecovery).toContain('"0098_disable_automatic_financial_execution.sql"');
     expect(dailyAttemptAccountingMigration).toContain("`executionDailyAttemptCount` int NOT NULL DEFAULT 0");
     expect(dailyAttemptAccountingMigration).toContain("`executionDailyAttemptDay` varchar(10) NULL");
     expect(dailyAttemptAccountingMigration).toContain("CREATE INDEX IF NOT EXISTS `opportunity_popup_user_daily_attempt_day_idx`");
@@ -220,8 +226,8 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(last.tag).toBe("0097_trading_daily_execution_attempt_accounting");
-    expect(journal.entries.slice(-26).map((entry) => entry.tag)).toEqual([
+    expect(last.tag).toBe("0098_disable_automatic_financial_execution");
+    expect(journal.entries.slice(-27).map((entry) => entry.tag)).toEqual([
       "0072_wallet_ledger_reconciliation_indexes",
       "0073_trade_settlement_recovery_cases",
       "0074_trade_execution_retries",
@@ -248,6 +254,7 @@ describe("worker schema contracts", () => {
       "0095_fx_snapshot_source_timestamp_precision",
       "0096_trade_settlement_review_timestamp",
       "0097_trading_daily_execution_attempt_accounting",
+      "0098_disable_automatic_financial_execution",
     ]);
     expect(portalRunner).toContain('"0076_trading_admin_policy_read_repair.sql"');
     expect(portalRunner).toContain('"0077_trading_package_catalogue_schema_repair.sql"');

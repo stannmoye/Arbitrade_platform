@@ -18,7 +18,7 @@ import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, 
 import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, createCompanySpotlightDisplayGuard, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
-import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule } from "./modules/trading-delivery-quota";
+import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule, resolveTradingBurstLimit } from "./modules/trading-delivery-quota";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry, MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY } from "./modules/trade-execution-retry";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
@@ -2451,10 +2451,10 @@ const DEFAULT_NEW_TIER_POLICY = {
   badgeLabel:null,badgeStyle:"neutral",
   minimumPayoutRateBps:200,maximumPayoutRateBps:300,
   minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900,
-  companyRotationEnabled:false,companyRotationCountryNames:null,
+  companyRotationEnabled:true,companyRotationCountryNames:null,
   companyRotationRepeatPolicy:"avoid_until_exhausted" as const,
   maxPopupsPerDay:10,maxVisibleOffers:3,minimumTradeUnits:1000,maximumTradeUnits:100000,
-  minHourlyTarget:0,normalHourlyTarget:0,marketInfluenceBps:0,burstEnabled:false,maxBurstSize:0,
+  minHourlyTarget:0,normalHourlyTarget:0,marketInfluenceBps:0,burstEnabled:true,maxBurstSize:3,
   enabled:true,automaticDelivery:true,dailyPopupTarget:0,schedulingPeriod:"rolling_24h" as const,
   minIntervalSeconds:45,maxIntervalSeconds:3600,randomizationEnabled:true,popupDisplayTargetSeconds:120,
   completionDisplaySeconds:8,postCompletionIntervalSeconds:30,maxPendingDeliveries:3,
@@ -2478,7 +2478,6 @@ export async function createAdminTradingPackage(createdBy:number,input:{
   if(!name||name.length>80) throw new Error("Package name must contain 1–80 characters");
   const auditReason=String(input.reason??"").trim();
   if(auditReason.length<5||auditReason.length>500) throw new Error("Provide an audit reason of 5–500 characters");
-  if(input.enabled) throw new Error("New Trading tiers must be created disabled. Save and review the delivery policy, then explicitly enable the tier.");
   if(!Number.isSafeInteger(input.minimumQualifyingBalanceUsdMinor)||input.minimumQualifyingBalanceUsdMinor<=0) throw new Error("Minimum qualifying balance must be a positive USD minor-unit integer");
   if(!Number.isSafeInteger(input.durationMonths)||input.durationMonths<1||input.durationMonths>1200) throw new Error("Package duration must be 1–1200 calendar months");
   if(!Number.isSafeInteger(input.opportunitiesPerDay)||input.opportunitiesPerDay<1||input.opportunitiesPerDay>10000) throw new Error("Daily opportunity quota must be between 1 and 10000");
@@ -2497,7 +2496,7 @@ export async function createAdminTradingPackage(createdBy:number,input:{
       name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,
       durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,
       maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,
-      startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:false,termsVersion:1,
+      startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1,
     });
     const id=Number(inserted[0].insertId);
     await tx.insert(opportunityPackagePolicies).values({packageName:name,updatedBy:createdBy,...DEFAULT_NEW_TIER_POLICY});
@@ -2507,7 +2506,7 @@ export async function createAdminTradingPackage(createdBy:number,input:{
       reference:"trading-package-created:"+id+":1",
       metadataJson:JSON.stringify({id,...input,name,termsVersion:1}),
     });
-    return {id,name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:false,termsVersion:1};
+    return {id,name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1};
   });
 }
 
@@ -2912,6 +2911,9 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
     seenTierNames.add(policy.packageName);
     return policy;
   });
+  if(requested.some(policy=>policy.automaticTradingEnabled===true)) {
+    throw new Error("Automatic financial execution is disabled for all Trading package policies.");
+  }
   await db.transaction(async tx=>{
     // Lock before merging so concurrent partial saves cannot overwrite fields
     // omitted from the other administrator's request.
@@ -2922,6 +2924,8 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
         if(value!==undefined&&!['id','updatedAt','policyVersion','updatedBy'].includes(key)) supplied[key]=value;
       }
       const effective:any={...DEFAULT_NEW_TIER_POLICY,...(current||{}),...supplied,packageName:policy.packageName,updatedBy};
+      // Preserve pop-up controls, but never persist an enabled unattended execution path.
+      effective.automaticTradingEnabled=false;
       if(effective.minHourlyTarget>effective.normalHourlyTarget) throw new Error(`Minimum hourly target cannot exceed normal target for ${policy.packageName}`);
       if(effective.normalHourlyTarget*24>effective.maxPopupsPerDay&&effective.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
       if(!Number.isSafeInteger(effective.minimumTradeUnits)||!Number.isSafeInteger(effective.maximumTradeUnits)||effective.minimumTradeUnits<1||effective.maximumTradeUnits<effective.minimumTradeUnits) throw new Error(`Trade amount bounds are invalid for ${policy.packageName}`);
@@ -3098,6 +3102,8 @@ export async function recordOpportunityExecutionFailure(userId:number,eventId:nu
   if(state.status==="RETRYING") set.executionRetryDay=now.toISOString().slice(0,10);
   await db.update(opportunityPopupEvents).set(set).where(and(eq(opportunityPopupEvents.id,eventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.executionLeaseToken,state.executionLeaseToken),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED"])));
 }
+// Customer popup delivery is informational; this worker must never initiate financial execution.
+const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false;
 async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:any){
   const executed:any[]=[];
   if(controls.accountStatus!=="active") return {executed,missed:await listMissedOpportunities(userId)};
@@ -3177,7 +3183,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
   }
   return {executed,missed:await listMissedOpportunities(userId)};
 }
-export async function listCustomerOpportunities(userId:number, options:{consumeDelivery?:boolean;workerCycle?:boolean}={}) {
+export async function listCustomerOpportunities(userId:number, options:{consumeDelivery?:boolean;workerCycle?:boolean;allowAutomaticExecution?:boolean}={}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const now=new Date();
   const quotaDay=now.toISOString().slice(0,10);
@@ -3245,12 +3251,14 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const tradeOfferIds=new Set(tradeHistory.map((row:any)=>Number(row.offerId)));
   const missedHistory=await listMissedOpportunities(userId);
   const missedOfferIds=new Set(missedHistory.map((row:any)=>Number(row.offerId)));
-  const deliveredToday=await db.select({offerId:opportunityDeliveryEvents.offerId,status:opportunityDeliveryEvents.status}).from(opportunityDeliveryEvents).where(and(
+  const deliveredToday=await db.select({
+    offerId:opportunityDeliveryEvents.offerId,
+    status:opportunityDeliveryEvents.status,
+    quotaDay:opportunityDeliveryEvents.quotaDay,
+  }).from(opportunityDeliveryEvents).where(and(
     eq(opportunityDeliveryEvents.userId,userId),gte(opportunityDeliveryEvents.deliveredAt,quotaWindow.start),
     lt(opportunityDeliveryEvents.deliveredAt,quotaWindow.end),notInArray(opportunityDeliveryEvents.status,["failed"])
   ));
-  const deliveredOfferIds=new Set(deliveredToday.filter(row=>row.status!=="failed").map(row=>Number(row.offerId)));
-  const deliveredOfferCount=countConsumedDeliveryOffers(deliveredToday);
   // Package copies are separate entitlements: count allocations against each
   // subscription's own quota window instead of pooling copies under package name.
   const usedQuotaRows=await db.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions
@@ -3266,6 +3274,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   };
   const activePopupRows=await db.select({
     eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
+    policyVersion:opportunityPopupEvents.policyVersion,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
     expectedRewardBps:opportunityPopupEvents.expectedRewardBps,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
     balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,deliveryStatus:opportunityPopupEvents.deliveryStatus,quotaDay:opportunityPopupEvents.quotaDay,
@@ -3278,6 +3287,49 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     .where(and(eq(opportunityPopupEvents.userId,userId),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN"])))
     .orderBy(desc(opportunityPopupEvents.deliveredAt));
   const activePopupOfferIds=new Set(activePopupRows.map(row=>Number(row.offerId)));
+  // Repair interrupted writes before calculating quota: some older workers wrote
+  // the quota row before persisting its visible popup, while a crash in the new
+  // order can leave a popup row without its quota ledger entry.
+  let effectiveDeliveredToday:Array<{offerId:number;status:"pending"|"delivered"|"expired"|"failed";quotaDay?:string}>=deliveredToday.map(row=>({...row}));
+  if(options.workerCycle===true){
+    const ledgerOfferIds=[...new Set(effectiveDeliveredToday.map(row=>Number(row.offerId)).filter(id=>Number.isSafeInteger(id)&&id>0))];
+    const persistedPopupEvents=ledgerOfferIds.length
+      ?await db.select({offerId:opportunityPopupEvents.offerId}).from(opportunityPopupEvents)
+        .where(and(eq(opportunityPopupEvents.userId,userId),inArray(opportunityPopupEvents.offerId,ledgerOfferIds)))
+      :[];
+    const persistedPopupOfferIds=new Set(persistedPopupEvents.map(row=>Number(row.offerId)));
+    const orphanedLedgerOfferIds=[...new Set(effectiveDeliveredToday
+      .filter(row=>row.status!=="failed"&&!persistedPopupOfferIds.has(Number(row.offerId))&&
+        !tradeOfferIds.has(Number(row.offerId))&&!missedOfferIds.has(Number(row.offerId)))
+      .map(row=>Number(row.offerId)))];
+    if(orphanedLedgerOfferIds.length){
+      await db.update(opportunityDeliveryEvents).set({status:"failed",lastErrorCode:"POPUP_EVENT_MISSING"})
+        .where(and(eq(opportunityDeliveryEvents.userId,userId),inArray(opportunityDeliveryEvents.offerId,orphanedLedgerOfferIds),
+          notInArray(opportunityDeliveryEvents.status,["failed"])));
+      const orphaned=new Set(orphanedLedgerOfferIds);
+      effectiveDeliveredToday=effectiveDeliveredToday.map(row=>orphaned.has(Number(row.offerId))?{...row,status:"failed"}:row);
+    }
+    const windowStart=quotaWindow.start.getTime();
+    const windowEnd=quotaWindow.end.getTime();
+    const ledgerKeys=new Set(effectiveDeliveredToday.map(row=>String(row.offerId)+":"+String((row as any).quotaDay??"")));
+    const popupRowsMissingLedger=activePopupRows.filter(row=>{
+      const deliveredAt=new Date(row.deliveredAt as any).getTime();
+      const key=String(row.offerId)+":"+String(row.quotaDay);
+      return Number.isFinite(deliveredAt)&&deliveredAt>=windowStart&&deliveredAt<windowEnd&&!ledgerKeys.has(key);
+    });
+    if(popupRowsMissingLedger.length){
+      await db.insert(opportunityDeliveryEvents).values(popupRowsMissingLedger.map(row=>({
+        userId,offerId:Number(row.offerId),quotaDay:String(row.quotaDay),
+        deliveredAt:row.deliveredAt||now,status:"delivered" as const,
+        policyVersion:Number(row.policyVersion||1),
+      }))).onDuplicateKeyUpdate({set:{status:"delivered",lastErrorCode:null}});
+      effectiveDeliveredToday=[...effectiveDeliveredToday,...popupRowsMissingLedger.map(row=>({
+        offerId:Number(row.offerId),status:"delivered" as const,quotaDay:String(row.quotaDay),
+      }))];
+    }
+  }
+  const deliveredOfferIds=new Set(effectiveDeliveredToday.filter(row=>row.status!=="failed").map(row=>Number(row.offerId)));
+  const deliveredOfferCount=countConsumedDeliveryOffers(effectiveDeliveredToday);
   const activeVisibleCount=activePopupRows.filter(row=>{
     const eventStatus=String(row.eventStatus||"").toUpperCase();
     const deliveryStatus=String(row.deliveryStatus||"pending").toLowerCase();
@@ -3341,6 +3393,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const subscription=selected.subscription;
       const configured=selected.configured;
       if(!configured||!hasConfiguredTradingOfferPolicy(configured)) continue;
+      if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:Boolean(configured.burstEnabled),maxBurstSize:Number(configured.maxBurstSize||0)})) break;
       // Select one administrator-configured rate and duration exactly once. The
       // selection is persisted with the popup and reused by retries/trade allocation.
       const configuredProfitRateBps=chooseInclusiveInteger(Number(configured.minimumPayoutRateBps),Number(configured.maximumPayoutRateBps));
@@ -3363,7 +3416,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     }
   }
   if(newlyEligible.length){
-    await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({userId,offerId:offer.id,quotaDay,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion||1)}))).onDuplicateKeyUpdate({set:{deliveredAt:new Date()}});
+    // Persist the visible popup first. Only write the quota-consumption ledger after
+    // every popup row is confirmed; an insert failure must not consume a quota slot.
     const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map(offer=>{
       const available=Math.max(0,Number(balancesSnapshot.find((row:any)=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())?.availableMinor||0));
       return {userId,offerId:offer.id,quotaDay,packageName:offer.packageName,symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
@@ -3376,7 +3430,15 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
         marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt,publishedExpectedRewardBps:Number(offer.expectedRewardBps),publishedDurationSeconds:Number(offer.durationSeconds),configuredProfitRateBps:Number(offer.configuredProfitRateBps),configuredDurationSeconds:Number(offer.configuredDurationSeconds)})};
     }));
-    for(const offer of newlyEligible){offer.deliveryEventId=lifecycleIds.get(userId+":"+offer.id+":"+quotaDay)||null; deliveredOfferIds.add(Number(offer.id));}
+    const missingLifecycleIds=newlyEligible.filter(offer=>!lifecycleIds.has(userId+":"+offer.id+":"+quotaDay));
+    if(missingLifecycleIds.length) throw new Error("Popup persistence did not return delivery IDs for every eligible opportunity");
+    await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({
+      userId,offerId:offer.id,quotaDay,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion||1),
+    }))).onDuplicateKeyUpdate({set:{deliveredAt:new Date(),status:"delivered",lastErrorCode:null}});
+    for(const offer of newlyEligible){
+      offer.deliveryEventId=lifecycleIds.get(userId+":"+offer.id+":"+quotaDay)||null;
+      deliveredOfferIds.add(Number(offer.id));
+    }
   }
   const popupRows=await db.select({
     eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
@@ -3447,7 +3509,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     return Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy));
   });
   const effectiveControls=controls;
-  const auto=options.workerCycle===true ? await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls) : {executed:[],missed:await listMissedOpportunities(userId)};
+  const auto=AUTOMATIC_FINANCIAL_EXECUTION_ENABLED && options.workerCycle===true && options.allowAutomaticExecution!==false
+    ?await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls)
+    :{executed:[],missed:await listMissedOpportunities(userId)};
   const executedByOffer=new Map(auto.executed.map((trade:any)=>[Number(trade.offerId),trade]));
   const enrichedOffers=popupRows.map(row=>{
     const base:any=tradeCandidates.find(offer=>Number(offer.offerId)===Number(row.offerId))||{};
@@ -3521,19 +3585,22 @@ export async function claimAutoTradeCycleCustomers(input:{batchSize?:number}={})
 
 export async function runAutoTradeCycle(input:{batchSize?:number}={}){
   const settlementPolicy=await getTradeSettlementPolicy();
+  let outstandingTrades=0;
+  let pausedUntilSettled=false;
   if(settlementPolicy.blockUntilSettled){
-    const outstandingTrades=await countOutstandingTrades();
-    if(outstandingTrades>0){
-      // Pause new delivery/execution for this worker cycle without consuming the
-      // durable customer cursor or closing already-published, unexpired offers.
-      return {customers:0,allocations:0,batchSize:input.batchSize??100,pausedUntilSettled:true,outstandingTrades};
-    }
+    outstandingTrades=await countOutstandingTrades();
+    pausedUntilSettled=outstandingTrades>0;
   }
+  // Settlement gates apply to financial execution, not informational customer
+  // pop-up delivery. Continue processing eligible customers while a trade is open,
+  // but suppress the automatic-execution pass for this cycle.
   const {customers,batchSize}=await claimAutoTradeCycleCustomers(input);
   let allocations=0;
   for(const customer of customers){
     try{
-      const result=await listCustomerOpportunities(customer.id,{workerCycle:true,consumeDelivery:false});
+      const result=await listCustomerOpportunities(customer.id,{
+        workerCycle:true,consumeDelivery:false,allowAutomaticExecution:!pausedUntilSettled,
+      });
       allocations+=result.autoTrades.length;
       for(const trade of result.autoTrades){
         const notices=[
@@ -3547,7 +3614,10 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
       console.error("[AutoTrade] Customer cycle failed:",error instanceof Error?error.name:"UnknownError");
     }
   }
-  return {customers:customers.length,allocations,batchSize};
+  return {
+    customers:customers.length,allocations,batchSize,
+    ...(pausedUntilSettled?{pausedUntilSettled:true,outstandingTrades}:{}),
+  };
 }
 export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number;packageId?:number;executionLeaseToken?:string}){
  const db=await getDb();if(!db)throw new Error("Database is not available");

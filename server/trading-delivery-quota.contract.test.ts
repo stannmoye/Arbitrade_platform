@@ -17,6 +17,17 @@ describe("runtime Trading delivery quota semantics", () => {
     expect(app).toContain("delivery?.enabled&&policy");
   });
 
+
+  it("persists popup rows before consuming daily quota and repairs interrupted writes", () => {
+    const popupPersistence = delivery.indexOf("const lifecycleIds=await ensurePopupDeliveries");
+    const quotaLedgerWrite = delivery.indexOf("await db.insert(opportunityDeliveryEvents).values(newlyEligible");
+    expect(popupPersistence).toBeGreaterThanOrEqual(0);
+    expect(quotaLedgerWrite).toBeGreaterThan(popupPersistence);
+    expect(delivery).toContain("Popup persistence did not return delivery IDs for every eligible opportunity");
+    expect(delivery).toContain("popupRowsMissingLedger");
+    expect(delivery).toContain("POPUP_EVENT_MISSING");
+  });
+
   it("uses the configured true rolling-24-hour or UTC calendar-day window for delivery and allocation counts", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
@@ -29,7 +40,9 @@ describe("runtime Trading delivery quota semantics", () => {
   });
 
   it("consumes each distinct opportunity once and does not charge failed delivery attempts", () => {
-    expect(delivery).toContain("countConsumedDeliveryOffers(deliveredToday)");
+    expect(delivery).toContain("countConsumedDeliveryOffers(effectiveDeliveredToday)");
+    expect(delivery).toContain("quotaDay:opportunityDeliveryEvents.quotaDay");
+    expect(delivery).toContain("ledgerKeys=new Set(effectiveDeliveredToday.map(row=>String(row.offerId)+\":\"+String((row as any).quotaDay??\"\")))");
     expect(delivery).toContain('notInArray(opportunityDeliveryEvents.status,["failed"])');
     expect(helper).toContain('String(row.status || "delivered").toLowerCase() === "failed"');
     expect(helper).toContain("consumed.add(offerId)");
