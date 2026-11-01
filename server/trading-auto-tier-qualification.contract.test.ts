@@ -232,10 +232,10 @@ describe("Automatic Trading tier qualification", () => {
 
     expect(routerSource).toContain("packagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),");
     expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy,...UNCONFIGURED_TIER_POLICY_SENTINELS})");
-    expect(databaseSource).toContain("const UNCONFIGURED_TIER_POLICY_SENTINELS = {");
-    expect(databaseSource).toContain("minimumPayoutRateBps:null,maximumPayoutRateBps:null");
+    expect(databaseSource).toContain("const DEFAULT_NEW_TIER_POLICY = {");
+    expect(databaseSource).toContain("minimumPayoutRateBps:200,maximumPayoutRateBps:300");\n    expect(databaseSource).toContain("minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900");\n    expect(databaseSource).toContain("automaticTradingEnabled:false");
     expect(databaseSource).toContain("New Trading tiers must be created disabled.");
-    expect(databaseSource).toContain("Save and enable a valid delivery policy with payout-rate and duration bounds before enabling this Trading tier.");
+    expect(databaseSource).toContain("Save and enable a valid pop-up delivery policy with payout-rate and duration bounds before enabling this Trading tier.");\n    expect(databaseSource).toContain("Automatic financial execution is a separate control");
     expect(routerSource).toContain("enabled: z.boolean().optional(),");
     expect(routerSource).toContain("automaticDelivery: z.boolean().optional(),");
     expect(routerSource).toContain("automaticTradingEnabled: z.boolean().optional(),");
@@ -250,7 +250,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(routerSource).toContain("updateOpportunityPackagePolicies(ctx.user.id, input.policies, input.reason)");
     expect(databaseSource).toContain("Opportunity policy references an unknown Trading tier");
     expect(databaseSource).toContain('where(eq(opportunityPackagePolicies.packageName,policy.packageName)).limit(1).for("update")');
-    expect(databaseSource).toContain("const effective:any={...UNCONFIGURED_TIER_POLICY_SENTINELS,...(current||{}),...supplied,packageName:policy.packageName,updatedBy}");
+    expect(databaseSource).toContain("const effective:any={...DEFAULT_NEW_TIER_POLICY,...(current||{}),...supplied,packageName:policy.packageName,updatedBy}");
     expect(routerSource).toContain("createAdminTradingPackage(ctx.user.id");
     expect(databaseSource).toContain('action:"trading_package_created"');
     expect(customerAppSource).toContain("New administrator-managed tier");
@@ -260,7 +260,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(customerAppSource).toContain('maxPopupsPerDay:0,maxActiveInvestments:0');
     expect(customerAppSource).toContain("no package threshold or quota is preselected");
     expect(customerAppSource).toContain("New tiers start disabled.");
-    expect(databaseSource).toContain("const UNCONFIGURED_TIER_POLICY_SENTINELS = {");
+    expect(databaseSource).toContain("const DEFAULT_NEW_TIER_POLICY = {");
   });
 
   it("persists administrator-controlled effective dates and tier caps", () => {
