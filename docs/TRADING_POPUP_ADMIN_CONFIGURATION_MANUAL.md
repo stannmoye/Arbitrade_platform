@@ -70,7 +70,7 @@ The same server-saved package settings govern the customer's actual display. The
 Show fields when applicable and available:
 
 - Package badge and package display name (read-only, from the customer's automatically assigned entitlement/configuration snapshot).
-- Company logo, company name, stable Logo ID, and country-folder/country-code metadata from the saved catalogue snapshot. Label these as company-reference metadata; do not describe a country folder as verified headquarters or listing information. Show unverified status when the source record is unverified.
+- Company name and local logo from the saved catalogue snapshot. Customer pop-ups and Trade history must not display the internal “reference-only” label, catalogue-status labels, source-confidence notes, or internal Logo ID. Keep the stable Logo ID and full metadata in server-side snapshots and administrator controls. This presentation rule does not change the requirement that only currently Verified, enabled, non-archived companies enter the rotation pool; do not describe a country folder as verified headquarters or listing information.
 - Supplied symbol/code and exchange/status classification only as reference data, without implying listing verification.
 - Opportunity/trade reference and current authoritative status.
 - Required capital, committed capital allocation, each wallet/currency used, the native amount debited from each wallet, the exchange-rate source and timestamp used for any cross-wallet conversion, available balance and shortfall when insufficient.
