@@ -367,22 +367,45 @@ These controls define how new customers are screened and onboarded. Country-spec
 
 ---
 
-## 2.11 Packages & Groups
+## 2.11 Trade Settings
 
-**Purpose:** Manage administrator-defined Trading tier configuration and review automatically assigned entitlements. These tiers are not customer-facing products.
+**Purpose:** Provide one authoritative place for all administrator Trading configuration, opportunity publishing, monitoring, and history. The admin navigation contains one top-level **Trade Settings** group; the same Trading page is not repeated under separate setup, offers, results, monitoring, or history groups.
 
-**Tier configuration includes:**
+### Trade Settings submenu
 
-- Tier name and enabled status
-- Qualifying deposit threshold in USD minor units
-- Duration and effective dates
-- Daily opportunity quota and allocation limits
-- Opportunity schedule, display and risk controls
-- Versioned terms and audit history
+| Submenu | What it controls |
+|---|---|
+| **Trading Overview** | Current delivery totals, pending work, open opportunities, settlement status and the global pause state. |
+| **Tiers & Eligibility** | Tier name, qualifying USD threshold, entitlement duration, daily opportunity entitlement, effective dates and enabled state. Only qualifying admin-issued credits determine automatic eligibility. |
+| **Per-tier Daily Delivery Caps** | The hard daily pop-up ceiling, maximum visible offers, optional daily target cap and the delivery-counting window. These are operational limits: they can reduce the tier entitlement but cannot increase it. |
+| **Per-tier Offer Rules & Capital Limits** | Required capital bounds and configured reward-rate/trade-duration eligibility bounds. ON/OFF switches are located only in the persistent Trading controls panel above the page content. |
+| **Publish & Manage Opportunities** | Publish reviewed opportunity records, import validated CSV rows and inspect the open opportunity feed. This page does not edit tier or delivery policy. |
+| **Per-tier Delivery Schedule** | Per-tier spacing between eligible pop-ups, randomized timing bounds and post-completion delivery intervals. |
+| **Global Trade Timing & Settlement** | Trade timing estimates and the global closing/settlement review settings. A scheduled time is not proof of execution or settlement. |
+| **Per-tier Pop-up Display** | Expanded pop-up and completion-card display durations. Display settings do not cancel active records. |
+| **Per-tier Company Rotation Rules** | Approved-company country filters and repeat-handling rules. The ON/OFF rotation switch remains in the persistent Trading controls panel. |
+| **Company Catalogue** | Search and manage the separate company reference records, approval state and catalogue metadata. It does not contain a second copy of the rotation settings editor. |
+| **Capital & Wallet Funding Rules** | Review the permitted capital requirements and wallet-funding policy used by Trading. This is not the customer Wallet & Ledger history page. |
+| **Fees & Earnings Limits** | Configure the Trading fee policy and review configured earnings ceilings. |
+| **Retries & Carry-Forward** | Configure bounded retry limits and review recovery behaviour. Carry-forward across daily windows is not currently enabled. |
+| **Active & Pending Opportunities** | Review opportunity delivery and lifecycle records waiting for customer or system action. |
+| **Settlement & Reconciliation** | Review confirmed trade outcomes and reconcile trade records against wallet and ledger entries. |
+| **System Pause & Safety** | Pause or resume new allocations with an audit reason; pending work and required reconciliation must remain available. |
+| **Worker Health & Recovery** | Inspect worker heartbeats, queue status, delayed work and audited recovery actions. |
+| **Audit & Policy History** | Review who changed Trading settings, the reason, previous/new values and saved policy versions. |
+| **Trade Settings Guide** | Read the in-portal guide without changing Trading data. |
 
-Only authorized administrators can configure tiers. Customer eligibility is derived automatically from persisted qualifying-deposit attribution; administrators must not manually assign a tier to a customer. Customer-created legacy subscription rows are historical records only and must not grant eligibility.
+### One owner for each setting
 
-Detailed policy editing is handled through Trade Settings / Opportunity Engine controls. For the required package editor fields, each edit button's meaning, company rotation, customer pop-up contents, profit-range safeguards, and worker restart behaviour, follow the canonical [Trading Pop-up & Admin Configuration Manual](TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md) and [Trading System Specification](TRADING_SYSTEM_SPECIFICATION.md).
+The persistent Trading controls panel is shown above administrator content on every page except the clean Home/overview page. It is the single owner of the per-tier **Tier policy**, **Pop-up delivery**, **Company rotation**, **Randomized timing**, and **Burst delivery** ON/OFF switches. The detailed Per-tier Offer Rules & Capital Limits, Per-tier Daily Delivery Caps and Per-tier Company Rotation Rules pages do not repeat those switches.
+
+The daily opportunity entitlement is stored on the tier as `opportunitiesPerDay`. The hard daily pop-up ceiling and optional daily target are separate operational caps. For example, to make a tier allowance of 600 opportunities/day available, the hard daily pop-up ceiling must be at least 600 and the optional daily target must be 0 (no additional target cap). The delivery caps never raise a tier's assigned entitlement.
+
+Editing tier terms increments the terms version and affects future automatic tier assignments. Existing customer entitlements retain the terms snapshot saved when the tier was assigned; an admin edit does not silently rewrite existing customer entitlement history. Each save requires an audit reason and displays a database read-back confirmation. If read-back cannot confirm the saved version/quota, the page reports an error and keeps the draft visible.
+
+Customers cannot browse the tier catalogue, select packages, purchase packages, activate subscriptions or change assigned entitlements. Eligibility is assigned automatically only from qualifying manual administrator credits through the admin portal; signup credits, provider/customer deposits, transfers, swaps, conversions and other non-qualifying credits remain excluded.
+
+For the detailed field-by-field behaviour, effective-time rules, and recovery guidance, use [Trading Pop-up & Admin Configuration Manual](TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md) and [Trading System Specification](TRADING_SYSTEM_SPECIFICATION.md).
 
 ---
 
@@ -457,61 +480,29 @@ The settings are stored in the application settings registry and are consumed by
 
 ---
 
-## 2.16 Opportunity Engine
+## 2.16 Publish & Manage Opportunities (Trade Settings submenu)
 
-**Purpose:** Manage opportunity creation, delivery policy, administrator-managed tier rules, automatic qualification policy, lifecycle monitoring, and retention.
+**Purpose:** Publish and inspect reviewed opportunity records. This is one page inside the single **Trade Settings** navigation group, not a second location for tier editing or policy configuration.
 
-### Global delivery settings
+### Delivery report
 
-Controls include:
+Shows persisted opportunity lifecycle totals, such as delivered, noticed, opened, zero-balance and settled events. These records describe observed workflow states; they must not be presented as proof of market execution or realized results.
 
-- Maximum opportunities per day and emergency ceiling
-- Drain/pause mode for new allocations (must not block required settlement/reconciliation)
-- Server-owned opportunity schedule and trade countdown/duration policy
-- Maximum visible cards/concurrency
-- Global and per-customer limits
-- Worker health, due/queued work, retry/dead-letter visibility and audited recovery
+### Delivery safety information
 
-Any setting shown here must be persisted and consumed by the runtime. Signup-credit settings do not make signup credits eligible for Trading tier qualification.
+Displays the legacy/global countdown and signup-credit settings currently present in the opportunity workspace. Signup credits do not qualify customers for Trading tiers. Tier quotas, hard delivery caps, delivery schedules and policy switches are edited only in their dedicated Trade Settings submenu or the persistent controls panel.
 
-### Trading tier and pop-up policy editor
+### Publish an opportunity
 
-Use the package editor and Trade Settings controls defined in [Trading Pop-up & Admin Configuration Manual](TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md). The editor must cover:
+Allows an authorized administrator to submit a reviewed opportunity with its symbol/reference, source/destination, currency, minimum amount, configured reward terms and duration. Values must be explicitly supplied and supported by auditable source information; the form must not invent market evidence, execution results or realized profit.
 
-- Package name, badge label/style, threshold, duration, enabled status and effective time
-- Daily pop-up/opportunity quota contribution and cumulative quota policy
-- Minimum required capital and any fixed/ranged capital bounds
-- Configured profit percentage minimum and maximum, clearly treated as policy/estimate bounds rather than random realized returns
-- Expanded pop-up display duration (separate from package duration and trade duration)
-- Company catalogue filters, stable Logo ID rotation, repeat avoidance and read-only preview. The full source catalogue and direct lookups are administrator-only. Customer-facing company search, counts, summaries, preview and pop-up responses expose only currently admin-verified, enabled, non-archived Logo IDs; approval is filtered server-side before pagination and stale active popup identities are hidden immediately after unverify, disable or archive. An empty approved pool has no unverified fallback.
-- Schedule, visible-card limits, daily earnings ceiling, retries/carry-forward and authorized fee policy/version
-- Save/publish validation, policy version, audit history and effective-time rules
+### Import opportunities
 
-Do not retain controls that suggest synthetic generation of market outcomes or random profit. Opportunity offers must have explicit auditable terms; the worker must not manufacture pseudo-random amounts, rewards, durations or seeds.
+Imports validated CSV rows using the documented opportunity columns and server-side validation. Invalid rows must not be silently treated as published opportunities.
 
-### Offer creation
+### Open opportunities
 
-Creates or publishes an explicitly reviewed opportunity offer with auditable terms, stable identifiers, and a documented source. The offer may include symbol/reference code, source/destination where applicable, currency, required capital, permitted duration, and a clearly labelled configured reward policy. Do not derive an offer's capital, reward, duration, seed, or realized profit from pseudo-random market-snapshot values. Catalogue company rotation is reference presentation data and cannot itself create an executable offer or settlement.
-
-### Bulk offer import
-
-Creates multiple opportunity offers in one operation.
-
-### Automatic tier qualification
-
-There is no manual customer tier-assignment control. The server evaluates only cumulative credits manually submitted by an authorized administrator through the admin portal's **Credit Customer** flow, explicitly classified as qualifying and committed as `admin_manual_deposit_credit`. Customer/provider deposits, signup credits, imports, generic adjustments, profits, rewards, returned principal, bonuses, transfers, swaps, conversions and all other credit paths are excluded. The server creates audited entitlements automatically. Use customer ledger and eligibility records to investigate qualification; do not override eligibility by assigning a tier.
-
-### Open offers
-
-Displays currently available opportunity records.
-
-### Lifecycle summary
-
-Shows delivery and popup lifecycle activity, including delivered, noticed, opened, dismissed, traded, and settled states.
-
-### Retention cleanup
-
-Runs the configured opportunity-retention process to archive or remove records according to policy.
+Displays saved open opportunity records for review. Publishing an opportunity does not prove execution or settlement and does not bypass customer eligibility, wallet, policy or lifecycle checks.
 
 ---
 

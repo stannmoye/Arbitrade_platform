@@ -1,11 +1,25 @@
+## 2026-11-01 — Trade Settings consolidation and quota-save integrity
+
+- Working branch: `fix/trade-settings-navigation-and-quota-save`, based on `main` commit `d4f90e5501b9f30391f3535d4807e8a2be2a5c9a`.
+- Consolidated the Trading admin navigation into one top-level **Trade Settings** group with distinct submenu names for Tiers & Eligibility, Per-tier Daily Delivery Caps, Per-tier Offer Rules & Capital Limits, Per-tier Delivery Schedule, Global Trade Timing & Settlement, Per-tier Pop-up Display, company rotation/catalogue, capital/funding, fees, retries, lifecycle monitoring, settlement, system pause, worker health, audit history and the read-only guide.
+- Removed the duplicate company-rotation editor from the Company Catalogue route. The shared Trading controls panel remains the single owner of tier-policy, pop-up-delivery, company-rotation, randomized-timing and burst-delivery switches; detail pages no longer duplicate those switches.
+- Clarified that a package's `opportunitiesPerDay` is the tier entitlement contribution. The per-tier hard daily pop-up ceiling and optional daily target are operational caps that may reduce—but never increase—the entitlement. Existing customer entitlement snapshots remain unchanged by later tier edits.
+- Protected dirty tier drafts against background polling. A tier save now displays a pending state, performs a fresh server read, verifies the returned quota and terms version, and only then displays success. A failed/unconfirmed read-back is shown as an error and does not discard the draft. Delivery-policy saves also verify changed fields and policy-version advancement before reporting success.
+- Updated navigation, editor and menu contract tests plus the canonical Trading spec, admin menu guide, in-portal guide, configuration manual and admin UI fix log.
+- The general Settings form previously submitted ticket, email and Trade settings together. It now submits only the active section: ticket settings or the dedicated Global Trade Timing & Settlement page. The duplicate Trade and placeholder Email tabs were removed from general Settings; email editing remains under Communications. Successful saves are confirmed by a fresh server read.
+- No schema migration, customer entitlement rewrite, wallet/ledger mutation, financial execution, settlement, production deployment or Blitz configuration change was performed. Automatic financial execution remains OFF.
+- Validation status: exact-head CI is pending; do not treat code changes as deployed or production-verified until CI and the user's post-deployment checks pass.
+
+---
+
 ## 2026-11-01 — Authenticated Trading staging acceptance runner prepared
 
 - Added `.github/workflows/trading-authenticated-staging-acceptance.yml`, a manual-only GitHub Actions workflow using the protected `trading-staging` environment. It checks out the exact requested deployed SHA and runs the existing `scripts/trading-ui-browser-acceptance.cjs` against real, unmocked same-origin APIs.
 - The workflow requires five environment secrets: isolated staging base URL, eligible customer Playwright storage state JSON, unqualified customer storage state JSON, admin storage state JSON, and eligible customer email. Browser-state files are written with restrictive permissions to the ephemeral runner and removed after execution; only the report is uploaded.
 - Updated `docs/trading/AUTHENTICATED_BROWSER_ACCEPTANCE.md` with environment provisioning, required seeded fixtures, protected environment setup and dispatch instructions. No credentials or customer data were added to Git.
 - The 1,032 passing Chromium assertions on the previous CI head are static-preview/mock-auth evidence only. They are not authenticated staging acceptance.
-- Authenticated staging acceptance remains **not run**: the isolated deployment, exact deployed SHA, seeded browser storage states and protected environment secrets are not available in this session. Do not run against production. Do not merge PR #269 until the protected staging workflow passes and its report is reviewed.
-- No deployment, merge, production database operation, wallet mutation, financial execution or settlement was performed. Automatic financial execution remains OFF.
+- Authenticated staging acceptance remained **not run** at the time of this entry: the isolated deployment, exact deployed SHA, seeded browser storage states and protected environment secrets were not available. Do not run against production. PR #269 was subsequently merged to main by explicit user instruction at merge commit `d4f90e5501b9f30391f3535d4807e8a2be2a5c9a`; authenticated staging remains a separate pre-production verification requirement.
+- At the time of this entry, no deployment, production database operation, wallet mutation, financial execution or settlement was performed. The later PR #269 merge did not itself deploy the application or run a production migration. Automatic financial execution remains OFF.
 - New workflow/documentation changes are committed to the existing PR branch; exact-head CI must validate this increment.
 
 ---
@@ -450,7 +464,7 @@
 ## 2026-10-29 — Expanded administrator Trading delivery policy controls
 
 - Branch: `feat/trading-package-popup-policy`, based on canonical `main` SHA `7356c5870807592c8e890a3937cf3fb0f2a403fc`.
-- Extended the existing **Trade Settings → Opportunity Engine** tier-policy editor to load and edit persisted delivery window, cadence bounds, expanded/completed pop-up display times, post-completion gap, pending-delivery caps, delivery/trade retry limits, concurrency, settlement timing, minimum eligible reward basis points, daily/per-trade reward caps, and card-close policy.
+- Extended the existing **Trade Settings → Tiers & Eligibility or the specific per-tier settings page** tier-policy editor to load and edit persisted delivery window, cadence bounds, expanded/completed pop-up display times, post-completion gap, pending-delivery caps, delivery/trade retry limits, concurrency, settlement timing, minimum eligible reward basis points, daily/per-trade reward caps, and card-close policy.
 - Strengthened the existing admin-only save path: validate the entire submitted batch before writes, persist all tier changes in one database transaction, bump the per-tier policy version, and record previous/next policy plus actor in the audit stream. The UI requires confirmation, reports server errors, and refreshes only after success. Active trade snapshots remain intact.
 - Added a source-contract test for UI/schema/router/service wiring. This increment does not yet implement configurable package badges, inclusive minimum/maximum per-pop-up reward-rate bounds, per-pop-up trade-duration bounds, stable-ID company rotation or restart-safe opportunity snapshots; those need a separate schema and worker integration increment.
 - Validation: source checks have not yet run on this commit. No production migration or deployment was performed.
