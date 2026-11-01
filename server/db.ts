@@ -2447,26 +2447,26 @@ export async function listAdminTradingPackages() {
     throw new Error("Unable to load the Trading package catalogue. Check server logs for the underlying database error.");
   }
 }
-const UNCONFIGURED_TIER_POLICY_SENTINELS = {
+const DEFAULT_NEW_TIER_POLICY = {
   badgeLabel:null,badgeStyle:"neutral",
-  minimumPayoutRateBps:null,maximumPayoutRateBps:null,
-  minimumTradeDurationSeconds:null,maximumTradeDurationSeconds:null,
+  minimumPayoutRateBps:200,maximumPayoutRateBps:300,
+  minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900,
   companyRotationEnabled:false,companyRotationCountryNames:null,
   companyRotationRepeatPolicy:"avoid_until_exhausted" as const,
-  maxPopupsPerDay:0,maxVisibleOffers:0,minimumTradeUnits:0,maximumTradeUnits:0,
+  maxPopupsPerDay:10,maxVisibleOffers:3,minimumTradeUnits:1000,maximumTradeUnits:100000,
   minHourlyTarget:0,normalHourlyTarget:0,marketInfluenceBps:0,burstEnabled:false,maxBurstSize:0,
-  enabled:false,automaticDelivery:false,dailyPopupTarget:0,schedulingPeriod:"rolling_24h" as const,
-  minIntervalSeconds:0,maxIntervalSeconds:0,randomizationEnabled:false,popupDisplayTargetSeconds:0,
-  completionDisplaySeconds:0,postCompletionIntervalSeconds:0,maxPendingDeliveries:0,
-  deliveryRetryPolicy:"none" as const,maxDeliveryAttempts:0,expiryHandling:"expire" as const,
-  duplicatePrevention:false,audioEnabled:false,audioSound:"",automaticTradingEnabled:false,
-  maxTradeAttemptsPerDay:0,tradeRetryDelaySeconds:0,maxSuccessfulTradesPerDay:0,maxConcurrentActiveTrades:0,
-  requirePreviousSettlement:true,minSettlementDelaySeconds:0,maxSettlementDelaySeconds:0,
+  enabled:true,automaticDelivery:true,dailyPopupTarget:0,schedulingPeriod:"rolling_24h" as const,
+  minIntervalSeconds:45,maxIntervalSeconds:3600,randomizationEnabled:true,popupDisplayTargetSeconds:120,
+  completionDisplaySeconds:8,postCompletionIntervalSeconds:30,maxPendingDeliveries:3,
+  deliveryRetryPolicy:"temporary" as const,maxDeliveryAttempts:3,expiryHandling:"expire" as const,
+  duplicatePrevention:true,audioEnabled:true,audioSound:"soft-chime",automaticTradingEnabled:false,
+  maxTradeAttemptsPerDay:0,tradeRetryDelaySeconds:30,maxSuccessfulTradesPerDay:0,maxConcurrentActiveTrades:1,
+  requirePreviousSettlement:true,minSettlementDelaySeconds:900,maxSettlementDelaySeconds:900,
   minimumRewardBps:0,allowedOpportunityTypes:null,maxDailyRewardMinor:0,rewardLimitCurrency:"USD",
   dailyRewardWindow:"calendar_day" as const,maxRewardPerTradeMinor:0,unsettledRewardPolicy:"reserve" as const,
   capReachedPolicy:"stop_new_trades" as const,settlementConfirmationState:"ledger_and_wallet" as const,
-  settlementRetryPolicy:"manual" as const,maxSettlementAttempts:0,closePolicy:"after_completion" as const,
-  policyVersion:0,
+  settlementRetryPolicy:"manual" as const,maxSettlementAttempts:3,closePolicy:"after_completion" as const,
+  policyVersion:1,
 } as const;
 
 export async function createAdminTradingPackage(createdBy:number,input:{
@@ -2500,7 +2500,7 @@ export async function createAdminTradingPackage(createdBy:number,input:{
       startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:false,termsVersion:1,
     });
     const id=Number(inserted[0].insertId);
-    await tx.insert(opportunityPackagePolicies).values({packageName:name,updatedBy:createdBy,...UNCONFIGURED_TIER_POLICY_SENTINELS});
+    await tx.insert(opportunityPackagePolicies).values({packageName:name,updatedBy:createdBy,...DEFAULT_NEW_TIER_POLICY});
     await tx.insert(v5AuditEvents).values({
       actorUserId:createdBy,action:"trading_package_created",entityType:"trading_package",entityId:String(id),
       reason:auditReason,
@@ -2550,7 +2550,6 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
       Number(activationPolicy.policyVersion)<1||
       !activationPolicy.enabled||
       !activationPolicy.automaticDelivery||
-      !activationPolicy.automaticTradingEnabled||
       !Number.isSafeInteger(Number(activationPolicy.minimumPayoutRateBps))||
       !Number.isSafeInteger(Number(activationPolicy.maximumPayoutRateBps))||
       Number(activationPolicy.minimumPayoutRateBps)<0||
@@ -2561,7 +2560,7 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
       Number(activationPolicy.maximumTradeDurationSeconds)<Number(activationPolicy.minimumTradeDurationSeconds)||
       Number(activationPolicy.maximumTradeDurationSeconds)>86400
     )) {
-      throw new Error("Save and enable a valid delivery policy with payout-rate and duration bounds before enabling this Trading tier.");
+      throw new Error("Save and enable a valid pop-up delivery policy with payout-rate and duration bounds before enabling this Trading tier. Automatic financial execution is a separate control and is not required for customer pop-up eligibility.");
     }
     const nextVersion=Number(current.termsVersion||1)+1;
     if(!Number.isSafeInteger(nextVersion)) throw new Error("Package terms version has reached its limit");
@@ -2922,7 +2921,7 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
       for(const [key,value] of Object.entries(policy)){
         if(value!==undefined&&!['id','updatedAt','policyVersion','updatedBy'].includes(key)) supplied[key]=value;
       }
-      const effective:any={...UNCONFIGURED_TIER_POLICY_SENTINELS,...(current||{}),...supplied,packageName:policy.packageName,updatedBy};
+      const effective:any={...DEFAULT_NEW_TIER_POLICY,...(current||{}),...supplied,packageName:policy.packageName,updatedBy};
       if(effective.minHourlyTarget>effective.normalHourlyTarget) throw new Error(`Minimum hourly target cannot exceed normal target for ${policy.packageName}`);
       if(effective.normalHourlyTarget*24>effective.maxPopupsPerDay&&effective.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
       if(!Number.isSafeInteger(effective.minimumTradeUnits)||!Number.isSafeInteger(effective.maximumTradeUnits)||effective.minimumTradeUnits<1||effective.maximumTradeUnits<effective.minimumTradeUnits) throw new Error(`Trade amount bounds are invalid for ${policy.packageName}`);
@@ -3521,6 +3520,15 @@ export async function claimAutoTradeCycleCustomers(input:{batchSize?:number}={})
 }
 
 export async function runAutoTradeCycle(input:{batchSize?:number}={}){
+  const settlementPolicy=await getTradeSettlementPolicy();
+  if(settlementPolicy.blockUntilSettled){
+    const outstandingTrades=await countOutstandingTrades();
+    if(outstandingTrades>0){
+      // Pause new delivery/execution for this worker cycle without consuming the
+      // durable customer cursor or closing already-published, unexpired offers.
+      return {customers:0,allocations:0,batchSize:input.batchSize??100,pausedUntilSettled:true,outstandingTrades};
+    }
+  }
   const {customers,batchSize}=await claimAutoTradeCycleCustomers(input);
   let allocations=0;
   for(const customer of customers){

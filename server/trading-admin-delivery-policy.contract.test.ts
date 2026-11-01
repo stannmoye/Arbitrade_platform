@@ -52,7 +52,7 @@ describe("administrator Trading delivery policy controls", () => {
     expect(database).toContain("const requested=policies.map(policy=>");
     expect(database).toContain("await db.transaction(async tx=>");
     const rowLock = database.indexOf('where(eq(opportunityPackagePolicies.packageName,policy.packageName)).limit(1).for("update")');
-    const merge = database.indexOf("const effective:any={...UNCONFIGURED_TIER_POLICY_SENTINELS,...(current||{}),...supplied,packageName:policy.packageName,updatedBy}");
+    const merge = database.indexOf("const effective:any={...DEFAULT_NEW_TIER_POLICY,...(current||{}),...supplied,packageName:policy.packageName,updatedBy}");
     const validation = database.indexOf("validatePackageAutomationPolicy(automation)", merge);
     expect(rowLock).toBeGreaterThanOrEqual(0);
     expect(merge).toBeGreaterThan(rowLock);

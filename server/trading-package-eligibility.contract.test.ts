@@ -33,6 +33,38 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(implementation).not.toContain("drainMode");
   });
 
+  it("allows pop-up delivery without requiring automatic financial execution", () => {
+    const start = source.indexOf("export async function listCustomerOpportunities(");
+    const end = source.indexOf("export async function runAutoTradeCycle(", start);
+    const implementation = source.slice(start, end);
+    expect(implementation).toContain("return Boolean(configured && configured.enabled && configured.automaticDelivery && hasConfiguredTradingOfferPolicy(configured))");
+    expect(implementation).not.toContain("configured.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(configured)");
+    expect(implementation).toContain("Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy))");
+  });
+
+  it("allows an administrator to enable a valid pop-up tier while automatic execution remains off", () => {
+    const start = source.indexOf("export async function updateAdminTradingPackage(");
+    const end = source.indexOf("\nexport async function ", start + 5);
+    const implementation = source.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(implementation).toContain("!activationPolicy.enabled");
+    expect(implementation).toContain("!activationPolicy.automaticDelivery");
+    expect(implementation).not.toContain("!activationPolicy.automaticTradingEnabled");
+    expect(implementation).toContain("Automatic financial execution is a separate control");
+  });
+
+  it("creates new tiers with usable pop-up defaults but keeps financial execution off", () => {
+    const start = source.indexOf("const DEFAULT_NEW_TIER_POLICY = {");
+    const end = source.indexOf("\n} as const;", start);
+    const defaults = source.slice(start, end);
+    expect(defaults).toContain("minimumPayoutRateBps:200,maximumPayoutRateBps:300");
+    expect(defaults).toContain("minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900");
+    expect(defaults).toContain("enabled:true,automaticDelivery:true");
+    expect(defaults).toContain("automaticTradingEnabled:false");
+    expect(defaults).toContain("policyVersion:1");
+  });
+
   it("rechecks auto-assigned tier eligibility inside the trade-allocation transaction", () => {
     const start = source.indexOf("export async function createTrade(");
     const end = source.indexOf("\nexport async function ", start + 5);
