@@ -759,7 +759,7 @@ function AdminTradingGlobalControls() {
     setMessage("");
     updatePolicies.mutate({
       policies: [{ packageName: policy.packageName, automaticTradingEnabled: false }],
-      reason: "Administrator disabled automatic financial execution from the persistent top-level Trading control panel.",
+      reason: "Administrator disabled automated allocation from the persistent top-level Trading control panel.",
     });
   };
   const enableSettlementGate = (policy: NonNullable<typeof policies.data>[number]) => {
@@ -832,12 +832,12 @@ function AdminTradingGlobalControls() {
         </div>
         <div className="admin-trading-global-controls__guard">
           <div>
-            <span>Automatic financial execution</span>
-            <small>{policy.automaticTradingEnabled ? "Currently enabled in saved policy" : "Protected OFF — this panel cannot enable it"}</small>
+            <span>automated allocation</span>
+            <small>{policy.automaticTradingEnabled ? "Enabled in saved policy" : "Not enabled — this panel cannot enable it"}</small>
           </div>
           {policy.automaticTradingEnabled
             ? <button type="button" className="admin-trading-global-controls__safe-action" onClick={() => disableAutomaticTrading(policy)} disabled={updatePolicies.isPending}>Disable</button>
-            : <span className="admin-trading-global-controls__protected">Protected OFF</span>}
+            : <span className="admin-trading-global-controls__protected">Not enabled</span>}
         </div>
         <div className="admin-trading-global-controls__guard">
           <div>
