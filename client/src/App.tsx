@@ -959,15 +959,49 @@ function AdminTradingPolicySettings({focus}:{focus?:"policy"|"quotas"|"delivery"
   const policies=trpc.adminOperations.packagePolicies.useQuery(undefined,{refetchInterval:10000});
   const draftDirty=useRef(false);
   const updatePolicies=trpc.adminOperations.updatePackagePolicies.useMutation({
-    onSuccess:async()=>{draftDirty.current=false;await policies.refetch();setPolicyMessage("Trading policy saved successfully. Active trade snapshots were preserved.");setPolicyReason("");},
-    onError:error=>setPolicyMessage(error.message),
+    onSuccess:async(_result,variables)=>{
+      try{
+        const refreshed=await policies.refetch();
+        const persistedRows=(refreshed.data as any[]|undefined)??[];
+        const confirmed=!refreshed.isError&&variables.policies.every((patch:any)=>{
+          const saved=persistedRows.find((row:any)=>row.packageName===patch.packageName);
+          const baseline=policyBaseline.find(row=>row.packageName===patch.packageName);
+          if(!saved||Number(saved.policyVersion||0)<=Number(baseline?.policyVersion||0))return false;
+          return Object.entries(patch).every(([key,expected])=>{
+            if(key==="packageName")return true;
+            const actual=(saved as any)[key];
+            if(typeof expected==="number")return Number(actual)===expected;
+            if(typeof expected==="boolean")return Boolean(actual)===expected;
+            return String(actual??"")===String(expected??"");
+          });
+        });
+        if(!confirmed){
+          setPolicyMessageKind("error");
+          setPolicyMessage("The policy update completed, but a fresh server read did not confirm every changed field and policy version. Your edits remain on screen; check the values and try again.");
+          return;
+        }
+        draftDirty.current=false;
+        setPolicyBaseline(policyRows);
+        setPolicyMessageKind("success");
+        setPolicyMessage("Trading policy saved and confirmed by a fresh server read. The saved policy version has advanced; existing customer and trade snapshots were preserved.");
+        setPolicyReason("");
+      }catch(error){
+        setPolicyMessageKind("error");
+        setPolicyMessage("Policy save read-back failed: "+(error instanceof Error?error.message:"Unknown verification error")+". Your edits remain on screen.");
+      }
+    },
+    onError:error=>{setPolicyMessageKind("error");setPolicyMessage(error.message)},
   });
   const [policyRows,setPolicyRows]=useState<TradingDeliveryPolicyRow[]>([]);
   const [policyBaseline,setPolicyBaseline]=useState<TradingDeliveryPolicyRow[]>([]);
   const [policyMessage,setPolicyMessage]=useState("");
+  const [policyMessageKind,setPolicyMessageKind]=useState<"success"|"error">("success");
   const [policyReason,setPolicyReason]=useState("");
   useEffect(()=>{draftDirty.current=buildChangedPolicyPatches(policyBaseline,policyRows).length>0},[policyBaseline,policyRows]);useEffect(()=>{if(policies.data&&!draftDirty.current){const rows=policies.data.map(x=>({...x,packageName:x.packageName,enabled:x.enabled===true,automaticDelivery:x.automaticDelivery===true,automaticTradingEnabled:x.automaticTradingEnabled===true,badgeLabel:x.badgeLabel??"",badgeStyle:(["neutral","blue","purple","gold","green"].includes(String(x.badgeStyle))?String(x.badgeStyle):"neutral") as TradingDeliveryPolicyRow["badgeStyle"],minimumPayoutRateBps:x.minimumPayoutRateBps??null,maximumPayoutRateBps:x.maximumPayoutRateBps??null,minimumTradeDurationSeconds:x.minimumTradeDurationSeconds??null,maximumTradeDurationSeconds:x.maximumTradeDurationSeconds??null,companyRotationEnabled:x.companyRotationEnabled===true,companyRotationCountryNames:x.companyRotationCountryNames??"",companyRotationRepeatPolicy:x.companyRotationRepeatPolicy,maxPopupsPerDay:x.maxPopupsPerDay,maxVisibleOffers:x.maxVisibleOffers,minimumTradeUnits:x.minimumTradeUnits,maximumTradeUnits:x.maximumTradeUnits,minHourlyTarget:x.minHourlyTarget,normalHourlyTarget:x.normalHourlyTarget,marketInfluenceBps:x.marketInfluenceBps,burstEnabled:x.burstEnabled,maxBurstSize:x.maxBurstSize,dailyPopupTarget:x.dailyPopupTarget,schedulingPeriod:x.schedulingPeriod,minIntervalSeconds:x.minIntervalSeconds,maxIntervalSeconds:x.maxIntervalSeconds,randomizationEnabled:x.randomizationEnabled,popupDisplayTargetSeconds:x.popupDisplayTargetSeconds,completionDisplaySeconds:x.completionDisplaySeconds,postCompletionIntervalSeconds:x.postCompletionIntervalSeconds,maxPendingDeliveries:x.maxPendingDeliveries,maxDeliveryAttempts:x.maxDeliveryAttempts,maxTradeAttemptsPerDay:x.maxTradeAttemptsPerDay,tradeRetryDelaySeconds:x.tradeRetryDelaySeconds,maxSuccessfulTradesPerDay:x.maxSuccessfulTradesPerDay,maxConcurrentActiveTrades:x.maxConcurrentActiveTrades,requirePreviousSettlement:x.requirePreviousSettlement,minSettlementDelaySeconds:x.minSettlementDelaySeconds,maxSettlementDelaySeconds:x.maxSettlementDelaySeconds,minimumRewardBps:x.minimumRewardBps,maxDailyRewardMinor:x.maxDailyRewardMinor,maxRewardPerTradeMinor:x.maxRewardPerTradeMinor,closePolicy:x.closePolicy}));setPolicyRows(rows);setPolicyBaseline(rows)}},[policies.data]);
-  const updateRow=(index:number,key:Exclude<keyof TradingDeliveryPolicyRow,"packageName">,value:number|boolean|string|null)=>setPolicyRows(rows=>rows.map((row,i)=>i===index?{...row,[key]:value}:row));
+  const updateRow=(index:number,key:Exclude<keyof TradingDeliveryPolicyRow,"packageName">,value:number|boolean|string|null)=>{
+    setPolicyMessage("");
+    setPolicyRows(rows=>rows.map((row,i)=>i===index?{...row,[key]:value}:row));
+  };
   const policyRowValid=(row:TradingDeliveryPolicyRow)=>{
     const settlementBaseline=policyBaseline.find(item=>item.packageName===row.packageName);
     const settlementTimingChanged=Boolean(settlementBaseline&&(row.minSettlementDelaySeconds!==settlementBaseline.minSettlementDelaySeconds||row.maxSettlementDelaySeconds!==settlementBaseline.maxSettlementDelaySeconds));
@@ -986,12 +1020,12 @@ function AdminTradingPolicySettings({focus}:{focus?:"policy"|"quotas"|"delivery"
       Number.isSafeInteger(row.minSettlementDelaySeconds)&&Number.isSafeInteger(row.maxSettlementDelaySeconds)&&row.minSettlementDelaySeconds<=row.maxSettlementDelaySeconds&&settlementTimingSafe;
   };
   const onSave=()=>{
-    if(policyReason.trim().length<5){setPolicyMessage("Enter at least 5 characters explaining this policy change.");return;}
-    if(!policyRows.length){setPolicyMessage("No tier policies are loaded. Refresh before saving.");return;}
+    if(policyReason.trim().length<5){setPolicyMessageKind("error");setPolicyMessage("Enter at least 5 characters explaining this policy change.");return;}
+    if(!policyRows.length){setPolicyMessageKind("error");setPolicyMessage("No tier policies are loaded. Refresh before saving.");return;}
     const invalidTier=policyRows.find(row=>!policyRowValid(row));
-    if(invalidTier){setPolicyMessage("Correct the invalid policy settings for "+invalidTier.packageName+" before saving.");return;}
+    if(invalidTier){setPolicyMessageKind("error");setPolicyMessage("Correct the invalid policy settings for "+invalidTier.packageName+" before saving.");return;}
     const patches=buildChangedPolicyPatches(policyBaseline,policyRows);
-    if(!patches.length){setPolicyMessage("No policy changes to save.");return;}
+    if(!patches.length){setPolicyMessageKind("error");setPolicyMessage("No policy changes to save.");return;}
     updatePolicies.mutate({policies:patches,reason:policyReason.trim()});
   };
   const title=focus==="policy"?"Offer Rules & Capital Limits":focus==="quotas"?"Daily Delivery Caps":focus==="delivery"?"Delivery Schedule":focus==="retries"?"Retries & Carry-Forward":focus==="display"?"Customer Pop-up Display":focus==="rotation"?"Company Rotation Rules":"Trading policy settings";
@@ -999,7 +1033,7 @@ function AdminTradingPolicySettings({focus}:{focus?:"policy"|"quotas"|"delivery"
   return <div className="arb-page portal-page"><div className="portal-page-top"><div><div className="eyebrow">Authoritative Trading policy editor</div><h1>{title}</h1><p>{description}</p></div></div>
     {policies.isError&&<div className="auth-error" role="alert">Trading policy could not be loaded. {policies.error.message}</div>}
     <Suspense fallback={<div className="settings-card">Loading saved Trading policy controls…</div>}>
-      <TradingDeliveryPolicyEditor policyRows={policyRows} policyMessage={policyMessage} policyReason={policyReason} onPolicyReasonChange={setPolicyReason} isLoading={policies.isLoading} isSaving={updatePolicies.isPending} updateRow={updateRow} policyRowValid={policyRowValid} onSave={onSave} focus={focus}/>
+      <TradingDeliveryPolicyEditor policyRows={policyRows} policyMessage={policyMessage} policyMessageKind={policyMessageKind} policyReason={policyReason} onPolicyReasonChange={setPolicyReason} isLoading={policies.isLoading} isSaving={updatePolicies.isPending} updateRow={updateRow} policyRowValid={policyRowValid} onSave={onSave} focus={focus}/>
     </Suspense>
   </div>;
 }
