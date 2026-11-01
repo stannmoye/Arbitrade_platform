@@ -1,3 +1,15 @@
+## 2026-11-01 — Authenticated popup and administrator switch acceptance expanded
+
+- Extended `scripts/trading-ui-browser-acceptance.cjs`, the existing real-browser runner that uses actual authenticated browser storage states and unmocked same-origin tRPC APIs.
+- Added an acceptance requirement for a real customer opportunities API response containing an open, worker-delivered, popup-eligible offer with delivery enabled and a saved popup policy, followed by verification that the corresponding customer popup is visibly rendered. The test also checks that any company identity displayed matches the server-filtered company identity returned by the customer API.
+- Added real API/database read-back coverage for all five persistent admin delivery switches: tier policy, pop-up delivery, company rotation, randomized timing and burst delivery. Each switch is toggled and restored through the admin UI; the runner asserts automatic financial execution remains OFF.
+- Added cleanup/restoration behavior for temporary switch changes and updated `docs/trading/AUTHENTICATED_BROWSER_ACCEPTANCE.md` with fixture requirements and limitations.
+- The existing 1,022-check generic browser job uses mocked auth/tRPC for interaction coverage and static Vite preview for layout. It is not the authenticated runner and is not evidence of real API/database persistence.
+- The authenticated runner has **not** been executed in this connector session. It requires an isolated disposable non-production deployment, a seeded eligible customer with a worker-delivered reviewed open opportunity, a separate unqualified customer, and an admin Playwright storage state. No such host or storage states are available here. Do not substitute production credentials or run the script against production.
+- No wallet mutation, allocation, automatic financial execution, settlement, production database, deployment or merge was performed. Exact-head GitHub CI must validate the runner changes; authenticated non-production acceptance remains pending environment provisioning.
+
+---
+
 ## 2026-11-01 — Empty opportunity registry warning and browser navigation regression
 
 - Added an explicit status warning to the Admin Opportunity Engine when the published/open offer registry is empty. It explains that customer pop-ups require reviewed, source-backed published opportunities or validated CSV import, and that market refresh does not create offers.
