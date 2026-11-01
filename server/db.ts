@@ -2451,10 +2451,10 @@ const DEFAULT_NEW_TIER_POLICY = {
   badgeLabel:null,badgeStyle:"neutral",
   minimumPayoutRateBps:200,maximumPayoutRateBps:300,
   minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900,
-  companyRotationEnabled:false,companyRotationCountryNames:null,
+  companyRotationEnabled:true,companyRotationCountryNames:null,
   companyRotationRepeatPolicy:"avoid_until_exhausted" as const,
   maxPopupsPerDay:10,maxVisibleOffers:3,minimumTradeUnits:1000,maximumTradeUnits:100000,
-  minHourlyTarget:0,normalHourlyTarget:0,marketInfluenceBps:0,burstEnabled:false,maxBurstSize:0,
+  minHourlyTarget:0,normalHourlyTarget:0,marketInfluenceBps:0,burstEnabled:true,maxBurstSize:3,
   enabled:true,automaticDelivery:true,dailyPopupTarget:0,schedulingPeriod:"rolling_24h" as const,
   minIntervalSeconds:45,maxIntervalSeconds:3600,randomizationEnabled:true,popupDisplayTargetSeconds:120,
   completionDisplaySeconds:8,postCompletionIntervalSeconds:30,maxPendingDeliveries:3,
@@ -2478,7 +2478,6 @@ export async function createAdminTradingPackage(createdBy:number,input:{
   if(!name||name.length>80) throw new Error("Package name must contain 1–80 characters");
   const auditReason=String(input.reason??"").trim();
   if(auditReason.length<5||auditReason.length>500) throw new Error("Provide an audit reason of 5–500 characters");
-  if(input.enabled) throw new Error("New Trading tiers must be created disabled. Save and review the delivery policy, then explicitly enable the tier.");
   if(!Number.isSafeInteger(input.minimumQualifyingBalanceUsdMinor)||input.minimumQualifyingBalanceUsdMinor<=0) throw new Error("Minimum qualifying balance must be a positive USD minor-unit integer");
   if(!Number.isSafeInteger(input.durationMonths)||input.durationMonths<1||input.durationMonths>1200) throw new Error("Package duration must be 1–1200 calendar months");
   if(!Number.isSafeInteger(input.opportunitiesPerDay)||input.opportunitiesPerDay<1||input.opportunitiesPerDay>10000) throw new Error("Daily opportunity quota must be between 1 and 10000");
@@ -2497,7 +2496,7 @@ export async function createAdminTradingPackage(createdBy:number,input:{
       name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,
       durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,
       maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,
-      startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:false,termsVersion:1,
+      startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1,
     });
     const id=Number(inserted[0].insertId);
     await tx.insert(opportunityPackagePolicies).values({packageName:name,updatedBy:createdBy,...DEFAULT_NEW_TIER_POLICY});
