@@ -144,7 +144,7 @@ describe("fresh-install database isolation", () => {
     const wizard = await readFile(resolve(root, "installer", "index.php"), "utf8");
     expect(source).toContain('if (mode === "fresh" && tableCount !== 0)');
     expect(wizard).toContain("if ($mode === 'fresh' && $tableCount !== 0)");
-    expect(source).not.toMatch(/\\b(DROP\\s+TABLE|TRUNCATE\\s+TABLE|DELETE\\s+FROM)\\b/i);
+    expect(source).not.toMatch(/\b(DROP\s+TABLE|TRUNCATE\s+TABLE|DELETE\s+FROM)\b/i);
     expect(wizard).not.toMatch(/\\b(DROP\\s+TABLE|TRUNCATE\\s+TABLE|DELETE\\s+FROM)\\b/i);
   });
 
