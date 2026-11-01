@@ -7,7 +7,7 @@ const operationsUi = readFileSync(new URL("../client/src/components/AdminOperati
 const serverDb = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const serverRouters = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const policyEditor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
-const operationsUi = readFileSync(new URL("../client/src/components/AdminOperationsPages.tsx", import.meta.url), "utf8");
+
 
 describe("Administrator company catalogue navigation and pagination", () => {
   it("opens the dedicated 1,811-record catalogue and supports server-backed all-company selection with local ten-record pages", () => {
