@@ -31,7 +31,9 @@ Provide these environment variables:
 - `TRADING_ADMIN_STORAGE_STATE`: storage-state JSON for a test administrator.
 - `TRADING_ACCEPTANCE_CUSTOMER_EMAIL`: email of the eligible test customer as shown in the administrator directory.
 
-The storage-state files must already exist in Playwright's `{ cookies, origins }` format. The script does not log in, create accounts, or seed database records. The eligible customer must have an active automatically assigned tier, a valid enabled delivery policy with tier policy, pop-up delivery, company rotation, randomized timing and burst delivery all initially enabled, and at least one reviewed open opportunity already delivered by the running worker; otherwise the popup acceptance check fails with a setup explanation. Keep these files and credentials outside Git and the repository.
+The storage-state files must already exist in Playwright's `{ cookies, origins }` format. The script does not log in, create accounts, or seed database records. The eligible customer must have an active automatically assigned tier, a valid enabled delivery policy with tier policy, pop-up delivery, company rotation, randomized timing and burst delivery all initially enabled, and at least one reviewed open opportunity already delivered by the running worker; otherwise the popup acceptance check fails with a setup explanation.
+
+For a new test tier, create it through the administrator portal after deploying the candidate; the five delivery controls must arrive ON by default and automatic financial execution must remain OFF. Existing legacy tiers may intentionally remain paused: migration `0089_trading_popup_policy_ranges.sql` disables rows that lack complete valid offer-rate/duration bounds. An administrator must review and save valid terms before enabling those tiers. Do not use the staging test to force-enable an incomplete or intentionally paused legacy policy; existing administrator choices must be preserved. Keep these files and credentials outside Git and the repository.
 
 ## Run
 
