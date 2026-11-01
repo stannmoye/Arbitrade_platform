@@ -298,7 +298,7 @@ describe("Trading overview and duration navigation", () => {
   it("opens persisted settlement timing controls and keeps schedule estimates distinct from settlement", () => {
     expect(navigation).toContain('id: "trade-duration-closing", target: "tradeDurationRules"');
     expect(adminApp).toContain('<AdminSettings focus="tradeDuration"/>');
-    expect(adminApp).toContain("Configure the persisted settlement estimate, wallet credit delay and global block-until-settled rule.");
+    expect(adminApp).toContain("Manage global settlement, wallet-credit and pop-up timing defaults.");
     expect(adminApp).toContain("Scheduled time is not proof of execution or settlement.");
     expect(adminApp).toContain("settlementDelaySeconds");
 
@@ -307,9 +307,15 @@ describe("Trading overview and duration navigation", () => {
     const focusedSettings = adminApp.slice(settingsStart, settingsEnd);
     expect(focusedSettings).toContain("{!focus&&<div className=\"settings-tabs\">");
     expect(focusedSettings).toContain('{tab==="ticket"&&!focus&&<div className="settings-card">');
-    expect(focusedSettings).toContain('{tab==="email"&&!focus&&<div className="settings-card">');
+    expect(focusedSettings).not.toContain('{tab==="email"&&!focus');
     expect(focusedSettings).toContain('{tab==="password"&&!focus&&<div className="settings-card">');
-    expect(focusedSettings).toContain('{tab==="trade"&&<div className="settings-card">');
+    expect(focusedSettings).toContain('{tab==="trade"&&focus==="tradeDuration"&&<div className="settings-card">');
+    expect(focusedSettings).not.toContain('>Trade settlement</button>');
+    expect(focusedSettings).toContain('await save.mutateAsync({trade});');
+    expect(focusedSettings).toContain('await save.mutateAsync({ticket});');
+    expect(focusedSettings).toContain('Other settings sections were not changed.');
+    expect(focusedSettings).toContain('fresh server read did not confirm every saved value');
+    expect(focusedSettings).not.toContain('email:{');
   });
 });
 
