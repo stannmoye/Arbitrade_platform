@@ -38,7 +38,7 @@ PHP-only hosting cannot run this Express application. A cPanel account must prov
 
 ## Financial safety boundary
 
-The application is production-deployable, but real-money execution and verified returns are **blocked** until a named, approved execution/settlement provider supplies verifiable results. Before that integration exists, opportunities must be classified as Practice, Simulation, or Research; no configured rate may be credited as real profit and no simulated balance may be presented as withdrawable funds.
+This is a legacy deployment note about **external-market execution claims**. It must not be read as a blanket provider prerequisite for the internal-ledger Trading model. For current Trading requirements, use `docs/TRADING_SYSTEM_SPECIFICATION.md` and `AGENTS.md`. An opportunity, configured rate, countdown, or interface event is not proof of execution or realized profit; financial records require genuine, durable, auditable evidence and reconciliation. External-market execution claims still require an appropriately approved integration and independently verifiable result references.
 
 ## Mining simulation and earnings persistence
 

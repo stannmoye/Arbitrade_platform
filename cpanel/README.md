@@ -64,7 +64,7 @@ Use cPanel Cron Jobs with UTC schedules for the scheduled handlers documented in
 
 ## 5. Production boundary
 
-The product is production-deployable, but real-money execution and verified returns remain disabled until an actual execution/settlement provider is configured and approved. The application must not credit configured rates as real profit. Do not import development/demo seed data into production.
+This note applies to claims of **external-market execution** and verified external returns; it is not a blanket provider prerequisite for the internal-ledger Trading model. For current Trading requirements, follow `docs/TRADING_SYSTEM_SPECIFICATION.md` and `AGENTS.md`. Configured rates, opportunity cards and countdowns are not proof of execution or realized profit. Financial records require genuine, durable, auditable evidence and reconciliation. External-market execution claims require an appropriately approved integration and independently verifiable result references. Do not import development/demo seed data into production.
 
 ## 6. Recovery
 
