@@ -595,7 +595,27 @@ async function main() {
     // Exercise all five persistent Trading delivery switches through the real
     // admin UI/API. Each change is read back from the database, then restored.
     const readTradingSwitchSnapshot = async () => {
-      const snapshot = await readPolicySnapshot();
+      const snapshot = await adminPage.evaluate(async () => {
+        const response = await fetch("/api/trpc/adminOperations.packagePolicies", {
+          method: "GET", credentials: "same-origin", headers: { accept: "application/json" },
+        });
+        let payload;
+        try { payload = await response.json(); } catch { payload = undefined; }
+        const data = payload?.result?.data?.json ?? payload?.result?.data;
+        return {
+          status: response.status,
+          hasError: Boolean(payload?.error),
+          rows: Array.isArray(data) ? data.map((row) => ({
+            packageName: String(row.packageName),
+            enabled: Boolean(row.enabled),
+            automaticDelivery: Boolean(row.automaticDelivery),
+            companyRotationEnabled: Boolean(row.companyRotationEnabled),
+            randomizationEnabled: Boolean(row.randomizationEnabled),
+            burstEnabled: Boolean(row.burstEnabled),
+            automaticTradingEnabled: Boolean(row.automaticTradingEnabled),
+          })) : null,
+        };
+      });
       assert.ok(snapshot.status >= 200 && snapshot.status < 300 &&
         !snapshot.hasError && Array.isArray(snapshot.rows),
         "Real package policy API must return persisted Trading switch values.");
@@ -642,10 +662,21 @@ async function main() {
       ["Company rotation", "companyRotationEnabled"], ["Randomized timing", "randomizationEnabled"],
       ["Burst delivery", "burstEnabled"],
     ];
-    for (const [label, key] of deliverySwitches) {
-      const originalValue = originalSwitches[key];
-      await saveGlobalSwitchAndReadBack(label, !originalValue);
-      await saveGlobalSwitchAndReadBack(label, originalValue);
+    const switchRestoration = [];
+    try {
+      for (const [label, key] of deliverySwitches) {
+        const originalValue = originalSwitches[key];
+        await saveGlobalSwitchAndReadBack(label, !originalValue);
+        switchRestoration.push({ label, key, originalValue });
+        await saveGlobalSwitchAndReadBack(label, originalValue);
+      }
+    } finally {
+      for (const item of switchRestoration) {
+        const current = await readTradingSwitchSnapshot();
+        if (current[item.key] !== item.originalValue) {
+          await saveGlobalSwitchAndReadBack(item.label, item.originalValue);
+        }
+      }
     }
     results.push({
       journey: "persisted admin delivery switches", status: "passed",
