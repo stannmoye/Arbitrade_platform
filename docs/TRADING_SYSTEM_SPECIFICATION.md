@@ -316,6 +316,7 @@ All Trading configuration, publishing, monitoring and audit destinations must ap
 - **Per-tier Delivery Schedule** — per-tier delivery spacing, randomized timing bounds and post-completion intervals.
 - **Global Trade Timing & Settlement** — global trade-duration and closing/settlement review settings.
 - **Per-tier Pop-up Display** — expanded-card and completion-card display durations.
+- **Per-tier Pop-up Display** — per-tier expanded-card and completion-card display overrides.
 - **Per-tier Company Rotation Rules** — approved-country filters and repeat-handling configuration.
 - **Company Catalogue** — company reference records, Logo IDs and verification state; it must not render a second company-rotation editor.
 - **Capital & Wallet Funding Rules** — permitted Trading capital requirements and funding-policy review.
@@ -328,7 +329,7 @@ All Trading configuration, publishing, monitoring and audit destinations must ap
 - **Audit & Policy History** — actor, timestamp, reason, previous/new values and saved policy versions.
 - **Trade Settings Guide** — read-only help.
 
-The persistent Trading controls panel remains visible above every administrator page except the clean Home/overview landing page. It is the single owner for the per-tier **Tier policy**, **Pop-up delivery**, **Company rotation**, **Randomized timing**, and **Burst delivery** ON/OFF switches. Detailed configuration screens must not render duplicate controls for those same switches. Automatic financial execution remains separately protected OFF.
+The persistent Trading controls panel remains visible above every administrator page except the clean Home/overview landing page. The **Global Trade Timing & Settlement** page is the only editor for global settlement, wallet-credit, cooldown, pop-up timing and market-refresh defaults; the general Settings page no longer repeats that form. The ticket settings form submits only ticket fields, and email settings remain under Communications. Each form saves only its own section and confirms success only after a fresh read-back. The panel is the single owner for the per-tier **Tier policy**, **Pop-up delivery**, **Company rotation**, **Randomized timing**, and **Burst delivery** ON/OFF switches. Detailed configuration screens must not render duplicate controls for those same switches. Automatic financial execution remains separately protected OFF.
 
 The tier field `opportunitiesPerDay` is the customer's daily opportunity entitlement contribution. Active qualifying tier contributions are cumulative. The **Per-tier Daily Delivery Caps** page owns the separate operational hard daily pop-up ceiling, concurrent visible-offer limit, optional target cap and counting window. These caps may reduce but must never increase the entitlement. A tier entitlement of 600/day can be fully available only when the hard daily pop-up ceiling is at least 600 and the optional target cap is 0 (no additional target restriction), subject to opportunity availability and all other eligibility limits.
 
