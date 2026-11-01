@@ -150,8 +150,11 @@ describe("Automatic Trading tier qualification", () => {
   it("keeps allocation and due-trade processing in the scheduled worker", () => {
     expect(databaseSource).toContain("workerCycle?:boolean");
     expect(databaseSource).toContain("if(options.workerCycle===true) await markDueTradesAwaitingConfirmation(userId)");
-    expect(databaseSource).toContain("options.workerCycle===true ? await autoTradeOpenOpportunities");
-    expect(databaseSource).toContain("listCustomerOpportunities(customer.id,{workerCycle:true,consumeDelivery:false})");
+    expect(databaseSource).toContain("options.workerCycle===true&&options.allowAutomaticExecution!==false");
+    expect(databaseSource).toContain("await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls)");
+    expect(databaseSource).toContain("allowAutomaticExecution:!pausedUntilSettled");
+    expect(databaseSource).toContain("listCustomerOpportunities(customer.id,{");
+    expect(databaseSource).toContain("workerCycle:true,consumeDelivery:false,allowAutomaticExecution:!pausedUntilSettled");
     const start = routerSource.indexOf("opportunities: protectedProcedure.query(");
     const end = routerSource.indexOf("\n    trades: protectedProcedure.query", start);
     expect(start).toBeGreaterThanOrEqual(0);
