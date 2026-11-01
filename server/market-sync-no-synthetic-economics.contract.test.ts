@@ -73,6 +73,6 @@ describe("Trading opportunity publication guidance", () => {
     expect(adminApp).toContain("No published opportunities are currently open.");
     expect(adminApp).toContain("Eligible customers cannot receive a pop-up until an administrator publishes a reviewed, source-backed opportunity");
     expect(adminApp).toContain("Market-data refresh does not create offers.");
-    expect(marketSync).toContain("generationDisabled: true");
+    expect(source).toContain("generationDisabled: true");
   });
 });
