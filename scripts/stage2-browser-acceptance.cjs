@@ -2227,12 +2227,12 @@ async function runAdminTradingControlsInteractionCheck(browser) {
     await page.goto(new URL("/ops-console-7f3a", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.getByRole("heading", { name: "Control centre" }).waitFor({ state: "visible", timeout: 15000 });
     // Trading is in the main admin navigation rail, not the supplemental drawer.
-    const tradeSetupNavigation = page.locator("#admin-main-navigation .admin-nav-group--trade-setup");
-    const tradeSetupHeading = tradeSetupNavigation.getByRole("button", { name: /Set up trades/ });
-    if (await tradeSetupHeading.getAttribute("aria-expanded") !== "true") {
-      await tradeSetupHeading.click();
+    const tradeSettingsNavigation = page.locator("#admin-main-navigation .admin-nav-group--trade-settings");
+    const tradeSettingsHeading = tradeSettingsNavigation.getByRole("button", { name: /Trade Settings/ });
+    if (await tradeSettingsHeading.getAttribute("aria-expanded") !== "true") {
+      await tradeSettingsHeading.click();
     }
-    await tradeSetupNavigation.getByRole("button", { name: /Customer tiers/ }).click();
+    await tradeSettingsNavigation.getByRole("button", { name: /Tiers & Eligibility/ }).click();
     await page.getByRole("heading", { name: "Trading controls" }).waitFor({ state: "visible", timeout: 10000 });
     const keys = [
       ["Tier policy", "enabled"], ["Pop-up delivery", "automaticDelivery"],
