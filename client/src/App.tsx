@@ -747,8 +747,13 @@ function AdminTradingGlobalControls() {
       return;
     }
     setMessage("");
+    const patch = key === "enabled" ? { packageName: policy.packageName, enabled: next }
+      : key === "automaticDelivery" ? { packageName: policy.packageName, automaticDelivery: next }
+      : key === "companyRotationEnabled" ? { packageName: policy.packageName, companyRotationEnabled: next }
+      : key === "randomizationEnabled" ? { packageName: policy.packageName, randomizationEnabled: next }
+      : { packageName: policy.packageName, burstEnabled: next };
     updatePolicies.mutate({
-      policies: [{ packageName: policy.packageName, [key]: next }],
+      policies: [patch],
       reason: "Administrator changed a package control from the persistent top-level Trading control panel.",
     });
   };
