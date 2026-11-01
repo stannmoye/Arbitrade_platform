@@ -297,6 +297,10 @@ describe("Trading overview and duration navigation", () => {
 
   it("opens persisted settlement timing controls and keeps schedule estimates distinct from settlement", () => {
     expect(navigation).toContain('id: "trade-duration-closing", target: "tradeDurationRules"');
+    expect(navigation).toContain('label: "Global Trade Timing & Settlement"');
+    expect(navigation).toContain('label: "Per-tier Offer Rules & Capital Limits"');
+    expect(navigation).toContain('label: "Per-tier Delivery Schedule"');
+    expect(navigation).toContain('label: "Per-tier Pop-up Display"');
     expect(adminApp).toContain('<AdminSettings focus="tradeDuration"/>');
     expect(adminApp).toContain("Manage global settlement, wallet-credit and pop-up timing defaults.");
     expect(adminApp).toContain("Scheduled time is not proof of execution or settlement.");
