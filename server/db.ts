@@ -3520,6 +3520,15 @@ export async function claimAutoTradeCycleCustomers(input:{batchSize?:number}={})
 }
 
 export async function runAutoTradeCycle(input:{batchSize?:number}={}){
+  const settlementPolicy=await getTradeSettlementPolicy();
+  if(settlementPolicy.blockUntilSettled){
+    const outstandingTrades=await countOutstandingTrades();
+    if(outstandingTrades>0){
+      // Pause new delivery/execution for this worker cycle without consuming the
+      // durable customer cursor or closing already-published, unexpired offers.
+      return {customers:0,allocations:0,batchSize:input.batchSize??100,pausedUntilSettled:true,outstandingTrades};
+    }
+  }
   const {customers,batchSize}=await claimAutoTradeCycleCustomers(input);
   let allocations=0;
   for(const customer of customers){
