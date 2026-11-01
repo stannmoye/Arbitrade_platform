@@ -744,7 +744,7 @@ function AdminTradingGlobalControls() {
     const next = !Boolean(policy[key]);
     setMessage("");
     // Pop-up delivery is independent from financial execution. Keep automatic
-    // allocation OFF whenever an administrator changes the customer-delivery gate.
+    // allocation disabled whenever an administrator changes the customer-delivery gate.
     const patch = key === "enabled" ? { packageName: policy.packageName, enabled: next, automaticTradingEnabled: false }
       : key === "automaticDelivery" ? { packageName: policy.packageName, automaticDelivery: next, automaticTradingEnabled: false }
       : key === "companyRotationEnabled" ? { packageName: policy.packageName, companyRotationEnabled: next }
