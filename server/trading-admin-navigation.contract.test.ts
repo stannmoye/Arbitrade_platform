@@ -7,6 +7,7 @@ const operationsUi = readFileSync(new URL("../client/src/components/AdminOperati
 const serverDb = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const serverRouters = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const policyEditor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
+const operationsUi = readFileSync(new URL("../client/src/components/AdminOperationsPages.tsx", import.meta.url), "utf8");
 
 describe("Administrator company catalogue navigation and pagination", () => {
   it("opens the dedicated 1,811-record catalogue and supports server-backed all-company selection with local ten-record pages", () => {
@@ -281,7 +282,7 @@ describe("Trading menu ownership and quota save feedback", () => {
     expect(policyEditor).toContain('Hard daily pop-up ceiling<input');
     expect(policyEditor).toContain('This is an operational ceiling, not the tier entitlement.');
     expect(policyEditor).toContain('Optional daily target cap (0 = no extra cap)');
-    expect(policyEditor).toContain('These caps can reduce—but never increase—the daily opportunity entitlement');
+    expect(adminApp).toContain("These caps can reduce—but never increase—the daily opportunity entitlement");
   });
 
   it("separates delivery policy editing from tier details and company catalogue records", () => {
@@ -313,7 +314,7 @@ describe("Trading overview and duration navigation", () => {
     expect(adminApp).toContain('<AdminSettings focus="tradeDuration"/>');
     expect(adminApp).toContain('section==="tradeDurationRules"&&<Suspense');
     expect(operationsUi).toContain("Manage global settlement, wallet-credit and pop-up timing defaults.");
-    expect(adminApp).toContain("Scheduled time is not proof of execution or settlement.");
+    expect(operationsUi).toContain("Scheduled time is not proof of execution or settlement.");
     expect(operationsUi).toContain("settlementDelaySeconds");
 
     const settingsStart = operationsUi.indexOf("export function AdminSettings({focus}");
