@@ -265,7 +265,6 @@ describe("Automatic Trading tier qualification", () => {
     expect(customerAppSource).toContain('startsAt:"",expiresAt:"",reason:"",enabled:true}');
     expect(customerAppSource).toContain('maxPopupsPerDay:0,maxActiveInvestments:0');
     expect(customerAppSource).toContain("New tiers are enabled when created.");
-    expect(customerAppSource).toContain("New tiers are enabled when created.");
     expect(databaseSource).toContain("const DEFAULT_NEW_TIER_POLICY = {");
   });
 
