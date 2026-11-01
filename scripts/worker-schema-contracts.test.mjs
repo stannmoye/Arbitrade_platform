@@ -114,7 +114,7 @@ describe("worker schema contracts", () => {
     expect(runtimeSchema).toContain('drizzle/0098_disable_automatic_financial_execution.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, automaticFinancialExecutionOffMigration)");
     expect(automaticFinancialExecutionOffMigration).toContain("SET `automaticTradingEnabled` = 0");
-    expect(mainMigrationRunner).toContain('"0098_disable_automatic_financial_execution.sql"');
+    expect(portalRunner).toContain('"0098_disable_automatic_financial_execution.sql"');
     expect(installerRecovery).toContain('"0098_disable_automatic_financial_execution.sql"');
     expect(dailyAttemptAccountingMigration).toContain("`executionDailyAttemptCount` int NOT NULL DEFAULT 0");
     expect(dailyAttemptAccountingMigration).toContain("`executionDailyAttemptDay` varchar(10) NULL");
