@@ -310,13 +310,13 @@ All Trading configuration, publishing, monitoring and audit destinations must ap
 
 - **Trading Overview** — persisted delivery, pending-work, open-opportunity, settlement and pause summaries.
 - **Tiers & Eligibility** — tier name, qualifying USD threshold, duration, daily opportunity entitlement, effective dates, enabled state and terms version.
-- **Daily Delivery Caps** — operational hard daily pop-up ceiling, maximum visible offers, optional daily target cap and quota-counting window.
-- **Offer Rules & Capital Limits** — required capital bounds and configured reward-rate/duration eligibility bounds.
+- **Per-tier Daily Delivery Caps** — operational hard daily pop-up ceiling, maximum visible offers, optional daily target cap and quota-counting window.
+- **Per-tier Offer Rules & Capital Limits** — required capital bounds and configured reward-rate/duration eligibility bounds.
 - **Publish & Manage Opportunities** — manual reviewed-offer publishing, validated bulk import and read-only open-offer review; this page must not duplicate the tier/policy editor.
-- **Delivery Schedule** — per-tier delivery spacing, randomized timing bounds and post-completion intervals.
-- **Trade Duration & Closing** — global trade-duration and closing/settlement review settings.
-- **Customer Pop-up Display** — expanded-card and completion-card display durations.
-- **Company Rotation Rules** — approved-country filters and repeat-handling configuration.
+- **Per-tier Delivery Schedule** — per-tier delivery spacing, randomized timing bounds and post-completion intervals.
+- **Global Trade Timing & Settlement** — global trade-duration and closing/settlement review settings.
+- **Per-tier Pop-up Display** — expanded-card and completion-card display durations.
+- **Per-tier Company Rotation Rules** — approved-country filters and repeat-handling configuration.
 - **Company Catalogue** — company reference records, Logo IDs and verification state; it must not render a second company-rotation editor.
 - **Capital & Wallet Funding Rules** — permitted Trading capital requirements and funding-policy review.
 - **Fees & Earnings Limits** — Trading fee policy and configured earnings ceilings.
@@ -330,7 +330,7 @@ All Trading configuration, publishing, monitoring and audit destinations must ap
 
 The persistent Trading controls panel remains visible above every administrator page except the clean Home/overview landing page. It is the single owner for the per-tier **Tier policy**, **Pop-up delivery**, **Company rotation**, **Randomized timing**, and **Burst delivery** ON/OFF switches. Detailed configuration screens must not render duplicate controls for those same switches. Automatic financial execution remains separately protected OFF.
 
-The tier field `opportunitiesPerDay` is the customer's daily opportunity entitlement contribution. Active qualifying tier contributions are cumulative. The **Daily Delivery Caps** page owns the separate operational hard daily pop-up ceiling, concurrent visible-offer limit, optional target cap and counting window. These caps may reduce but must never increase the entitlement. A tier entitlement of 600/day can be fully available only when the hard daily pop-up ceiling is at least 600 and the optional target cap is 0 (no additional target restriction), subject to opportunity availability and all other eligibility limits.
+The tier field `opportunitiesPerDay` is the customer's daily opportunity entitlement contribution. Active qualifying tier contributions are cumulative. The **Per-tier Daily Delivery Caps** page owns the separate operational hard daily pop-up ceiling, concurrent visible-offer limit, optional target cap and counting window. These caps may reduce but must never increase the entitlement. A tier entitlement of 600/day can be fully available only when the hard daily pop-up ceiling is at least 600 and the optional target cap is 0 (no additional target restriction), subject to opportunity availability and all other eligibility limits.
 
 Tier edits increment the package terms version and apply to future automatic tier assignments. Existing customer entitlements retain the saved terms snapshot created at assignment; editing a tier must not silently rewrite existing customer entitlements. Every successful save must be followed by a fresh database read that confirms the changed values/version before the UI reports success. Failed or unconfirmed read-back must be reported as an error and must not discard the administrator's unsaved draft. Background polling must not overwrite a dirty editor draft.
 
