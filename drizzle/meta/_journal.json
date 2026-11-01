@@ -474,7 +474,7 @@
     {
       "idx": 67,
       "version": "7",
-      "when": 1793404800000014,
+      "when": 1793404800014,
       "tag": "0098_disable_automatic_financial_execution",
       "breakpoints": true
     }
