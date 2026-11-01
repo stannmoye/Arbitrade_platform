@@ -2451,7 +2451,7 @@ const DEFAULT_NEW_TIER_POLICY = {
   badgeLabel:null,badgeStyle:"neutral",
   minimumPayoutRateBps:200,maximumPayoutRateBps:300,
   minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900,
-  companyRotationEnabled:false,companyRotationCountryNames:null,
+  companyRotationEnabled:true,companyRotationCountryNames:null,
   companyRotationRepeatPolicy:"avoid_until_exhausted" as const,
   maxPopupsPerDay:10,maxVisibleOffers:3,minimumTradeUnits:1000,maximumTradeUnits:100000,
   minHourlyTarget:0,normalHourlyTarget:0,marketInfluenceBps:0,burstEnabled:false,maxBurstSize:0,
@@ -2560,7 +2560,7 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
       Number(activationPolicy.maximumTradeDurationSeconds)<Number(activationPolicy.minimumTradeDurationSeconds)||
       Number(activationPolicy.maximumTradeDurationSeconds)>86400
     )) {
-      throw new Error("Save and enable a valid pop-up delivery policy with payout-rate and duration bounds before enabling this Trading tier. Automatic financial execution is a separate control and is not required for customer pop-up eligibility.");
+      throw new Error("Save and enable a valid pop-up delivery policy with payout-rate and duration bounds before enabling this Trading tier. automated allocation is a separate control and is not required for customer pop-up eligibility.");
     }
     const nextVersion=Number(current.termsVersion||1)+1;
     if(!Number.isSafeInteger(nextVersion)) throw new Error("Package terms version has reached its limit");

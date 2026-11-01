@@ -33,7 +33,7 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(implementation).not.toContain("drainMode");
   });
 
-  it("allows pop-up delivery without requiring automatic financial execution", () => {
+  it("allows pop-up delivery without requiring automated allocation", () => {
     const start = source.indexOf("export async function listCustomerOpportunities(");
     const end = source.indexOf("export async function runAutoTradeCycle(", start);
     const implementation = source.slice(start, end);
@@ -42,7 +42,7 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(implementation).toContain("Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy))");
   });
 
-  it("allows an administrator to enable a valid pop-up tier while automatic execution remains off", () => {
+  it("allows an administrator to enable a valid pop-up tier while automated allocation is disabled", () => {
     const start = source.indexOf("export async function updateAdminTradingPackage(");
     const end = source.indexOf("\nexport async function ", start + 5);
     const implementation = source.slice(start, end);
@@ -51,10 +51,10 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(implementation).toContain("!activationPolicy.enabled");
     expect(implementation).toContain("!activationPolicy.automaticDelivery");
     expect(implementation).not.toContain("!activationPolicy.automaticTradingEnabled");
-    expect(implementation).toContain("Automatic financial execution is a separate control");
+    expect(implementation).toContain("automated allocation is a separate control");
   });
 
-  it("creates new tiers with usable pop-up defaults but keeps financial execution off", () => {
+  it("creates new tiers with usable pop-up defaults but keeps automated allocation disabled", () => {
     const start = source.indexOf("const DEFAULT_NEW_TIER_POLICY = {");
     const end = source.indexOf("\n} as const;", start);
     const defaults = source.slice(start, end);
