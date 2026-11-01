@@ -66,3 +66,13 @@ describe("trading opportunity economics integrity", () => {
     expect(implementation).toContain('gt(opportunityOffers.closesAt, now)');
   });
 });
+
+
+describe("Trading opportunity publication guidance", () => {
+  it("clearly explains why customers see no popups when the published offer registry is empty", () => {
+    expect(adminApp).toContain("No published opportunities are currently open.");
+    expect(adminApp).toContain("Eligible customers cannot receive a pop-up until an administrator publishes a reviewed, source-backed opportunity");
+    expect(adminApp).toContain("Market-data refresh does not create offers.");
+    expect(marketSync).toContain("generationDisabled: true");
+  });
+});
