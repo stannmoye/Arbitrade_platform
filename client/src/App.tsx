@@ -742,26 +742,15 @@ function AdminTradingGlobalControls() {
   ] as const;
   const saveSwitch = (policy: NonNullable<typeof policies.data>[number], key: AdminTradingGlobalSwitchKey) => {
     const next = !Boolean(policy[key]);
-    if (next && (key === "enabled" || key === "automaticDelivery") && policy.automaticTradingEnabled) {
-      setMessage("Disable automatic financial execution for this tier before enabling new delivery.");
-      return;
-    }
-    setMessage("");
-    const patch = key === "enabled" ? { packageName: policy.packageName, enabled: next }
-      : key === "automaticDelivery" ? { packageName: policy.packageName, automaticDelivery: next }
+        setMessage("");
+    const patch = key === "enabled" ? { packageName: policy.packageName, enabled: next, ...(!next ? { automaticTradingEnabled: false } : {}) }
+      : key === "automaticDelivery" ? { packageName: policy.packageName, automaticDelivery: next, ...(!next ? { automaticTradingEnabled: false } : {}) }
       : key === "companyRotationEnabled" ? { packageName: policy.packageName, companyRotationEnabled: next }
       : key === "randomizationEnabled" ? { packageName: policy.packageName, randomizationEnabled: next }
       : { packageName: policy.packageName, burstEnabled: next };
     updatePolicies.mutate({
       policies: [patch],
       reason: "Administrator changed a package control from the persistent top-level Trading control panel.",
-    });
-  };
-  const disableAutomaticTrading = (policy: NonNullable<typeof policies.data>[number]) => {
-    setMessage("");
-    updatePolicies.mutate({
-      policies: [{ packageName: policy.packageName, automaticTradingEnabled: false }],
-      reason: "Administrator disabled automatic financial execution from the persistent top-level Trading control panel.",
     });
   };
   const enableSettlementGate = (policy: NonNullable<typeof policies.data>[number]) => {
@@ -835,11 +824,9 @@ function AdminTradingGlobalControls() {
         <div className="admin-trading-global-controls__guard">
           <div>
             <span>Automatic financial execution</span>
-            <small>{policy.automaticTradingEnabled ? "Currently enabled in saved policy" : "Protected OFF — this panel cannot enable it"}</small>
+            <small>{policy.automaticTradingEnabled ? "Enabled in saved policy" : "Disabled in saved policy"}</small>
           </div>
-          {policy.automaticTradingEnabled
-            ? <button type="button" className="admin-trading-global-controls__safe-action" onClick={() => disableAutomaticTrading(policy)} disabled={updatePolicies.isPending}>Disable</button>
-            : <span className="admin-trading-global-controls__protected">Protected OFF</span>}
+          <span className="admin-trading-global-controls__protected">{policy.automaticTradingEnabled ? "Enabled" : "Disabled"}</span>
         </div>
         <div className="admin-trading-global-controls__guard">
           <div>

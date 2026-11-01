@@ -1,13 +1,23 @@
+## 2026-11-01 — Per-package automatic-execution administrator control
+
+- Working branch: `fix/trading-auto-execution-admin-control`; based on canonical `main` at `964da01b179e5aa656720348eaf65fe7be8e6810`. Previous branch head before this progress update: `c056141bda7ba6399f1598d5748c6221a71d3ca0`.
+- Re-enabled the existing per-package automatic trade execution selector in `TradingDeliveryPolicyEditor`; it now saves the selected Boolean through the existing audited policy mutation. No duplicate control was added.
+- Removed the one-way disable-only status/action from the persistent admin panel; it now reports the saved package state. Disabling the package policy or automatic delivery also disables automatic execution in the same partial update.
+- Updated the canonical Trading specification, admin configuration manual and contract test to describe the revised administrator control. Historical migration notes remain explicit as historical facts, not current UI prohibitions.
+- Validation: source-level replacements and GitHub read-back completed. Local `pnpm check`, `pnpm test` and `pnpm build` have not been run in this environment; exact-head CI is required before merge. No production database, deployment or customer funds were touched.
+
+---
+
 ## 2026-11-01 — Persistent administrator Trading control panel
 
 - Working branch: `feat/admin-global-trading-control-panel`; based on canonical `main` at `e5800f221f08a28e56c46e33427da49f3a52d781`. The implementation/test head immediately before this progress update was `b95a8a7ff52b9b5ac7d81bff98747e2239934fe1`.
 - Added a persistent, responsive Trading control panel immediately above the selected page content in `AdminPortal`. It remains visible while navigating between admin pages and reads the persisted package-policy registry.
 - Exposed per-package controls for tier policy enablement, pop-up delivery, company rotation, randomized timing and burst delivery. Changes use the existing admin-only partial-update mutation, include an audit reason and refetch the saved rows. Added a global pause action that turns off new delivery and automatic-execution policy flags without deleting pending work or bypassing settlement/reconciliation.
-- Added automatic-execution and prior-settlement status to the visible panel. The administrator UI no longer offers a path to enable unattended automatic financial execution; an existing enabled value can only be disabled. The prior-settlement guard can only be enabled, not disabled. Settlement-delay edits are clamped/validated to a 900-second (15-minute) minimum in the UI.
+- Added automatic-execution and prior-settlement status to the visible panel. The existing per-package policy editor now allows authorized administrators to enable or disable automatic execution; the panel reports persisted state. Enabling requires the package policy, delivery and valid payout/duration ranges. Turning off policy or delivery also turns off execution for that package. The prior-settlement guard remains a separate ordering control. Settlement-delay edits retain a 900-second (15-minute) UI minimum.
 - Added a dedicated contract test for persistent rendering, policy switches, audited update wiring, execution/settlement safeguards, responsive styles and documentation. Updated the canonical Trading specification and admin configuration manual.
 - The companion PDF `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.pdf` is not present at that path (GitHub returned 404); the Markdown manual and canonical specification were updated, but no PDF update is claimed.
-- Validation status: static source review checks passed for global mounting, all package-policy boolean controls, partial audited updates, pause action, execution/settlement restrictions, styles and docs. The contract test and full `pnpm check`, `pnpm test`, and `pnpm build` have not run locally; exact-head GitHub Actions remain pending. No migration, production database update, production deployment, merge, or main-branch change was performed.
-- Safety/acceptance boundary: this increment exposes safe package controls and pause actions but does not activate automatic financial execution, wallet allocation, or one-minute settlement. Existing active/pending records continue through their established review and reconciliation lifecycle.
+- Validation status before the follow-up: static source review checks passed for global mounting, package-policy controls, partial audited updates, pause action, styles and docs. The contract test and full `pnpm check`, `pnpm test`, and `pnpm build` had not run locally. The follow-up implementation is on `fix/trading-auto-execution-admin-control`; run exact-head CI before merge. No migration, production database update or production deployment is authorized by this change.
+- Scope boundary: this increment changes administrator policy controls and documentation only. It does not rewrite existing trade snapshots, bypass allocation eligibility, alter ledger accounting, or change settlement/reconciliation semantics. Existing active/pending records continue through their established lifecycle.
 
 ---
 
