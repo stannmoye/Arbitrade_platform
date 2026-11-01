@@ -138,6 +138,24 @@ describe("canonical installer diagnostic privacy", () => {
 });
 
 
+describe("fresh-install database isolation", () => {
+  it("refuses a non-empty database without deleting or truncating existing records", async () => {
+    const source = await readFile(installer, "utf8");
+    const wizard = await readFile(resolve(root, "installer", "index.php"), "utf8");
+    expect(source).toContain('if (mode === "fresh" && tableCount !== 0)');
+    expect(wizard).toContain("if ($mode === 'fresh' && $tableCount !== 0)");
+    expect(source).not.toMatch(/\\b(DROP\\s+TABLE|TRUNCATE\\s+TABLE|DELETE\\s+FROM)\\b/i);
+    expect(wizard).not.toMatch(/\\b(DROP\\s+TABLE|TRUNCATE\\s+TABLE|DELETE\\s+FROM)\\b/i);
+  });
+
+  it("keeps manual imports in an explicitly separate existing-database path", async () => {
+    const docs = await readFile(resolve(root, "installer", "README.md"), "utf8");
+    expect(docs).toContain("separate target database");
+    expect(docs).toContain("source database remains untouched");
+    expect(docs).toContain("--existing-database --confirm-existing-migrations");
+  });
+});
+
 describe("fresh-install initial account provisioning", () => {
   it("collects only administrator credentials in the browser wizard", async () => {
     const wizard = await readFile(resolve(root, "installer", "index.php"), "utf8");
