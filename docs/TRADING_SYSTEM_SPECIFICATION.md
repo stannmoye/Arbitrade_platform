@@ -315,7 +315,6 @@ All Trading configuration, publishing, monitoring and audit destinations must ap
 - **Publish & Manage Opportunities** — manual reviewed-offer publishing, validated bulk import and read-only open-offer review; this page must not duplicate the tier/policy editor.
 - **Per-tier Delivery Schedule** — per-tier delivery spacing, randomized timing bounds and post-completion intervals.
 - **Global Trade Timing & Settlement** — global trade-duration and closing/settlement review settings.
-- **Per-tier Pop-up Display** — expanded-card and completion-card display durations.
 - **Per-tier Pop-up Display** — per-tier expanded-card and completion-card display overrides.
 - **Per-tier Company Rotation Rules** — approved-country filters and repeat-handling configuration.
 - **Company Catalogue** — company reference records, Logo IDs and verification state; it must not render a second company-rotation editor.
