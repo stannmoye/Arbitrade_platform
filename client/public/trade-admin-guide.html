@@ -226,7 +226,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 
 <section class="section anchor" id="timing">
 <div class="eyebrow">07 · Timing rules</div><h2>Global Trade Timing &amp; Settlement</h2>
-<p>Use <strong>Trade Settings → Global Trade Timing &amp; Settlement</strong> for global closing and settlement timing. Use <strong>Trade Settings → Per-tier Delivery Schedule</strong> for per-tier pop-up spacing. The application-wide Settings → Trade tab contains separate global defaults.</p>
+<p>Use <strong>Trade Settings → Global Trade Timing &amp; Settlement</strong> for global closing and settlement timing. Use <strong>Trade Settings → Per-tier Delivery Schedule</strong> for per-tier pop-up spacing. All global timing defaults are configured once on this page.</p>
 <div class="field-list">
 <div class="field"><b>Settlement review delay (minutes)</b><span>Wait after the saved trade completion time before an administrator may review and confirm the actual result. The server persists this as settlementReviewAt.</span></div>
 <div class="field"><b>Wallet credit delay after review becomes due (seconds)</b><span>Added to settlementReviewAt to create creditAt. An administrator must still confirm the actual result; if confirmation is late and creditAt has passed, the worker may post immediately after confirmation.</span></div>
@@ -240,7 +240,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <div class="field"><b>Market refresh interval (minutes)</b><span>How often the market/reference data refresh process is scheduled. It is not an execution result.</span></div>
 <div class="field"><b>Block opportunities until all trades settle</b><span>When enabled, new opportunities are held until the required prior trades are settled.</span></div>
 </div>
-<p><strong>Save timing policy / Save settings</strong> persists the selected timing values. A successful save message means the settings request succeeded; check the page again if you need to verify the saved values.</p>
+<p><strong>Save global Trade timing settings</strong> submits only the global timing fields on this page, then reads them back from the server before showing a success confirmation. Ticket settings are saved separately; email settings are managed under Communications. A failed or unconfirmed read-back is shown as an error.</p>
 <div class="callout stop"><strong>Time is not settlement.</strong> The browser countdown is only a display of a server-recorded deadline. Reaching zero does not prove a trade completed, and it must not by itself credit a wallet.</div>
 </section>
 
