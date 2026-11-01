@@ -45,7 +45,11 @@ describe("administrator-managed Trading popup policy bounds and snapshots", () =
     expect(lifecycle).toContain("companyReferenceId,companyDisplayName,companyLogoUrl,companyReferenceMetadataJson,companyReferenceOnly");
     expect(lifecycle).toContain("tickerResearchStatus: selection.company.tickerResearchStatus");
     expect(lifecycle).toContain("countryName: selection.company.countryName");
-    expect(app).toContain("formatCompanyReferenceMetadata");
+    expect(app).not.toContain("formatCompanyReferenceMetadata");
+    expect(app).not.toContain("Company reference only");
+    expect(app).not.toContain("Admin-approved company reference");
+    expect(app).toContain("<strong>{popup.companyDisplayName}</strong>");
+    expect(app).toContain("CompanyReferenceLogo name={String(popup.companyDisplayName)}");
     expect(database).toContain("companyReferenceMetadataJson:tradePositions.companyReferenceMetadataJson");
     expect(policyEditor).toContain("Each newly delivered pop-up selects one rate and one duration inside the saved tier ranges.");
     expect(policyEditor).toContain("existing pop-ups keep their original snapshots.");

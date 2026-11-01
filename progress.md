@@ -1,3 +1,13 @@
+## 2026-11-01 — Customer company rotation identity and pop-up delivery gate
+
+- Preserved the administrator company controls: Verified, Unverified, Enabled, Disabled, Archived and Restore. The live rotation pool continues to require current administrator verification and enabled status, while excluding Disabled and Archived IDs; country filters, saved per-customer/package rotation state and repeat rules remain server-controlled.
+- Removed internal catalogue/reference wording and metadata labels from customer opportunity pop-ups, opportunity rows and Trade history. Approved company identities now render as the company name with its local logo; stable IDs and source metadata remain in server-side snapshots and admin controls.
+- Fixed the customer popup visibility contract: successful listCustomerOpportunities responses now include delivery.enabled=true only after active tier, saved policy and positive quota checks pass. All earlier ineligible/paused paths continue returning enabled=false, allowing the customer popup's existing delivery.enabled gate to work without bypassing schedule, daily quota or visible-card limits.
+- Added contract coverage for the enabled delivery gate and customer-facing company label removal; aligned the canonical Trading specification and companion admin manual.
+- Branch: fix/customer-company-rotation-popup-display, based on main at a061d033ae47e48f6ef2e106bc6a077a1041ee61. Validation and exact-head CI are pending. No production database, migration, deployment or merge was performed.
+
+---
+
 ## 2026-10-31 — Stage 1 final transfer-boundary review and exact-head CI confirmation
 
 - Rechecked PR #258 at branch head `7e42180b9391c62f018cf07b01ac07e02ae01209`: PR remains open, draft, unmerged, and targets `main`.
