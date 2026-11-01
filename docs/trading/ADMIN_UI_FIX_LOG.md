@@ -1,5 +1,17 @@
 # Admin Trading UI Fix Log
 
+## 2026-11-01 — Single Trade Settings menu and quota-save integrity
+
+- Replaced five separate Trading navigation groups with one top-level **Trade Settings** group and one descriptive submenu per destination.
+- Routed opportunity publishing to its own Publish & Manage Opportunities page. Company Catalogue now shows reference records only; Company Rotation Rules owns its approved-pool filters/repeat policy, without rendering a duplicate company-rotation editor.
+- Made the persistent Trading controls panel the single owner of per-tier policy, pop-up delivery, company rotation, randomized timing and burst delivery ON/OFF switches. Removed duplicate switches from the detailed policy editor.
+- Renamed tier quota to **Daily opportunity entitlement** and delivery policy limit to **Hard daily pop-up ceiling**. The UI explains that the hard ceiling and optional target can reduce but cannot increase the tier entitlement. A 600/day entitlement requires a hard ceiling of at least 600 and optional target 0. Existing customer entitlement snapshots remain unchanged; tier edits apply to future assignments.
+- Tier edits now protect dirty drafts from 30-second background polling, show a Saving state, refetch the saved tier, and verify the returned quota and terms version before showing success. Errors or unconfirmed read-back are announced and keep the draft visible.
+- Delivery-policy saves now compare changed fields and policy-version advancement against a fresh server read before reporting success.
+- Updated navigation, policy editor, contract tests, admin menu guide, in-portal HTML guide, canonical Trading specification, configuration manual and progress log.
+- No migration or change to wallet/ledger, trade, customer-entitlement, financial execution or settlement records. No deployment performed; exact-head CI remains pending.
+
+
 **Date:** 2026-10-30
 **Scope:** Administrator Trading menu, submenus, tier forms, and Trading operations pages.
 
