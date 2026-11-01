@@ -222,9 +222,9 @@ describe("Trading navigation focus and plain-language controls", () => {
     expect(navigation).not.toContain('id: "trade-monitoring"');
     expect(navigation).not.toContain('id: "trade-history"');
     expect(navigation).toContain('label: "Tiers & Eligibility"');
-    expect(navigation).toContain('label: "Daily Delivery Caps"');
+    expect(navigation).toContain('label: "Per-tier Daily Delivery Caps"');
     expect(navigation).toContain('label: "Publish & Manage Opportunities"');
-    expect(navigation).toContain('label: "Company Rotation Rules"');
+    expect(navigation).toContain('label: "Per-tier Company Rotation Rules"');
     expect(navigation).toContain('label: "Settlement & Reconciliation"');
     expect(navigation).toContain('target: "packages", focus: "tiers"');
     expect(navigation).toContain('target: "packages", focus: "quotas"');
