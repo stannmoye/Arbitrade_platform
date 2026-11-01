@@ -377,13 +377,13 @@ These controls define how new customers are screened and onboarded. Country-spec
 |---|---|
 | **Trading Overview** | Current delivery totals, pending work, open opportunities, settlement status and the global pause state. |
 | **Tiers & Eligibility** | Tier name, qualifying USD threshold, entitlement duration, daily opportunity entitlement, effective dates and enabled state. Only qualifying admin-issued credits determine automatic eligibility. |
-| **Daily Delivery Caps** | The hard daily pop-up ceiling, maximum visible offers, optional daily target cap and the delivery-counting window. These are operational limits: they can reduce the tier entitlement but cannot increase it. |
-| **Offer Rules & Capital Limits** | Required capital bounds and configured reward-rate/trade-duration eligibility bounds. ON/OFF switches are located only in the persistent Trading controls panel above the page content. |
+| **Per-tier Per-tier Daily Delivery Caps** | The hard daily pop-up ceiling, maximum visible offers, optional daily target cap and the delivery-counting window. These are operational limits: they can reduce the tier entitlement but cannot increase it. |
+| **Per-tier Offer Rules & Capital Limits** | Required capital bounds and configured reward-rate/trade-duration eligibility bounds. ON/OFF switches are located only in the persistent Trading controls panel above the page content. |
 | **Publish & Manage Opportunities** | Publish reviewed opportunity records, import validated CSV rows and inspect the open opportunity feed. This page does not edit tier or delivery policy. |
-| **Delivery Schedule** | Per-tier spacing between eligible pop-ups, randomized timing bounds and post-completion delivery intervals. |
-| **Trade Duration & Closing** | Trade timing estimates and the global closing/settlement review settings. A scheduled time is not proof of execution or settlement. |
-| **Customer Pop-up Display** | Expanded pop-up and completion-card display durations. Display settings do not cancel active records. |
-| **Company Rotation Rules** | Approved-company country filters and repeat-handling rules. The ON/OFF rotation switch remains in the persistent Trading controls panel. |
+| **Per-tier Per-tier Delivery Schedule** | Per-tier spacing between eligible pop-ups, randomized timing bounds and post-completion delivery intervals. |
+| **Global Trade Timing & Settlement** | Trade timing estimates and the global closing/settlement review settings. A scheduled time is not proof of execution or settlement. |
+| **Per-tier Pop-up Display** | Expanded pop-up and completion-card display durations. Display settings do not cancel active records. |
+| **Per-tier Company Rotation Rules** | Approved-company country filters and repeat-handling rules. The ON/OFF rotation switch remains in the persistent Trading controls panel. |
 | **Company Catalogue** | Search and manage the separate company reference records, approval state and catalogue metadata. It does not contain a second copy of the rotation settings editor. |
 | **Capital & Wallet Funding Rules** | Review the permitted capital requirements and wallet-funding policy used by Trading. This is not the customer Wallet & Ledger history page. |
 | **Fees & Earnings Limits** | Configure the Trading fee policy and review configured earnings ceilings. |
@@ -397,7 +397,7 @@ These controls define how new customers are screened and onboarded. Country-spec
 
 ### One owner for each setting
 
-The persistent Trading controls panel is shown above administrator content on every page except the clean Home/overview page. It is the single owner of the per-tier **Tier policy**, **Pop-up delivery**, **Company rotation**, **Randomized timing**, and **Burst delivery** ON/OFF switches. The detailed Offer Rules, Daily Delivery Caps and Company Rotation Rules pages do not repeat those switches.
+The persistent Trading controls panel is shown above administrator content on every page except the clean Home/overview page. It is the single owner of the per-tier **Tier policy**, **Pop-up delivery**, **Company rotation**, **Randomized timing**, and **Burst delivery** ON/OFF switches. The detailed Offer Rules, Per-tier Daily Delivery Caps and Company Rotation Rules pages do not repeat those switches.
 
 The daily opportunity entitlement is stored on the tier as `opportunitiesPerDay`. The hard daily pop-up ceiling and optional daily target are separate operational caps. For example, to make a tier allowance of 600 opportunities/day available, the hard daily pop-up ceiling must be at least 600 and the optional daily target must be 0 (no additional target cap). The delivery caps never raise a tier's assigned entitlement.
 
