@@ -511,11 +511,16 @@ async function main() {
 
     await adminPage.setViewportSize({ width: 1365, height: 900 });
     const adminNavigation = adminPage.locator(".admin-canonical-nav");
-    const tradeSettingsGroup = adminNavigation.locator(".admin-nav-group-heading")
-      .filter({ hasText: "Trade Settings" }).first();
-    await tradeSettingsGroup.waitFor({ state: "visible", timeout: 20_000 });
-    assert.equal(await tradeSettingsGroup.getAttribute("aria-expanded"), "true",
-      "Trade Settings navigation group must be expanded and available.");
+    const expandTradeSettings = async (navigation) => {
+      const group = navigation.locator(".admin-nav-group-heading")
+        .filter({ hasText: "Trade Settings" }).first();
+      await group.waitFor({ state: "visible", timeout: 20_000 });
+      if (await group.getAttribute("aria-expanded") !== "true") await group.click();
+      assert.equal(await group.getAttribute("aria-expanded"), "true",
+        "Trade Settings navigation group must expand when requested.");
+      return group;
+    };
+    const tradeSettingsGroup = await expandTradeSettings(adminNavigation);
     const navigationPalette = await adminNavigation.locator(".admin-nav-group").evaluateAll((groups) => groups.map((group) => ({
       accent: getComputedStyle(group).getPropertyValue("--nav-accent").trim(),
       label: group.querySelector(".admin-nav-group-heading span")?.textContent?.trim() ?? "",
@@ -729,6 +734,7 @@ async function main() {
       await adminPage.reload({ waitUntil: "domcontentloaded" });
       await adminPage.setViewportSize({ width: 1365, height: 900 });
       const nav = adminPage.locator(".admin-canonical-nav");
+      await expandTradeSettings(nav);
       await nav.getByRole("button", { name: /packages & eligibility/i }).click();
       await adminPage.getByRole("heading", { name: /trading tiers & automation policy/i })
         .waitFor({ state: "visible", timeout: 20_000 });
@@ -824,6 +830,7 @@ async function main() {
     await adminPage.reload({ waitUntil: "domcontentloaded" });
     await adminPage.setViewportSize({ width: 1365, height: 900 });
     const reloadedNavigation = adminPage.locator(".admin-canonical-nav");
+    await expandTradeSettings(reloadedNavigation);
     await reloadedNavigation.getByRole("button", { name: /packages & eligibility/i }).click();
     const reloadedPolicyHeading = adminPage.getByRole("heading", { name: /trading tiers & automation policy/i });
     await reloadedPolicyHeading.waitFor({ state: "visible", timeout: 20_000 });
