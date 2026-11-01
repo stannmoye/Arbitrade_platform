@@ -52,8 +52,31 @@ npx --yes --package=playwright -c 'PLAYWRIGHT_MODULES="$(dirname "$(dirname "$(c
 
 Use test-only settings and ensure the original retry-delay setting is valid (5–3600 seconds), because the script temporarily changes and then restores that value. Preserve the JSON result and test logs as acceptance evidence.
 
+## GitHub Actions staging runner
+
+The manual workflow `.github/workflows/trading-authenticated-staging-acceptance.yml` runs this exact authenticated harness against an already-deployed isolated staging host. It is deliberately `workflow_dispatch` only and uses the protected GitHub Environment named `trading-staging`.
+
+Configure the following **environment secrets** on that GitHub Environment. Never put their values in repository files, workflow inputs, commits, or issue comments:
+
+- `TRADING_ACCEPTANCE_BASE_URL`: the isolated non-production deployment URL.
+- `TRADING_CUSTOMER_STORAGE_STATE_JSON`: complete Playwright JSON state for the eligible seeded customer.
+- `TRADING_UNQUALIFIED_CUSTOMER_STORAGE_STATE_JSON`: complete Playwright JSON state for the unqualified seeded customer.
+- `TRADING_ADMIN_STORAGE_STATE_JSON`: complete Playwright JSON state for the seeded administrator.
+- `TRADING_ACCEPTANCE_CUSTOMER_EMAIL`: eligible test customer's directory email.
+
+Configure environment protection (required reviewer approval) for `trading-staging`. Only authorized maintainers should be able to approve and dispatch this workflow. The workflow writes browser-state secrets to permission-restricted ephemeral runner files, removes them after the test, and does not upload them as artifacts. It uploads only the test report. The workflow input `expected_sha` must identify the exact commit deployed to staging, and the workflow checks out that SHA.
+
+Before dispatch, provision a dedicated disposable non-production deployment at that exact SHA and seed:
+1. An eligible customer whose tier was assigned from qualifying manual administrator wallet credits only.
+2. A separate customer with no qualifying administrator credit.
+3. A test administrator.
+4. An open, reviewed, published opportunity already delivered by the running worker to the eligible customer.
+5. Valid enabled delivery policy and package settings, with automatic financial execution OFF.
+
+Do not point the workflow at production. The runner changes temporary admin delivery/policy settings and restores them; use a disposable environment and verify automatic financial execution remains OFF. The runner submits no wallet or financial mutations.
+
 ## Current validation status and limits
 
-This harness is present in the branch, but its authenticated browser run is **not evidenced**. The current GitHub CI browser-recovery checks are mocked and must not be counted as a run of this harness. The authenticated wallet API integration is separate: it uses real signed sessions, the production tRPC router/context and disposable MySQL/MariaDB databases, but it does not exercise the full portal UI. The repository owner has explicitly accepted deferring this hosted-browser run because no test server is currently available; this is a documented acceptance waiver for the current merge, not a test pass.
+The generic Chromium browser-recovery job is a mocked-auth/static-client smoke test. Its 1,032 passing assertions do **not** prove authenticated API/database behavior. The authenticated harness described above has not yet run because the isolated staging deployment, seeded accounts, and protected environment secrets have not been provided. The authenticated wallet API integration against disposable MySQL/MariaDB databases is separate and does not exercise the full portal UI.
 
-A post-deployment verification run still requires an isolated non-production deployment and three seeded authenticated browser storage states. Keep credentials and storage-state files outside Git. This deferred check is not a blocker for the currently authorized merge; it remains a post-deployment acceptance item.
+The authenticated staging check remains open until the manual workflow completes successfully and its report is reviewed. Do not treat workflow creation, secret configuration, a static preview, or a successful source CI run as hosted acceptance.
