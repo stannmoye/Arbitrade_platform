@@ -1,3 +1,13 @@
+## 2026-11-01 — Clean admin Home landing page
+
+- Canonical source verified immediately before work: `main` at `01014be1cc79cd00ffb49814988bd21e4a7658e7`.
+- Changed `client/src/App.tsx` so the persistent Trading controls panel is omitted on the admin `overview`/Home landing page and continues to render on all other admin pages. The admin navigation and routes remain available.
+- Added `client/src/admin-overview-controls.contract.test.ts` to prevent the global control panel from being reintroduced on Home. Updated the canonical Trading specification and admin configuration manual to record the Home exception; the optional companion PDF is not present/tracked and was not updated.
+- Validation passed on the working tree: `pnpm install --frozen-lockfile`, `pnpm check`, `pnpm test` (112 files passed, 3 skipped; 898 tests passed, 17 skipped), and `pnpm build`. `git diff --check` also passed.
+- No database schema, customer data, migration, deployment, or production runtime was changed. Commit/push is being performed to `main` at the user's request; exact-head GitHub Actions results must be checked after push.
+
+---
+
 ## 2026-11-01 — Customer pop-up visibility gate audit and correction
 
 - Canonical base: `main` at `964da01b179e5aa656720348eaf65fe7be8e6810`; working branch: `fix/customer-popup-visibility-policy-gate`.
