@@ -139,7 +139,7 @@ describe("Admin customer Trading tier visibility", () => {
     expect(end).toBeGreaterThan(start);
     const listing = serverDb.slice(start, end);
     expect(listing).toContain("assignedTierDetails");
-    expect(customerAppSource).toContain('role="group" aria-label="Automatic Trading tier assignments"');
+    expect(adminApp).toContain('role="group" aria-label="Automatic Trading tier assignments"');
     expect(listing).toContain("customerPackageSubscriptions.packageId");
     expect(listing).toContain("customerPackageSubscriptions.status");
     expect(listing).toContain('startsWith("auto-tier:")');
