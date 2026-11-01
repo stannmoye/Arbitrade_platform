@@ -1,3 +1,18 @@
+## 2026-11-01 — Enabled-by-default Trading tier and customer pop-up delivery defaults
+
+- Working branch: `fix/trading-popup-defaults-and-package-activation`; pull request #269 targets `main`.
+- New administrator-created Trading packages are enabled by default. Creation persists the submitted enabled state and no longer rejects enabled=true. The admin form defaults the new-tier state to enabled; threshold, duration and daily quota remain explicit required inputs. Customers still cannot browse or activate packages.
+- New tier policy defaults: policy enabled, pop-up delivery enabled, verified-company rotation enabled, randomized timing enabled, bounded burst delivery enabled (default max three pop-ups per customer worker cycle), and automatic financial execution OFF. Existing saved OFF/pause choices are not overwritten. Administrators retain persistent per-policy controls.
+- Implemented a bounded burst limit in the customer opportunity delivery loop, with a hard maximum of ten per worker cycle. Added unit coverage for disabled, normal and over-limit burst settings.
+- Updated the canonical Trading specification, admin configuration manual, customer-facing admin guide, and contract assertions to reflect the new enabled-by-default policy.
+- Verified the actual pop-up gate: active automatically assigned tier, enabled package, valid enabled policy, automatic delivery, positive remaining quota, open/published opportunity, delivery worker, and customer alert eligibility. The customer response requires `delivery.enabled`, popup policy and eligible/unexpired offers.
+- **Opportunity source remains deliberately manual:** market refresh stores reference instruments/FX and expires stale offers; it returns `generationDisabled: true` and creates zero offers. Administrators must publish reviewed, source-backed opportunities or import validated CSV. Do not synthesize reward rates, venues, prices, quotes or financial results.
+- Financial execution remains separate and OFF by default. No wallet allocation, unattended trade execution, or settlement behaviour was changed.
+- Exact-head CI for `ea582cd2c1b68df989cbd0d8eeb67cecf9efa103`: company-rotation integration, administrator wallet idempotency integration, mining regression checks and tier-qualification integration passed; application/build, worker, installer, settlement and recovery workflows were still running at the time of this update. No merge, deployment, production database change or customer transaction was performed.
+- Remaining acceptance: complete exact-head CI, then perform authenticated browser verification of package creation, policy switch persistence, admin publishing, customer pop-up rendering and menu navigation. The Markdown manual and HTML guide were updated; the companion PDF is absent and has not been updated.
+
+---
+
 ## 2026-11-01 — Admin Home menus collapsed on entry
 
 - Follow-up to `ff52d43ea10486938860b7d64dda88cc6cea560c`: the global Trading panel had been hidden from Home, but the primary navigation still defaulted to expanded groups and could preserve an expanded Trade Settings group after returning Home.
