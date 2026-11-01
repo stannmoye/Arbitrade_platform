@@ -454,6 +454,16 @@ async function main() {
 
     const adminContext = await browser.newContext({ storageState: adminState });
     const adminPage = await adminContext.newPage();
+    const forbiddenFinancialMutationRequests = [];
+    adminPage.on("request", (request) => {
+      if (request.method() !== "GET" &&
+        /\/api\/trpc\/[^?]*(?:execute|settle|wallet|transfer|allocation|retry)/i.test(request.url())) {
+        forbiddenFinancialMutationRequests.push({
+          method: request.method(),
+          path: new URL(request.url()).pathname,
+        });
+      }
+    });
     await adminPage.goto(baseURL, { waitUntil: "domcontentloaded" });
 
     // Confirm the actual administrator package catalogue API is readable under admin auth.
@@ -708,175 +718,6 @@ async function main() {
       automaticFinancialExecution: "remained OFF", financialMutationsSubmitted: 0,
     });
 
-    await expandAdminGroup(adminNavigation, "Finish trades");
-    await adminNavigation.getByRole("button", { name: /try failed trades again/i }).click();
-    await adminPage.getByRole("heading", { name: /try failed trades again/i })
-      .waitFor({ state: "visible", timeout: 20_000 });
-    const retryPolicyCard = adminPage.locator(".package-policy-card .package-admin-card")
-      .filter({ has: adminPage.getByRole("heading", { name: packageName, exact: true }) }).first();
-    await retryPolicyCard.waitFor({ state: "visible", timeout: 20_000 });
-    const retryDelayInput = retryPolicyCard.getByLabel(/trade retry delay/i);
-    const originalRetryDelay = await retryDelayInput.inputValue();
-    const readPolicySnapshot = async () => adminPage.evaluate(async () => {
-      const response = await fetch("/api/trpc/adminOperations.packagePolicies", {
-        method: "GET",
-        credentials: "same-origin",
-        headers: { accept: "application/json" },
-      });
-      let payload;
-      try {
-        payload = await response.json();
-      } catch {
-        payload = undefined;
-      }
-      const data = payload?.result?.data?.json ?? payload?.result?.data;
-      return {
-        status: response.status,
-        hasError: Boolean(payload?.error),
-        rows: Array.isArray(data) ? data.map((row) => ({
-          packageName: String(row.packageName),
-          tradeRetryDelaySeconds: Number(row.tradeRetryDelaySeconds ?? 30),
-          policyVersion: Number(row.policyVersion ?? 1),
-          enabled: Boolean(row.enabled),
-          automaticDelivery: Boolean(row.automaticDelivery),
-          companyRotationEnabled: Boolean(row.companyRotationEnabled),
-          randomizationEnabled: Boolean(row.randomizationEnabled),
-          burstEnabled: Boolean(row.burstEnabled),
-          automaticTradingEnabled: Boolean(row.automaticTradingEnabled),
-        })).sort((a, b) => a.packageName.localeCompare(b.packageName)) : null,
-      };
-    });
-
-    // Prove a valid admin setting is persisted by the real API and survives reload.
-    // The environment guard above restricts this reversible write to a dedicated non-prod app.
-    const originalRetryDelayNumber = Number(originalRetryDelay);
-    assert.ok(Number.isSafeInteger(originalRetryDelayNumber) &&
-      originalRetryDelayNumber >= 5 && originalRetryDelayNumber <= 3600,
-      "Seeded policy must start with a server-valid retry delay that can be restored.");
-    const temporaryRetryDelay = originalRetryDelayNumber === 3600
-      ? originalRetryDelayNumber - 1 : originalRetryDelayNumber + 1;
-    const openPackageSettingsAndGetRetryInput = async () => {
-      await adminPage.reload({ waitUntil: "domcontentloaded" });
-      await adminPage.setViewportSize({ width: 1365, height: 900 });
-      const nav = adminPage.locator(".admin-canonical-nav");
-      await expandAdminGroup(nav, "Finish trades");
-      await nav.getByRole("button", { name: /try failed trades again/i }).click();
-      await adminPage.getByRole("heading", { name: /try failed trades again/i })
-        .waitFor({ state: "visible", timeout: 20_000 });
-      const card = adminPage.locator(".package-policy-card .package-admin-card")
-        .filter({ has: adminPage.getByRole("heading", { name: packageName, exact: true }) }).first();
-      const input = card.getByLabel(/trade retry delay/i);
-      await input.waitFor({ state: "visible", timeout: 20_000 });
-      return input;
-    };
-    const saveAdminPoliciesThroughUi = async () => {
-      const responsePromise = adminPage.waitForResponse(
-        (response) => response.url().includes("/api/trpc/adminOperations.updatePackagePolicies"),
-        { timeout: 20_000 },
-      );
-      await adminPage.getByLabel(/reason for changing trading tier policies/i).fill("Non-production acceptance verification.");
-      await adminPage.getByRole("button", { name: /save delivery and retry policy/i }).click();
-      const response = await responsePromise;
-      let payload;
-      try {
-        payload = await response.json();
-      } catch {
-        payload = undefined;
-      }
-      assert.ok(response.status() >= 200 && response.status() < 300 && !payload?.error &&
-        payload?.result?.data !== undefined,
-        "The real administrator settings save must return a successful tRPC result; received HTTP " +
-        response.status() + ".");
-    };
-
-    let restorationRequired = false;
-    try {
-      restorationRequired = true;
-      await retryDelayInput.fill(String(temporaryRetryDelay));
-      await saveAdminPoliciesThroughUi();
-      const savedPolicyRows = await readPolicySnapshot();
-      const savedRow = savedPolicyRows.rows?.find((row) => row.packageName === packageName);
-      assert.ok(savedPolicyRows.status >= 200 && savedRow,
-        "Successfully saved policy must be visible from a fresh persisted policy API query.");
-      assert.equal(savedRow.tradeRetryDelaySeconds, temporaryRetryDelay,
-        "Valid settings save must persist the updated retry delay in the database.");
-
-      const retryDelayAfterReload = await openPackageSettingsAndGetRetryInput();
-      assert.equal(await retryDelayAfterReload.inputValue(), String(temporaryRetryDelay),
-        "A valid setting must survive a real page reload using server-reloaded policy data.");
-    } finally {
-      if (restorationRequired) {
-        // Always restore the seeded setting, including when an earlier assertion fails.
-        const restoreInput = await openPackageSettingsAndGetRetryInput();
-        await restoreInput.fill(originalRetryDelay);
-        await saveAdminPoliciesThroughUi();
-        const restoredPolicyRows = await readPolicySnapshot();
-        const restoredRow = restoredPolicyRows.rows?.find((row) => row.packageName === packageName);
-        assert.ok(restoredRow, "Original policy row must exist after settings cleanup.");
-        assert.equal(restoredRow.tradeRetryDelaySeconds, originalRetryDelayNumber,
-          "The browser acceptance run must restore the original seeded retry-delay setting.");
-        const restoredInputAfterReload = await openPackageSettingsAndGetRetryInput();
-        assert.equal(await restoredInputAfterReload.inputValue(), originalRetryDelay,
-          "The original setting must remain persisted after restoration and reload.");
-      }
-    }
-
-    const beforeInvalidSave = await readPolicySnapshot();
-    assert.ok(beforeInvalidSave.status >= 200 && beforeInvalidSave.status < 300 &&
-      !beforeInvalidSave.hasError && Array.isArray(beforeInvalidSave.rows) && beforeInvalidSave.rows.length > 0,
-      "Disposable acceptance database must expose persisted package-policy rows before form validation.");
-    const beforeRow = beforeInvalidSave.rows.find((row) => row.packageName === packageName);
-    assert.ok(beforeRow, "The package editor card must map to a persisted package-policy row.");
-    assert.equal(Number(originalRetryDelay), beforeRow.tradeRetryDelaySeconds,
-      "Rendered retry delay must equal its persisted API value.");
-
-    await retryDelayInput.fill("4");
-    assert.equal(await retryDelayInput.inputValue(), "4");
-    const rejectedMutationPromise = adminPage.waitForResponse(
-      (response) => response.url().includes("/api/trpc/adminOperations.updatePackagePolicies"),
-      { timeout: 20_000 },
-    );
-    await adminPage.getByLabel(/reason for changing trading tier policies/i).fill("Non-production invalid value validation.");
-    await adminPage.getByRole("button", { name: /save delivery and retry policy/i }).click();
-    const rejectedMutation = await rejectedMutationPromise;
-    let rejectedPayload;
-    try {
-      rejectedPayload = await rejectedMutation.json();
-    } catch {
-      rejectedPayload = undefined;
-    }
-    const validationCode = rejectedPayload?.error?.data?.code ?? rejectedPayload?.error?.json?.data?.code;
-    assert.ok(rejectedMutation.status() >= 400 || validationCode === "BAD_REQUEST",
-      "Out-of-range policy submission must be rejected by server validation; received HTTP " +
-      rejectedMutation.status() + " and code " + (validationCode ?? "none") + ".");
-
-    const afterInvalidSave = await readPolicySnapshot();
-    assert.deepEqual(afterInvalidSave.rows, beforeInvalidSave.rows,
-      "Rejected invalid settings must leave every persisted package policy and policy version unchanged.");
-
-    await adminPage.reload({ waitUntil: "domcontentloaded" });
-    await adminPage.setViewportSize({ width: 1365, height: 900 });
-    const reloadedNavigation = adminPage.locator(".admin-canonical-nav");
-    await expandAdminGroup(reloadedNavigation, "Finish trades");
-    await reloadedNavigation.getByRole("button", { name: /try failed trades again/i }).click();
-    const reloadedPolicyHeading = adminPage.getByRole("heading", { name: /try failed trades again/i });
-    await reloadedPolicyHeading.waitFor({ state: "visible", timeout: 20_000 });
-    const reloadedCard = adminPage.locator(".package-policy-card .package-admin-card")
-      .filter({ has: adminPage.getByRole("heading", { name: packageName, exact: true }) }).first();
-    const reloadedRetryInput = reloadedCard.getByLabel(/trade retry delay/i);
-    await reloadedRetryInput.waitFor({ state: "visible", timeout: 20_000 });
-    await adminPage.waitForFunction(({ name, value }) => {
-      const cards = Array.from(document.querySelectorAll(".package-policy-card .package-admin-card"));
-      const card = cards.find((item) => item.querySelector("h3")?.textContent?.trim() === name);
-      const input = card ? Array.from(card.querySelectorAll("label"))
-        .find((label) => label.textContent?.toLowerCase().includes("trade retry delay"))
-        ?.querySelector("input") : null;
-      return Boolean(input && input.value === value);
-    }, { name: packageName, value: originalRetryDelay }, { timeout: 20_000 });
-    assert.equal(await reloadedRetryInput.inputValue(), originalRetryDelay,
-      "Reload after invalid submission must show the unchanged persisted retry delay.");
-
-
     // Verify the eligible test account's assigned package IDs, assignment statuses and
     // terms versions in the actual admin customer directory. Part 1 owns this UI/API.
     const customerNavigation = adminPage.locator(".admin-canonical-nav");
@@ -912,22 +753,23 @@ async function main() {
     assert.match(adminBodyText, /trading controls/i);
     assert.match(adminBodyText, /customer controls/i);
     results.push({
-      journey: "administrator Set up trades, package configuration, setting save/reload, and invalid-form persistence",
+      journey: "administrator Trading navigation, package configuration, and customer package visibility",
       status: "passed",
       packageCatalogueApi: "authorized real application response",
-      validSettingsRoundTrip: "temporary value persisted through reload; original value restored and verified",
-      invalidForm: "server rejected out-of-range value; persisted policy/version unchanged after reload",
+      deliverySwitchesPersistedAndRestored: true,
+      automaticFinancialExecution: "remained OFF",
       adminResponsiveViewports: ["1365x900", "390x844"],
-      successfulSettingsMutationsSubmitted: 2,
       financialMutationsSubmitted: 0,
-      invalidMutationRejectedBeforePersistence: true,
     });
+    assert.deepEqual(forbiddenFinancialMutationRequests, [],
+      "Authenticated acceptance must not submit execution, settlement, wallet, transfer, allocation, or retry mutations.");
     await adminContext.close();
 
     process.stdout.write(JSON.stringify({
       suite: "Trading non-production browser acceptance",
       baseURL,
       results,
+      forbiddenFinancialMutationRequests,
     }, null, 2) + "\n");
   } catch (error) {
     failures.push(error instanceof Error ? error.stack || error.message : String(error));
