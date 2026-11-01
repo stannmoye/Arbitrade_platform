@@ -4,11 +4,19 @@ import { describe, expect, it } from "vitest";
 const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const helper = readFileSync(new URL("./modules/trading-delivery-quota.ts", import.meta.url), "utf8");
 const editor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
+const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const start = database.indexOf("export async function listCustomerOpportunities(");
 const end = database.indexOf("\nexport async function ", start + 1);
 const delivery = database.slice(start, end);
 
 describe("runtime Trading delivery quota semantics", () => {
+  it("exposes the enabled delivery gate only after active tier and saved policy checks pass", () => {
+    expect(delivery).toContain("if(!eligibleSubscriptions.length) return emptyResult");
+    expect(delivery).toContain("if(combinedQuota<=0) return emptyResult");
+    expect(delivery).toContain("delivery:{enabled:true,packageName,maxPopupsPerDay:dailyCap");
+    expect(app).toContain("delivery?.enabled&&policy");
+  });
+
   it("uses the configured true rolling-24-hour or UTC calendar-day window for delivery and allocation counts", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
