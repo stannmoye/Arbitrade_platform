@@ -870,3 +870,12 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 - Expanded the package-eligibility contract test to assert all five new-tier delivery defaults explicitly: tier enabled, automatic delivery, company rotation, randomized timing and burst delivery. Automatic financial execution remains explicitly OFF.
 - Expanded the staging guide: use a new post-deployment test tier to verify automatic defaults; legacy tiers must first be reviewed and saved by an authorized administrator. Do not force-enable incomplete legacy policies.
 - CI must be green on the latest test/documentation commit before code validation is marked complete. Authenticated staging still requires the protected trading-staging environment and isolated test deployment.
+
+
+## 2026-11-01 — Global unattended-execution lock enforced
+
+- Found that the legacy worker could still call automatic trade creation if any existing package policy retained automaticTradingEnabled=true, even though new-tier defaults were false.
+- Added a server-side constant hard gate so the opportunity worker continues customer popup delivery but never invokes its automatic trade-creation helper.
+- Package-policy writes now reject an explicit attempt to set automaticTradingEnabled=true and force the persisted field to false on safe policy updates.
+- Added migration 0098_disable_automatic_financial_execution.sql and registered it in the Drizzle journal; it idempotently sets automaticTradingEnabled=0 for every existing package policy without changing delivery flags, quotas, wallets, trades or ledger rows.
+- Added a contract test for the global worker guard, write rejection, forced-off persistence and migration behavior. Latest CI must validate the new migration and code before this is considered complete.
