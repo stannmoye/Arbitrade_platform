@@ -18,7 +18,7 @@ import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, 
 import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, createCompanySpotlightDisplayGuard, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
-import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule } from "./modules/trading-delivery-quota";
+import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule, resolveTradingBurstLimit } from "./modules/trading-delivery-quota";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry, MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY } from "./modules/trade-execution-retry";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
@@ -3340,6 +3340,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const subscription=selected.subscription;
       const configured=selected.configured;
       if(!configured||!hasConfiguredTradingOfferPolicy(configured)) continue;
+      if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:Boolean(configured.burstEnabled),maxBurstSize:Number(configured.maxBurstSize||0)})) break;
       // Select one administrator-configured rate and duration exactly once. The
       // selection is persisted with the popup and reused by retries/trade allocation.
       const configuredProfitRateBps=chooseInclusiveInteger(Number(configured.minimumPayoutRateBps),Number(configured.maximumPayoutRateBps));
