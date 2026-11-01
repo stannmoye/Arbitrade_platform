@@ -94,7 +94,7 @@ export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyM
     {show("rotation")&&<>
     <div className="eyebrow">Company spotlight rotation</div>
     <div className="form-two">
-      <p>Company rotation ON/OFF is controlled in the persistent Trading controls panel above this page. Use the remaining settings here to define which approved companies can rotate and how repeats are handled.</p>
+      <p>Informational company references only; this never creates or authorizes a trade. Company rotation ON/OFF is controlled in the persistent Trading controls panel above this page. Use the remaining settings here to define which approved companies can rotate and how repeats are handled.</p>
       <label>Repeat policy<select value={row.companyRotationRepeatPolicy} onChange={e=>updateRow(index,"companyRotationRepeatPolicy",e.target.value as TradingDeliveryPolicyRow["companyRotationRepeatPolicy"])}><option value="avoid_until_exhausted">Avoid repeats until the pool is traversed</option><option value="allow_repeats">Allow repeats</option></select></label>
       <label>Country-folder filters<input type="text" maxLength={2000} value={row.companyRotationCountryNames} onChange={e=>updateRow(index,"companyRotationCountryNames",e.target.value)}/><small>Comma-separated exact catalogue folder labels; blank includes all administrator-verified, non-archived records. Country folders do not verify headquarters or listing status.</small></label>
     </div>
