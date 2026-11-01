@@ -13,7 +13,7 @@ describe("Administrator company catalogue navigation and pagination", () => {
     const catalogue = readFileSync(new URL("../client/src/components/AdminCompanyCatalogue.tsx", import.meta.url), "utf8");
     expect(navigation).toContain('id: "trade-company-catalogue", target: "companyCatalogue"');
     expect(navigation).not.toContain('id: "trade-company-catalogue", target: "opportunity"');
-    expect(adminApp).toContain('section==="companyCatalogue"&&<>');
+    expect(adminApp).toContain('section==="companyCatalogue"&&<Suspense');
     expect(navigation).toContain('id: "trade-company-rotation", target: "packages", focus: "rotation"');
     expect(adminApp).not.toContain('<AdminTradingPolicySettings focus="rotation"/>');
     expect(catalogue).toContain("const PAGE_SIZE = 10");
