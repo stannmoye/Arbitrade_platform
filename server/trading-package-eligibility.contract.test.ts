@@ -61,6 +61,9 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(defaults).toContain("minimumPayoutRateBps:200,maximumPayoutRateBps:300");
     expect(defaults).toContain("minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900");
     expect(defaults).toContain("enabled:true,automaticDelivery:true");
+    expect(defaults).toContain("companyRotationEnabled:true");
+    expect(defaults).toContain("randomizationEnabled:true");
+    expect(defaults).toContain("burstEnabled:true,maxBurstSize:3");
     expect(defaults).toContain("automaticTradingEnabled:false");
     expect(defaults).toContain("policyVersion:1");
   });
