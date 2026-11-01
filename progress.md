@@ -861,3 +861,12 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 - Extended the authenticated staging harness to verify all five delivery switches start enabled on the seeded default package and that **every** package policy returned by the real API has automatic financial execution explicitly false. The test now preserves the raw execution flag so a missing value cannot be silently interpreted as false.
 - Broadened the non-GET Trading financial mutation detector to include trade, execution, settlement, wallet, transfer, allocation, retry, payout, ledger, deposit and withdrawal API paths.
 - The staging fixture instructions now explicitly require all five safe delivery controls to start enabled. Exact-head CI must pass again on the latest commit; authenticated staging still requires the isolated deployment and protected environment secrets.
+
+
+## 2026-11-01 — Legacy policy safety reviewed
+
+- Confirmed the candidate's default object applies to newly created tiers; pre-existing policy rows are not silently rewritten. The older 0089_trading_popup_policy_ranges.sql migration intentionally disables policy rows with missing or invalid published rate/duration bounds.
+- Preserving that fail-closed behavior is necessary: blindly changing all existing rows to enabled could override an intentional administrator pause or enable an incomplete, unreviewed policy.
+- Expanded the package-eligibility contract test to assert all five new-tier delivery defaults explicitly: tier enabled, automatic delivery, company rotation, randomized timing and burst delivery. Automatic financial execution remains explicitly OFF.
+- Expanded the staging guide: use a new post-deployment test tier to verify automatic defaults; legacy tiers must first be reviewed and saved by an authorized administrator. Do not force-enable incomplete legacy policies.
+- CI must be green on the latest test/documentation commit before code validation is marked complete. Authenticated staging still requires the protected trading-staging environment and isolated test deployment.
