@@ -45,7 +45,7 @@ describe("Administrator company catalogue navigation and pagination", () => {
     expect(adminApp).toContain("function AdminTradingPolicySettings(");
     expect(opportunity).not.toContain("TradingDeliveryPolicyEditor");
     expect(adminApp).toContain('section==="opportunity"&&focus==="delivery"&&<AdminPackages focus="delivery"/>');
-    expect(adminApp).toContain('<AdminTradingPolicySettings focus="rotation"/>');
+    expect(adminApp).not.toContain('<AdminTradingPolicySettings focus="rotation"/>');
     expect(policyEditor).toContain("focus?: PolicyEditorFocus;");
     expect(policyEditor).toContain('show("quotas")');
     expect(policyEditor).toContain('show("delivery")');
