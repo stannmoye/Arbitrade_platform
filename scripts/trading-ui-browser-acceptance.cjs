@@ -16,8 +16,8 @@ const { chromium } = require("playwright");
  *   TRADING_ACCEPTANCE_CUSTOMER_EMAIL (eligible customer shown in the admin directory)
  *
  * Uses real application APIs only. In the explicitly isolated non-production environment it
- * temporarily changes one bounded admin policy value to prove save/reload persistence, then
- * restores and verifies the original value. No financial mutations are submitted.
+ * toggles the five safe administrator delivery controls one at a time, verifies persisted
+ * save/read-back behavior, and restores every original value. No financial mutations are submitted.
  */
 async function main() {
   const baseURL = process.env.TRADING_ACCEPTANCE_BASE_URL;
