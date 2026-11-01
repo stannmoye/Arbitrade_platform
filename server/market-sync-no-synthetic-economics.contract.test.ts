@@ -18,6 +18,17 @@ describe("trading opportunity economics integrity", () => {
     expect(implementation).not.toContain("durationSeconds =");
   });
 
+  it("pauses delivery for outstanding trades without permanently closing published offers", () => {
+    const pauseStart = implementation.indexOf("if (settlementPolicy.blockUntilSettled)");
+    const pauseEnd = implementation.indexOf("// Expire offers by their explicit expiry time", pauseStart);
+    const pause = implementation.slice(pauseStart, pauseEnd);
+    expect(pauseStart).toBeGreaterThanOrEqual(0);
+    expect(pauseEnd).toBeGreaterThan(pauseStart);
+    expect(pause).toContain("pausedUntilSettled: true");
+    expect(pause).toContain("opportunityOffers.status, \"open\"");
+    expect(pause).not.toContain("db.update(opportunityOffers)");
+  });
+
   it("explains that pop-ups require an administrator-published open opportunity", () => {
     expect(adminApp).toContain("Market-data refresh updates instruments and FX but does not generate opportunity offers; customers can receive pop-ups only for published, open offers.");
   });
