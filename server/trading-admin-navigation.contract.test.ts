@@ -67,6 +67,11 @@ describe("Trading tier creation defaults", () => {
     expect(editor).toContain('newTier.minimumQualifyingBalanceUsdMinor===""?"":');
     expect(editor).toContain('e.target.value===""?"":Number(e.target.value)');
     expect(editor).toContain("New tiers are enabled when created.");
+    expect(editor).toContain("Tier created and verified from the database: ");
+    expect(editor).toContain("Your entered tier details have been kept on screen.");
+    expect(editor).toContain('const refreshed=await q.refetch()');
+    expect(editor).toContain('Number(persisted.opportunitiesPerDay)===Number(created.opportunitiesPerDay)');
+
     expect(editor).not.toContain('minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6');
     const editFields = editor.slice(editor.indexOf("{visiblePackageRows.map"));
     expect(editFields).toContain('draft.minimumQualifyingBalanceUsdMinor===""?"":');
@@ -269,6 +274,9 @@ describe("Trading menu ownership and quota save feedback", () => {
     expect(adminApp).toContain('Number(persisted.opportunitiesPerDay)===Number(saved.opportunitiesPerDay)');
     expect(adminApp).toContain('Saved and verified from the database: ');
     expect(adminApp).toContain('Saving tier…');
+    expect(adminApp).toContain('<h2>{draft.name||pkg.name}</h2>');
+    expect(adminApp).toContain('Unsaved changes');
+
     expect(policyEditor).toContain('Hard daily pop-up ceiling<input');
     expect(policyEditor).toContain('This is an operational ceiling, not the tier entitlement.');
     expect(policyEditor).toContain('Optional daily target cap (0 = no extra cap)');
