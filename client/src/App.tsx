@@ -377,6 +377,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   const popupRef=useRef<any>(null);
   const preAlertRef=useRef<any>(null);
   const seen=useRef<Set<number>>(new Set());
+  const displaying=useRef<Set<number>>(new Set());
   // Keep server-marked eligible opportunities until their visible popup is shown;
   // later 10-second API refreshes must not silently discard the queue.
   const pending=useRef<Map<number,any>>(new Map());
@@ -437,10 +438,19 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
     preTimer.current=null;
   };
   const showOffer=(offer:any)=>{
-    if(!isOfferCurrent(offer)||popupRef.current)return;
+    if(seen.current.has(offer.id)||displaying.current.has(offer.id)||!isOfferCurrent(offer)||popupRef.current)return;
+    displaying.current.add(offer.id);
     const display=()=>{
       syncTiming();
-      if(!isOfferCurrent(offer)||!canShow()||popupRef.current)return;
+      if(!isOfferCurrent(offer)||!canShow()||popupRef.current){
+        displaying.current.delete(offer.id);
+        return;
+      }
+      displaying.current.delete(offer.id);
+      // Mark an offer as seen only after a popup is actually committed to the UI.
+      // A temporary disabled gate, competing tab, or delayed browser lock must
+      // not permanently suppress the offer in this customer's session.
+      seen.current.add(offer.id);
       popupRef.current=offer;
       setPopup(offer);
       if(offer.deliveryEventId) { void deliveryStatus.mutateAsync({eventId:offer.deliveryEventId,status:"received"}).then(()=>deliveryStatus.mutateAsync({eventId:offer.deliveryEventId,status:"rendered"})).catch(()=>deliveryStatus.mutate({eventId:offer.deliveryEventId,status:"failed",errorCode:"POPUP_RENDER_FAILED"})); void lifecycle.mutateAsync({eventId:offer.deliveryEventId,action:"noticed"}).catch(()=>{}); }
@@ -451,12 +461,14 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
       if(!offer.automaticTrade) timer.current=window.setTimeout(stop,Math.max(1,Number(offer.configuredPopupDisplaySeconds||policy.popupDisplaySeconds||8))*1000);
     };
     const locks=typeof navigator!=="undefined"?(navigator as any).locks:null;
-    if(locks?.request)void locks.request(`arbitrade-popup:${storageKey}`,()=>display()).catch(()=>display());
+    if(locks?.request)void locks.request(`arbitrade-popup:${storageKey}`,()=>display()).catch(()=>{
+      displaying.current.delete(offer.id);
+      display();
+    });
     else display();
   };
   const consider=(offer:any)=>{
-    if(seen.current.has(offer.id)||!canShow())return;
-    seen.current.add(offer.id);
+    if(seen.current.has(offer.id)||displaying.current.has(offer.id)||!canShow())return;
     showOffer(offer);
   };
   const attemptNext=(available:any[])=>{
@@ -466,7 +478,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
     candidates.sort((a:any,b:any)=>new Date(a.closesAt).getTime()-new Date(b.closesAt).getTime());
     consider(candidates[0]);
   };
-  useEffect(()=>{if(delivery?.pausedUntilSettled||delivery?.cooldownActive){pending.current.clear();seen.current.clear();stop();}},[delivery?.pausedUntilSettled,delivery?.cooldownActive]);
+  useEffect(()=>{if(delivery?.pausedUntilSettled||delivery?.cooldownActive){pending.current.clear();seen.current.clear();displaying.current.clear();stop();}},[delivery?.pausedUntilSettled,delivery?.cooldownActive]);
   useEffect(()=>{attemptNext(opportunityData?.offers||[]);},[opportunityData,policy,delivery]);
   useEffect(()=>{
     const id=window.setInterval(()=>attemptNext(opportunityData?.offers||[]),5000);
