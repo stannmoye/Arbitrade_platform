@@ -302,11 +302,40 @@ A compact Trading control panel must be visible above the selected page content 
 The panel displays the saved automatic-financial-execution state but does not provide an enable action. If a legacy saved row has automatic execution enabled, the administrator UI may only disable it. The prior-settlement guard must not be switchable off in the administrator UI; a legacy disabled guard may only be switched on. Settlement-delay edits in the administrator UI have a minimum of 900 seconds. These visible controls do not prove worker health, execution, realized profit or settlement; those require the independent durable records and reconciliation evidence described elsewhere in this specification.
 
 
+The admin portal is the only interface for managing tier configuration. Only authorized administrators may list, create, edit, enable/disable, order or retire tiers. All persisted behaviour-affecting fields must be validated, audited and versioned.
+
+### Single Trade Settings navigation group and unique control ownership
+
+All Trading configuration, publishing, monitoring and audit destinations must appear under one top-level administrator navigation group named **Trade Settings**. Do not duplicate the same Trading page under separate setup, offers, results, monitoring or history groups. Each submenu has one distinct responsibility:
+
+- **Trading Overview** — persisted delivery, pending-work, open-opportunity, settlement and pause summaries.
+- **Tiers & Eligibility** — tier name, qualifying USD threshold, duration, daily opportunity entitlement, effective dates, enabled state and terms version.
+- **Daily Delivery Caps** — operational hard daily pop-up ceiling, maximum visible offers, optional daily target cap and quota-counting window.
+- **Offer Rules & Capital Limits** — required capital bounds and configured reward-rate/duration eligibility bounds.
+- **Publish & Manage Opportunities** — manual reviewed-offer publishing, validated bulk import and read-only open-offer review; this page must not duplicate the tier/policy editor.
+- **Delivery Schedule** — per-tier delivery spacing, randomized timing bounds and post-completion intervals.
+- **Trade Duration & Closing** — global trade-duration and closing/settlement review settings.
+- **Customer Pop-up Display** — expanded-card and completion-card display durations.
+- **Company Rotation Rules** — approved-country filters and repeat-handling configuration.
+- **Company Catalogue** — company reference records, Logo IDs and verification state; it must not render a second company-rotation editor.
+- **Capital & Wallet Funding Rules** — permitted Trading capital requirements and funding-policy review.
+- **Fees & Earnings Limits** — Trading fee policy and configured earnings ceilings.
+- **Retries & Carry-Forward** — bounded retry and recovery configuration; do not imply carry-forward is enabled if it is not implemented.
+- **Active & Pending Opportunities** — persisted delivery/lifecycle records awaiting customer or system action.
+- **Settlement & Reconciliation** — confirmed trade outcomes and wallet/ledger reconciliation.
+- **System Pause & Safety** — pause/resume new allocations without deleting pending work or blocking required reconciliation.
+- **Worker Health & Recovery** — worker heartbeats, queues and audited recovery.
+- **Audit & Policy History** — actor, timestamp, reason, previous/new values and saved policy versions.
+- **Trade Settings Guide** — read-only help.
+
+The persistent Trading controls panel remains visible above every administrator page except the clean Home/overview landing page. It is the single owner for the per-tier **Tier policy**, **Pop-up delivery**, **Company rotation**, **Randomized timing**, and **Burst delivery** ON/OFF switches. Detailed configuration screens must not render duplicate controls for those same switches. Automatic financial execution remains separately protected OFF.
+
+The tier field `opportunitiesPerDay` is the customer's daily opportunity entitlement contribution. Active qualifying tier contributions are cumulative. The **Daily Delivery Caps** page owns the separate operational hard daily pop-up ceiling, concurrent visible-offer limit, optional target cap and counting window. These caps may reduce but must never increase the entitlement. A tier entitlement of 600/day can be fully available only when the hard daily pop-up ceiling is at least 600 and the optional target cap is 0 (no additional target restriction), subject to opportunity availability and all other eligibility limits.
+
+Tier edits increment the package terms version and apply to future automatic tier assignments. Existing customer entitlements retain the saved terms snapshot created at assignment; editing a tier must not silently rewrite existing customer entitlements. Every successful save must be followed by a fresh database read that confirms the changed values/version before the UI reports success. Failed or unconfirmed read-back must be reported as an error and must not discard the administrator's unsaved draft. Background polling must not overwrite a dirty editor draft.
+
 The admin portal is the only interface for managing tier configuration. Only authorized administrators may list, create, edit, enable/disable, order or retire tiers. All persisted behavior-affecting fields must be validated, audited and versioned.
 
-- **Trading Tiers & Eligibility** — administrator-only tier thresholds, duration, daily opportunity quota, eligibility rules, status, effective time and terms version.
-- **Tier Quotas & Customer Limits** — daily opportunity quota per qualifying tier, cumulative allowance, account limits, and customer-level controls.
-- **Trade Settings** — opportunity schedule, duration/closing rules, wallet allocation, fees/earnings limits, retries/carry-forward, company rotation, customer opportunity display, notifications, active/pending trades, settlement/reconciliation, system health/pause, and audit/policy versions.
 - **Wallet Credits** — only the admin portal's Credit Customer / wallet-credit flow may originate a qualifying credit. An authorized administrator must explicitly choose `qualifying_deposit`; the server must commit the customer ledger entry as `admin_manual_deposit_credit` with USD attribution and rate evidence. Every other credit path—including customer/provider deposits, signup credits, imports, bonuses, profits, rewards, returns, transfers, swaps, conversions and generic adjustments—must remain non-qualifying.
 - Admin tier editing must persist to the database and the runtime must consume the same persisted values. Do not create UI-only settings or settings that have no defined runtime effect.
 - Admins may pause new allocations or a faulty integration for safety. This must not delete pending work or block required settlement/reconciliation.
