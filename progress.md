@@ -1,3 +1,14 @@
+## 2026-11-01 — Empty opportunity registry warning and browser navigation regression
+
+- Added an explicit status warning to the Admin Opportunity Engine when the published/open offer registry is empty. It explains that customer pop-ups require reviewed, source-backed published opportunities or validated CSV import, and that market refresh does not create offers.
+- Added a contract assertion for the empty-registry warning and the no-synthetic-opportunity guard.
+- CI on source commit `ea582cd2c1b68df989cbd0d8eeb67cecf9efa103`: TypeScript, automated tests, production build, installer/migration checks, settlement, tier qualification, company rotation, wallet idempotency and opportunity-worker concurrency passed.
+- Browser acceptance on that commit reached 1,020/1,021 checks. The only failure was a stale test assumption: it tried to click **Wallet & Ledger** while the **Finance** navigation group was intentionally collapsed. The application navigation itself was behaving as designed. Updated the browser script to expand Finance before selecting Wallet & Ledger.
+- The empty-registry UI warning, its new contract assertion, and the browser-script navigation correction were committed after the successful source CI run. GitHub Actions has not yet revalidated those latest commits; re-run CI before considering this increment merge-ready.
+- No production deployment, production database changes, wallet operations, or customer transactions were performed.
+
+---
+
 ## 2026-11-01 — Enabled-by-default Trading tier and customer pop-up delivery defaults
 
 - Working branch: `fix/trading-popup-defaults-and-package-activation`; pull request #269 targets `main`.
