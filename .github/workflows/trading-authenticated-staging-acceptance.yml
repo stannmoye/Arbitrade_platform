@@ -39,7 +39,12 @@ jobs:
           CUSTOMER_EMAIL: ${{ secrets.TRADING_ACCEPTANCE_CUSTOMER_EMAIL }}
         run: |
           set -euo pipefail
-          test "$GITHUB_SHA" = "$EXPECTED_SHA" || {
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "::error::expected_sha must be a full 40-character lowercase commit SHA."
+            exit 1
+          }
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA" || {
             echo "::error::Checked-out commit does not match the requested deployed SHA."
             exit 1
           }
@@ -48,7 +53,7 @@ jobs:
           test -n "$UNQUALIFIED_STATE" || { echo "::error::Missing unqualified customer storage state secret."; exit 1; }
           test -n "$ADMIN_STATE" || { echo "::error::Missing administrator storage state secret."; exit 1; }
           test -n "$CUSTOMER_EMAIL" || { echo "::error::Missing eligible customer email secret."; exit 1; }
-          node -e 'const u=new URL(process.argv[1]); if(!["http:","https:"].includes(u.protocol)||u.username||u.password) process.exit(1)' "$BASE_URL"
+          node -e 'const u=new URL(process.argv[1]); if(u.protocol!=="https:"||u.username||u.password) process.exit(1)' "$BASE_URL"
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
