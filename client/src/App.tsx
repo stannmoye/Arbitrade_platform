@@ -542,7 +542,6 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
           const required=Number(offer.minimumMinor||0);
           const shortfall=Math.max(0,required-available);
           const missedReason=shortfall>0?"Insufficient spendable balance":null;
-          const companyMetadataText=formatCompanyReferenceMetadata(offer.companyReferenceMetadataJson);
           return <article className="trading-opportunity-row" key={offer.id}>
             <div className="trading-opportunity-identity">{offer.companyDisplayName?<CompanyReferenceLogo name={String(offer.companyDisplayName)} logoUrl={offer.companyLogoUrl||null}/>:<span className="trading-opportunity-symbol">{offer.symbol||"Market opportunity"}</span>}<div><strong>{offer.companyDisplayName||offer.companyName||offer.name||offer.symbol||"Market opportunity"}</strong><small>{[offer.venueFrom,offer.venueTo].filter(Boolean).join(" → ")||offer.exchange||"Configured opportunity"}</small>{offer.badgeLabel&&<span className={"trading-package-badge trading-package-badge--"+(["neutral","blue","purple","gold","green"].includes(offer.badgeStyle)?offer.badgeStyle:"neutral")}>{offer.badgeLabel}</span>}</div></div>
             <div className="trading-opportunity-values">
