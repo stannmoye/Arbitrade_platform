@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const executionOffMigrationSource = readFileSync(new URL("../drizzle/0098_disable_automatic_financial_execution.sql", import.meta.url), "utf8");
 
 describe("server-side automatic Trading tier eligibility", () => {
   it("blocks automatic opportunity delivery without a matching active auto-assigned tier", () => {
@@ -68,6 +69,15 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(defaults).toContain("policyVersion:1");
   });
 
+
+  it("keeps unattended financial execution disabled while preserving pop-up delivery", () => {
+    expect(source).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false;");
+    expect(source).toContain("AUTOMATIC_FINANCIAL_EXECUTION_ENABLED && options.workerCycle");
+    expect(source).toContain("effective.automaticTradingEnabled=false;");
+    expect(source).toContain("requested.some(policy=>policy.automaticTradingEnabled===true)");
+    expect(executionOffMigrationSource).toContain("SET `automaticTradingEnabled` = 0");
+    expect(executionOffMigrationSource).toContain("WHERE `automaticTradingEnabled` <> 0");
+  });
 
   it("returns the package's persisted enabled state from package creation", () => {
     const start = source.indexOf("export async function createAdminTradingPackage(");
