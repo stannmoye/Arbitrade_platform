@@ -314,13 +314,18 @@ describe("Trading overview and duration navigation", () => {
     expect(adminApp).toContain("Scheduled time is not proof of execution or settlement.");
     expect(adminApp).toContain("settlementDelaySeconds");
 
-    const settingsStart = operationsUi.indexOf("function AdminSettings({focus}");
-    const settingsEnd = operationsUi.indexOf("function AdminSoundSettings()", settingsStart);
+    const settingsStart = operationsUi.indexOf("export function AdminSettings({focus}");
+    const settingsEnd = operationsUi.indexOf("export function AdminOpportunityDelivery()", settingsStart);
     const focusedSettings = operationsUi.slice(settingsStart, settingsEnd);
     expect(focusedSettings).toContain("{!focus&&<div className=\"settings-tabs\">");
     expect(focusedSettings).toContain('{tab==="ticket"&&!focus&&<div className="settings-card">');
     expect(focusedSettings).not.toContain('{tab==="email"&&!focus');
     expect(focusedSettings).toContain('{tab==="password"&&!focus&&<div className="settings-card">');
+    expect(focusedSettings).toContain('await save.mutateAsync({trade});');
+    expect(focusedSettings).toContain('await save.mutateAsync({ticket});');
+    expect(focusedSettings).toContain('Only the section shown on this page is submitted; other saved settings are left unchanged.');
+    expect(focusedSettings).toContain('fresh server read did not confirm every saved value');
+    expect(focusedSettings).not.toContain('email:{');
     expect(focusedSettings).toContain('{tab==="trade"&&focus==="tradeDuration"&&<div className="settings-card">');
     expect(focusedSettings).not.toContain('>Trade settlement</button>');
     expect(focusedSettings).toContain('await save.mutateAsync({trade});');
