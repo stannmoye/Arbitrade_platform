@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./marketSync.ts", import.meta.url), "utf8");
+const adminApp = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const start = source.indexOf("export async function ensureMarketDrivenOpportunities");
 const implementation = source.slice(start);
 
@@ -15,6 +16,10 @@ describe("trading opportunity economics integrity", () => {
     expect(implementation).not.toContain("expectedRewardBps =");
     expect(implementation).not.toContain("minimumMinor =");
     expect(implementation).not.toContain("durationSeconds =");
+  });
+
+  it("explains that pop-ups require an administrator-published open opportunity", () => {
+    expect(adminApp).toContain("Market-data refresh updates instruments and FX but does not generate opportunity offers; customers can receive pop-ups only for published, open offers.");
   });
 
   it("expires stale offers and reports existing active offers without creating new ones", () => {
