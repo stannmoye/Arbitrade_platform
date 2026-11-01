@@ -457,7 +457,7 @@ async function main() {
     const forbiddenFinancialMutationRequests = [];
     adminPage.on("request", (request) => {
       if (request.method() !== "GET" &&
-        /\/api\/trpc\/[^?]*(?:execute|settle|wallet|transfer|allocation|retry)/i.test(request.url())) {
+        /\/api\/trpc\/[^?]*(?:trade|execute|settle|wallet|transfer|allocation|retry|payout|ledger|deposit|withdraw)/i.test(request.url())) {
         forbiddenFinancialMutationRequests.push({
           method: request.method(),
           path: new URL(request.url()).pathname,
@@ -628,13 +628,15 @@ async function main() {
             companyRotationEnabled: Boolean(row.companyRotationEnabled),
             randomizationEnabled: Boolean(row.randomizationEnabled),
             burstEnabled: Boolean(row.burstEnabled),
-            automaticTradingEnabled: Boolean(row.automaticTradingEnabled),
+            automaticTradingEnabled: row.automaticTradingEnabled,
           })) : null,
         };
       });
       assert.ok(snapshot.status >= 200 && snapshot.status < 300 &&
         !snapshot.hasError && Array.isArray(snapshot.rows),
         "Real package policy API must return persisted Trading switch values.");
+      assert.ok(snapshot.rows.every((item) => item.automaticTradingEnabled === false),
+        "Every package policy must keep automatic financial execution explicitly OFF.");
       const row = snapshot.rows.find((item) => item.packageName === packageName);
       assert.ok(row, "The selected package must have a persisted policy row.");
       return row;
@@ -678,6 +680,10 @@ async function main() {
       ["Company rotation", "companyRotationEnabled"], ["Randomized timing", "randomizationEnabled"],
       ["Burst delivery", "burstEnabled"],
     ];
+    for (const [label, key] of deliverySwitches) {
+      assert.equal(originalSwitches[key], true,
+        label + " must start enabled in the seeded default policy.");
+    }
     // Register every restoration before attempting the first write. A request can
     // persist server-side and still time out in the browser; cleanup must cover that case.
     const switchRestoration = deliverySwitches.map(([label, key]) => ({
