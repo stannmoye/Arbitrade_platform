@@ -167,13 +167,13 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 
 <section class="section anchor" id="policy">
 <div class="eyebrow">06 · The most detailed editor</div><h2>Tier delivery, timing and safety policy</h2>
-<p>The policy editor shows a separate saved row for each tier. Changes are validated by the server, audited and versioned. The policy must be valid before automatic delivery/trading can be enabled.</p>
-<div class="callout warn"><strong>Before enabling:</strong> save both a minimum and maximum configured return rate, and both a minimum and maximum trade duration. The two bounds in each pair must be present and valid. A newly created tier starts disabled.</div>
+<p>The policy editor shows a separate saved row for each tier. Changes are validated by the server, audited and versioned. A valid policy is required for eligible automatic pop-up delivery. Pop-up delivery is separate from financial execution and does not authorize a wallet allocation or settlement.</p>
+<div class="callout warn"><strong>Before enabling pop-up delivery:</strong> save both a minimum and maximum configured return rate, and both a minimum and maximum trade duration. The two bounds in each pair must be present and valid. A newly created tier starts disabled. These settings validate the opportunity shown to a customer; they are not execution approval.</div>
 <h3>Policy and automation switches</h3>
 <div class="field-list">
 <div class="field"><b>Policy enabled</b><span>Enables this saved delivery-policy row. This is separate from the tier's own Enabled switch.</span></div>
 <div class="field"><b>Automatic pop-up delivery</b><span>Allows eligible opportunities to be delivered to customers under the saved policy.</span></div>
-<div class="field"><b>Automatic trade execution</b><span>Allows the server-owned automatic trade workflow when all eligibility, balance, policy and safety checks pass.</span></div>
+<div class="field"><b>Automatic trade execution</b><span>Displays the saved execution-control state for visibility only. This guide and the admin policy editor do not provide an enable action. Pop-up delivery can operate independently; a displayed opportunity is not a wallet allocation, executed trade or settlement.</span></div>
 </div>
 <h3>Daily delivery</h3>
 <div class="field-list">
