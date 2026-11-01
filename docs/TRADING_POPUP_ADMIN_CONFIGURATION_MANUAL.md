@@ -191,7 +191,7 @@ Every bulk action requires a confirmation prompt. The server validates every Log
 
 ### Persistent admin-wide Trading control panel
 
-- The Trading control panel is mounted immediately above selected content on every administrator page except the Home/overview landing page. Home is a clean operational summary and does not render the global Trading controls panel; navigation remains available. On non-Home admin pages, the panel keeps status and controls visible without opening a navigation group.
+- The Trading control panel is mounted immediately above selected content on every administrator page except the Home/overview landing page. Home is a clean operational summary and does not render the global Trading controls panel or expanded Trade Settings submenus; navigation groups start collapsed and can be opened on demand. On non-Home admin pages, the panel keeps status and controls visible without opening a navigation group.
 - It reads every persisted package policy from the administrator-only policy query. A missing policy row or query error is shown as unavailable; the panel must not create defaults or silently treat a missing policy as enabled.
 - Each package exposes its saved tier-policy, automatic pop-up delivery, company-rotation, randomized-timing, and burst-delivery switches. A change is sent as a partial, audited update for that package; it must not replay stale values for unrelated fields.
 - The panel provides a global pause for new policy delivery. It turns off new policy eligibility, delivery and automatic-execution flags; it does not delete active records or bypass settlement/reconciliation.

@@ -1,3 +1,13 @@
+## 2026-11-01 — Admin Home menus collapsed on entry
+
+- Follow-up to `ff52d43ea10486938860b7d64dda88cc6cea560c`: the global Trading panel had been hidden from Home, but the primary navigation still defaulted to expanded groups and could preserve an expanded Trade Settings group after returning Home.
+- Corrected `client/src/App.tsx`: all primary navigation groups start collapsed; the active destination no longer auto-expands on Home; selecting Home resets any previously expanded groups. Admins can still open a group on demand, and non-Home destinations retain active-group expansion.
+- Strengthened the Home contract tests and updated the existing navigation contract to reject the previous expanded default. The focused test is under `server/` so it is included by the repository's Vitest configuration. Canonical spec/manual now reflect the collapsed-on-Home behavior.
+- Local validation: `pnpm check` passed, `pnpm test` passed (113 files passed, 3 skipped; 900 tests passed, 17 skipped), and `pnpm build` passed. The first test-suite run correctly exposed an obsolete assertion requiring `trade-setup` to start expanded; that assertion was updated, then the full suite passed.
+- Blitz Cloud's checked-in `.github/workflows/blitz-cloud.yml` runs only when Blitz Cloud starts a build; the earlier GitHub push did not trigger this workflow. No Blitz build or production activation has been started from this commit. No database, production data, or hosted runtime was changed.
+
+---
+
 ## 2026-11-01 — Clean admin Home landing page
 
 - Canonical source verified immediately before work: `main` at `01014be1cc79cd00ffb49814988bd21e4a7658e7`.

@@ -226,7 +226,8 @@ describe("Trading navigation focus and plain-language controls", () => {
     expect(adminApp).toContain('section===item.target && focus===item.focus');
     expect(adminApp).toContain('setFocus(item.focus)');
     expect(adminApp).toContain('group.items.some((item)=>item.target===section && item.focus===focus)');
-    expect(adminApp).toContain('"trade-setup":true');
+    expect(adminApp).toContain('const [expandedGroups,setExpandedGroups]=useState<Record<string,boolean>>({});');
+    expect(adminApp).toContain('section!=="overview" && group.items.some((item)=>item.target===section && item.focus===focus)');
   });
 
   it("shows the explanation beside each Trading menu item", () => {
