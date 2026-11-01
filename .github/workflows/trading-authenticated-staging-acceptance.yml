@@ -1,0 +1,120 @@
+name: Trading authenticated staging acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Full commit SHA deployed to the isolated staging environment
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trading-authenticated-staging-acceptance
+  cancel-in-progress: false
+
+jobs:
+  authenticated-acceptance:
+    name: Authenticated Trading customer and admin journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: trading-staging
+    steps:
+      - name: Check out exact acceptance commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.expected_sha }}
+          persist-credentials: false
+
+      - name: Verify exact commit and required staging secrets
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          BASE_URL: ${{ secrets.TRADING_ACCEPTANCE_BASE_URL }}
+          CUSTOMER_STATE: ${{ secrets.TRADING_CUSTOMER_STORAGE_STATE_JSON }}
+          UNQUALIFIED_STATE: ${{ secrets.TRADING_UNQUALIFIED_CUSTOMER_STORAGE_STATE_JSON }}
+          ADMIN_STATE: ${{ secrets.TRADING_ADMIN_STORAGE_STATE_JSON }}
+          CUSTOMER_EMAIL: ${{ secrets.TRADING_ACCEPTANCE_CUSTOMER_EMAIL }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "::error::expected_sha must be a full 40-character lowercase commit SHA."
+            exit 1
+          }
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA" || {
+            echo "::error::Checked-out commit does not match the requested deployed SHA."
+            exit 1
+          }
+          test -n "$BASE_URL" || { echo "::error::Missing TRADING_ACCEPTANCE_BASE_URL in trading-staging environment."; exit 1; }
+          test -n "$CUSTOMER_STATE" || { echo "::error::Missing eligible customer storage state secret."; exit 1; }
+          test -n "$UNQUALIFIED_STATE" || { echo "::error::Missing unqualified customer storage state secret."; exit 1; }
+          test -n "$ADMIN_STATE" || { echo "::error::Missing administrator storage state secret."; exit 1; }
+          test -n "$CUSTOMER_EMAIL" || { echo "::error::Missing eligible customer email secret."; exit 1; }
+          node -e 'const u=new URL(process.argv[1]); if(u.protocol!=="https:"||u.username||u.password) process.exit(1)' "$BASE_URL"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: npx --yes --package=playwright playwright install --with-deps chromium
+
+      - name: Write ephemeral authenticated browser states
+        shell: bash
+        env:
+          CUSTOMER_STATE: ${{ secrets.TRADING_CUSTOMER_STORAGE_STATE_JSON }}
+          UNQUALIFIED_STATE: ${{ secrets.TRADING_UNQUALIFIED_CUSTOMER_STORAGE_STATE_JSON }}
+          ADMIN_STATE: ${{ secrets.TRADING_ADMIN_STORAGE_STATE_JSON }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/trading-acceptance"
+          printf '%s' "$CUSTOMER_STATE" > "$RUNNER_TEMP/trading-acceptance/eligible-customer.json"
+          printf '%s' "$UNQUALIFIED_STATE" > "$RUNNER_TEMP/trading-acceptance/unqualified-customer.json"
+          printf '%s' "$ADMIN_STATE" > "$RUNNER_TEMP/trading-acceptance/admin.json"
+          node -e 'for (const p of process.argv.slice(1)) { const s=require(p); if(!s||!Array.isArray(s.cookies)||!Array.isArray(s.origins)) throw new Error("Invalid Playwright storage state: "+p) }' \
+            "$RUNNER_TEMP/trading-acceptance/eligible-customer.json" \
+            "$RUNNER_TEMP/trading-acceptance/unqualified-customer.json" \
+            "$RUNNER_TEMP/trading-acceptance/admin.json"
+
+      - name: Run authenticated Trading acceptance against isolated staging
+        shell: bash
+        env:
+          TRADING_ACCEPTANCE_BASE_URL: ${{ secrets.TRADING_ACCEPTANCE_BASE_URL }}
+          TRADING_ACCEPTANCE_ENVIRONMENT: non-production
+          TRADING_CUSTOMER_STORAGE_STATE: ${{ runner.temp }}/trading-acceptance/eligible-customer.json
+          TRADING_UNQUALIFIED_CUSTOMER_STORAGE_STATE: ${{ runner.temp }}/trading-acceptance/unqualified-customer.json
+          TRADING_ADMIN_STORAGE_STATE: ${{ runner.temp }}/trading-acceptance/admin.json
+          TRADING_ACCEPTANCE_CUSTOMER_EMAIL: ${{ secrets.TRADING_ACCEPTANCE_CUSTOMER_EMAIL }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/trading-authenticated-acceptance
+          npx --yes --package=playwright -c 'PLAYWRIGHT_MODULES="$(dirname "$(dirname "$(command -v playwright)")")"; NODE_PATH="$PLAYWRIGHT_MODULES" node scripts/trading-ui-browser-acceptance.cjs' \
+            | tee artifacts/trading-authenticated-acceptance/report.json
+
+      - name: Remove ephemeral authenticated browser states
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/trading-acceptance"
+
+      - name: Upload authenticated acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trading-authenticated-staging-acceptance
+          path: artifacts/trading-authenticated-acceptance/
+          if-no-files-found: ignore
+          retention-days: 14
