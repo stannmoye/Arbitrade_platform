@@ -511,16 +511,16 @@ async function main() {
 
     await adminPage.setViewportSize({ width: 1365, height: 900 });
     const adminNavigation = adminPage.locator(".admin-canonical-nav");
-    const expandTradeSettings = async (navigation) => {
+    const expandAdminGroup = async (navigation, label) => {
       const group = navigation.locator(".admin-nav-group-heading")
-        .filter({ hasText: "Trade Settings" }).first();
+        .filter({ hasText: label }).first();
       await group.waitFor({ state: "visible", timeout: 20_000 });
       if (await group.getAttribute("aria-expanded") !== "true") await group.click();
       assert.equal(await group.getAttribute("aria-expanded"), "true",
-        "Trade Settings navigation group must expand when requested.");
+        label + " navigation group must expand when requested.");
       return group;
     };
-    const tradeSettingsGroup = await expandTradeSettings(adminNavigation);
+    const tradeSettingsGroup = await expandAdminGroup(adminNavigation, "Set up trades");
     const navigationPalette = await adminNavigation.locator(".admin-nav-group").evaluateAll((groups) => groups.map((group) => ({
       accent: getComputedStyle(group).getPropertyValue("--nav-accent").trim(),
       label: group.querySelector(".admin-nav-group-heading span")?.textContent?.trim() ?? "",
@@ -567,12 +567,12 @@ async function main() {
       tradeGroupLayout.lastItemBottom <= tradeGroupLayout.groupBottom + 1,
       "The final expanded Trade submenu item must fit inside its visible navigation group.");
 
-    const packagesNavigation = adminNavigation.getByRole("button", { name: /packages & eligibility/i });
+    const packagesNavigation = adminNavigation.getByRole("button", { name: /customer tiers/i });
     await packagesNavigation.waitFor({ state: "visible", timeout: 20_000 });
     await packagesNavigation.click();
-    const packageEditorHeading = adminPage.getByRole("heading", { name: /trading tiers & automation policy/i });
+    const packageEditorHeading = adminPage.getByRole("heading", { name: /trading tier configuration/i });
     await packageEditorHeading.waitFor({ state: "visible", timeout: 20_000 });
-    await adminPage.getByRole("button", { name: /save all tier policies/i }).waitFor({ state: "visible", timeout: 20_000 });
+    await adminPage.getByRole("button", { name: /save delivery and retry policy/i }).waitFor({ state: "visible", timeout: 20_000 });
 
     // Repeat the package-settings navigation through the actual mobile menu.
     await adminPage.setViewportSize({ width: 390, height: 844 });
@@ -581,7 +581,8 @@ async function main() {
     await mobileMenuButton.click();
     const mobileNavigation = adminPage.locator(".admin-canonical-nav");
     await mobileNavigation.waitFor({ state: "visible", timeout: 20_000 });
-    const mobilePackagesNavigation = mobileNavigation.getByRole("button", { name: /packages & eligibility/i });
+    await expandAdminGroup(mobileNavigation, "Set up trades");
+    const mobilePackagesNavigation = mobileNavigation.getByRole("button", { name: /customer tiers/i });
     await mobilePackagesNavigation.waitFor({ state: "visible", timeout: 20_000 });
     await mobilePackagesNavigation.click();
     const mobileHeadingBounds = await packageEditorHeading.boundingBox();
@@ -593,9 +594,9 @@ async function main() {
     // delay 4 (minimum 5) before the DB updater is invoked; values and versions must
     // be unchanged immediately and after a reload.
     await adminPage.setViewportSize({ width: 1365, height: 900 });
-    const firstPolicyCard = adminPage.locator(".package-admin-card").first();
+    const firstPolicyCard = adminPage.locator(".package-policy-card .package-admin-card").first();
     await firstPolicyCard.waitFor({ state: "visible", timeout: 20_000 });
-    const packageName = (await firstPolicyCard.locator("h2").innerText()).trim();
+    const packageName = (await firstPolicyCard.locator("h3").innerText()).trim();
 
     // Exercise all five persistent Trading delivery switches through the real
     // admin UI/API. Each change is read back from the database, then restored.
@@ -690,7 +691,14 @@ async function main() {
       automaticFinancialExecution: "remained OFF", financialMutationsSubmitted: 0,
     });
 
-    const retryDelayInput = firstPolicyCard.getByLabel(/technical retry delay/i);
+    await expandAdminGroup(adminNavigation, "Finish trades");
+    await adminNavigation.getByRole("button", { name: /try failed trades again/i }).click();
+    await adminPage.getByRole("heading", { name: /try failed trades again/i })
+      .waitFor({ state: "visible", timeout: 20_000 });
+    const retryPolicyCard = adminPage.locator(".package-policy-card .package-admin-card")
+      .filter({ has: adminPage.getByRole("heading", { name: packageName, exact: true }) }).first();
+    await retryPolicyCard.waitFor({ state: "visible", timeout: 20_000 });
+    const retryDelayInput = retryPolicyCard.getByLabel(/trade retry delay/i);
     const originalRetryDelay = await retryDelayInput.inputValue();
     const readPolicySnapshot = async () => adminPage.evaluate(async () => {
       const response = await fetch("/api/trpc/adminOperations.packagePolicies", {
@@ -734,13 +742,13 @@ async function main() {
       await adminPage.reload({ waitUntil: "domcontentloaded" });
       await adminPage.setViewportSize({ width: 1365, height: 900 });
       const nav = adminPage.locator(".admin-canonical-nav");
-      await expandTradeSettings(nav);
-      await nav.getByRole("button", { name: /packages & eligibility/i }).click();
-      await adminPage.getByRole("heading", { name: /trading tiers & automation policy/i })
+      await expandAdminGroup(nav, "Finish trades");
+      await nav.getByRole("button", { name: /customer tiers/i }).click();
+      await adminPage.getByRole("heading", { name: /trading tier configuration/i })
         .waitFor({ state: "visible", timeout: 20_000 });
-      const card = adminPage.locator(".package-admin-card")
+      const card = adminPage.locator(".package-policy-card .package-admin-card")
         .filter({ has: adminPage.getByRole("heading", { name: packageName, exact: true }) }).first();
-      const input = card.getByLabel(/technical retry delay/i);
+      const input = card.getByLabel(/trade retry delay/i);
       await input.waitFor({ state: "visible", timeout: 20_000 });
       return input;
     };
@@ -749,7 +757,8 @@ async function main() {
         (response) => response.url().includes("/api/trpc/adminOperations.updatePackagePolicies"),
         { timeout: 20_000 },
       );
-      await adminPage.getByRole("button", { name: /save all tier policies/i }).click();
+      await adminPage.getByLabel(/reason for changing trading tier policies/i).fill("Non-production acceptance verification.");
+      await adminPage.getByRole("button", { name: /save delivery and retry policy/i }).click();
       const response = await responsePromise;
       let payload;
       try {
@@ -810,7 +819,7 @@ async function main() {
       (response) => response.url().includes("/api/trpc/adminOperations.updatePackagePolicies"),
       { timeout: 20_000 },
     );
-    await adminPage.getByRole("button", { name: /save all tier policies/i }).click();
+    await adminPage.getByRole("button", { name: /save delivery and retry policy/i }).click();
     const rejectedMutation = await rejectedMutationPromise;
     let rejectedPayload;
     try {
@@ -830,19 +839,19 @@ async function main() {
     await adminPage.reload({ waitUntil: "domcontentloaded" });
     await adminPage.setViewportSize({ width: 1365, height: 900 });
     const reloadedNavigation = adminPage.locator(".admin-canonical-nav");
-    await expandTradeSettings(reloadedNavigation);
-    await reloadedNavigation.getByRole("button", { name: /packages & eligibility/i }).click();
-    const reloadedPolicyHeading = adminPage.getByRole("heading", { name: /trading tiers & automation policy/i });
+    await expandAdminGroup(reloadedNavigation, "Finish trades");
+    await reloadedNavigation.getByRole("button", { name: /customer tiers/i }).click();
+    const reloadedPolicyHeading = adminPage.getByRole("heading", { name: /trading tier configuration/i });
     await reloadedPolicyHeading.waitFor({ state: "visible", timeout: 20_000 });
-    const reloadedCard = adminPage.locator(".package-admin-card")
+    const reloadedCard = adminPage.locator(".package-policy-card .package-admin-card")
       .filter({ has: adminPage.getByRole("heading", { name: packageName, exact: true }) }).first();
-    const reloadedRetryInput = reloadedCard.getByLabel(/technical retry delay/i);
+    const reloadedRetryInput = reloadedCard.getByLabel(/trade retry delay/i);
     await reloadedRetryInput.waitFor({ state: "visible", timeout: 20_000 });
     await adminPage.waitForFunction(({ name, value }) => {
-      const cards = Array.from(document.querySelectorAll(".package-admin-card"));
-      const card = cards.find((item) => item.querySelector("h2")?.textContent?.trim() === name);
+      const cards = Array.from(document.querySelectorAll(".package-policy-card .package-admin-card"));
+      const card = cards.find((item) => item.querySelector("h3")?.textContent?.trim() === name);
       const input = card ? Array.from(card.querySelectorAll("label"))
-        .find((label) => label.textContent?.toLowerCase().includes("technical retry delay"))
+        .find((label) => label.textContent?.toLowerCase().includes("trade retry delay"))
         ?.querySelector("input") : null;
       return Boolean(input && input.value === value);
     }, { name: packageName, value: originalRetryDelay }, { timeout: 20_000 });
@@ -852,8 +861,9 @@ async function main() {
 
     // Verify the eligible test account's assigned package IDs, assignment statuses and
     // terms versions in the actual admin customer directory. Part 1 owns this UI/API.
-    await adminPage.locator(".admin-canonical-nav")
-      .getByRole("button", { name: /customer directory/i }).click();
+    const customerNavigation = adminPage.locator(".admin-canonical-nav");
+    await expandAdminGroup(customerNavigation, "Customers");
+    await customerNavigation.getByRole("button", { name: /customer directory/i }).click();
     await adminPage.getByRole("heading", { name: /customer controls/i })
       .waitFor({ state: "visible", timeout: 20_000 });
     const assignedCustomerCard = adminPage.locator(".admin-customer-card")
@@ -883,10 +893,10 @@ async function main() {
 
     const adminBodyText = await adminPage.locator("body").innerText();
     assert.match(adminBodyText, /trade settings/i);
-    assert.match(adminBodyText, /packages & eligibility/i);
-    assert.match(adminBodyText, /trading tiers & automation policy/i);
+    assert.match(adminBodyText, /trading controls/i);
+    assert.match(adminBodyText, /customer controls/i);
     results.push({
-      journey: "administrator Trade Settings, package configuration, setting save/reload, and invalid-form persistence",
+      journey: "administrator Set up trades, package configuration, setting save/reload, and invalid-form persistence",
       status: "passed",
       packageCatalogueApi: "authorized real application response",
       validSettingsRoundTrip: "temporary value persisted through reload; original value restored and verified",
