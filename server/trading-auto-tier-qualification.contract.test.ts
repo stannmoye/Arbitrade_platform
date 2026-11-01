@@ -182,7 +182,9 @@ describe("Automatic Trading tier qualification", () => {
   it("keeps opportunity generation and customer responses read-only", () => {
     expect(databaseSource).toContain("if(options.workerCycle===true&&!formulaCooling&&remainingQuota>0)");
     expect(databaseSource).toContain("if(options.workerCycle===true) await markDueTradesAwaitingConfirmation(userId)");
-    expect(databaseSource).toContain("options.workerCycle===true ? await autoTradeOpenOpportunities");
+    expect(databaseSource).toContain("options.workerCycle===true&&options.allowAutomaticExecution!==false");
+    expect(databaseSource).toContain("await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls)");
+    expect(databaseSource).toContain("allowAutomaticExecution:!pausedUntilSettled");
     expect(routerSource).toContain("delete safe.termsSnapshotJson");
     expect(routerSource).toContain("delete safe.packageMinimumTradeMinor");
   });
