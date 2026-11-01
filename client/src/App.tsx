@@ -483,9 +483,8 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   if(!popup)return null;
   const money=popup.currency==="BTC"||popup.currency==="ETH"?`${(popup.minimumMinor/1e8).toFixed(6)} ${popup.currency}`:`${(popup.minimumMinor/100).toFixed(2)} ${popup.currency}`;
   const automatic=Boolean(liveTrade||popup.automaticTrade);
-  const companyMetadataText=formatCompanyReferenceMetadata(popup.companyReferenceMetadataJson);
   const stage=liveTrade?.stage||"Opportunity Detected";
-  return <div className="center-opportunity-toast"><div className="toast-live"><span className="pulse"/> AUTOMATED OPPORTUNITY <span className="toast-live-status">Live trade progress</span></div>{popup.badgeLabel&&<span className={"trading-package-badge trading-package-badge--"+(["neutral","blue","purple","gold","green"].includes(popup.badgeStyle)?popup.badgeStyle:"neutral")}>{popup.badgeLabel}</span>}{popup.companyDisplayName&&<div className="trading-opportunity-identity popup-company-reference"><CompanyReferenceLogo name={String(popup.companyDisplayName)} logoUrl={popup.companyLogoUrl||null}/><div><strong>{popup.companyDisplayName}</strong><small>Admin-approved company reference · Logo ID {popup.companyReferenceId||"not recorded"} · Display approval only; not securities verification</small><small>{companyMetadataText}</small></div></div>}<h3>{automatic?stage:`${popup.symbol} opportunity detected`}</h3><p>{popup.symbol} · opportunity-{popup.id}{liveTrade?` · ${liveTrade.tradeReference||`trade-${liveTrade.id}`}`:` · Minimum ${money}`}</p><div className="toast-timing"><Clock size={14}/> Configured return rate: {(Number(popup.configuredProfitRateBps??popup.expectedRewardBps??0)/100).toFixed(2)}% · Trade duration: {Number(popup.configuredDurationSeconds??popup.durationSeconds??0)} seconds</div><div className="toast-timing"><span className="pulse"/> {automatic?`${liveTrade?.settlementStatus||"pending"} · reward ${liveTrade?.rewardCredited?"credited":"pending"} · wallet ${liveTrade?.walletUpdated?"updated":"pending"}`:"Backend eligibility is evaluated independently of popup rendering."}</div>{automatic?<div className="trade-progress-track"><i style={{width:liveTrade?.status==="settled"?"100%":"45%"}}/></div>:<div className="toast-actions"><button className="primary-button" onClick={()=>{if(popup.deliveryEventId) void lifecycle.mutateAsync({eventId:popup.deliveryEventId,action:"opened"}).catch(()=>{});stop();onOpen()}}>Review details <ArrowUpRight size={14}/></button><button className="toast-dismiss" onClick={()=>{if(popup.deliveryEventId) void lifecycle.mutateAsync({eventId:popup.deliveryEventId,action:"dismissed"}).catch(()=>{});stop()}}>Dismiss notification</button></div>}</div>;
+  return <div className="center-opportunity-toast"><div className="toast-live"><span className="pulse"/> AUTOMATED OPPORTUNITY <span className="toast-live-status">Live trade progress</span></div>{popup.badgeLabel&&<span className={"trading-package-badge trading-package-badge--"+(["neutral","blue","purple","gold","green"].includes(popup.badgeStyle)?popup.badgeStyle:"neutral")}>{popup.badgeLabel}</span>}{popup.companyDisplayName&&<div className="trading-opportunity-identity popup-company-reference"><CompanyReferenceLogo name={String(popup.companyDisplayName)} logoUrl={popup.companyLogoUrl||null}/><div><strong>{popup.companyDisplayName}</strong></div></div>}<h3>{automatic?stage:`${popup.symbol} opportunity detected`}</h3><p>{popup.symbol} · opportunity-{popup.id}{liveTrade?` · ${liveTrade.tradeReference||`trade-${liveTrade.id}`}`:` · Minimum ${money}`}</p><div className="toast-timing"><Clock size={14}/> Configured return rate: {(Number(popup.configuredProfitRateBps??popup.expectedRewardBps??0)/100).toFixed(2)}% · Trade duration: {Number(popup.configuredDurationSeconds??popup.durationSeconds??0)} seconds</div><div className="toast-timing"><span className="pulse"/> {automatic?`${liveTrade?.settlementStatus||"pending"} · reward ${liveTrade?.rewardCredited?"credited":"pending"} · wallet ${liveTrade?.walletUpdated?"updated":"pending"}`:"Backend eligibility is evaluated independently of popup rendering."}</div>{automatic?<div className="trade-progress-track"><i style={{width:liveTrade?.status==="settled"?"100%":"45%"}}/></div>:<div className="toast-actions"><button className="primary-button" onClick={()=>{if(popup.deliveryEventId) void lifecycle.mutateAsync({eventId:popup.deliveryEventId,action:"opened"}).catch(()=>{});stop();onOpen()}}>Review details <ArrowUpRight size={14}/></button><button className="toast-dismiss" onClick={()=>{if(popup.deliveryEventId) void lifecycle.mutateAsync({eventId:popup.deliveryEventId,action:"dismissed"}).catch(()=>{});stop()}}>Dismiss notification</button></div>}</div>;
 }
 function CustomerDashboard({push,sound,setSound,soundSettings,delivery,opportunityData}:{push:(x:string)=>void;sound:boolean;setSound:(x:boolean)=>void;soundSettings:SoundSettings;delivery?:{enabled?:boolean;maxPopupsPerDay:number;maxVisibleOffers:number;pausedUntilSettled?:boolean;outstandingTrades?:number};opportunityData?:any}) {
   const balances=trpc.customer.balances.useQuery(undefined,{refetchInterval:5000});
@@ -509,24 +508,6 @@ function CompanyReferenceLogo({name,logoUrl}:{name:string;logoUrl:string|null}) 
   return <img src={logoUrl} alt="" aria-hidden="true" width={48} height={48} style={{objectFit:"contain",borderRadius:10,background:"#e8edf3",padding:4}} onError={()=>setFailedLogoUrl(logoUrl)}/>;
 }
 
-function formatCompanyReferenceMetadata(value:unknown):string {
-  let metadata:any=null;
-  try {
-    metadata=typeof value==="string"?JSON.parse(value):value;
-  } catch {
-    metadata=null;
-  }
-  if(!metadata||typeof metadata!=="object") return "Catalogue metadata unavailable · listing unverified";
-  const parts=[
-    metadata.countryName?"Country folder: "+String(metadata.countryName):null,
-    metadata.symbol||metadata.ticker?"Ticker/code: "+String(metadata.symbol||metadata.ticker):null,
-    metadata.exchangeCode?"Exchange/code: "+String(metadata.exchangeCode):null,
-    "Listing status: "+String(metadata.listingStatus||"unverified"),
-    "Source confidence: "+String(metadata.sourceConfidence||"brand-name-only"),
-    "Manual verification required",
-  ];
-  return parts.filter(Boolean).join(" · ");
-}
 function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:boolean;soundSettings:SoundSettings;opportunityData?:any}) {
   const balances=trpc.customer.balances.useQuery(undefined,{refetchInterval:5000});
   const trades=trpc.customer.trades.useQuery(undefined,{refetchInterval:5000});
@@ -563,7 +544,7 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
           const missedReason=shortfall>0?"Insufficient spendable balance":null;
           const companyMetadataText=formatCompanyReferenceMetadata(offer.companyReferenceMetadataJson);
           return <article className="trading-opportunity-row" key={offer.id}>
-            <div className="trading-opportunity-identity">{offer.companyDisplayName?<CompanyReferenceLogo name={String(offer.companyDisplayName)} logoUrl={offer.companyLogoUrl||null}/>:<span className="trading-opportunity-symbol">{offer.symbol||"Market opportunity"}</span>}<div><strong>{offer.companyDisplayName||offer.companyName||offer.name||offer.symbol||"Market opportunity"}</strong><small>{[offer.venueFrom,offer.venueTo].filter(Boolean).join(" → ")||offer.exchange||"Configured opportunity"}{offer.companyReferenceOnly?" · Company reference only":""}</small><small>{companyMetadataText}</small>{offer.badgeLabel&&<span className={"trading-package-badge trading-package-badge--"+(["neutral","blue","purple","gold","green"].includes(offer.badgeStyle)?offer.badgeStyle:"neutral")}>{offer.badgeLabel}</span>}</div></div>
+            <div className="trading-opportunity-identity">{offer.companyDisplayName?<CompanyReferenceLogo name={String(offer.companyDisplayName)} logoUrl={offer.companyLogoUrl||null}/>:<span className="trading-opportunity-symbol">{offer.symbol||"Market opportunity"}</span>}<div><strong>{offer.companyDisplayName||offer.companyName||offer.name||offer.symbol||"Market opportunity"}</strong><small>{[offer.venueFrom,offer.venueTo].filter(Boolean).join(" → ")||offer.exchange||"Configured opportunity"}</small>{offer.badgeLabel&&<span className={"trading-package-badge trading-package-badge--"+(["neutral","blue","purple","gold","green"].includes(offer.badgeStyle)?offer.badgeStyle:"neutral")}>{offer.badgeLabel}</span>}</div></div>
             <div className="trading-opportunity-values">
               <div><span>Required capital</span><strong>{format(required,offer.currency)}</strong></div>
               <div><span>Available balance</span><strong>{format(available,offer.currency)}</strong></div>
@@ -596,7 +577,7 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
         :!(trades.data||[]).length?<div className="empty-state">No trade allocations have been recorded.</div>
         :<div className="trading-opportunity-list">{(trades.data||[]).slice(0,30).map((trade:any)=>(
           <article className="trading-opportunity-row" key={trade.id}>
-            <div className="trading-opportunity-identity">{trade.companyDisplayName?<CompanyReferenceLogo name={String(trade.companyDisplayName)} logoUrl={trade.companyLogoUrl||null}/>:<span className="trading-opportunity-symbol">#{trade.id}</span>}<div><strong>{trade.companyDisplayName||trade.symbol||"Trade allocation"}</strong><small>Trade #{trade.id} · {trade.status==="settled"?"Settled":trade.stage||"Pending settlement confirmation"}{trade.companyReferenceOnly?" · Company reference only":""}</small><small>{formatCompanyReferenceMetadata(trade.companyReferenceMetadataJson)}</small></div></div>
+            <div className="trading-opportunity-identity">{trade.companyDisplayName?<CompanyReferenceLogo name={String(trade.companyDisplayName)} logoUrl={trade.companyLogoUrl||null}/>:<span className="trading-opportunity-symbol">#{trade.id}</span>}<div><strong>{trade.companyDisplayName||trade.symbol||"Trade allocation"}</strong><small>Trade #{trade.id} · {trade.status==="settled"?"Settled":trade.stage||"Pending settlement confirmation"}</small></div></div>
             <div className="trading-opportunity-values">
               <div><span>Committed principal</span><strong>{format(Number(trade.principalMinor||0),trade.currency)}</strong></div>
               {trade.status==="settled"&&trade.settlementOutcome!=="legacy_unrecorded"&&<>
