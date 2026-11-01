@@ -168,16 +168,16 @@ The global allocation pause applies only to new allocations. It does not suspend
 
 ## 6. Administrator company catalogue and tier-list presentation
 
-- **Trade Settings → Show offers → Company names shown** opens a dedicated administrator company-catalogue page, not the opportunity engine or package/tier editor.
+- **Trade Settings → Company Catalogue** opens a dedicated administrator company-catalogue page, not the opportunity engine or package/tier editor.
 - The page reads the existing 1,811 logo-ID-aligned records from `companyCatalogueReference`; it must not create a replacement catalogue or alter the source records.
 - Display 10 company records per page with Previous/Next controls, total/matching counts, search by company name/domain/supplied ticker/exchange, and exact country-folder filtering.
 - Each result keeps its local logo, stable Logo ID, company name, country folder, supplied ticker/code, exchange, workbook status/classification, parent ticker and reason together. Show reference-only/unverified status; do not imply that a supplied ticker is a verified active security.
-- **Trade Settings → Set up trades → Customer tiers** displays 5 administrator-managed tiers per page with Previous/Next controls. Creating, editing, enabling, saving, and audit reasons remain unchanged by paging. Do not hide or discard tiers when moving between pages.
+- **Trade Settings → Tiers & Eligibility** displays 5 administrator-managed tiers per page with Previous/Next controls. Creating, editing, enabling, saving, and audit reasons remain unchanged by paging. Do not hide or discard tiers when moving between pages.
 - Package/tier policy settings remain in their dedicated submenu; company-catalogue navigation must not render package controls.
 
 ## 6A. Administrator company catalogue bulk management
 
-Open **Trade Settings → Show offers → Company names shown** to manage the existing 1,811 logo-ID-aligned reference records.
+Open **Trade Settings → Company Catalogue** to manage the existing 1,811 logo-ID-aligned reference records.
 
 | Control | Behaviour |
 | --- | --- |
