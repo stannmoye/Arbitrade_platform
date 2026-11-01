@@ -70,22 +70,13 @@ try {
   await connection.beginTransaction();
   transactionStarted = true;
 
-  const initialAccounts = [
-    {
-      email: accounts.adminEmail,
-      password: accounts.adminPassword,
-      name: "Administrator",
-      role: "admin",
-      packageName: "Institutional",
-    },
-    {
-      email: accounts.customerEmail,
-      password: accounts.customerPassword,
-      name: "Customer Account",
-      role: "user",
-      packageName: "Starter",
-    },
-  ];
+  const initialAccounts = [{
+    email: accounts.adminEmail,
+    password: accounts.adminPassword,
+    name: "Administrator",
+    role: "admin",
+    packageName: "Institutional",
+  }];
 
   for (const account of initialAccounts) {
     const openId = localOpenId(account.role, account.email);
@@ -114,7 +105,7 @@ try {
 
   await connection.commit();
   transactionStarted = false;
-  console.log("Initial administrator and customer accounts were created successfully.");
+  console.log("The fresh-install administrator account was created successfully.");
 } catch (error) {
   if (transactionStarted) {
     try {
