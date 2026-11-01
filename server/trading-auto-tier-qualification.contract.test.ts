@@ -150,7 +150,8 @@ describe("Automatic Trading tier qualification", () => {
   it("keeps allocation and due-trade processing in the scheduled worker", () => {
     expect(databaseSource).toContain("workerCycle?:boolean");
     expect(databaseSource).toContain("if(options.workerCycle===true) await markDueTradesAwaitingConfirmation(userId)");
-    expect(databaseSource).toContain("options.workerCycle===true&&options.allowAutomaticExecution!==false");
+    expect(databaseSource).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false;");
+    expect(databaseSource).toContain("const auto=AUTOMATIC_FINANCIAL_EXECUTION_ENABLED && options.workerCycle===true && options.allowAutomaticExecution!==false");
     expect(databaseSource).toContain("await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls)");
     expect(databaseSource).toContain("allowAutomaticExecution:!pausedUntilSettled");
     expect(databaseSource).toContain("listCustomerOpportunities(customer.id,{");
@@ -182,7 +183,8 @@ describe("Automatic Trading tier qualification", () => {
   it("keeps opportunity generation and customer responses read-only", () => {
     expect(databaseSource).toContain("if(options.workerCycle===true&&!formulaCooling&&remainingQuota>0)");
     expect(databaseSource).toContain("if(options.workerCycle===true) await markDueTradesAwaitingConfirmation(userId)");
-    expect(databaseSource).toContain("options.workerCycle===true&&options.allowAutomaticExecution!==false");
+    expect(databaseSource).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false;");
+    expect(databaseSource).toContain("const auto=AUTOMATIC_FINANCIAL_EXECUTION_ENABLED && options.workerCycle===true && options.allowAutomaticExecution!==false");
     expect(databaseSource).toContain("await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls)");
     expect(databaseSource).toContain("allowAutomaticExecution:!pausedUntilSettled");
     expect(routerSource).toContain("delete safe.termsSnapshotJson");
