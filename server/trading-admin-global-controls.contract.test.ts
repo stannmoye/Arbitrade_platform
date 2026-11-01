@@ -32,6 +32,8 @@ describe("persistent administrator Trading control panel", () => {
 
   it("allows per-package execution control while retaining the settlement guard", () => {
     expect(policyEditor).toContain('onChange={e=>updateRow(index,"automaticTradingEnabled",e.target.value==="true")}');
+    expect(policyEditor).not.toContain("Protected in the admin UI");
+    expect(policyEditor).toContain("Enabling requires the policy, delivery and configured payout/duration ranges to be valid.");
     expect(policyEditor).not.toContain('onChange={e=>updateRow(index,"requirePreviousSettlement"');
     expect(policyEditor).toContain('onClick={()=>updateRow(index,"requirePreviousSettlement",true)}');
     expect(policyEditor).toContain('Math.max(900,Number(e.target.value)||900)');
