@@ -314,9 +314,9 @@ describe("Trading overview and duration navigation", () => {
     expect(adminApp).toContain("Scheduled time is not proof of execution or settlement.");
     expect(adminApp).toContain("settlementDelaySeconds");
 
-    const settingsStart = adminApp.indexOf("function AdminSettings({focus}");
-    const settingsEnd = adminApp.indexOf("function AdminSoundSettings()", settingsStart);
-    const focusedSettings = adminApp.slice(settingsStart, settingsEnd);
+    const settingsStart = operationsUi.indexOf("function AdminSettings({focus}");
+    const settingsEnd = operationsUi.indexOf("function AdminSoundSettings()", settingsStart);
+    const focusedSettings = operationsUi.slice(settingsStart, settingsEnd);
     expect(focusedSettings).toContain("{!focus&&<div className=\"settings-tabs\">");
     expect(focusedSettings).toContain('{tab==="ticket"&&!focus&&<div className="settings-card">');
     expect(focusedSettings).not.toContain('{tab==="email"&&!focus');
