@@ -19,22 +19,20 @@ describe("persistent administrator Trading control panel", () => {
     expect(adminApp).toContain("Pause all new delivery");
   });
 
-  it("exposes the saved package-level switches and keeps high-impact execution controls protected", () => {
+  it("exposes the saved package-level controls and reports automatic execution state", () => {
     for (const field of ["enabled", "automaticDelivery", "companyRotationEnabled", "randomizationEnabled", "burstEnabled"]) {
       expect(adminApp).toContain(`key: "${field}"`);
     }
     expect(adminApp).toContain("automaticTradingEnabled: false");
-    expect(adminApp).toContain("Currently enabled in saved policy");
-    expect(adminApp).toContain("Protected OFF");
-    expect(adminApp).toContain('if (next && (key === "enabled" || key === "automaticDelivery") && policy.automaticTradingEnabled)');
+    expect(adminApp).toContain("Enabled in saved policy");
+    expect(adminApp).toContain("Disabled in saved policy");
+    expect(adminApp).not.toContain("Protected OFF — this panel cannot enable it");
     expect(adminApp).toContain("requirePreviousSettlement: true");
-    expect(adminApp).not.toContain("automaticTradingEnabled: true");
   });
 
-  it("does not expose a UI route for enabling automatic execution or disabling the settlement guard", () => {
-    expect(policyEditor).not.toContain('onChange={e=>updateRow(index,"automaticTradingEnabled"');
+  it("allows per-package execution control while retaining the settlement guard", () => {
+    expect(policyEditor).toContain('onChange={e=>updateRow(index,"automaticTradingEnabled",e.target.value==="true")}');
     expect(policyEditor).not.toContain('onChange={e=>updateRow(index,"requirePreviousSettlement"');
-    expect(policyEditor).toContain('onClick={()=>updateRow(index,"automaticTradingEnabled",false)}');
     expect(policyEditor).toContain('onClick={()=>updateRow(index,"requirePreviousSettlement",true)}');
     expect(policyEditor).toContain('Math.max(900,Number(e.target.value)||900)');
     expect(adminApp).toContain("settlementTimingSafe");
