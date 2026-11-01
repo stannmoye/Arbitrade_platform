@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveWorkerHealthStatus, sanitizeWorkerErrorMessage } from "./workerHealth";
+import { currentInstanceWorkerRows, deriveWorkerHealthStatus, sanitizeWorkerErrorMessage } from "./workerHealth";
 
 describe("deriveWorkerHealthStatus", () => {
   const now = Date.parse("2026-10-29T12:00:00.000Z");
@@ -26,6 +26,23 @@ describe("deriveWorkerHealthStatus", () => {
   });
 });
 
+
+
+describe("currentInstanceWorkerRows", () => {
+  it("excludes retained rows from prior process instances while preserving current rows", () => {
+    const current = { workerKey: "trading-opportunities", isCurrentInstance: true, status: "not_started" };
+    const historical = { workerKey: "trading-opportunities", isCurrentInstance: false, status: "stale" };
+    expect(currentInstanceWorkerRows([historical, current])).toEqual([current]);
+  });
+
+  it("keeps current degraded and not-started records eligible for diagnostics", () => {
+    const currentRows = [
+      { workerKey: "trading-tier-qualification", isCurrentInstance: true, status: "degraded" },
+      { workerKey: "trading-opportunities", isCurrentInstance: true, status: "not_started" },
+    ];
+    expect(currentInstanceWorkerRows(currentRows)).toEqual(currentRows);
+  });
+});
 
 describe("sanitizeWorkerErrorMessage", () => {
   it("removes connection credentials and common secret fields from errors", () => {

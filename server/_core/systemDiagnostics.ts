@@ -2,7 +2,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { sql } from "drizzle-orm";
 import { getDb } from "../db";
-import { getWorkerHealthSummary, sanitizeWorkerErrorMessage, type WorkerHealthSummary } from "./workerHealth";
+import { currentInstanceWorkerRows, getWorkerHealthSummary, sanitizeWorkerErrorMessage, type WorkerHealthSummary } from "./workerHealth";
 
 type CheckStatus = "pass" | "warning" | "fail" | "not_run";
 type DiagnosticCheck = { id: string; area: string; status: CheckStatus; title: string; detail: string; recommendation: string | null };
@@ -156,7 +156,10 @@ const FEATURE_SOURCE_REQUIREMENTS = [
 ] as const;
 
 function classifyWorkerChecks(workerHealth: WorkerHealthSummary, checks: DiagnosticCheck[]) {
-  for (const worker of workerHealth.workers) {
+  // Recent rows from prior process instances are retained as history. They are
+  // useful for investigation, but an expired heartbeat from a stopped instance
+  // must not be counted as a live worker failure for the process serving this report.
+  for (const worker of currentInstanceWorkerRows(workerHealth.workers)) {
     if (worker.status === "healthy" || worker.status === "running") continue;
     const status: CheckStatus = worker.status === "degraded" ? "fail" : "warning";
     checks.push(check(

@@ -19,7 +19,7 @@ The Trade Settings → **Worker Health & Recovery** page reads durable health ro
 - Mining reward processing and Mining price feeds.
 - Opportunity-popup retention and market-data refresh.
 
-Each cycle records an instance identifier, latest heartbeat, last successful run, last failed run, duration, consecutive failure count, and bounded sanitized error text. A read-time stale threshold distinguishes stale heartbeats from cycles that are still running. Rows from recent server instances remain visible for 24 hours so crashes and restarts can be investigated.
+Each cycle records an instance identifier, latest heartbeat, last successful run, last failed run, duration, consecutive failure count, and bounded sanitized error text. A read-time stale threshold distinguishes stale heartbeats from cycles that are still running. Rows from recent server instances remain visible for 24 hours so crashes and restarts can be investigated. Each returned row is explicitly marked as belonging to the current process or a historical process instance. Only the current process's rows contribute to live diagnostic pass/warning/failure classification; an expired heartbeat from a prior process remains visible as historical evidence and is not counted as a currently stopped worker. If the current process has no row for a registered worker, its synthesized `not_started` row remains a live finding. The admin dashboard and exports must label current versus historical rows rather than combining them into one unqualified health count.
 
 ## Queue view and safety boundary
 

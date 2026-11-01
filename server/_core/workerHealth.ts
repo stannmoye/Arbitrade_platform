@@ -151,6 +151,7 @@ export type WorkerHealthSummary = {
     expectedIntervalMs: number;
     staleAfterMs: number;
     instanceId: string;
+    isCurrentInstance: boolean;
     status: DerivedWorkerStatus;
     heartbeatAt: string | null;
     lastSuccessAt: string | null;
@@ -167,6 +168,11 @@ function iso(value: Date | string | null | undefined): string | null {
   if (value == null) return null;
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+/** Keep historical process rows available for investigation without treating them as this process's live health. */
+export function currentInstanceWorkerRows<T extends { isCurrentInstance: boolean }>(workers: readonly T[]): T[] {
+  return workers.filter((worker) => worker.isCurrentInstance);
 }
 
 export async function getWorkerHealthSummary(): Promise<WorkerHealthSummary> {
@@ -188,6 +194,7 @@ export async function getWorkerHealthSummary(): Promise<WorkerHealthSummary> {
       expectedIntervalMs: definition?.expectedIntervalMs ?? 30_000,
       staleAfterMs,
       instanceId: row.instanceId.slice(0, 8),
+      isCurrentInstance: row.instanceId === instanceId,
       status: deriveWorkerHealthStatus({ status: row.status, heartbeatAt: row.heartbeatAt }, staleAfterMs, now),
       heartbeatAt: iso(row.heartbeatAt),
       lastSuccessAt: iso(row.lastSuccessAt),
@@ -206,6 +213,7 @@ export async function getWorkerHealthSummary(): Promise<WorkerHealthSummary> {
         expectedIntervalMs: definition.expectedIntervalMs,
         staleAfterMs: definition.staleAfterMs,
         instanceId: instanceId.slice(0, 8),
+        isCurrentInstance: true,
         status: "not_started",
         heartbeatAt: null,
         lastSuccessAt: null,
