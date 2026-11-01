@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./marketSync.ts", import.meta.url), "utf8");
+const databaseSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const adminApp = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const start = source.indexOf("export async function ensureMarketDrivenOpportunities");
 const implementation = source.slice(start);
@@ -16,6 +17,18 @@ describe("trading opportunity economics integrity", () => {
     expect(implementation).not.toContain("expectedRewardBps =");
     expect(implementation).not.toContain("minimumMinor =");
     expect(implementation).not.toContain("durationSeconds =");
+  });
+
+  it("pauses the durable worker before claiming customers while settlement is outstanding", () => {
+    const start = databaseSource.indexOf("export async function runAutoTradeCycle(");
+    const end = databaseSource.indexOf("\nexport async function createTrade(", start);
+    const worker = databaseSource.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(worker.indexOf("getTradeSettlementPolicy()")).toBeGreaterThanOrEqual(0);
+    expect(worker.indexOf("getTradeSettlementPolicy()")).toBeLessThan(worker.indexOf("claimAutoTradeCycleCustomers(input)"));
+    expect(worker).toContain("pausedUntilSettled:true");
+    expect(worker).toContain("outstandingTrades>0");
   });
 
   it("pauses delivery for outstanding trades without permanently closing published offers", () => {
