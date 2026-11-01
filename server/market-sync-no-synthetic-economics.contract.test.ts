@@ -54,7 +54,8 @@ describe("trading opportunity economics integrity", () => {
   });
 
   it("explains that pop-ups require an administrator-published open opportunity", () => {
-    expect(adminApp).toContain("Market-data refresh updates instruments and FX but does not generate opportunity offers; customers can receive pop-ups only for published, open offers.");
+    expect(adminApp).toContain("Publish reviewed opportunities, import validated CSV records and inspect the open opportunity feed.");
+    expect(adminApp).toContain("Customer pop-ups require a published, open offer plus an eligible tier and enabled delivery policy.");
   });
 
   it("expires stale offers and reports existing active offers without creating new ones", () => {
