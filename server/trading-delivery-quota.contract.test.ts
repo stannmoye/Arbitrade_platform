@@ -60,10 +60,11 @@ describe("runtime Trading delivery quota semantics", () => {
     expect(delivery).toContain("calculateTierDeliveryCaps(tierDeliveryCaps)");
     expect(helper).toContain("dailyTargetCap: dailyTarget > 0 ? Math.min(dailyTarget, quota) : quota");
     expect(helper).toContain("visibleCap: visibleCap > 0 ? visibleCap : quota");
-    expect(editor).toContain("Daily delivery target (0 = full tier allowance)");
+    expect(editor).toContain("Optional daily target cap (0 = no extra cap)");
     expect(editor).toContain("Maximum visible offers at once");
-    expect(editor).toContain("It does not reduce the daily allowance.");
-    expect(editor).toContain("rolling 24 hours is used if any active tier requires it");
+    expect(editor).toContain("This is not a daily quota.");
+    expect(editor).toContain("<option value=\\"rolling_24h\\">Rolling 24 hours</option>");
+    expect(editor).toContain("<option value=\\"calendar_day\\">Calendar day (UTC)</option>");
   });
 });
 
