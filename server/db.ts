@@ -2506,7 +2506,7 @@ export async function createAdminTradingPackage(createdBy:number,input:{
       reference:"trading-package-created:"+id+":1",
       metadataJson:JSON.stringify({id,...input,name,termsVersion:1}),
     });
-    return {id,name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:false,termsVersion:1};
+    return {id,name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1};
   });
 }
 
@@ -3176,7 +3176,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
   }
   return {executed,missed:await listMissedOpportunities(userId)};
 }
-export async function listCustomerOpportunities(userId:number, options:{consumeDelivery?:boolean;workerCycle?:boolean}={}) {
+export async function listCustomerOpportunities(userId:number, options:{consumeDelivery?:boolean;workerCycle?:boolean;allowAutomaticExecution?:boolean}={}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const now=new Date();
   const quotaDay=now.toISOString().slice(0,10);
@@ -3248,8 +3248,6 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     eq(opportunityDeliveryEvents.userId,userId),gte(opportunityDeliveryEvents.deliveredAt,quotaWindow.start),
     lt(opportunityDeliveryEvents.deliveredAt,quotaWindow.end),notInArray(opportunityDeliveryEvents.status,["failed"])
   ));
-  const deliveredOfferIds=new Set(deliveredToday.filter(row=>row.status!=="failed").map(row=>Number(row.offerId)));
-  const deliveredOfferCount=countConsumedDeliveryOffers(deliveredToday);
   // Package copies are separate entitlements: count allocations against each
   // subscription's own quota window instead of pooling copies under package name.
   const usedQuotaRows=await db.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions
@@ -3265,6 +3263,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   };
   const activePopupRows=await db.select({
     eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
+    policyVersion:opportunityPopupEvents.policyVersion,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
     expectedRewardBps:opportunityPopupEvents.expectedRewardBps,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
     balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,deliveryStatus:opportunityPopupEvents.deliveryStatus,quotaDay:opportunityPopupEvents.quotaDay,
@@ -3277,6 +3276,49 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     .where(and(eq(opportunityPopupEvents.userId,userId),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN"])))
     .orderBy(desc(opportunityPopupEvents.deliveredAt));
   const activePopupOfferIds=new Set(activePopupRows.map(row=>Number(row.offerId)));
+  // Repair interrupted writes before calculating quota: some older workers wrote
+  // the quota row before persisting its visible popup, while a crash in the new
+  // order can leave a popup row without its quota ledger entry.
+  let effectiveDeliveredToday=deliveredToday.map(row=>({...row}));
+  if(options.workerCycle===true){
+    const ledgerOfferIds=[...new Set(effectiveDeliveredToday.map(row=>Number(row.offerId)).filter(id=>Number.isSafeInteger(id)&&id>0))];
+    const persistedPopupEvents=ledgerOfferIds.length
+      ?await db.select({offerId:opportunityPopupEvents.offerId}).from(opportunityPopupEvents)
+        .where(and(eq(opportunityPopupEvents.userId,userId),inArray(opportunityPopupEvents.offerId,ledgerOfferIds)))
+      :[];
+    const persistedPopupOfferIds=new Set(persistedPopupEvents.map(row=>Number(row.offerId)));
+    const orphanedLedgerOfferIds=[...new Set(effectiveDeliveredToday
+      .filter(row=>row.status!=="failed"&&!persistedPopupOfferIds.has(Number(row.offerId))&&
+        !tradeOfferIds.has(Number(row.offerId))&&!missedOfferIds.has(Number(row.offerId)))
+      .map(row=>Number(row.offerId)))];
+    if(orphanedLedgerOfferIds.length){
+      await db.update(opportunityDeliveryEvents).set({status:"failed",lastErrorCode:"POPUP_EVENT_MISSING"})
+        .where(and(eq(opportunityDeliveryEvents.userId,userId),inArray(opportunityDeliveryEvents.offerId,orphanedLedgerOfferIds),
+          notInArray(opportunityDeliveryEvents.status,["failed"])));
+      const orphaned=new Set(orphanedLedgerOfferIds);
+      effectiveDeliveredToday=effectiveDeliveredToday.map(row=>orphaned.has(Number(row.offerId))?{...row,status:"failed"}:row);
+    }
+    const windowStart=quotaWindow.start.getTime();
+    const windowEnd=quotaWindow.end.getTime();
+    const ledgerKeys=new Set(effectiveDeliveredToday.map(row=>String(row.offerId)+":"+String((row as any).quotaDay??"")));
+    const popupRowsMissingLedger=activePopupRows.filter(row=>{
+      const deliveredAt=new Date(row.deliveredAt as any).getTime();
+      const key=String(row.offerId)+":"+String(row.quotaDay);
+      return Number.isFinite(deliveredAt)&&deliveredAt>=windowStart&&deliveredAt<windowEnd&&!ledgerKeys.has(key);
+    });
+    if(popupRowsMissingLedger.length){
+      await db.insert(opportunityDeliveryEvents).values(popupRowsMissingLedger.map(row=>({
+        userId,offerId:Number(row.offerId),quotaDay:String(row.quotaDay),
+        deliveredAt:row.deliveredAt||now,status:"delivered" as const,
+        policyVersion:Number(row.policyVersion||1),
+      }))).onDuplicateKeyUpdate({set:{status:"delivered",lastErrorCode:null}});
+      effectiveDeliveredToday=[...effectiveDeliveredToday,...popupRowsMissingLedger.map(row=>({
+        offerId:Number(row.offerId),status:"delivered",quotaDay:String(row.quotaDay),
+      }))];
+    }
+  }
+  const deliveredOfferIds=new Set(effectiveDeliveredToday.filter(row=>row.status!=="failed").map(row=>Number(row.offerId)));
+  const deliveredOfferCount=countConsumedDeliveryOffers(effectiveDeliveredToday);
   const activeVisibleCount=activePopupRows.filter(row=>{
     const eventStatus=String(row.eventStatus||"").toUpperCase();
     const deliveryStatus=String(row.deliveryStatus||"pending").toLowerCase();
@@ -3363,7 +3405,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     }
   }
   if(newlyEligible.length){
-    await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({userId,offerId:offer.id,quotaDay,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion||1)}))).onDuplicateKeyUpdate({set:{deliveredAt:new Date()}});
+    // Persist the visible popup first. Only write the quota-consumption ledger after
+    // every popup row is confirmed; an insert failure must not consume a quota slot.
     const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map(offer=>{
       const available=Math.max(0,Number(balancesSnapshot.find((row:any)=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())?.availableMinor||0));
       return {userId,offerId:offer.id,quotaDay,packageName:offer.packageName,symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
@@ -3376,7 +3419,15 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
         marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt,publishedExpectedRewardBps:Number(offer.expectedRewardBps),publishedDurationSeconds:Number(offer.durationSeconds),configuredProfitRateBps:Number(offer.configuredProfitRateBps),configuredDurationSeconds:Number(offer.configuredDurationSeconds)})};
     }));
-    for(const offer of newlyEligible){offer.deliveryEventId=lifecycleIds.get(userId+":"+offer.id+":"+quotaDay)||null; deliveredOfferIds.add(Number(offer.id));}
+    const missingLifecycleIds=newlyEligible.filter(offer=>!lifecycleIds.has(userId+":"+offer.id+":"+quotaDay));
+    if(missingLifecycleIds.length) throw new Error("Popup persistence did not return delivery IDs for every eligible opportunity");
+    await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({
+      userId,offerId:offer.id,quotaDay,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion||1),
+    }))).onDuplicateKeyUpdate({set:{deliveredAt:new Date(),status:"delivered",lastErrorCode:null}});
+    for(const offer of newlyEligible){
+      offer.deliveryEventId=lifecycleIds.get(userId+":"+offer.id+":"+quotaDay)||null;
+      deliveredOfferIds.add(Number(offer.id));
+    }
   }
   const popupRows=await db.select({
     eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
@@ -3447,7 +3498,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     return Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy));
   });
   const effectiveControls=controls;
-  const auto=options.workerCycle===true ? await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls) : {executed:[],missed:await listMissedOpportunities(userId)};
+  const auto=options.workerCycle===true&&options.allowAutomaticExecution!==false
+    ?await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls)
+    :{executed:[],missed:await listMissedOpportunities(userId)};
   const executedByOffer=new Map(auto.executed.map((trade:any)=>[Number(trade.offerId),trade]));
   const enrichedOffers=popupRows.map(row=>{
     const base:any=tradeCandidates.find(offer=>Number(offer.offerId)===Number(row.offerId))||{};
@@ -3521,19 +3574,22 @@ export async function claimAutoTradeCycleCustomers(input:{batchSize?:number}={})
 
 export async function runAutoTradeCycle(input:{batchSize?:number}={}){
   const settlementPolicy=await getTradeSettlementPolicy();
+  let outstandingTrades=0;
+  let pausedUntilSettled=false;
   if(settlementPolicy.blockUntilSettled){
-    const outstandingTrades=await countOutstandingTrades();
-    if(outstandingTrades>0){
-      // Pause new delivery/execution for this worker cycle without consuming the
-      // durable customer cursor or closing already-published, unexpired offers.
-      return {customers:0,allocations:0,batchSize:input.batchSize??100,pausedUntilSettled:true,outstandingTrades};
-    }
+    outstandingTrades=await countOutstandingTrades();
+    pausedUntilSettled=outstandingTrades>0;
   }
+  // Settlement gates apply to financial execution, not informational customer
+  // pop-up delivery. Continue processing eligible customers while a trade is open,
+  // but suppress the automatic-execution pass for this cycle.
   const {customers,batchSize}=await claimAutoTradeCycleCustomers(input);
   let allocations=0;
   for(const customer of customers){
     try{
-      const result=await listCustomerOpportunities(customer.id,{workerCycle:true,consumeDelivery:false});
+      const result=await listCustomerOpportunities(customer.id,{
+        workerCycle:true,consumeDelivery:false,allowAutomaticExecution:!pausedUntilSettled,
+      });
       allocations+=result.autoTrades.length;
       for(const trade of result.autoTrades){
         const notices=[
@@ -3547,7 +3603,10 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
       console.error("[AutoTrade] Customer cycle failed:",error instanceof Error?error.name:"UnknownError");
     }
   }
-  return {customers:customers.length,allocations,batchSize};
+  return {
+    customers:customers.length,allocations,batchSize,
+    ...(pausedUntilSettled?{pausedUntilSettled:true,outstandingTrades}:{}),
+  };
 }
 export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number;packageId?:number;executionLeaseToken?:string}){
  const db=await getDb();if(!db)throw new Error("Database is not available");
