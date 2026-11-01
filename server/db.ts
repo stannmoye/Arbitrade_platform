@@ -3244,7 +3244,11 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const tradeOfferIds=new Set(tradeHistory.map((row:any)=>Number(row.offerId)));
   const missedHistory=await listMissedOpportunities(userId);
   const missedOfferIds=new Set(missedHistory.map((row:any)=>Number(row.offerId)));
-  const deliveredToday=await db.select({offerId:opportunityDeliveryEvents.offerId,status:opportunityDeliveryEvents.status}).from(opportunityDeliveryEvents).where(and(
+  const deliveredToday=await db.select({
+    offerId:opportunityDeliveryEvents.offerId,
+    status:opportunityDeliveryEvents.status,
+    quotaDay:opportunityDeliveryEvents.quotaDay,
+  }).from(opportunityDeliveryEvents).where(and(
     eq(opportunityDeliveryEvents.userId,userId),gte(opportunityDeliveryEvents.deliveredAt,quotaWindow.start),
     lt(opportunityDeliveryEvents.deliveredAt,quotaWindow.end),notInArray(opportunityDeliveryEvents.status,["failed"])
   ));
@@ -3279,7 +3283,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   // Repair interrupted writes before calculating quota: some older workers wrote
   // the quota row before persisting its visible popup, while a crash in the new
   // order can leave a popup row without its quota ledger entry.
-  let effectiveDeliveredToday=deliveredToday.map(row=>({...row}));
+  let effectiveDeliveredToday:Array<{offerId:number;status:"pending"|"delivered"|"expired"|"failed";quotaDay?:string}>=deliveredToday.map(row=>({...row}));
   if(options.workerCycle===true){
     const ledgerOfferIds=[...new Set(effectiveDeliveredToday.map(row=>Number(row.offerId)).filter(id=>Number.isSafeInteger(id)&&id>0))];
     const persistedPopupEvents=ledgerOfferIds.length
@@ -3313,7 +3317,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         policyVersion:Number(row.policyVersion||1),
       }))).onDuplicateKeyUpdate({set:{status:"delivered",lastErrorCode:null}});
       effectiveDeliveredToday=[...effectiveDeliveredToday,...popupRowsMissingLedger.map(row=>({
-        offerId:Number(row.offerId),status:"delivered",quotaDay:String(row.quotaDay),
+        offerId:Number(row.offerId),status:"delivered" as const,quotaDay:String(row.quotaDay),
       }))];
     }
   }
