@@ -63,7 +63,9 @@ describe("administrator-configured Trading pop-up policy", () => {
     expect(policyEditor).toContain("Reason for changing Trading tier policies (required for audit)");
     expect(policyEditor).toContain("onClick={onSave}");
     expect(adminApp).toContain("Enter at least 5 characters explaining this policy change.");
-    expect(adminApp).toContain("Trading policy saved successfully. Active trade snapshots were preserved.");
+    expect(adminApp).toContain("Trading policy saved and confirmed by a fresh server read.");
+    expect(adminApp).toContain("existing customer and trade snapshots were preserved.");
+    expect(adminApp).toContain("fresh server read did not confirm every changed field and policy version.");
     expect(adminCss).toContain(".package-policy-section");
     expect(adminApp).toContain("trading-tier-card--${index % 6}");
     expect(adminApp).toContain("trading-tier-badge");
