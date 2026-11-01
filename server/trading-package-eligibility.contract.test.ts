@@ -44,7 +44,7 @@ describe("server-side automatic Trading tier eligibility", () => {
 
   it("allows an administrator to enable a valid pop-up tier while automatic execution remains off", () => {
     const start = source.indexOf("export async function updateAdminTradingPackage(");
-    const end = source.indexOf("\\nexport async function ", start + 5);
+    const end = source.indexOf("\nexport async function ", start + 5);
     const implementation = source.slice(start, end);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
@@ -56,7 +56,7 @@ describe("server-side automatic Trading tier eligibility", () => {
 
   it("creates new tiers with usable pop-up defaults but keeps financial execution off", () => {
     const start = source.indexOf("const DEFAULT_NEW_TIER_POLICY = {");
-    const end = source.indexOf("\\n} as const;", start);
+    const end = source.indexOf("\n} as const;", start);
     const defaults = source.slice(start, end);
     expect(defaults).toContain("minimumPayoutRateBps:200,maximumPayoutRateBps:300");
     expect(defaults).toContain("minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900");
