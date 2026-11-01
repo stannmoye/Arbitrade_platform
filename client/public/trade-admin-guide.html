@@ -93,7 +93,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 
 <section class="section anchor" id="tiers">
 <div class="eyebrow">03 · Packages & eligibility</div><h2>Customer tiers: every input</h2>
-<p>This screen defines the milestones used by the automatic qualification system. A new tier package is created disabled and does not immediately become available to customers. Its pop-up policy is initialized with valid display defaults (2%–3% configured rate, 300–900 second duration, policy and pop-up delivery enabled); automatic financial execution remains OFF. An administrator must review the tier terms and explicitly enable the package.</p>
+<p>This screen defines the milestones used by the automatic qualification system. A new tier package is enabled by default for future automatic eligibility. Its pop-up policy is initialized with valid display defaults (2%–3% configured rate, 300–900 second duration, policy and pop-up delivery, company rotation, randomized timing and bounded burst delivery enabled); automatic financial execution remains OFF. Administrators can disable the package or individual delivery controls at any time.</p>
 <div class="field-list">
 <div class="field"><b>Tier name</b><span>The name administrators and the eligible customer may see, such as Starter or Growth. Use a clear unique name.</span></div>
 <div class="field"><b>Qualifying deposit threshold (USD)</b><span>The cumulative qualifying admin-credit amount needed for this tier. The server compares saved USD-minor attribution, not a customer's ordinary wallet balance.</span></div>
@@ -106,7 +106,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 </div>
 <h3>Buttons</h3>
 <ul>
-<li><strong>Create tier:</strong> saves a new tier in the disabled state. It does not manually assign it to a customer.</li>
+<li><strong>Create tier:</strong> saves a new enabled tier for future automatic eligibility. It does not manually assign it to a customer.</li>
 <li><strong>Save tier configuration:</strong> saves the edited tier terms. Future automatic assignments use the new terms; existing entitlement snapshots keep their saved terms.</li>
 <li><strong>Refresh / Retry loading:</strong> reloads the tier list if it is stale or failed to load.</li>
 </ul>
@@ -352,7 +352,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <div class="eyebrow">13 · A sensible setup order</div><h2>How to choose settings safely</h2>
 <p>There is no single magic number that is best for every business. Start with small, controlled settings, confirm that the records and customer screens behave correctly, and only then increase capacity.</p>
 <ol>
-<li><strong>Build the tiers first.</strong> Give each tier a clear name, threshold, duration and daily opportunity contribution. Keep new tiers disabled while you review them.</li>
+<li><strong>Build the tiers first.</strong> Give each tier a clear name, threshold, duration and daily opportunity contribution. New tiers are enabled by default; use the administrator controls to pause a tier or its delivery when required.</li>
 <li><strong>Check qualifying-credit rules.</strong> Make sure administrators understand that only the explicitly qualifying Credit Customer flow counts. Do not use signup credit or ordinary deposits to reach thresholds.</li>
 <li><strong>Start with a modest daily quota.</strong> Keep the daily target and maximum pop-ups aligned. Choose a rolling 24-hour or UTC calendar-day window deliberately.</li>
 <li><strong>Keep delivery intervals sensible.</strong> The minimum interval must be no greater than the maximum. Avoid bursts and high concurrency until the complete lifecycle has been tested.</li>
