@@ -145,7 +145,7 @@ describe("fresh-install database isolation", () => {
     expect(source).toContain('if (mode === "fresh" && tableCount !== 0)');
     expect(wizard).toContain("if ($mode === 'fresh' && $tableCount !== 0)");
     expect(source).not.toMatch(/\b(DROP\s+TABLE|TRUNCATE\s+TABLE|DELETE\s+FROM)\b/i);
-    expect(wizard).not.toMatch(/\\b(DROP\\s+TABLE|TRUNCATE\\s+TABLE|DELETE\\s+FROM)\\b/i);
+    expect(wizard).not.toMatch(/\b(DROP\s+TABLE|TRUNCATE\s+TABLE|DELETE\s+FROM)\b/i);
   });
 
   it("keeps manual imports in an explicitly separate existing-database path", async () => {
