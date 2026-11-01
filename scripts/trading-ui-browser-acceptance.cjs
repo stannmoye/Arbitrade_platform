@@ -198,6 +198,60 @@ async function main() {
     assert.doesNotMatch(bodyText, /retry needed|couldn.t load package details/i,
       "Customer eligibility must not remain in an API-error state.");
 
+    // Require a real worker-delivered, open offer and verify that it renders as a customer popup.
+    const opportunityResponses = [];
+    customerPage.on("response", async (response) => {
+      if (!response.url().includes("/api/trpc/customer.opportunities")) return;
+      let payload;
+      try { payload = await response.json(); } catch { payload = undefined; }
+      const entries = Array.isArray(payload) ? payload : [payload];
+      for (const entry of entries) {
+        const data = extractTrpcData(entry);
+        if (data && Array.isArray(data.offers)) opportunityResponses.push({
+          status: response.status(),
+          deliveryEnabled: data.delivery?.enabled === true,
+          hasPopupPolicy: Boolean(data.delivery?.popupPolicy),
+          offers: data.offers.map((offer) => ({
+            id: Number(offer.id), symbol: String(offer.symbol || ""),
+            popupEligible: offer.popupEligible === true, closesAt: offer.closesAt,
+            companyReferenceId: offer.companyReferenceId ?? null,
+            companyDisplayName: offer.companyDisplayName ?? null,
+          })),
+        });
+      }
+    });
+    const popupLocator = customerPage.locator(".center-opportunity-toast");
+    await popupLocator.waitFor({ state: "visible", timeout: 30_000 }).catch(() => undefined);
+    const visiblePopup = await popupLocator.isVisible().catch(() => false);
+    const latestOpportunityResponse = [...opportunityResponses].reverse().find((item) =>
+      item.deliveryEnabled && item.hasPopupPolicy &&
+      item.offers.some((offer) => offer.popupEligible && Number.isFinite(Date.parse(offer.closesAt)) &&
+        Date.parse(offer.closesAt) > Date.now())
+    );
+    assert.ok(latestOpportunityResponse,
+      "Real customer opportunities API must return an open worker-delivered offer with delivery enabled and a saved popup policy. Seed a reviewed open offer and let the worker process it in this isolated environment.");
+    assert.ok(visiblePopup,
+      "A real worker-delivered popup-eligible offer must render in the authenticated customer's browser.");
+    const visiblePopupText = await popupLocator.innerText();
+    const popupOffer = latestOpportunityResponse.offers.find((offer) =>
+      offer.popupEligible && visiblePopupText.includes(offer.symbol)
+    );
+    assert.ok(popupOffer,
+      "The visible customer popup must correspond to an open popup-eligible offer returned by the real customer API.");
+    if (popupOffer.companyDisplayName) {
+      assert.ok(visiblePopupText.includes(popupOffer.companyDisplayName),
+        "A company identity returned by the server's verified-company guard must be the identity rendered in the popup.");
+    }
+    results.push({
+      journey: "customer popup delivery", status: "passed",
+      source: "real authenticated customer opportunities API",
+      workerDeliveredOpenOffer: popupOffer.id, popupVisible: true,
+      deliveryEnabled: latestOpportunityResponse.deliveryEnabled,
+      savedPopupPolicyPresent: latestOpportunityResponse.hasPopupPolicy,
+      verifiedCompany: popupOffer.companyDisplayName || null,
+    });
+
+
     // Confirm a customer cannot read the administrator-only package catalogue API.
     const customerAdminProbe = await customerPage.evaluate(async () => {
       const response = await fetch("/api/trpc/admin.tradingPackages", {
@@ -537,6 +591,69 @@ async function main() {
     const firstPolicyCard = adminPage.locator(".package-admin-card").first();
     await firstPolicyCard.waitFor({ state: "visible", timeout: 20_000 });
     const packageName = (await firstPolicyCard.locator("h2").innerText()).trim();
+
+    // Exercise all five persistent Trading delivery switches through the real
+    // admin UI/API. Each change is read back from the database, then restored.
+    const readTradingSwitchSnapshot = async () => {
+      const snapshot = await readPolicySnapshot();
+      assert.ok(snapshot.status >= 200 && snapshot.status < 300 &&
+        !snapshot.hasError && Array.isArray(snapshot.rows),
+        "Real package policy API must return persisted Trading switch values.");
+      const row = snapshot.rows.find((item) => item.packageName === packageName);
+      assert.ok(row, "The selected package must have a persisted policy row.");
+      return row;
+    };
+    const saveGlobalSwitchAndReadBack = async (label, expected) => {
+      const control = adminPage.getByRole("switch", { name: label + " for " + packageName });
+      assert.equal(await control.count(), 1, "Exactly one global " + label + " switch must be visible for " + packageName + ".");
+      const responsePromise = adminPage.waitForResponse(
+        (response) => response.url().includes("/api/trpc/adminOperations.updatePackagePolicies"),
+        { timeout: 20_000 },
+      );
+      await control.click();
+      const response = await responsePromise;
+      let payload;
+      try { payload = await response.json(); } catch { payload = undefined; }
+      assert.ok(response.status() >= 200 && response.status() < 300 && !payload?.error &&
+        payload?.result?.data !== undefined,
+        "The " + label + " switch must save through the real administrator policy API.");
+      await adminPage.waitForFunction(({ ariaLabel, value }) => {
+        const element = Array.from(document.querySelectorAll('[role="switch"]'))
+          .find((node) => node.getAttribute("aria-label") === ariaLabel);
+        return element?.getAttribute("aria-checked") === String(value);
+      }, { ariaLabel: label + " for " + packageName, value: expected }, { timeout: 20_000 });
+      const persisted = await readTradingSwitchSnapshot();
+      const key = ({
+        "Tier policy": "enabled", "Pop-up delivery": "automaticDelivery",
+        "Company rotation": "companyRotationEnabled", "Randomized timing": "randomizationEnabled",
+        "Burst delivery": "burstEnabled",
+      })[label];
+      assert.equal(persisted[key], expected,
+        "The " + label + " switch value must persist in the real package policy database.");
+      assert.equal(persisted.automaticTradingEnabled, false,
+        "Changing customer delivery settings must never enable automatic financial execution.");
+      return persisted;
+    };
+    const originalSwitches = await readTradingSwitchSnapshot();
+    assert.equal(originalSwitches.automaticTradingEnabled, false,
+      "The non-production acceptance package must start with automatic financial execution OFF.");
+    const deliverySwitches = [
+      ["Tier policy", "enabled"], ["Pop-up delivery", "automaticDelivery"],
+      ["Company rotation", "companyRotationEnabled"], ["Randomized timing", "randomizationEnabled"],
+      ["Burst delivery", "burstEnabled"],
+    ];
+    for (const [label, key] of deliverySwitches) {
+      const originalValue = originalSwitches[key];
+      await saveGlobalSwitchAndReadBack(label, !originalValue);
+      await saveGlobalSwitchAndReadBack(label, originalValue);
+    }
+    results.push({
+      journey: "persisted admin delivery switches", status: "passed",
+      package: packageName, controls: deliverySwitches.map(([label]) => label),
+      eachControlToggledAndRestored: true, persistedReadBack: true,
+      automaticFinancialExecution: "remained OFF", financialMutationsSubmitted: 0,
+    });
+
     const retryDelayInput = firstPolicyCard.getByLabel(/technical retry delay/i);
     const originalRetryDelay = await retryDelayInput.inputValue();
     const readPolicySnapshot = async () => adminPage.evaluate(async () => {
@@ -559,6 +676,12 @@ async function main() {
           packageName: String(row.packageName),
           tradeRetryDelaySeconds: Number(row.tradeRetryDelaySeconds ?? 30),
           policyVersion: Number(row.policyVersion ?? 1),
+          enabled: Boolean(row.enabled),
+          automaticDelivery: Boolean(row.automaticDelivery),
+          companyRotationEnabled: Boolean(row.companyRotationEnabled),
+          randomizationEnabled: Boolean(row.randomizationEnabled),
+          burstEnabled: Boolean(row.burstEnabled),
+          automaticTradingEnabled: Boolean(row.automaticTradingEnabled),
         })).sort((a, b) => a.packageName.localeCompare(b.packageName)) : null,
       };
     });
