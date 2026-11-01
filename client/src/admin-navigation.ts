@@ -64,30 +64,26 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "currencies-assets", target: "currencies", label: "Currencies & Assets", detail: "Currency registry and valuation rates", icon: Coins },
     { id: "mining-operations", target: "mining", label: "Mining", detail: "Simulated mining packages, rewards, conversions and ledger controls", icon: Coins },
   ]},
-  { id: "trade-setup", label: "Set up trades", detail: "Choose who gets trades and how trades finish", items: [
-    { id: "trade-settings-overview", target: "tradeSystemOverview", label: "Trading home", detail: "See what is open, what finished, and whether new trades are allowed", icon: Gauge },
-    { id: "trade-packages-eligibility", target: "packages", focus: "tiers", label: "Customer tiers", detail: "Create the tiers customers receive after approved qualifying credits", icon: PackageCheck },
-    { id: "trade-package-quotas", target: "packages", focus: "quotas", label: "Daily trade allowance", detail: "Set how many opportunities each tier can receive each day", icon: Layers3 },
-    { id: "trade-duration-closing", target: "tradeDurationRules", label: "How trades finish", detail: "Set the estimated wait and the rules that stop new trades; time alone never settles a trade", icon: Clock3 },
-  ]},
-  { id: "trade-offers", label: "Show offers", detail: "Choose when offers appear and what customers see", items: [
-    { id: "trade-opportunity-schedule", target: "opportunity", focus: "delivery", label: "When offers appear", detail: "Choose how often customer trade offers can appear", icon: Zap },
-    { id: "trade-popup-display", target: "tradeCustomerDisplay", label: "Customer pop-up timing", detail: "Choose how long an offer and its completed message stay visible", icon: SlidersHorizontal },
-    { id: "trade-company-catalogue", target: "companyCatalogue", label: "Company names shown", detail: "Browse and search all saved company references; this never creates a trade", icon: Globe2 },
-  ]},
-  { id: "trade-results", label: "Finish trades", detail: "Handle returns, retries and finished trade records", items: [
-    { id: "trade-profit-fees-limits", target: "transactionReview", focus: "fees", label: "Returns and fees", detail: "Review configured return limits and the fee policy for completed trades", icon: CircleDollarSign },
-    { id: "trade-retries-carry-forward", target: "tradeRetryPolicy", label: "Try failed trades again", detail: "Set how many technical retries are allowed; carry-forward is not available yet", icon: Activity },
-    { id: "trade-settlement-reconciliation", target: "transactionReview", focus: "reconciliation", label: "Check finished trades", detail: "Compare completed trades with wallet ledger records", icon: ReceiptText },
-  ]},
-  { id: "trade-monitoring", label: "Watch problems", detail: "Find waiting work and pause new trades safely", items: [
-    { id: "trade-active-pending", target: "deliveryMonitor", label: "Open and waiting work", detail: "Check offers that are open, waiting, or need attention", icon: Activity },
-    { id: "trade-system-health", target: "tradeSystemHealth", label: "Pause new trades", detail: "Stop new allocations safely while you investigate a problem", icon: ShieldAlert },
-    { id: "trade-worker-health", target: "tradeWorkerHealth", label: "Worker health", detail: "Check the background service that delivers and settles trades", icon: Activity },
-  ]},
-  { id: "trade-history", label: "History", detail: "See who changed Trading settings", items: [
-    { id: "trade-audit-policy-versions", target: "audit", label: "Who changed what", detail: "Read the admin change history and policy versions", icon: FileText },
-    { id: "trade-admin-guide", target: "tradeAdminGuide", label: "Trade Settings Guide", detail: "Plain-language guide to every Trading admin control and customer display", icon: BookOpen },
+  { id: "trade-settings", label: "Trade Settings", detail: "One place for tier rules, opportunity delivery, trade records and system health", items: [
+    { id: "trade-settings-overview", target: "tradeSystemOverview", label: "Trading Overview", detail: "View current delivery, open work and system status", icon: Gauge },
+    { id: "trade-tiers-eligibility", target: "packages", focus: "tiers", label: "Tiers & Eligibility", detail: "Create and edit admin-managed tiers, thresholds, duration and assigned entitlements", icon: PackageCheck },
+    { id: "trade-daily-delivery-caps", target: "packages", focus: "quotas", label: "Daily Delivery Caps", detail: "Set hard pop-up limits, simultaneous display limits and the counting window", icon: Layers3 },
+    { id: "trade-delivery-policy", target: "packages", focus: "policy", label: "Delivery Switches & Offer Rules", detail: "Control tier policy, pop-up delivery, capital bounds and published offer limits", icon: SlidersHorizontal },
+    { id: "trade-opportunity-publishing", target: "opportunity", label: "Publish & Manage Opportunities", detail: "Publish reviewed opportunities, import validated records and inspect the open feed", icon: Zap },
+    { id: "trade-delivery-schedule", target: "packages", focus: "delivery", label: "Delivery Schedule", detail: "Set the server-controlled gaps and timing between customer pop-ups", icon: Clock3 },
+    { id: "trade-duration-closing", target: "tradeDurationRules", label: "Trade Duration & Closing", detail: "Configure trade duration and review/closing deadlines; elapsed time never confirms a result", icon: Clock3 },
+    { id: "trade-popup-display", target: "tradeCustomerDisplay", label: "Customer Pop-up Display", detail: "Set how long opportunity and completion messages remain visible", icon: SlidersHorizontal },
+    { id: "trade-company-rotation", target: "packages", focus: "rotation", label: "Company Rotation Rules", detail: "Choose approved company filters and repeat-avoidance rules for pop-ups", icon: Globe2 },
+    { id: "trade-company-catalogue", target: "companyCatalogue", label: "Company Catalogue", detail: "Search and manage the saved company reference records and approval status", icon: Search },
+    { id: "trade-capital-funding", target: "transactionReview", focus: "capital", label: "Capital & Wallet Funding Rules", detail: "Review capital requirements and permitted wallet funding policy", icon: WalletCards },
+    { id: "trade-fees-earnings", target: "transactionReview", focus: "fees", label: "Fees & Earnings Limits", detail: "Configure the fee policy and review earnings limits", icon: CircleDollarSign },
+    { id: "trade-retries", target: "tradeRetryPolicy", label: "Retries & Carry-Forward", detail: "Set technical retry limits and inspect the current carry-forward availability", icon: Activity },
+    { id: "trade-active-pending", target: "deliveryMonitor", label: "Active & Pending Opportunities", detail: "Review opportunities waiting for delivery, customer action or further processing", icon: Activity },
+    { id: "trade-settlement", target: "transactionReview", focus: "reconciliation", label: "Settlement & Reconciliation", detail: "Review confirmed outcomes and reconcile trade records against wallet ledger entries", icon: ReceiptText },
+    { id: "trade-system-health", target: "tradeSystemHealth", label: "System Pause & Safety", detail: "Pause new allocations safely without deleting pending work or blocking reconciliation", icon: ShieldAlert },
+    { id: "trade-worker-health", target: "tradeWorkerHealth", label: "Worker Health & Recovery", detail: "Check background worker heartbeats, delayed work and recovery queues", icon: Activity },
+    { id: "trade-audit-policy-history", target: "audit", label: "Audit & Policy History", detail: "Review who changed Trading settings, why they changed and the saved versions", icon: FileText },
+    { id: "trade-admin-guide", target: "tradeAdminGuide", label: "Trade Settings Guide", detail: "Read the menu guide and explanations for each Trading control", icon: BookOpen },
   ]},
   { id: "verification-risk", label: "Verification & Risk", detail: "KYC, review, risk and session oversight", items: [
     { id: "kyc-overview", target: "kycCenter", label: "KYC Overview", detail: "Stages, metrics, settings and review posture", icon: ShieldCheck },
@@ -121,7 +117,6 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "readiness-approval", target: "apis", label: "Readiness & Approval", detail: "Sandbox, permissions and activation gates", icon: ShieldCheck },
   ]},
   { id: "governance-reports", label: "Governance & Reports", detail: "Audit records and operational exports", items: [
-    { id: "admin-audit-log", target: "audit", label: "Administrative Audit Log", detail: "General administrator actions", icon: FileText },
     { id: "reports-exports", target: "reportsExports", label: "Reports & Exports", detail: "Customer, finance, KYC and admin records", icon: FileText },
   ]},
 ];
