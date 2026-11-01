@@ -238,7 +238,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("automaticTradingEnabled:false");
     expect(databaseSource).toContain("New Trading tiers must be created disabled.");
     expect(databaseSource).toContain("Save and enable a valid pop-up delivery policy with payout-rate and duration bounds before enabling this Trading tier.");
-    expect(databaseSource).toContain("Automatic financial execution is a separate control");
+    expect(databaseSource).toContain("automated allocation is a separate control");
     expect(routerSource).toContain("enabled: z.boolean().optional(),");
     expect(routerSource).toContain("automaticDelivery: z.boolean().optional(),");
     expect(routerSource).toContain("automaticTradingEnabled: z.boolean().optional(),");
