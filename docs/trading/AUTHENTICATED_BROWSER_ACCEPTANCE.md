@@ -56,6 +56,8 @@ Use test-only settings and ensure the original retry-delay setting is valid (5â€
 
 The manual workflow `.github/workflows/trading-authenticated-staging-acceptance.yml` runs this exact authenticated harness against an already-deployed isolated staging host. It is deliberately `workflow_dispatch` only and uses the protected GitHub Environment named `trading-staging`.
 
+**GitHub workflow registration requirement:** GitHub only accepts `workflow_dispatch` events after the workflow file exists on the repository's default branch. A copy that exists only in PR #269 cannot yet be manually dispatched. To keep the application candidate unmerged while enabling the test, register this workflow through a separate workflow-only change to `main`; then dispatch that registered workflow from `main` with `expected_sha` set to the exact candidate commit deployed to isolated staging. Do not merge the application candidate solely to make the workflow dispatchable.
+
 Configure the following **environment secrets** on that GitHub Environment. Never put their values in repository files, workflow inputs, commits, or issue comments:
 
 - `TRADING_ACCEPTANCE_BASE_URL`: the isolated non-production deployment URL.
