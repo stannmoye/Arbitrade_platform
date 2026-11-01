@@ -63,6 +63,8 @@ For each generated opportunity, the server evaluates the customer's automaticall
 
 **Current opportunity-publication implementation status:** the market refresh worker currently stores market-instrument and FX reference snapshots only. `ensureMarketDrivenOpportunities` expires stale published offers and counts the remaining open offers; it currently returns `generationDisabled: true` and `created: 0`. Therefore, customer pop-ups require an administrator-published, open opportunity from the Opportunity Engine's manual form or validated CSV import. With zero open published offers, no customer pop-up can be created, regardless of tier eligibility or delivery settings. Do not remove this guard by inventing a reward rate, venue, price, quote, or execution result from reference market data. Any future automatic publisher must use explicitly approved offer terms and verifiable source evidence.
 
+When the administrator's block-until-settled policy is active and a prior trade is outstanding, pause delivery of new opportunities but retain already-published offers in their open state until their own expiry. Do not close or discard valid offers merely because delivery is temporarily paused; after the outstanding trade is resolved, still-unexpired offers may become eligible for delivery under the current tier/quota checks.
+
 
 1. Evaluate all active server-assigned tier entitlements and cumulative quota allowance.
 2. Check spendable balances in eligible wallets, excluding capital reserved for other trades.
