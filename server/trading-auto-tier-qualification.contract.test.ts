@@ -235,6 +235,9 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("const DEFAULT_NEW_TIER_POLICY = {");
     expect(databaseSource).toContain("minimumPayoutRateBps:200,maximumPayoutRateBps:300");
     expect(databaseSource).toContain("minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900");
+    expect(databaseSource).toContain("companyRotationEnabled:true,companyRotationCountryNames:null");
+    expect(databaseSource).toContain("randomizationEnabled:true");
+    expect(databaseSource).toContain("burstEnabled:false,maxBurstSize:0");
     expect(databaseSource).toContain("automaticTradingEnabled:false");
     expect(databaseSource).toContain("New Trading tiers must be created disabled.");
     expect(databaseSource).toContain("Save and enable a valid pop-up delivery policy with payout-rate and duration bounds before enabling this Trading tier.");

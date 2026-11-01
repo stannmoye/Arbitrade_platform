@@ -2451,7 +2451,7 @@ const DEFAULT_NEW_TIER_POLICY = {
   badgeLabel:null,badgeStyle:"neutral",
   minimumPayoutRateBps:200,maximumPayoutRateBps:300,
   minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900,
-  companyRotationEnabled:false,companyRotationCountryNames:null,
+  companyRotationEnabled:true,companyRotationCountryNames:null,
   companyRotationRepeatPolicy:"avoid_until_exhausted" as const,
   maxPopupsPerDay:10,maxVisibleOffers:3,minimumTradeUnits:1000,maximumTradeUnits:100000,
   minHourlyTarget:0,normalHourlyTarget:0,marketInfluenceBps:0,burstEnabled:false,maxBurstSize:0,

@@ -1,3 +1,15 @@
+## 2026-11-01 — Stage 2A: new Trading delivery-policy defaults audit
+
+- Working branch: `fix/trading-popup-and-language-cleanup`, continuing PR #268 from head `8d61766b423d0c0a2a96f9bdb7ab5c085f7144a3`.
+- Changed `DEFAULT_NEW_TIER_POLICY.companyRotationEnabled` to true. Tier policy, automatic pop-up delivery and randomized timing were already true for newly inserted policy rows; the global admin panel already exposes audited, persistent per-package ON/OFF controls for all five delivery settings.
+- Added contract assertions for the new company-rotation default and the already-enabled tier-policy/delivery/randomized-timing defaults.
+- Audited burst delivery: `burstEnabled` and `maxBurstSize` are currently returned as a rate-profile snapshot but are not consumed by the customer delivery scheduler. Kept burst OFF rather than presenting an inert switch as operational. A bounded runtime implementation and tests are still required before enabling it by default.
+- Preserved the existing package activation guard: new package records remain disabled until an administrator explicitly enables them after reviewing the threshold, duration and quota. This matches the current canonical specification; changing it requires reconciling that explicit product-policy conflict.
+- Updated the canonical Trading specification and admin manual. Existing saved policy values were not bulk-overwritten, so administrator pauses remain intact.
+- Validation: source-level contract assertions updated; local `pnpm check`, `pnpm test`, `pnpm build`, and exact-head GitHub Actions are pending. No production database, customer balances, migration, deployment or live runtime was changed.
+
+---
+
 ## 2026-11-01 — Admin Home menus collapsed on entry
 
 - Follow-up to `ff52d43ea10486938860b7d64dda88cc6cea560c`: the global Trading panel had been hidden from Home, but the primary navigation still defaulted to expanded groups and could preserve an expanded Trade Settings group after returning Home.
