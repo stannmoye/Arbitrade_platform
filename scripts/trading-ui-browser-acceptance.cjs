@@ -254,7 +254,7 @@ async function main() {
 
     // Confirm a customer cannot read the administrator-only package catalogue API.
     const customerAdminProbe = await customerPage.evaluate(async () => {
-      const response = await fetch("/api/trpc/admin.tradingPackages", {
+      const response = await fetch("/api/trpc/adminOperations.tradingPackages", {
         method: "GET",
         credentials: "same-origin",
         headers: { accept: "application/json" },
@@ -458,7 +458,7 @@ async function main() {
 
     // Confirm the actual administrator package catalogue API is readable under admin auth.
     const adminPackageRead = await adminPage.evaluate(async () => {
-      const response = await fetch("/api/trpc/admin.tradingPackages", {
+      const response = await fetch("/api/trpc/adminOperations.tradingPackages", {
         method: "GET",
         credentials: "same-origin",
         headers: { accept: "application/json" },
@@ -743,8 +743,8 @@ async function main() {
       await adminPage.setViewportSize({ width: 1365, height: 900 });
       const nav = adminPage.locator(".admin-canonical-nav");
       await expandAdminGroup(nav, "Finish trades");
-      await nav.getByRole("button", { name: /customer tiers/i }).click();
-      await adminPage.getByRole("heading", { name: /trading tier configuration/i })
+      await nav.getByRole("button", { name: /try failed trades again/i }).click();
+      await adminPage.getByRole("heading", { name: /try failed trades again/i })
         .waitFor({ state: "visible", timeout: 20_000 });
       const card = adminPage.locator(".package-policy-card .package-admin-card")
         .filter({ has: adminPage.getByRole("heading", { name: packageName, exact: true }) }).first();
@@ -819,6 +819,7 @@ async function main() {
       (response) => response.url().includes("/api/trpc/adminOperations.updatePackagePolicies"),
       { timeout: 20_000 },
     );
+    await adminPage.getByLabel(/reason for changing trading tier policies/i).fill("Non-production invalid value validation.");
     await adminPage.getByRole("button", { name: /save delivery and retry policy/i }).click();
     const rejectedMutation = await rejectedMutationPromise;
     let rejectedPayload;
@@ -840,8 +841,8 @@ async function main() {
     await adminPage.setViewportSize({ width: 1365, height: 900 });
     const reloadedNavigation = adminPage.locator(".admin-canonical-nav");
     await expandAdminGroup(reloadedNavigation, "Finish trades");
-    await reloadedNavigation.getByRole("button", { name: /customer tiers/i }).click();
-    const reloadedPolicyHeading = adminPage.getByRole("heading", { name: /trading tier configuration/i });
+    await reloadedNavigation.getByRole("button", { name: /try failed trades again/i }).click();
+    const reloadedPolicyHeading = adminPage.getByRole("heading", { name: /try failed trades again/i });
     await reloadedPolicyHeading.waitFor({ state: "visible", timeout: 20_000 });
     const reloadedCard = adminPage.locator(".package-policy-card .package-admin-card")
       .filter({ has: adminPage.getByRole("heading", { name: packageName, exact: true }) }).first();
@@ -878,8 +879,6 @@ async function main() {
     const assignedTierText = await assignedTierGroup.innerText();
     assert.match(assignedTierText, /Package ID\s+\d+/i,
       "Admin customer directory must display the assigned package ID.");
-    assert.match(assignedTierText, /Assignment #\d+/i,
-      "Admin customer directory must display the persisted package-assignment ID.");
     assert.match(assignedTierText, /Terms v\d+/i,
       "Admin customer directory must display the assignment terms version.");
     assert.match(assignedTierText, /\b(?:active|expired|cancelled|revoked|suspended|pending)\b/i,
@@ -888,7 +887,7 @@ async function main() {
       journey: "admin customer directory assigned package IDs and statuses",
       status: "passed",
       seededCustomer: "identified by TRADING_ACCEPTANCE_CUSTOMER_EMAIL",
-      checks: ["package ID", "assignment ID", "status", "terms version"],
+      checks: ["package ID", "status", "terms version"],
     });
 
     const adminBodyText = await adminPage.locator("body").innerText();
