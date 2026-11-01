@@ -668,20 +668,37 @@ async function main() {
       ["Company rotation", "companyRotationEnabled"], ["Randomized timing", "randomizationEnabled"],
       ["Burst delivery", "burstEnabled"],
     ];
-    const switchRestoration = [];
+    // Register every restoration before attempting the first write. A request can
+    // persist server-side and still time out in the browser; cleanup must cover that case.
+    const switchRestoration = deliverySwitches.map(([label, key]) => ({
+      label, key, originalValue: originalSwitches[key],
+    }));
     try {
-      for (const [label, key] of deliverySwitches) {
-        const originalValue = originalSwitches[key];
-        await saveGlobalSwitchAndReadBack(label, !originalValue);
-        switchRestoration.push({ label, key, originalValue });
-        await saveGlobalSwitchAndReadBack(label, originalValue);
+      for (const item of switchRestoration) {
+        await saveGlobalSwitchAndReadBack(item.label, !item.originalValue);
+        await saveGlobalSwitchAndReadBack(item.label, item.originalValue);
       }
     } finally {
+      const restorationFailures = [];
       for (const item of switchRestoration) {
-        const current = await readTradingSwitchSnapshot();
-        if (current[item.key] !== item.originalValue) {
-          await saveGlobalSwitchAndReadBack(item.label, item.originalValue);
+        try {
+          const current = await readTradingSwitchSnapshot();
+          if (current[item.key] !== item.originalValue) {
+            await saveGlobalSwitchAndReadBack(item.label, item.originalValue);
+          }
+          const verified = await readTradingSwitchSnapshot();
+          assert.equal(verified[item.key], item.originalValue,
+            "The " + item.label + " switch must be restored to its original persisted value.");
+          assert.equal(verified.automaticTradingEnabled, false,
+            "Automatic financial execution must remain OFF during switch cleanup.");
+        } catch (error) {
+          restorationFailures.push(item.label + ": " +
+            (error instanceof Error ? error.message : String(error)));
         }
+      }
+      if (restorationFailures.length) {
+        throw new Error("One or more Trading delivery switches could not be restored: " +
+          restorationFailures.join("; "));
       }
     }
     results.push({
