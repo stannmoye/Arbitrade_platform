@@ -898,8 +898,10 @@ async function runAdminAppearanceInteractionCheck(browser) {
         focusedTrigger: await page.evaluate(() => document.activeElement?.getAttribute("aria-label") || ""),
       });
 
-    // Wallet & Ledger remains in the primary left navigation. Reopen the main
-    // destination directly rather than searching for it in the secondary drawer.
+    // Wallet & Ledger lives inside the Finance group in the primary rail.
+    // Primary groups intentionally start collapsed, so expand Finance first.
+    const financeGroup = page.getByRole("button", { name: /^Finance/ });
+    await financeGroup.click();
     await page.getByRole("button", { name: "Wallet & Ledger" }).click();
     await page.getByRole("heading", { name: "Transaction review" }).waitFor({ state: "visible" });
     await page.setViewportSize({ width: 390, height: 844 });
