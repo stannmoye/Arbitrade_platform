@@ -43,8 +43,13 @@ export async function ensureMarketDrivenOpportunities(_refreshedAt = new Date())
   if (settlementPolicy.blockUntilSettled) {
     const outstandingTrades = await countOutstandingTrades();
     if (outstandingTrades > 0) {
-      await db.update(opportunityOffers).set({ status: "closed" }).where(eq(opportunityOffers.status, "open"));
-      return { created: 0, available: 0, pausedUntilSettled: true, outstandingTrades, settlementDelaySeconds: settlementPolicy.delaySeconds };
+      // Pause delivery while a prior trade is outstanding, but retain published
+      // offers until their own expiry. Closing them here permanently discarded
+      // valid opportunities and prevented them from appearing after settlement.
+      const availableOffers = await db.select({ id: opportunityOffers.id })
+        .from(opportunityOffers)
+        .where(and(eq(opportunityOffers.status, "open"), gt(opportunityOffers.closesAt, now)));
+      return { created: 0, available: availableOffers.length, pausedUntilSettled: true, outstandingTrades, settlementDelaySeconds: settlementPolicy.delaySeconds };
     }
   }
 
