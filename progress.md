@@ -1,3 +1,15 @@
+## 2026-11-01 — Authenticated Trading staging acceptance runner prepared
+
+- Added `.github/workflows/trading-authenticated-staging-acceptance.yml`, a manual-only GitHub Actions workflow using the protected `trading-staging` environment. It checks out the exact requested deployed SHA and runs the existing `scripts/trading-ui-browser-acceptance.cjs` against real, unmocked same-origin APIs.
+- The workflow requires five environment secrets: isolated staging base URL, eligible customer Playwright storage state JSON, unqualified customer storage state JSON, admin storage state JSON, and eligible customer email. Browser-state files are written with restrictive permissions to the ephemeral runner and removed after execution; only the report is uploaded.
+- Updated `docs/trading/AUTHENTICATED_BROWSER_ACCEPTANCE.md` with environment provisioning, required seeded fixtures, protected environment setup and dispatch instructions. No credentials or customer data were added to Git.
+- The 1,032 passing Chromium assertions on the previous CI head are static-preview/mock-auth evidence only. They are not authenticated staging acceptance.
+- Authenticated staging acceptance remains **not run**: the isolated deployment, exact deployed SHA, seeded browser storage states and protected environment secrets are not available in this session. Do not run against production. Do not merge PR #269 until the protected staging workflow passes and its report is reviewed.
+- No deployment, merge, production database operation, wallet mutation, financial execution or settlement was performed. Automatic financial execution remains OFF.
+- New workflow/documentation changes are committed to the existing PR branch; exact-head CI must validate this increment.
+
+---
+
 ## 2026-11-01 — Pop-up delivery root-cause fixes and database acceptance
 
 - Investigated the complete customer pop-up path: qualifying tier assignment, package enablement, saved policy validation, open/published opportunity source, durable worker claim, quota accounting, popup lifecycle persistence, customer API response, and browser rendering.
