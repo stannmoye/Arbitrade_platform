@@ -42,6 +42,16 @@ describe("trading opportunity economics integrity", () => {
     expect(pause).not.toContain("db.update(opportunityOffers)");
   });
 
+  it("does not prefill opportunity publishing with placeholder symbols, venues or payout terms", () => {
+    expect(adminApp).not.toContain('useState("NVDA")');
+    expect(adminApp).not.toContain('useState("Market venue A")');
+    expect(adminApp).not.toContain('useState("Market venue B")');
+    expect(adminApp).toContain("Enter reviewed, source-backed offer terms.");
+    expect(adminApp).toContain("!symbol.trim()");
+    expect(adminApp).toContain("reward<1||reward>5000");
+    expect(adminApp).toContain("duration<10||duration>86400");
+  });
+
   it("explains that pop-ups require an administrator-published open opportunity", () => {
     expect(adminApp).toContain("Market-data refresh updates instruments and FX but does not generate opportunity offers; customers can receive pop-ups only for published, open offers.");
   });
