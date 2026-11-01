@@ -936,7 +936,31 @@ function AdminTradingPackageCatalogue(){
   const [packagePage,setPackagePage]=useState(0);
   const emptyTierDraft=()=>({name:"",minimumQualifyingBalanceUsdMinor:"",durationMonths:"",opportunitiesPerDay:"",startsAt:"",expiresAt:"",reason:"",enabled:true});
   const [newTier,setNewTier]=useState<any>(emptyTierDraft());
-  const create=trpc.adminOperations.createTradingPackage.useMutation({onSuccess:()=>{void q.refetch();setNewTier(emptyTierDraft());setMessageKind("success");setMessage("New Trading tier created and enabled for future eligibility. Customers qualify through approved administrator credits; no financial transaction was performed.")},onError:e=>{setMessageKind("error");setMessage(e.message)}});
+  const create=trpc.adminOperations.createTradingPackage.useMutation({
+    onSuccess:async(created:any)=>{
+      try{
+        const refreshed=await q.refetch();
+        const persisted=(refreshed.data as any[]|undefined)?.find(row=>Number(row.id)===Number(created.id));
+        const confirmed=Boolean(persisted&&String(persisted.name)===String(created.name)&&
+          Number(persisted.minimumQualifyingBalanceUsdMinor)===Number(created.minimumQualifyingBalanceUsdMinor)&&
+          Number(persisted.durationMonths)===Number(created.durationMonths)&&
+          Number(persisted.opportunitiesPerDay)===Number(created.opportunitiesPerDay)&&
+          Number(persisted.termsVersion)===Number(created.termsVersion)&&Boolean(persisted.enabled)===Boolean(created.enabled));
+        if(!confirmed){
+          setMessageKind("error");
+          setMessage("The new tier was submitted, but a fresh server read did not confirm its saved threshold, duration, daily entitlement and terms version. Your entered tier details have been kept on screen.");
+          return;
+        }
+        setNewTier(emptyTierDraft());
+        setMessageKind("success");
+        setMessage("Tier created and verified from the database: "+created.name+" is enabled for future eligibility with "+Number(persisted.opportunitiesPerDay).toLocaleString()+" daily opportunities (terms v"+created.termsVersion+").");
+      }catch(error){
+        setMessageKind("error");
+        setMessage("The new tier was submitted, but server read-back failed: "+(error instanceof Error?error.message:"Unknown read-back error")+". Your entered tier details have been kept on screen.");
+      }
+    },
+    onError:error=>{setMessageKind("error");setMessage(error.message)},
+  });
   useEffect(()=>{if(q.data)setDrafts(current=>{
     const next={...current};
     for(const p of q.data as any[]){
@@ -981,7 +1005,7 @@ function AdminTradingPackageCatalogue(){
         <div className="package-detail"><span>Current terms version</span><b>{pkg.termsVersion||1}</b></div>
         <label>Reason for changing this tier (required for audit)<textarea maxLength={500} value={draft.reason??""} onChange={e=>patch(Number(pkg.id),"reason",e.target.value)} placeholder="Explain why these tier terms are changing."/></label>
 	        <button className="primary-button wide" type="button" disabled={update.isPending||String(draft.reason??"").trim().length<5||!draft.name?.trim()||!Number.isSafeInteger(Number(draft.minimumQualifyingBalanceUsdMinor))||Number(draft.minimumQualifyingBalanceUsdMinor)<=0||!Number.isInteger(Number(draft.durationMonths))||Number(draft.durationMonths)<1||!Number.isInteger(Number(draft.opportunitiesPerDay))||Number(draft.opportunitiesPerDay)<1||(draft.startsAt&&draft.expiresAt&&new Date(draft.expiresAt).getTime()<=new Date(draft.startsAt).getTime())} aria-busy={update.isPending} onClick={()=>{setMessage("");update.mutate({id:Number(pkg.id),name:String(draft.name).trim(),minimumQualifyingBalanceUsdMinor:Number(draft.minimumQualifyingBalanceUsdMinor),durationMonths:Number(draft.durationMonths),opportunitiesPerDay:Number(draft.opportunitiesPerDay),maxPopupsPerDay:0,maxActiveInvestments:0,startsAt:draft.startsAt?new Date(draft.startsAt).toISOString():null,expiresAt:draft.expiresAt?new Date(draft.expiresAt).toISOString():null,reason:String(draft.reason??"").trim(),enabled:Boolean(draft.enabled)})}}>{update.isPending?"Saving tier…":"Save tier settings"}</button>
-        <small>Saved terms: {money(Number(draft.minimumQualifyingBalanceUsdMinor))} · {draft.durationMonths} month(s) · {draft.opportunitiesPerDay} opportunities/day{JSON.stringify({name:draft.name,threshold:draft.minimumQualifyingBalanceUsdMinor,duration:draft.durationMonths,quota:draft.opportunitiesPerDay})!==JSON.stringify({name:pkg.name,threshold:pkg.minimumQualifyingBalanceUsdMinor,duration:pkg.durationMonths,quota:pkg.opportunitiesPerDay})?" · Unsaved changes":""}</small>
+        <small>Tier values: {money(Number(draft.minimumQualifyingBalanceUsdMinor))} · {draft.durationMonths} month(s) · {draft.opportunitiesPerDay} opportunities/day{JSON.stringify({name:draft.name,threshold:draft.minimumQualifyingBalanceUsdMinor,duration:draft.durationMonths,quota:draft.opportunitiesPerDay})!==JSON.stringify({name:pkg.name,threshold:pkg.minimumQualifyingBalanceUsdMinor,duration:pkg.durationMonths,quota:pkg.opportunitiesPerDay})?" · Unsaved changes":""}</small>
       </article>;
     })}</div><div className="package-catalogue-pagination" aria-label="Trading tier pagination"><span>Showing {packageRows.length===0?0:packagePage*packagePageSize+1}–{Math.min((packagePage+1)*packagePageSize,packageRows.length)} of {packageRows.length} tiers</span><div><button className="secondary-button" type="button" onClick={()=>setPackagePage((current)=>Math.max(0,current-1))} disabled={packagePage===0}>Previous</button><span>Page {Math.min(packagePage+1,packagePageCount)} of {packagePageCount}</span><button className="secondary-button" type="button" onClick={()=>setPackagePage((current)=>Math.min(packagePageCount-1,current+1))} disabled={packagePage+1>=packagePageCount}>Next</button></div></div></>}
   </section>;
