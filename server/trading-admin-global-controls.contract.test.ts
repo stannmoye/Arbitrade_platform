@@ -26,7 +26,9 @@ describe("persistent administrator Trading control panel", () => {
     expect(adminApp).toContain("automaticTradingEnabled: false");
     expect(adminApp).toContain("Currently enabled in saved policy");
     expect(adminApp).toContain("Protected OFF");
-    expect(adminApp).toContain('if (next && (key === "enabled" || key === "automaticDelivery") && policy.automaticTradingEnabled)');
+    expect(adminApp).not.toContain('if (next && (key === "enabled" || key === "automaticDelivery") && policy.automaticTradingEnabled)');
+    expect(adminApp).toContain('enabled: next, automaticTradingEnabled: false');
+    expect(adminApp).toContain('automaticDelivery: next, automaticTradingEnabled: false');
     expect(adminApp).toContain("requirePreviousSettlement: true");
     expect(adminApp).not.toContain("automaticTradingEnabled: true");
   });
