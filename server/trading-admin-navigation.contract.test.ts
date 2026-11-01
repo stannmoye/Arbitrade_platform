@@ -14,7 +14,8 @@ describe("Administrator company catalogue navigation and pagination", () => {
     expect(navigation).toContain('id: "trade-company-catalogue", target: "companyCatalogue"');
     expect(navigation).not.toContain('id: "trade-company-catalogue", target: "opportunity"');
     expect(adminApp).toContain('section==="companyCatalogue"&&<>');
-    expect(adminApp).toContain('<AdminTradingPolicySettings focus="rotation"/>');
+    expect(navigation).toContain('id: "trade-company-rotation", target: "packages", focus: "rotation"');
+    expect(adminApp).not.toContain('<AdminTradingPolicySettings focus="rotation"/>');
     expect(catalogue).toContain("const PAGE_SIZE = 10");
     expect(catalogue).toContain("trpc.companyCatalogueReference.search.useQuery");
     expect(catalogue).toContain("limit: 1811");
@@ -40,7 +41,7 @@ describe("Administrator company catalogue navigation and pagination", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
     expect(packageSurface).toContain("<AdminTradingPackageCatalogue/>");
-    expect(packageSurface).toContain("<AdminTradingPolicySettings focus={focus}/>");
+    expect(packageSurface).toContain('focus!=="tiers"&&<AdminTradingPolicySettings focus={focus}/>');
     expect(adminApp).toContain("function AdminTradingPolicySettings(");
     expect(opportunity).not.toContain("TradingDeliveryPolicyEditor");
     expect(adminApp).toContain('section==="opportunity"&&focus==="delivery"&&<AdminPackages focus="delivery"/>');
@@ -179,7 +180,7 @@ describe("Trading tier policy audit and versioning", () => {
 
 describe("Trading fee-policy navigation", () => {
   it("opens the administrator screen that actually edits realized-profit fees", () => {
-    const item = navigation.match(/id: "trade-profit-fees-limits", target: "([^"]+)"/);
+    const item = navigation.match(/id: "trade-fees-earnings", target: "([^"]+)"/);
     expect(item?.[1]).toBe("transactionReview");
     expect(adminApp).toContain("{section===\"transactionReview\"&&<AdminTransactionReview focus={focus as \"capital\"|\"fees\"|\"reconciliation\"|undefined}/>}");
     expect(operationsUi).toContain("trpc.adminOperations.updateTradeFeePolicy.useMutation");
@@ -200,7 +201,7 @@ describe("Trading customer-display navigation", () => {
 
 describe("Trading retry-policy navigation", () => {
   it("opens retry controls in the shared policy editor and states the current retry-window boundary", () => {
-    const item = navigation.match(/id: "trade-retries-carry-forward", target: "([^"]+)"/);
+    const item = navigation.match(/id: "trade-retries", target: "([^"]+)"/);
     expect(item?.[1]).toBe("tradeRetryPolicy");
     expect(adminApp).toContain('{section==="tradeRetryPolicy"&&<AdminPackages focus="retries"/>}');
     expect(policyEditor).toContain("value={row.maxTradeAttemptsPerDay}");
@@ -213,11 +214,17 @@ describe("Trading retry-policy navigation", () => {
 
 describe("Trading navigation focus and plain-language controls", () => {
   it("gives shared screens distinct focus identifiers and uses the selected focus for active state", () => {
-    expect(navigation).toContain('id: "trade-setup", label: "Set up trades"');
-    expect(navigation).toContain('id: "trade-offers", label: "Show offers"');
-    expect(navigation).toContain('id: "trade-results", label: "Finish trades"');
-    expect(navigation).toContain('id: "trade-monitoring", label: "Watch problems"');
-    expect(navigation).toContain('id: "trade-history", label: "History"');
+    expect(navigation).toContain('id: "trade-settings", label: "Trade Settings"');
+    expect(navigation).not.toContain('id: "trade-setup"');
+    expect(navigation).not.toContain('id: "trade-offers"');
+    expect(navigation).not.toContain('id: "trade-results"');
+    expect(navigation).not.toContain('id: "trade-monitoring"');
+    expect(navigation).not.toContain('id: "trade-history"');
+    expect(navigation).toContain('label: "Tiers & Eligibility"');
+    expect(navigation).toContain('label: "Daily Delivery Caps"');
+    expect(navigation).toContain('label: "Publish & Manage Opportunities"');
+    expect(navigation).toContain('label: "Company Rotation Rules"');
+    expect(navigation).toContain('label: "Settlement & Reconciliation"');
     expect(navigation).toContain('target: "packages", focus: "tiers"');
     expect(navigation).toContain('target: "packages", focus: "quotas"');
     expect(navigation).toContain('target: "transactionReview", focus: "fees"');
@@ -233,9 +240,46 @@ describe("Trading navigation focus and plain-language controls", () => {
 
   it("shows the explanation beside each Trading menu item", () => {
     expect(adminApp).toContain('className="admin-nav-item-detail"');
-    expect(navigation).toContain('label: "When offers appear"');
-    expect(navigation).toContain('label: "Try failed trades again"');
-    expect(navigation).toContain('label: "Pause new trades"');
+    expect(navigation).toContain('label: "Publish & Manage Opportunities"');
+    expect(navigation).toContain('label: "Retries & Carry-Forward"');
+    expect(navigation).toContain('label: "System Pause & Safety"');
+  });
+});
+
+describe("Trading menu ownership and quota save feedback", () => {
+  it("keeps every Trading destination under one uniquely named Trade Settings group", () => {
+    expect(navigation).toContain('id: "trade-settings", label: "Trade Settings"');
+    expect(navigation.match(/id: "trade-settings"/g)).toHaveLength(1);
+    expect(navigation).not.toContain('id: "trade-setup"');
+    expect(navigation).not.toContain('id: "trade-offers"');
+    expect(navigation).not.toContain('id: "trade-results"');
+    expect(navigation).not.toContain('id: "trade-monitoring"');
+    expect(navigation).not.toContain('id: "trade-history"');
+    expect(navigation).toContain('id: "trade-opportunity-publishing", target: "opportunity"');
+    expect(navigation).toContain('id: "trade-company-rotation", target: "packages", focus: "rotation"');
+    expect(navigation).not.toContain('id: "admin-audit-log"');
+  });
+
+  it("keeps tier entitlements separate from delivery caps and protects unsaved tier drafts during polling", () => {
+    expect(adminApp).toContain('Daily opportunity entitlement<input');
+    expect(adminApp).toContain('dirtyPackageIds.current.has(id)');
+    expect(adminApp).toContain('dirtyPackageIds.current.add(id)');
+    expect(adminApp).toContain('const refreshed=await q.refetch()');
+    expect(adminApp).toContain('Number(persisted.opportunitiesPerDay)===Number(saved.opportunitiesPerDay)');
+    expect(adminApp).toContain('Saved and verified from the database: ');
+    expect(adminApp).toContain('Saving tier…');
+    expect(policyEditor).toContain('Hard daily pop-up ceiling<input');
+    expect(policyEditor).toContain('This is an operational ceiling, not the tier entitlement.');
+    expect(policyEditor).toContain('Optional daily target cap (0 = no extra cap)');
+    expect(policyEditor).toContain('These caps can reduce—but never increase—the daily opportunity entitlement');
+  });
+
+  it("separates delivery policy editing from tier details and company catalogue records", () => {
+    expect(adminApp).toContain('function AdminTradingPolicySettings({focus}:{focus?:"policy"|"quotas"');
+    expect(adminApp).toContain('focus!=="tiers"&&<AdminTradingPolicySettings focus={focus}/>');
+    expect(policyEditor).toContain('type PolicyEditorFocus = "policy" | "quotas"');
+    expect(policyEditor).toContain('show("policy")');
+    expect(adminApp).not.toContain('<AdminTradingPolicySettings focus="rotation"/>');
   });
 });
 
