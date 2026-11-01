@@ -2226,18 +2226,13 @@ async function runAdminTradingControlsInteractionCheck(browser) {
     });
     await page.goto(new URL("/ops-console-7f3a", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.getByRole("heading", { name: "Control centre" }).waitFor({ state: "visible", timeout: 15000 });
-    // Trading destinations live inside the slide-out Admin Menus drawer.
-    // Follow the same navigation path as an administrator using the real portal.
-    await page.getByRole("button", { name: "Open Admin Menus" }).click();
-    const adminDrawer = page.locator("#admin-navigation-drawer");
-    await adminDrawer.waitFor({ state: "visible" });
-    const tradeSetupGroup = adminDrawer.locator(".admin-secondary-group-heading")
-      .filter({ hasText: "Set up trades" });
-    await tradeSetupGroup.waitFor({ state: "visible" });
-    if (await tradeSetupGroup.getAttribute("aria-expanded") !== "true") {
-      await tradeSetupGroup.click();
+    // Trading is in the main admin navigation rail, not the supplemental drawer.
+    const tradeSetupNavigation = page.locator("#admin-main-navigation .admin-nav-group--trade-setup");
+    const tradeSetupHeading = tradeSetupNavigation.getByRole("button", { name: /Set up trades/ });
+    if (await tradeSetupHeading.getAttribute("aria-expanded") !== "true") {
+      await tradeSetupHeading.click();
     }
-    await adminDrawer.getByRole("button", { name: /Customer tiers/ }).click();
+    await tradeSetupNavigation.getByRole("button", { name: /Customer tiers/ }).click();
     await page.getByRole("heading", { name: "Trading controls" }).waitFor({ state: "visible", timeout: 10000 });
     const keys = [
       ["Tier policy", "enabled"], ["Pop-up delivery", "automaticDelivery"],
