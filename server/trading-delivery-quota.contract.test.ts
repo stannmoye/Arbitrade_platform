@@ -40,7 +40,9 @@ describe("runtime Trading delivery quota semantics", () => {
   });
 
   it("consumes each distinct opportunity once and does not charge failed delivery attempts", () => {
-    expect(delivery).toContain("countConsumedDeliveryOffers(deliveredToday)");
+    expect(delivery).toContain("countConsumedDeliveryOffers(effectiveDeliveredToday)");
+    expect(delivery).toContain("quotaDay:opportunityDeliveryEvents.quotaDay");
+    expect(delivery).toContain("ledgerKeys=new Set(effectiveDeliveredToday.map(row=>String(row.offerId)+\":\"+String((row as any).quotaDay??\"\")))");
     expect(delivery).toContain('notInArray(opportunityDeliveryEvents.status,["failed"])');
     expect(helper).toContain('String(row.status || "delivered").toLowerCase() === "failed"');
     expect(helper).toContain("consumed.add(offerId)");
