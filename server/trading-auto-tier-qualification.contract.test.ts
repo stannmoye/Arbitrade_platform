@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 const databaseSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const deliveryQuotaSource = readFileSync(new URL("./modules/trading-delivery-quota.ts", import.meta.url), "utf8");
 const qualificationWorkerStart = databaseSource.indexOf("export async function runTradingTierQualificationWorkerCycle(");
-const qualificationWorkerEnd = databaseSource.indexOf("\nexport async function getCustomerTradingEligibility(", qualificationWorkerStart);
+const qualificationWorkerEnd = databaseSource.indexOf("
+export async function getCustomerTradingEligibility(", qualificationWorkerStart);
 const qualificationWorkerSource = databaseSource.slice(qualificationWorkerStart, qualificationWorkerEnd);
 const marketProvidersSource = readFileSync(new URL("./marketProviders.ts", import.meta.url), "utf8");
 const routerSource = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
@@ -92,7 +93,8 @@ describe("Automatic Trading tier qualification", () => {
 
   it("shows assigned Trading tiers and cumulative qualifying USD on the admin customer view without changing transfers", () => {
     const customerListStart = databaseSource.indexOf("export async function listAdminCustomers()");
-    const customerListEnd = databaseSource.indexOf("\nexport async function createAdminCustomer", customerListStart);
+    const customerListEnd = databaseSource.indexOf("
+export async function createAdminCustomer", customerListStart);
     const customerListSource = databaseSource.slice(customerListStart, customerListEnd);
     expect(customerListStart).toBeGreaterThanOrEqual(0);
     expect(customerListEnd).toBeGreaterThan(customerListStart);
@@ -153,7 +155,8 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("options.workerCycle===true ? await autoTradeOpenOpportunities");
     expect(databaseSource).toContain("listCustomerOpportunities(customer.id,{workerCycle:true,consumeDelivery:false})");
     const start = routerSource.indexOf("opportunities: protectedProcedure.query(");
-    const end = routerSource.indexOf("\n    trades: protectedProcedure.query", start);
+    const end = routerSource.indexOf("
+    trades: protectedProcedure.query", start);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
     expect(routerSource.slice(start, end)).not.toContain("workerCycle:true");
@@ -186,7 +189,8 @@ describe("Automatic Trading tier qualification", () => {
 
   it("uses published opportunity values instead of hash-derived trade estimates", () => {
     const start = databaseSource.indexOf("function calculateTradeTerms(");
-    const end = databaseSource.indexOf("\nfunction packageUsdUnitsToNativeMinor", start);
+    const end = databaseSource.indexOf("
+function packageUsdUnitsToNativeMinor", start);
     const terms = databaseSource.slice(start, end);
     expect(terms).toContain("Number(offer.minimumMinor)");
     expect(terms).toContain("Number(offer.expectedRewardBps)");
@@ -224,18 +228,22 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).not.toContain("values({packageName:tier.name})");
 
     const readerStart = databaseSource.indexOf("export async function listOpportunityPackagePolicies()");
-    const readerEnd = databaseSource.indexOf("\n}", readerStart);
+    const readerEnd = databaseSource.indexOf("
+}", readerStart);
     expect(readerStart).toBeGreaterThanOrEqual(0);
     expect(readerEnd).toBeGreaterThan(readerStart);
     const policyReader = databaseSource.slice(readerStart, readerEnd);
     expect(policyReader).not.toContain(".insert(");
 
     expect(routerSource).toContain("packagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),");
-    expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy,...UNCONFIGURED_TIER_POLICY_SENTINELS})");
+    expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy,...DEFAULT_NEW_TIER_POLICY})");
     expect(databaseSource).toContain("const DEFAULT_NEW_TIER_POLICY = {");
-    expect(databaseSource).toContain("minimumPayoutRateBps:200,maximumPayoutRateBps:300");\n    expect(databaseSource).toContain("minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900");\n    expect(databaseSource).toContain("automaticTradingEnabled:false");
+    expect(databaseSource).toContain("minimumPayoutRateBps:200,maximumPayoutRateBps:300");
+    expect(databaseSource).toContain("minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900");
+    expect(databaseSource).toContain("automaticTradingEnabled:false");
     expect(databaseSource).toContain("New Trading tiers must be created disabled.");
-    expect(databaseSource).toContain("Save and enable a valid pop-up delivery policy with payout-rate and duration bounds before enabling this Trading tier.");\n    expect(databaseSource).toContain("Automatic financial execution is a separate control");
+    expect(databaseSource).toContain("Save and enable a valid pop-up delivery policy with payout-rate and duration bounds before enabling this Trading tier.");
+    expect(databaseSource).toContain("Automatic financial execution is a separate control");
     expect(routerSource).toContain("enabled: z.boolean().optional(),");
     expect(routerSource).toContain("automaticDelivery: z.boolean().optional(),");
     expect(routerSource).toContain("automaticTradingEnabled: z.boolean().optional(),");
