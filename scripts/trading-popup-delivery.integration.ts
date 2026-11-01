@@ -21,6 +21,15 @@ if (!db) {
   throw new Error("Trading popup delivery integration requires DATABASE_URL to point to a disposable migrated database.");
 }
 
+const migratedExecutionPolicies = await db.select({
+  packageName: opportunityPackagePolicies.packageName,
+  automaticTradingEnabled: opportunityPackagePolicies.automaticTradingEnabled,
+}).from(opportunityPackagePolicies);
+assert.ok(migratedExecutionPolicies.length > 0,
+  "The guarded migration chain must create the baseline package-policy rows.");
+assert.ok(migratedExecutionPolicies.every(row => row.automaticTradingEnabled === false),
+  "Migration 0098 must explicitly disable automatic financial execution on every existing package policy.");
+
 const token = crypto.randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase();
 const userEmail = `popup-delivery-${token.toLowerCase()}@example.invalid`;
 const currency = `P${token.slice(0, 7)}`;
@@ -82,7 +91,8 @@ try {
     maxBurstSize: 3,
     enabled: true,
     automaticDelivery: true,
-    automaticTradingEnabled: false,
+    // Deliberately simulate a stale/unsafe legacy value after migration; the worker hard gate must still prevent execution.
+    automaticTradingEnabled: true,
     dailyPopupTarget: 0,
     schedulingPeriod: "rolling_24h",
     minIntervalSeconds: 45,
@@ -147,7 +157,6 @@ try {
   const firstCycle = await listCustomerOpportunities(userId, {
     workerCycle: true,
     consumeDelivery: false,
-    allowAutomaticExecution: false,
   });
 
   assert.equal(firstCycle.delivery.enabled, true,
@@ -157,7 +166,7 @@ try {
   assert.equal(firstCycle.offers[0]?.offerId, offerId);
   assert.equal(firstCycle.offers[0]?.popupEligible, true);
   assert.equal(firstCycle.autoTrades.length, 0,
-    "Popup delivery must not execute or allocate a financial trade.");
+    "The global server-side execution lock must prevent trades even if a stale package policy says automaticTradingEnabled=true.");
 
   const popupRows = await db.select({
     id: opportunityPopupEvents.id,
@@ -194,7 +203,6 @@ try {
   const secondCycle = await listCustomerOpportunities(userId, {
     workerCycle: true,
     consumeDelivery: false,
-    allowAutomaticExecution: false,
   });
   assert.equal(secondCycle.offers.length, 1,
     "A repeated worker cycle must retain, not duplicate, the already delivered popup.");
