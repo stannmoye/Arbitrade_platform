@@ -20,22 +20,14 @@ type Props = {
 export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyMessage, policyReason, isLoading, isSaving, updateRow, onPolicyReasonChange, policyRowValid, onSave }: Props) {
   const show = (section: PolicyEditorFocus) => !focus || focus === section;
   return <div className="settings-card package-policy-card">
-  <div className="eyebrow">Administrator-managed Trading policy</div>
-  <h2>{focus==="quotas"?"Daily delivery caps":focus==="policy"?"Delivery switches and offer rules":focus==="delivery"?"Delivery schedule":focus==="display"?"Customer pop-up display":focus==="retries"?"Retries and settlement safeguards":focus==="rotation"?"Company rotation rules":"Trading policy settings"}</h2>
+  <div className="eyebrow">Administrator-managed Trading settings</div>
+  <h2>{focus==="quotas"?"Daily delivery caps":focus==="policy"?"Offer rules and capital limits":focus==="delivery"?"Delivery schedule":focus==="display"?"Customer pop-up display":focus==="retries"?"Retries and settlement safeguards":focus==="rotation"?"Company rotation rules":"Trading policy settings"}</h2>
   <p>Each section below edits only the settings named on this page. Changes are validated, audited and versioned by the server. Existing customer entitlement snapshots and active trade records are not silently rewritten. Automatic financial execution remains protected OFF.</p>
   {focus==="quotas"&&<div className="admin-policy-note" role="note"><strong>Important: two different limits.</strong> The daily opportunity entitlement is set in <strong>Trade Settings → Tiers &amp; Eligibility</strong>. This page sets delivery ceilings that can reduce that entitlement. To make a 600-per-day tier allowance available, set the hard daily pop-up ceiling to at least 600 and leave the optional target at 0. Existing customer entitlements keep their original saved quota; edits apply to future automatic assignments.</div>}
-  {focus==="policy"&&<div className="admin-policy-note" role="note"><strong>Scope:</strong> This page controls delivery enablement and offer eligibility rules. The tier threshold, entitlement duration and daily opportunity allowance are maintained only in <strong>Tiers &amp; Eligibility</strong>.</div>}
+  {focus==="policy"&&<div className="admin-policy-note" role="note"><strong>Scope:</strong> This page contains offer eligibility and capital bounds only. The shared Trading controls panel above this page is the single place to turn policy and pop-up delivery ON or OFF. Tier threshold, duration and daily opportunity entitlement are maintained only in <strong>Tiers &amp; Eligibility</strong>.</div>}
   {policyMessage&&<div className="test-notice" role="status" aria-live="polite">{policyMessage}</div>}
   {policyRows.map((row,index)=><article className="package-admin-card" key={row.packageName} style={{marginBottom:16}}>
     <div className="package-admin-head"><div><span className="eyebrow">Tier policy</span><h3>{row.packageName}</h3></div><span className="admin-live-chip">Versioned</span></div>
-    {show("policy")&&<>
-    <div className="eyebrow">Policy and automation switches</div>
-    <div className="form-two">
-      <label>Policy enabled<select value={row.enabled?"true":"false"} onChange={e=>updateRow(index,"enabled",e.target.value==="true")}><option value="false">Disabled</option><option value="true">Enabled</option></select><small>Enabling policy is separate from enabling the Trading tier.</small></label>
-      <label>Automatic pop-up delivery<select value={row.automaticDelivery?"true":"false"} onChange={e=>updateRow(index,"automaticDelivery",e.target.value==="true")}><option value="false">Disabled</option><option value="true">Enabled</option></select></label>
-      <label>Automatic trade execution<select aria-label={row.packageName+" automatic trade execution status"} value={row.automaticTradingEnabled?"true":"false"} disabled><option value="false">Disabled</option><option value="true">Enabled — saved legacy state</option></select><small>Protected in the admin UI. This screen cannot enable unattended financial execution.</small></label>{row.automaticTradingEnabled&&<button className="secondary-button" type="button" onClick={()=>updateRow(index,"automaticTradingEnabled",false)}>Disable automatic execution</button>}
-    </div>
-    </>}
     {show("quotas")&&<>
     <div className="eyebrow">Operational delivery ceilings</div>
     <div className="form-two">
@@ -101,7 +93,7 @@ export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyM
     {show("rotation")&&<>
     <div className="eyebrow">Company spotlight rotation</div>
     <div className="form-two">
-      <label>Enable company spotlight rotation<select value={row.companyRotationEnabled?"true":"false"} onChange={e=>updateRow(index,"companyRotationEnabled",e.target.value==="true")}><option value="true">Enabled</option><option value="false">Disabled</option></select><small>Informational company references only; this never creates or authorizes a trade. Only administrator-verified, non-archived companies appear in customer opportunity pop-ups.</small></label>
+      <p>Company rotation ON/OFF is controlled in the persistent Trading controls panel above this page. Use the remaining settings here to define which approved companies can rotate and how repeats are handled.</p>
       <label>Repeat policy<select value={row.companyRotationRepeatPolicy} onChange={e=>updateRow(index,"companyRotationRepeatPolicy",e.target.value as TradingDeliveryPolicyRow["companyRotationRepeatPolicy"])}><option value="avoid_until_exhausted">Avoid repeats until the pool is traversed</option><option value="allow_repeats">Allow repeats</option></select></label>
       <label>Country-folder filters<input type="text" maxLength={2000} value={row.companyRotationCountryNames} onChange={e=>updateRow(index,"companyRotationCountryNames",e.target.value)}/><small>Comma-separated exact catalogue folder labels; blank includes all administrator-verified, non-archived records. Country folders do not verify headquarters or listing status.</small></label>
     </div>
