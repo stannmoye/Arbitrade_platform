@@ -42,7 +42,7 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(implementation).toContain("Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy))");
   });
 
-  it("allows an administrator to enable a valid pop-up tier while automatic execution remains off", () => {
+  it("allows an administrator to enable a valid pop-up tier while automated allocation is disabled", () => {
     const start = source.indexOf("export async function updateAdminTradingPackage(");
     const end = source.indexOf("\nexport async function ", start + 5);
     const implementation = source.slice(start, end);
