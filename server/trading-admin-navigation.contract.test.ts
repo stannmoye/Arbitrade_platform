@@ -277,7 +277,7 @@ describe("Trading tier creation defaults", () => {
     expect(editor).toContain('minimumQualifyingBalanceUsdMinor:"",durationMonths:"",opportunitiesPerDay:""');
     expect(editor).toContain('newTier.minimumQualifyingBalanceUsdMinor===""?"":');
     expect(editor).toContain('e.target.value===""?"":Number(e.target.value)');
-    expect(editor).toContain("no package threshold or quota is preselected");
+    expect(editor).toContain("New tiers are enabled when created.");
     expect(editor).toContain("enabled:true})");
     expect(editor).not.toContain('minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6');
     expect(editor).not.toContain('<label>Enabled <input type="checkbox" checked={Boolean(newTier.enabled)}');
