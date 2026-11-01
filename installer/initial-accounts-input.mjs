@@ -1,4 +1,4 @@
-const EMAIL_PATTERN = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validateInitialAccountInput(env = process.env) {
   const adminEmail = String(env.ADMIN_EMAIL || "").trim().toLowerCase();
