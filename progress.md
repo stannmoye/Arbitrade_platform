@@ -879,3 +879,11 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 - Package-policy writes now reject an explicit attempt to set automaticTradingEnabled=true and force the persisted field to false on safe policy updates.
 - Added migration 0098_disable_automatic_financial_execution.sql and registered it in the Drizzle journal; it idempotently sets automaticTradingEnabled=0 for every existing package policy without changing delivery flags, quotas, wallets, trades or ledger rows.
 - Added a contract test for the global worker guard, write rejection, forced-off persistence and migration behavior. Latest CI must validate the new migration and code before this is considered complete.
+
+
+## 2026-11-01 — Global execution lock integration test strengthened
+
+- The real MySQL/MariaDB popup-delivery integration now checks the migrated baseline package policies all have automaticTradingEnabled=false.
+- It then deliberately changes only its disposable test package policy back to automaticTradingEnabled=true to simulate a stale/unsafe legacy value, runs the actual delivery worker cycle without passing allowAutomaticExecution=false, and asserts the server-side global lock still delivers the popup without creating trades or changing wallet/ledger state.
+- This proves the execution lock is enforced by the server rather than by a test-only caller flag. The test runs only against CI's disposable database and cleans up its records in a finally block.
+- Latest CI for this test commit is running; do not treat the global execution-lock change as validated until the complete latest run passes.
