@@ -2080,6 +2080,194 @@ async function runNotificationSoundAssetPlaybackCheck(browser) {
   return checks;
 }
 
+
+
+async function runCustomerOpportunityPopupInteractionCheck(browser) {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  page.setDefaultTimeout(10000);
+  const checks = [];
+  const pageErrors = [];
+  const mutationCalls = [];
+  const offer = {
+    id: 50501, offerId: 50501, deliveryEventId: 60501,
+    packageName: "QA Eligible Tier", symbol: "BTC/USD", currency: "USD",
+    minimumMinor: 10000, expectedRewardBps: 250, configuredProfitRateBps: 250,
+    configuredDurationSeconds: 300, configuredPopupDisplaySeconds: 30,
+    durationSeconds: 300, closesAt: "2099-12-31T23:59:59.000Z",
+    popupEligible: true, automaticTrade: false,
+    companyDisplayName: "Verified QA Company", companyLogoUrl: null,
+    badgeLabel: "QA tier", badgeStyle: "green",
+  };
+  const record = (check, passed, details = {}) => checks.push({
+    route: "/customer", routeName: "customer", width: 390, check, passed, ...details,
+  });
+  page.on("pageerror", error => pageErrors.push(error.message));
+  try {
+    await page.route(/\/api\/trpc(?:\/|$)/, async route => {
+      const request = route.request();
+      const url = new URL(request.url());
+      const procedures = decodeURIComponent(url.pathname.split("/api/trpc/")[1] || "").split(",").filter(Boolean);
+      let envelope = {};
+      try {
+        const raw = request.method() === "GET" ? url.searchParams.get("input") : request.postData();
+        envelope = raw ? JSON.parse(raw) : {};
+      } catch {}
+      const inputAt = index => {
+        const item = Array.isArray(envelope) ? envelope[index] : envelope[String(index)];
+        return item?.json ?? item?.input?.json ?? envelope?.json ?? envelope?.input?.json ?? {};
+      };
+      const output = procedures.map((procedure, index) => {
+        let data = null;
+        if (procedure === "auth.me") {
+          data = { id: 90501, email: "popup-qa@example.test", name: "Popup QA Customer", role: "customer" };
+        } else if (procedure === "customer.opportunities") {
+          data = {
+            offers: [{ ...offer }], missed: [], autoTrades: [], settled: [],
+            delivery: {
+              enabled: true, packageName: "QA Eligible Tier", maxPopupsPerDay: 6,
+              maxVisibleOffers: 2, remainingDailyQuota: 6, remainingVisibleSlots: 2,
+              popupPolicy: { popupDisplaySeconds: 30, completionDisplaySeconds: 8 },
+            },
+          };
+        } else if (procedure === "customer.trades") {
+          data = [];
+        } else if (procedure === "customer.soundSettings") {
+          data = { enabled: false, opportunity: "soft-chime", loopOpportunity: false };
+        } else if (procedure === "customer.balances") {
+          data = { balances: [], currencies: [], summary: { availableUsd: 0, totalUsd: 0 } };
+        } else if (procedure === "customer.popupLifecycle" || procedure === "customer.popupDeliveryStatus") {
+          mutationCalls.push({ procedure, input: inputAt(index) });
+          data = { ok: true };
+        }
+        return { result: { data: { json: data } } };
+      });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(output) });
+    });
+    await page.goto(new URL("/customer", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.getByRole("heading", { name: "Welcome back, Jordan." }).waitFor({ state: "visible", timeout: 15000 });
+    const popup = page.locator(".center-opportunity-toast").filter({ hasText: "BTC/USD opportunity detected" });
+    await popup.waitFor({ state: "visible", timeout: 10000 });
+    const companyVisible = await popup.getByText("Verified QA Company").isVisible().catch(() => false);
+    const detailsVisible = await popup.getByText(/Configured return rate: 2\.50%/).isVisible().catch(() => false);
+    record("eligible-open-opportunity-renders-customer-popup", await popup.isVisible().catch(() => false), {
+      offerId: offer.id, companyVisible, detailsVisible,
+      note: "Customer session and opportunity API are mocked; this verifies React rendering and the client eligibility gate, not live server publication or account authorization.",
+    });
+    record("verified-company-reference-is-rendered", companyVisible, { companyName: offer.companyDisplayName });
+    await page.waitForTimeout(250);
+    record("popup-delivery-lifecycle-is-acknowledged", mutationCalls.some(call =>
+      call.procedure === "customer.popupDeliveryStatus" && call.input?.status === "rendered"
+    ), { mutationCalls, pageErrors });
+  } catch (error) {
+    record("customer-opportunity-popup-interaction-completes", false, {
+      error: error instanceof Error ? error.message : String(error),
+      mutationCalls, pageErrors, bodyText: await page.locator("body").innerText().catch(() => ""),
+    });
+  } finally {
+    await page.close();
+  }
+  return checks;
+}
+
+async function runAdminTradingControlsInteractionCheck(browser) {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  page.setDefaultTimeout(10000);
+  const checks = [];
+  const pageErrors = [];
+  const mutationCalls = [];
+  let savedPolicy = {
+    packageName: "QA Trading Tier", enabled: true, automaticDelivery: true,
+    companyRotationEnabled: true, randomizationEnabled: true, burstEnabled: true,
+    automaticTradingEnabled: false, requirePreviousSettlement: true,
+    minSettlementDelaySeconds: 900, maxSettlementDelaySeconds: 900, policyVersion: 1,
+  };
+  const record = (check, passed, details = {}) => checks.push({
+    route: "/ops-console-7f3a", routeName: "admin", width: 1440, check, passed, ...details,
+  });
+  page.on("pageerror", error => pageErrors.push(error.message));
+  try {
+    await page.route(/\/api\/trpc(?:\/|$)/, async route => {
+      const request = route.request();
+      const url = new URL(request.url());
+      const procedures = decodeURIComponent(url.pathname.split("/api/trpc/")[1] || "").split(",").filter(Boolean);
+      let envelope = {};
+      try {
+        const raw = request.method() === "GET" ? url.searchParams.get("input") : request.postData();
+        envelope = raw ? JSON.parse(raw) : {};
+      } catch {}
+      const inputAt = index => {
+        const item = Array.isArray(envelope) ? envelope[index] : envelope[String(index)];
+        return item?.json ?? item?.input?.json ?? envelope?.json ?? envelope?.input?.json ?? {};
+      };
+      const output = procedures.map((procedure, index) => {
+        const input = inputAt(index);
+        let data = null;
+        if (procedure === "auth.me") {
+          data = { id: 90502, email: "admin-qa@example.test", name: "Trading QA Admin", role: "admin" };
+        } else if (procedure === "adminOperations.packagePolicies" || procedure === "adminOperations.overviewPackagePolicies") {
+          data = [{ ...savedPolicy }];
+        } else if (procedure === "adminOperations.customers" || procedure === "adminOperations.pendingSettlements" ||
+          procedure === "adminOperations.ledgerActivity" || procedure === "adminOperations.currencies") {
+          data = [];
+        } else if (procedure === "adminOperations.updatePackagePolicies") {
+          const patches = Array.isArray(input?.policies) ? input.policies : [];
+          mutationCalls.push({ reason: input?.reason, policies: patches });
+          for (const patch of patches) {
+            if (patch.packageName === savedPolicy.packageName) savedPolicy = { ...savedPolicy, ...patch };
+          }
+          data = { ok: true };
+        } else if (procedure === "adminOperations.settings") {
+          data = {};
+        }
+        return { result: { data: { json: data } } };
+      });
+      if (procedures.includes("adminOperations.updatePackagePolicies")) await new Promise(resolve => setTimeout(resolve, 150));
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(output) });
+    });
+    await page.goto(new URL("/ops-console-7f3a", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.getByRole("heading", { name: "Control centre" }).waitFor({ state: "visible", timeout: 15000 });
+    await page.getByRole("button", { name: /Customer tiers/ }).first().click();
+    await page.getByRole("heading", { name: "Trading controls" }).waitFor({ state: "visible", timeout: 10000 });
+    const keys = [
+      ["Tier policy", "enabled"], ["Pop-up delivery", "automaticDelivery"],
+      ["Company rotation", "companyRotationEnabled"], ["Randomized timing", "randomizationEnabled"],
+      ["Burst delivery", "burstEnabled"],
+    ];
+    for (const [label, key] of keys) {
+      const ariaLabel = label + " for " + savedPolicy.packageName;
+      const control = page.getByRole("switch", { name: ariaLabel });
+      const before = savedPolicy[key];
+      await control.click();
+      await page.waitForFunction(({ label, expected }) => {
+        const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
+        return element?.getAttribute("aria-checked") === String(expected);
+      }, { label: ariaLabel, expected: !before });
+      const switchedOff = savedPolicy[key] === !before;
+      await control.click();
+      await page.waitForFunction(({ label, expected }) => {
+        const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
+        return element?.getAttribute("aria-checked") === String(expected);
+      }, { label: ariaLabel, expected: before });
+      const switchedBack = savedPolicy[key] === before;
+      record("admin-" + key + "-switch-saves-and-restores", switchedOff && switchedBack, {
+        initial: before, afterOff: !before, afterRestore: savedPolicy[key],
+      });
+    }
+    const financialExecutionStayedOff = savedPolicy.automaticTradingEnabled === false &&
+      mutationCalls.every(call => call.policies.every(patch => patch.automaticTradingEnabled !== true));
+    record("delivery-switches-never-enable-financial-execution", financialExecutionStayedOff, { mutationCalls, pageErrors });
+    record("admin-switches-show-save-feedback", await page.getByText("Trading control change saved and audit-logged.").isVisible().catch(() => false));
+  } catch (error) {
+    record("admin-trading-controls-interaction-completes", false, {
+      error: error instanceof Error ? error.message : String(error),
+      mutationCalls, pageErrors, bodyText: await page.locator("body").innerText().catch(() => ""),
+    });
+  } finally {
+    await page.close();
+  }
+  return checks;
+}
+
 async function main() {
   const browser = await chromium.launch({ headless: true });
   const results = [];
@@ -2440,6 +2628,12 @@ async function main() {
     const interactionChecks = await runAdminAppearanceInteractionCheck(browser);
     results.push(...interactionChecks);
     failures.push(...interactionChecks.filter(check => !check.passed));
+    const popupChecks = await runCustomerOpportunityPopupInteractionCheck(browser);
+    results.push(...popupChecks);
+    failures.push(...popupChecks.filter(check => !check.passed));
+    const tradingControlChecks = await runAdminTradingControlsInteractionCheck(browser);
+    results.push(...tradingControlChecks);
+    failures.push(...tradingControlChecks.filter(check => !check.passed));
   } finally {
     await browser.close();
   }
@@ -2460,6 +2654,7 @@ async function main() {
       "Customer theme-choice enabled/disabled checks use mocked auth.me and appearanceConfig responses; they verify selector visibility, allow-list options, applied theme, and local preference only, not live server authorization or database persistence.",
       "Customer registration form checks use a mocked rejected registration response; they verify client-side required-field validation and busy/error recovery, not live signup authorization or persistence.",
       "Static-client browser smoke tests do not authenticate to the live API or verify customer-role enforcement.",
+      "Customer opportunity popup and administrator Trading switch interaction checks use mocked auth and tRPC data. They verify the React UI, client-side gates, submitted policy patches and mocked persistence; they do not verify live server authorization, SQL persistence, worker publication or a real customer's account eligibility.",
       "Keyboard scrolling is exercised on populated mocked administrator settlement and wallet-ledger tables; live ledger data/authorization and the full authenticated form/dialog/dropdown/disabled/busy interaction matrix remain outside this static-client run.",
       "The rendered contrast audit covers visible text on the three entry routes and semantic token pairs; human review of screenshots and broader authenticated portal coverage remain required.",
     ],
