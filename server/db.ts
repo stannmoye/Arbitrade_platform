@@ -2911,6 +2911,9 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
     seenTierNames.add(policy.packageName);
     return policy;
   });
+  if(requested.some(policy=>policy.automaticTradingEnabled===true)) {
+    throw new Error("Automatic financial execution is disabled for all Trading package policies.");
+  }
   await db.transaction(async tx=>{
     // Lock before merging so concurrent partial saves cannot overwrite fields
     // omitted from the other administrator's request.
@@ -2921,6 +2924,8 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
         if(value!==undefined&&!['id','updatedAt','policyVersion','updatedBy'].includes(key)) supplied[key]=value;
       }
       const effective:any={...DEFAULT_NEW_TIER_POLICY,...(current||{}),...supplied,packageName:policy.packageName,updatedBy};
+      // Preserve pop-up controls, but never persist an enabled unattended execution path.
+      effective.automaticTradingEnabled=false;
       if(effective.minHourlyTarget>effective.normalHourlyTarget) throw new Error(`Minimum hourly target cannot exceed normal target for ${policy.packageName}`);
       if(effective.normalHourlyTarget*24>effective.maxPopupsPerDay&&effective.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
       if(!Number.isSafeInteger(effective.minimumTradeUnits)||!Number.isSafeInteger(effective.maximumTradeUnits)||effective.minimumTradeUnits<1||effective.maximumTradeUnits<effective.minimumTradeUnits) throw new Error(`Trade amount bounds are invalid for ${policy.packageName}`);
@@ -3097,6 +3102,8 @@ export async function recordOpportunityExecutionFailure(userId:number,eventId:nu
   if(state.status==="RETRYING") set.executionRetryDay=now.toISOString().slice(0,10);
   await db.update(opportunityPopupEvents).set(set).where(and(eq(opportunityPopupEvents.id,eventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.executionLeaseToken,state.executionLeaseToken),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED"])));
 }
+// Customer popup delivery is informational; this worker must never initiate financial execution.
+const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false;
 async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:any){
   const executed:any[]=[];
   if(controls.accountStatus!=="active") return {executed,missed:await listMissedOpportunities(userId)};
@@ -3502,7 +3509,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     return Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy));
   });
   const effectiveControls=controls;
-  const auto=options.workerCycle===true&&options.allowAutomaticExecution!==false
+  const auto=AUTOMATIC_FINANCIAL_EXECUTION_ENABLED && options.workerCycle===true && options.allowAutomaticExecution!==false
     ?await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls)
     :{executed:[],missed:await listMissedOpportunities(userId)};
   const executedByOffer=new Map(auto.executed.map((trade:any)=>[Number(trade.offerId),trade]));
