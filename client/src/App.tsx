@@ -742,13 +742,11 @@ function AdminTradingGlobalControls() {
   ] as const;
   const saveSwitch = (policy: NonNullable<typeof policies.data>[number], key: AdminTradingGlobalSwitchKey) => {
     const next = !Boolean(policy[key]);
-    if (next && (key === "enabled" || key === "automaticDelivery") && policy.automaticTradingEnabled) {
-      setMessage("Disable automatic financial execution for this tier before enabling new delivery.");
-      return;
-    }
     setMessage("");
-    const patch = key === "enabled" ? { packageName: policy.packageName, enabled: next }
-      : key === "automaticDelivery" ? { packageName: policy.packageName, automaticDelivery: next }
+    // Pop-up delivery is independent from financial execution. Keep automatic
+    // allocation OFF whenever an administrator changes the customer-delivery gate.
+    const patch = key === "enabled" ? { packageName: policy.packageName, enabled: next, automaticTradingEnabled: false }
+      : key === "automaticDelivery" ? { packageName: policy.packageName, automaticDelivery: next, automaticTradingEnabled: false }
       : key === "companyRotationEnabled" ? { packageName: policy.packageName, companyRotationEnabled: next }
       : key === "randomizationEnabled" ? { packageName: policy.packageName, randomizationEnabled: next }
       : { packageName: policy.packageName, burstEnabled: next };
