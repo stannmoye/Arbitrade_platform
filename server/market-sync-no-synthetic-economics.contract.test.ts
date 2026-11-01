@@ -19,7 +19,7 @@ describe("trading opportunity economics integrity", () => {
     expect(implementation).not.toContain("durationSeconds =");
   });
 
-  it("pauses the durable worker before claiming customers while settlement is outstanding", () => {
+  it("continues customer popup delivery while the settlement gate blocks automatic execution", () => {
     const start = databaseSource.indexOf("export async function runAutoTradeCycle(");
     const end = databaseSource.indexOf("\nexport async function createTrade(", start);
     const worker = databaseSource.slice(start, end);
@@ -27,8 +27,9 @@ describe("trading opportunity economics integrity", () => {
     expect(end).toBeGreaterThan(start);
     expect(worker.indexOf("getTradeSettlementPolicy()")).toBeGreaterThanOrEqual(0);
     expect(worker.indexOf("getTradeSettlementPolicy()")).toBeLessThan(worker.indexOf("claimAutoTradeCycleCustomers(input)"));
-    expect(worker).toContain("pausedUntilSettled:true");
-    expect(worker).toContain("outstandingTrades>0");
+    expect(worker).toContain("pausedUntilSettled=outstandingTrades>0");
+    expect(worker).toContain("allowAutomaticExecution:!pausedUntilSettled");
+    expect(worker).not.toContain("return {customers:0,allocations:0");
   });
 
   it("pauses delivery for outstanding trades without permanently closing published offers", () => {
@@ -74,5 +75,23 @@ describe("Trading opportunity publication guidance", () => {
     expect(adminApp).toContain("Eligible customers cannot receive a pop-up until an administrator publishes a reviewed, source-backed opportunity");
     expect(adminApp).toContain("Market-data refresh does not create offers.");
     expect(source).toContain("generationDisabled: true");
+  });
+});
+
+
+describe("Admin opportunity publisher error handling", () => {
+  it("reports successful and failed manual publications through the admin UI", () => {
+    expect(adminApp).toContain("Opportunity published to the database.");
+    expect(adminApp).toContain("onError:error=>setPublishMessage(error.message)");
+    expect(adminApp).toContain('role={create.isError?"alert":"status"}');
+    expect(adminApp).toContain('create.isPending?"Publishing…":"Publish to database"');
+  });
+
+  it("does not announce CSV success before the server confirms the import", () => {
+    expect(adminApp).toContain("Publishing ");
+    expect(adminApp).toContain("validated opportunities published successfully.");
+    expect(adminApp).toContain("onError:error=>{setImportError(true);setImportStatus(error.message)}");
+    expect(adminApp).toContain("reader.onerror=");
+    expect(adminApp).toContain("rows.length>5000");
   });
 });
