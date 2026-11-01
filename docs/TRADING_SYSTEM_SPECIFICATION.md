@@ -61,6 +61,9 @@ Package records are configuration, not customer-facing products. Only authorized
 
 For each generated opportunity, the server evaluates the customer's automatically assigned, active tier entitlements, remaining cumulative quotas, account status, schedule, risk limits, and combined daily earnings ceiling. Customers never select a package or manually activate eligibility.
 
+**Current opportunity-publication implementation status:** the market refresh worker currently stores market-instrument and FX reference snapshots only. `ensureMarketDrivenOpportunities` expires stale published offers and counts the remaining open offers; it currently returns `generationDisabled: true` and `created: 0`. Therefore, customer pop-ups require an administrator-published, open opportunity from the Opportunity Engine's manual form or validated CSV import. With zero open published offers, no customer pop-up can be created, regardless of tier eligibility or delivery settings. Do not remove this guard by inventing a reward rate, venue, price, quote, or execution result from reference market data. Any future automatic publisher must use explicitly approved offer terms and verifiable source evidence.
+
+
 1. Evaluate all active server-assigned tier entitlements and cumulative quota allowance.
 2. Check spendable balances in eligible wallets, excluding capital reserved for other trades.
 3. If enough capital exists and all controls pass, automatically allocate the trade; reserve/debit the actual capital and record it.
