@@ -887,3 +887,10 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 - It then deliberately changes only its disposable test package policy back to automaticTradingEnabled=true to simulate a stale/unsafe legacy value, runs the actual delivery worker cycle without passing allowAutomaticExecution=false, and asserts the server-side global lock still delivers the popup without creating trades or changing wallet/ledger state.
 - This proves the execution lock is enforced by the server rather than by a test-only caller flag. The test runs only against CI's disposable database and cleans up its records in a finally block.
 - Latest CI for this test commit is running; do not treat the global execution-lock change as validated until the complete latest run passes.
+
+
+## 2026-11-01 — Worker contract regression corrected
+
+- The first CI run after the global financial-execution lock correctly exposed two stale source-contract assertions that expected the old optional caller flag to gate automatic trade creation.
+- Updated those assertions to require the immutable server-side false constant and the exact guarded worker condition. The existing contract still verifies the scheduled cycle calls customer delivery and that customer API reads cannot trigger worker processing.
+- A new full exact-head CI cycle was triggered for commit 1308900000e5c96dff438b65f69fe81a83348049; results are being rechecked.
