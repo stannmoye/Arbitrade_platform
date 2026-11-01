@@ -63,8 +63,8 @@ describe("runtime Trading delivery quota semantics", () => {
     expect(editor).toContain("Optional daily target cap (0 = no extra cap)");
     expect(editor).toContain("Maximum visible offers at once");
     expect(editor).toContain("This is not a daily quota.");
-    expect(editor).toContain("<option value=\\"rolling_24h\\">Rolling 24 hours</option>");
-    expect(editor).toContain("<option value=\\"calendar_day\\">Calendar day (UTC)</option>");
+    expect(editor).toContain('<option value="rolling_24h">Rolling 24 hours</option>');
+    expect(editor).toContain('<option value="calendar_day">Calendar day (UTC)</option>');
   });
 });
 
