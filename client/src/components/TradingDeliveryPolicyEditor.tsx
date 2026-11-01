@@ -3,7 +3,7 @@ import "./trading-package-card-colors.css";
 
 export type TradingDeliveryPolicyRow={packageName:string;enabled:boolean;automaticDelivery:boolean;automaticTradingEnabled:boolean;badgeLabel:string;badgeStyle:"neutral"|"blue"|"purple"|"gold"|"green";minimumPayoutRateBps:number|null;maximumPayoutRateBps:number|null;minimumTradeDurationSeconds:number|null;maximumTradeDurationSeconds:number|null;companyRotationEnabled:boolean;companyRotationCountryNames:string;companyRotationRepeatPolicy:"avoid_until_exhausted"|"allow_repeats";maxPopupsPerDay:number;maxVisibleOffers:number;minimumTradeUnits:number;maximumTradeUnits:number;minHourlyTarget:number;normalHourlyTarget:number;marketInfluenceBps:number;burstEnabled:boolean;maxBurstSize:number;dailyPopupTarget:number;schedulingPeriod:"rolling_24h"|"calendar_day";minIntervalSeconds:number;maxIntervalSeconds:number;randomizationEnabled:boolean;popupDisplayTargetSeconds:number;completionDisplaySeconds:number;postCompletionIntervalSeconds:number;maxPendingDeliveries:number;maxDeliveryAttempts:number;maxTradeAttemptsPerDay:number;tradeRetryDelaySeconds:number;maxSuccessfulTradesPerDay:number;maxConcurrentActiveTrades:number;requirePreviousSettlement:boolean;minSettlementDelaySeconds:number;maxSettlementDelaySeconds:number;minimumRewardBps:number;maxDailyRewardMinor:number;maxRewardPerTradeMinor:number;closePolicy:"after_completion"|"after_final_display"};
 
-type PolicyEditorFocus = "tiers" | "quotas" | "delivery" | "display" | "retries" | "rotation";
+type PolicyEditorFocus = "policy" | "quotas" | "delivery" | "display" | "retries" | "rotation";
 type Props = {
   focus?: PolicyEditorFocus;
   policyRows: TradingDeliveryPolicyRow[];
@@ -21,12 +21,14 @@ export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyM
   const show = (section: PolicyEditorFocus) => !focus || focus === section;
   return <div className="settings-card package-policy-card">
   <div className="eyebrow">Administrator-managed Trading policy</div>
-  <h2>{focus==="quotas"?"Daily delivery allowance":focus==="delivery"?"Offer delivery cadence":focus==="display"?"Customer display timing":focus==="retries"?"Retry and settlement controls":focus==="rotation"?"Company spotlight rotation":"Tier policy and automation"}</h2>
-  <p>Every row is loaded from saved administrator policy. Changes are validated and versioned by the server; active trade snapshots are not rewritten. New tiers are enabled by default for eligible customer pop-up delivery. Package activation and delivery controls remain independently switchable by administrators; financial execution remains separately protected. USD capital limits in this legacy policy are expressed in whole USD units.</p>
+  <h2>{focus==="quotas"?"Daily delivery caps":focus==="policy"?"Delivery switches and offer rules":focus==="delivery"?"Delivery schedule":focus==="display"?"Customer pop-up display":focus==="retries"?"Retries and settlement safeguards":focus==="rotation"?"Company rotation rules":"Trading policy settings"}</h2>
+  <p>Each section below edits only the settings named on this page. Changes are validated, audited and versioned by the server. Existing customer entitlement snapshots and active trade records are not silently rewritten. Automatic financial execution remains protected OFF.</p>
+  {focus==="quotas"&&<div className="admin-policy-note" role="note"><strong>Important: two different limits.</strong> The daily opportunity entitlement is set in <strong>Trade Settings → Tiers &amp; Eligibility</strong>. This page sets delivery ceilings that can reduce that entitlement. To make a 600-per-day tier allowance available, set the hard daily pop-up ceiling to at least 600 and leave the optional target at 0. Existing customer entitlements keep their original saved quota; edits apply to future automatic assignments.</div>}
+  {focus==="policy"&&<div className="admin-policy-note" role="note"><strong>Scope:</strong> This page controls delivery enablement and offer eligibility rules. The tier threshold, entitlement duration and daily opportunity allowance are maintained only in <strong>Tiers &amp; Eligibility</strong>.</div>}
   {policyMessage&&<div className="test-notice" role="status" aria-live="polite">{policyMessage}</div>}
   {policyRows.map((row,index)=><article className="package-admin-card" key={row.packageName} style={{marginBottom:16}}>
     <div className="package-admin-head"><div><span className="eyebrow">Tier policy</span><h3>{row.packageName}</h3></div><span className="admin-live-chip">Versioned</span></div>
-    {show("tiers")&&<>
+    {show("policy")&&<>
     <div className="eyebrow">Policy and automation switches</div>
     <div className="form-two">
       <label>Policy enabled<select value={row.enabled?"true":"false"} onChange={e=>updateRow(index,"enabled",e.target.value==="true")}><option value="false">Disabled</option><option value="true">Enabled</option></select><small>Enabling policy is separate from enabling the Trading tier.</small></label>
@@ -35,15 +37,15 @@ export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyM
     </div>
     </>}
     {show("quotas")&&<>
-    <div className="eyebrow">Daily delivery</div>
+    <div className="eyebrow">Operational delivery ceilings</div>
     <div className="form-two">
-      <label>Maximum pop-ups per day<input aria-label={row.packageName+" maximum pop-ups per day"} type="number" min="1" max="1000" step="1" value={row.maxPopupsPerDay} onChange={e=>updateRow(index,"maxPopupsPerDay",Number(e.target.value))}/><small>Hard daily ceiling for this tier; the eligible quotas of multiple tiers are cumulative.</small></label>
-      <label>Maximum visible offers at once<input aria-label={row.packageName+" maximum visible offers at once"} type="number" min="1" max="10000" step="1" value={row.maxVisibleOffers} onChange={e=>updateRow(index,"maxVisibleOffers",Number(e.target.value))}/><small>Limits simultaneous pending or displayed pop-ups. It does not reduce the daily allowance.</small></label>
-      <label>Daily delivery target (0 = full tier allowance)<input type="number" min="0" max="10000" step="1" value={row.dailyPopupTarget} onChange={e=>updateRow(index,"dailyPopupTarget",Number(e.target.value))}/><small>Positive targets are summed across eligible tiers to cap the customer's combined daily delivery allowance; retries of the same offer count once.</small></label>
-      <label>Daily quota window<select value={row.schedulingPeriod} onChange={e=>updateRow(index,"schedulingPeriod",e.target.value)}><option value="rolling_24h">Rolling 24 hours</option><option value="calendar_day">Calendar day (UTC)</option></select><small>When a customer has multiple eligible tiers, rolling 24 hours is used if any active tier requires it; otherwise the UTC calendar day applies.</small></label>
+      <label>Hard daily pop-up ceiling<input aria-label={row.packageName+" maximum pop-ups per day"} type="number" min="1" max="1000" step="1" value={row.maxPopupsPerDay} onChange={e=>updateRow(index,"maxPopupsPerDay",Number(e.target.value))}/><small>This is an operational ceiling, not the tier entitlement. It can reduce delivery below the allowance assigned in Tiers &amp; Eligibility. Values up to 1,000 are supported here.</small></label>
+      <label>Maximum visible offers at once<input aria-label={row.packageName+" maximum visible offers at once"} type="number" min="1" max="10000" step="1" value={row.maxVisibleOffers} onChange={e=>updateRow(index,"maxVisibleOffers",Number(e.target.value))}/><small>Limits how many offers can be pending or visible at once. This is not a daily quota.</small></label>
+      <label>Optional daily target cap (0 = no extra cap)<input type="number" min="0" max="10000" step="1" value={row.dailyPopupTarget} onChange={e=>updateRow(index,"dailyPopupTarget",Number(e.target.value))}/><small>A positive value adds another ceiling across eligible tiers. Leave at 0 to use the full allowance permitted by the tier entitlement and hard daily pop-up ceiling.</small></label>
+      <label>Delivery counting window<select value={row.schedulingPeriod} onChange={e=>updateRow(index,"schedulingPeriod",e.target.value)}><option value="rolling_24h">Rolling 24 hours</option><option value="calendar_day">Calendar day (UTC)</option></select><small>Controls the time window used to count the operational delivery ceiling across eligible tiers.</small></label>
     </div>
     </>}
-    {show("tiers")&&<>
+    {show("policy")&&<>
     <div className="eyebrow">Capital bounds</div>
     <div className="form-two">
       <label>Minimum required capital (USD units)<input type="number" min="1" max="2147483647" step="1" value={row.minimumTradeUnits} onChange={e=>updateRow(index,"minimumTradeUnits",Number(e.target.value))}/><small>Whole USD units in the existing policy schema.</small></label>
@@ -81,7 +83,7 @@ export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyM
       <label>Maximum settlement delay (seconds)<input type="number" min="900" max="604800" step="1" value={row.maxSettlementDelaySeconds} onChange={e=>updateRow(index,"maxSettlementDelaySeconds",Math.max(900,Number(e.target.value)||900))}/><small>Must be at least the minimum delay and at least 900 seconds.</small></label>
     </div>
     </>}
-    {show("tiers")&&<>
+    {show("policy")&&<>
     <div className="eyebrow">Package badge</div>
     <div className="form-two">
       <label>Badge label<input type="text" maxLength={40} value={row.badgeLabel} onChange={e=>updateRow(index,"badgeLabel",e.target.value)}/><small>Leave blank to show no badge. Existing popup badges do not change after delivery.</small></label>
@@ -104,7 +106,7 @@ export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyM
       <label>Country-folder filters<input type="text" maxLength={2000} value={row.companyRotationCountryNames} onChange={e=>updateRow(index,"companyRotationCountryNames",e.target.value)}/><small>Comma-separated exact catalogue folder labels; blank includes all administrator-verified, non-archived records. Country folders do not verify headquarters or listing status.</small></label>
     </div>
     </>}
-    {show("tiers")&&<>
+    {show("policy")&&<>
     <div className="eyebrow">Reward policy limits</div>
     <div className="form-two">
       <label>Minimum eligible reward rate (basis points)<input type="number" min="0" max="10000" step="1" value={row.minimumRewardBps} onChange={e=>updateRow(index,"minimumRewardBps",Number(e.target.value))}/><small>100 basis points = 1%. This is a minimum eligibility constraint, not a generated or guaranteed return.</small></label>
