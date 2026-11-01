@@ -48,6 +48,14 @@ jobs:
             echo "::error::Checked-out commit does not match the requested deployed SHA."
             exit 1
           }
+          # Never run arbitrary repository code with protected staging credentials.
+          # The requested SHA must be the exact current head of the reviewed candidate branch.
+          git fetch --no-tags origin refs/heads/fix/trading-popup-defaults-and-package-activation
+          REVIEWED_CANDIDATE_SHA="$(git rev-parse FETCH_HEAD)"
+          test "$EXPECTED_SHA" = "$REVIEWED_CANDIDATE_SHA" || {
+            echo "::error::expected_sha must match the current reviewed Trading candidate branch head."
+            exit 1
+          }
           test -n "$BASE_URL" || { echo "::error::Missing TRADING_ACCEPTANCE_BASE_URL in trading-staging environment."; exit 1; }
           test -n "$CUSTOMER_STATE" || { echo "::error::Missing eligible customer storage state secret."; exit 1; }
           test -n "$UNQUALIFIED_STATE" || { echo "::error::Missing unqualified customer storage state secret."; exit 1; }
