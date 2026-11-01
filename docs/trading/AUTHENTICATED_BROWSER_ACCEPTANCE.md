@@ -24,14 +24,14 @@ Run only against a dedicated, disposable, non-production Arbitrade deployment wi
 
 Provide these environment variables:
 
-- `TRADING_ACCEPTANCE_BASE_URL`: absolute HTTP(S) URL of the isolated test deployment.
+- `TRADING_ACCEPTANCE_BASE_URL`: absolute HTTPS URL of the isolated test deployment.
 - `TRADING_ACCEPTANCE_ENVIRONMENT=non-production`.
-- `TRADING_CUSTOMER_STORAGE_STATE`: Playwright storage-state JSON for a seeded, automatically eligible test customer.
-- `TRADING_UNQUALIFIED_CUSTOMER_STORAGE_STATE`: storage-state JSON for a distinct customer with no qualifying manual administrator credit.
+- `TRADING_CUSTOMER_STORAGE_STATE`: Playwright storage-state JSON for a seeded test customer whose only qualifying threshold source is a manual administrator wallet credit. For non-USD credits, the test record must use the USD conversion snapshot captured when the admin credit was made.
+- `TRADING_UNQUALIFIED_CUSTOMER_STORAGE_STATE`: storage-state JSON for a distinct customer with no qualifying manual administrator wallet credit; customer deposits and ordinary transfers must not qualify this account.
 - `TRADING_ADMIN_STORAGE_STATE`: storage-state JSON for a test administrator.
 - `TRADING_ACCEPTANCE_CUSTOMER_EMAIL`: email of the eligible test customer as shown in the administrator directory.
 
-The storage-state files must already exist in Playwright's `{ cookies, origins }` format. The script does not log in, create accounts, or seed database records. The eligible customer must have an active automatically assigned tier, a valid enabled delivery policy with tier policy, pop-up delivery, company rotation, randomized timing and burst delivery all initially enabled, and at least one reviewed open opportunity already delivered by the running worker; otherwise the popup acceptance check fails with a setup explanation.
+The storage-state files must already exist in Playwright's `{ cookies, origins }` format. The eligible account's active tier assignment and cumulative allowance must be traceable to the qualifying manual administrator credit only; do not count customer-initiated deposits or ordinary transfers as qualification sources. The script does not log in, create accounts, or seed database records. The eligible customer must have an active automatically assigned tier, a valid enabled delivery policy with tier policy, pop-up delivery, company rotation, randomized timing and burst delivery all initially enabled, and at least one reviewed open opportunity already delivered by the running worker; otherwise the popup acceptance check fails with a setup explanation.
 
 For a new test tier, create it through the administrator portal after deploying the candidate; the five delivery controls must arrive ON by default and automatic financial execution must remain OFF. Existing legacy tiers may intentionally remain paused: migration `0089_trading_popup_policy_ranges.sql` disables rows that lack complete valid offer-rate/duration bounds. An administrator must review and save valid terms before enabling those tiers. Do not use the staging test to force-enable an incomplete or intentionally paused legacy policy; existing administrator choices must be preserved. Keep these files and credentials outside Git and the repository.
 
