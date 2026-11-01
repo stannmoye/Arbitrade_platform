@@ -1,3 +1,17 @@
+## 2026-11-01 — Customer pop-up visibility gate audit and correction
+
+- Canonical base: `main` at `964da01b179e5aa656720348eaf65fe7be8e6810`; working branch: `fix/customer-popup-visibility-policy-gate`.
+- Audited the customer pop-up path across the customer alert component, customer opportunities API, `listCustomerOpportunities`, package/tier eligibility, delivery-event creation, verified-company rotation, opportunity worker startup, policy validation, migrations, canonical Trading specification, admin manual and customer admin guide.
+- Confirmed that customer pop-ups are intentionally gated by an active auto-assigned tier, an enabled package, an enabled/valid pop-up policy, automatic delivery, positive entitlement quota, an open published opportunity, and a running database-backed opportunity worker. The customer alert also requires `delivery.enabled`, a popup policy, `popupEligible`, and an unexpired offer. A missing verified-company pool suppresses only company identity, not the pop-up itself.
+- Fixed a real activation blocker: package activation previously required `automaticTradingEnabled=true`, coupling customer pop-up eligibility to automatic financial execution. Package activation now requires only an enabled, valid pop-up policy and delivery configuration. Automatic execution remains a separate OFF-by-default control.
+- Fixed the persistent admin switch: enabling package policy or pop-up delivery no longer refuses the change because a saved execution flag is ON; the same audited update forces `automaticTradingEnabled=false`, so the display/delivery path can be restored without enabling automatic allocation.
+- New package policy rows now receive explicit valid pop-up defaults: 2%–3% configured rate, 300–900 seconds, policy/delivery enabled, quota/display/schedule defaults, policy version one. The package itself remains disabled until an administrator reviews its threshold, duration and quota and explicitly enables it. Automatic financial execution remains OFF.
+- Updated contract tests, canonical Trading specification, admin configuration manual and customer admin guide. Existing explicitly saved policy values and OFF/pause choices are preserved; missing/malformed existing policies still fail closed until an audited correction.
+- Static GitHub read-back completed. Local `pnpm check`, `pnpm test`, `pnpm build` and database/browser integration tests have not run in this environment; exact-head GitHub Actions must validate this PR. No production database, deployment or customer funds were touched.
+- Scope boundary: this correction improves customer pop-up visibility and package activation. It does not enable unattended financial trading, move/allocate customer funds, or automatically settle transactions.
+
+---
+
 ## 2026-11-01 — Persistent administrator Trading control panel
 
 - Working branch: `feat/admin-global-trading-control-panel`; based on canonical `main` at `e5800f221f08a28e56c46e33427da49f3a52d781`. The implementation/test head immediately before this progress update was `b95a8a7ff52b9b5ac7d81bff98747e2239934fe1`.
