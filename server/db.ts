@@ -2560,7 +2560,7 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
       Number(activationPolicy.maximumTradeDurationSeconds)<Number(activationPolicy.minimumTradeDurationSeconds)||
       Number(activationPolicy.maximumTradeDurationSeconds)>86400
     )) {
-      throw new Error("Save and enable a valid pop-up delivery policy with payout-rate and duration bounds before enabling this Trading tier. Automatic financial execution is a separate control and is not required for customer pop-up eligibility.");
+      throw new Error("Save and enable a valid pop-up delivery policy with payout-rate and duration bounds before enabling this Trading tier. automated allocation is a separate control and is not required for customer pop-up eligibility.");
     }
     const nextVersion=Number(current.termsVersion||1)+1;
     if(!Number.isSafeInteger(nextVersion)) throw new Error("Package terms version has reached its limit");
