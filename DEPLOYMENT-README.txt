@@ -37,7 +37,9 @@ SAFETY
   database dumps, database snapshots, or nested release ZIPs.
 - Back up existing databases before migration.
 - Never delete installer locks to force a reinstall.
-- Real-money execution remains blocked until approved providers and an
-  independently verified settlement mechanism are configured.
+- External-market execution claims require an appropriately approved provider
+  integration and independently verifiable settlement evidence. This is not a
+  blanket provider prerequisite for the internal-ledger Trading model; follow
+  docs/TRADING_SYSTEM_SPECIFICATION.md for current Trading requirements.
 - Do not deploy to production or apply migrations without explicit owner
   authorization and the required acceptance evidence.
