@@ -14,11 +14,9 @@ The current script exercises:
 - Administrator Trade navigation and package-policy editor on desktop/mobile viewports.
 - Real customer opportunities API response and visible popup rendering for a worker-delivered, open offer; any company identity shown must match the server-filtered verified-company result.
 - All five persistent administrator delivery switches (tier policy, pop-up delivery, company rotation, randomized timing, burst delivery), each toggled and restored through the real API with database read-back; automatic financial execution must remain OFF.
-- A valid bounded policy setting update, persisted read-back and reload, followed by restoration of the original value and verification.
-- Rejection of an out-of-range policy update without changing persisted policy values or versions.
 - Administrator customer-directory visibility of package ID, assignment ID, assignment status and terms version.
 
-The script submits **no financial or wallet mutations**. It does submit temporary administrator policy-setting mutations and restores every changed value, plus one deliberately invalid policy mutation which must be rejected. It also toggles all five delivery controls OFF/ON or ON/OFF and restores their initial values; automatic financial execution must remain OFF.
+The script submits **no financial, wallet, trade-execution, trade-retry, allocation, transfer, or settlement mutations**. It toggles only the five administrator delivery controls (tier policy, pop-up delivery, company rotation, randomized timing, burst delivery), reads each value back from the real API/database, and restores the original value. Cleanup attempts every restoration independently and verifies that automatic financial execution remains OFF. The browser harness also fails if it observes a non-GET request to a matching financial-operation tRPC endpoint.
 
 ## Required isolated test environment
 
@@ -50,7 +48,7 @@ TRADING_ACCEPTANCE_CUSTOMER_EMAIL=eligible-customer@example.invalid \
 npx --yes --package=playwright -c 'PLAYWRIGHT_MODULES="$(dirname "$(dirname "$(command -v playwright)")")"; NODE_PATH="$PLAYWRIGHT_MODULES" node scripts/trading-ui-browser-acceptance.cjs'
 ```
 
-Use test-only settings and ensure the original retry-delay setting is valid (5–3600 seconds), because the script temporarily changes and then restores that value. Preserve the JSON result and test logs as acceptance evidence.
+Use test-only accounts, packages and opportunities. Preserve the JSON result and test logs as acceptance evidence.
 
 ## GitHub Actions staging runner
 
@@ -75,7 +73,7 @@ Before dispatch, provision a dedicated disposable non-production deployment at t
 4. An open, reviewed, published opportunity already delivered by the running worker to the eligible customer.
 5. Valid enabled delivery policy and package settings, with automatic financial execution OFF.
 
-Do not point the workflow at production. The runner changes temporary admin delivery/policy settings and restores them; use a disposable environment and verify automatic financial execution remains OFF. The runner submits no wallet or financial mutations.
+Do not point the workflow at production. The runner changes only the five delivery controls and restores their original values; use a disposable environment and verify automatic financial execution remains OFF. It does not invoke trade retry, execution, wallet, allocation, transfer or settlement mutations.
 
 ## Current validation status and limits
 
