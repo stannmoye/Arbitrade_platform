@@ -74,13 +74,13 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <div class="table-wrap"><table><thead><tr><th>Trade Settings submenu</th><th>What it is for</th><th>What you do there</th></tr></thead><tbody>
 <tr><td><strong>Trading Overview</strong></td><td>Operations summary</td><td>Review delivery totals, pending work, open opportunities, settlement status and global pause state.</td></tr>
 <tr><td><strong>Tiers &amp; Eligibility</strong></td><td>Package entitlement rules</td><td>Edit tier names, qualifying thresholds, duration, daily opportunity entitlement and effective dates.</td></tr>
-<tr><td><strong>Daily Delivery Caps</strong></td><td>Operational delivery ceilings</td><td>Set the hard daily pop-up ceiling, concurrent visible-offer limit, optional target cap and counting window.</td></tr>
-<tr><td><strong>Offer Rules &amp; Capital Limits</strong></td><td>Published offer constraints</td><td>Set required capital bounds and configured reward-rate/duration eligibility bounds. Switches are not repeated here.</td></tr>
+<tr><td><strong>Per-tier Daily Delivery Caps</strong></td><td>Operational delivery ceilings</td><td>Set the hard daily pop-up ceiling, concurrent visible-offer limit, optional target cap and counting window.</td></tr>
+<tr><td><strong>Per-tier Offer Rules &amp; Capital Limits</strong></td><td>Published offer constraints</td><td>Set required capital bounds and configured reward-rate/duration eligibility bounds. Switches are not repeated here.</td></tr>
 <tr><td><strong>Publish &amp; Manage Opportunities</strong></td><td>Opportunity publishing</td><td>Publish reviewed opportunities, import validated CSV records and inspect the saved open feed.</td></tr>
-<tr><td><strong>Delivery Schedule</strong></td><td>Per-tier cadence</td><td>Set minimum/maximum spacing and post-completion intervals for future pop-up delivery.</td></tr>
-<tr><td><strong>Trade Duration &amp; Closing</strong></td><td>Closing and review timing</td><td>Review trade-duration estimates and global settlement/closing settings; time alone never confirms settlement.</td></tr>
-<tr><td><strong>Customer Pop-up Display</strong></td><td>Display-only settings</td><td>Adjust expanded pop-up and completion-card display durations.</td></tr>
-<tr><td><strong>Company Rotation Rules</strong></td><td>Rotation configuration</td><td>Choose approved-company country filters and repeat-handling rules. ON/OFF is in the persistent controls panel.</td></tr>
+<tr><td><strong>Per-tier Delivery Schedule</strong></td><td>Per-tier cadence</td><td>Set minimum/maximum spacing and post-completion intervals for future pop-up delivery.</td></tr>
+<tr><td><strong>Global Trade Timing &amp; Settlement</strong></td><td>Closing and review timing</td><td>Review trade-duration estimates and global settlement/closing settings; time alone never confirms settlement.</td></tr>
+<tr><td><strong>Per-tier Pop-up Display</strong></td><td>Display-only settings</td><td>Adjust expanded pop-up and completion-card display durations.</td></tr>
+<tr><td><strong>Per-tier Company Rotation Rules</strong></td><td>Rotation configuration</td><td>Choose approved-company country filters and repeat-handling rules. ON/OFF is in the persistent controls panel.</td></tr>
 <tr><td><strong>Company Catalogue</strong></td><td>Reference records</td><td>Search and manage company reference records and their approval status. This page does not repeat rotation settings.</td></tr>
 <tr><td><strong>Capital &amp; Wallet Funding Rules</strong></td><td>Capital policy</td><td>Review required capital and permitted wallet funding rules.</td></tr>
 <tr><td><strong>Fees &amp; Earnings Limits</strong></td><td>Fee policy</td><td>Configure Trading fees and review earnings ceilings.</td></tr>
@@ -118,7 +118,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 </section>
 
 <section class="section anchor" id="quotas">
-<div class="eyebrow">04 · Daily delivery limits</div><h2>Daily Delivery Caps</h2>
+<div class="eyebrow">04 · Daily delivery limits</div><h2>Per-tier Daily Delivery Caps</h2>
 <p>This page sets operational caps; it does not create or increase a customer's tier entitlement. The daily opportunity entitlement is set only in <strong>Trade Settings → Tiers &amp; Eligibility</strong>. A delivery cap can reduce that amount if it is lower.</p>
 <div class="field-list">
 <div class="field"><b>Hard daily pop-up ceiling</b><span>Maximum number of pop-up deliveries permitted by the operational policy for a tier. It must be at least as high as the tier entitlement to allow the full amount; up to 1,000 is supported.</span></div>
@@ -225,8 +225,8 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 </section>
 
 <section class="section anchor" id="timing">
-<div class="eyebrow">07 · Timing rules</div><h2>Trade Duration & Closing Rules</h2>
-<p>Use <strong>Trade Settings → Trade Duration &amp; Closing</strong> for global closing and settlement timing. Use <strong>Trade Settings → Delivery Schedule</strong> for per-tier pop-up spacing. The application-wide Settings → Trade tab contains separate global defaults.</p>
+<div class="eyebrow">07 · Timing rules</div><h2>Global Trade Timing &amp; Settlement</h2>
+<p>Use <strong>Trade Settings → Global Trade Timing &amp; Settlement</strong> for global closing and settlement timing. Use <strong>Trade Settings → Per-tier Delivery Schedule</strong> for per-tier pop-up spacing. The application-wide Settings → Trade tab contains separate global defaults.</p>
 <div class="field-list">
 <div class="field"><b>Settlement review delay (minutes)</b><span>Wait after the saved trade completion time before an administrator may review and confirm the actual result. The server persists this as settlementReviewAt.</span></div>
 <div class="field"><b>Wallet credit delay after review becomes due (seconds)</b><span>Added to settlementReviewAt to create creditAt. An administrator must still confirm the actual result; if confirmation is late and creditAt has passed, the worker may post immediately after confirmation.</span></div>
