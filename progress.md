@@ -1,3 +1,17 @@
+## 2026-11-01 — Trading worker-health diagnostic scoping (monitoring-only)
+
+- Baseline: canonical `main` commit `a061d033ae47e48f6ef2e106bc6a077a1041ee61`. Work branch: `fix/trade-worker-health-diagnostics`.
+- Confirmed monitoring defect: `getWorkerHealthSummary` intentionally retains worker-heartbeat rows from recent server instances for 24 hours, while deriving each row's age-based status. `classifyWorkerChecks` previously treated every retained historical `stale` row as a live warning/failure. This could inflate a diagnostic export with repeated warnings from stopped/previous server processes and did not distinguish the process serving the report.
+- Added an explicit `isCurrentInstance` flag to worker-health records, including synthesized current-process `not_started` rows. System diagnostics now classify only current-process records; historical records remain available for investigation.
+- Updated the admin Worker Health page and CSV/PDF worker exports to label each row Current or Historical and to calculate the healthy/attention counts from the current process only. Updated `docs/trading-worker-health-and-recovery.md` to document the distinction.
+- Added unit coverage for historical-row exclusion and preservation of current degraded/not-started records.
+- Source review also found a separate customer pop-up gate defect on this main baseline: `CustomerOpportunityAlert.canShow()` requires `delivery.enabled`, but the successful `listCustomerOpportunities` delivery response does not provide that field; the tRPC route passes it through. Consequently the front-end display gate evaluates false even if an eligible popup exists. This is reported as a finding only; this monitoring-only branch does not change popup delivery, customer eligibility, automatic allocation, trade execution, or settlement behaviour.
+- Further Trading checks remain: verify actual current-process worker states on the host; inspect the popup lifecycle records and offer eligibility gates; investigate the customer-cycle error handling that currently catches per-customer failures and logs only the error class; confirm exact deployed revision. The user-provided 2026-11-01 diagnostic has no revision, so it cannot be tied conclusively to this source baseline.
+- Scope exclusions: Mining, wallet balances/reconciliation, settlement mutation, and all production data or host changes. No deploy, production migration, merge, or main-branch write.
+- Validation status: unit tests added but not executed in this connector session; exact-head GitHub Actions CI is required before treating this monitoring patch as validated.
+
+---
+
 ## 2026-10-31 — Stage 1 final transfer-boundary review and exact-head CI confirmation
 
 - Rechecked PR #258 at branch head `7e42180b9391c62f018cf07b01ac07e02ae01209`: PR remains open, draft, unmerged, and targets `main`.
