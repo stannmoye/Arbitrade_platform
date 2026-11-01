@@ -12,11 +12,13 @@ The current script exercises:
 - Customer refresh, a real browser network outage, stale-state suppression, and recovery through the real eligibility API.
 - An unqualified customer: loading and genuine no-package state using a separate seeded account.
 - Administrator Trade navigation and package-policy editor on desktop/mobile viewports.
+- Real customer opportunities API response and visible popup rendering for a worker-delivered, open offer; any company identity shown must match the server-filtered verified-company result.
+- All five persistent administrator delivery switches (tier policy, pop-up delivery, company rotation, randomized timing, burst delivery), each toggled and restored through the real API with database read-back; automatic financial execution must remain OFF.
 - A valid bounded policy setting update, persisted read-back and reload, followed by restoration of the original value and verification.
 - Rejection of an out-of-range policy update without changing persisted policy values or versions.
 - Administrator customer-directory visibility of package ID, assignment ID, assignment status and terms version.
 
-The script submits **no financial or wallet mutations**. It does submit two successful administrator policy-setting mutations (temporary value and restoration), plus one deliberately invalid policy mutation which must be rejected.
+The script submits **no financial or wallet mutations**. It does submit temporary administrator policy-setting mutations and restores every changed value, plus one deliberately invalid policy mutation which must be rejected. It also toggles all five delivery controls OFF/ON or ON/OFF and restores their initial values; automatic financial execution must remain OFF.
 
 ## Required isolated test environment
 
@@ -31,7 +33,7 @@ Provide these environment variables:
 - `TRADING_ADMIN_STORAGE_STATE`: storage-state JSON for a test administrator.
 - `TRADING_ACCEPTANCE_CUSTOMER_EMAIL`: email of the eligible test customer as shown in the administrator directory.
 
-The storage-state files must already exist in Playwright's `{ cookies, origins }` format. The script does not log in, create accounts, or seed database records. Keep these files and credentials outside Git and the repository.
+The storage-state files must already exist in Playwright's `{ cookies, origins }` format. The script does not log in, create accounts, or seed database records. The eligible customer must have an active automatically assigned tier, a valid enabled delivery policy, and at least one reviewed open opportunity already delivered by the running worker; otherwise the popup acceptance check fails with a setup explanation. Keep these files and credentials outside Git and the repository.
 
 ## Run
 
