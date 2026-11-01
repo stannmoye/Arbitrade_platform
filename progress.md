@@ -1,3 +1,13 @@
+## 2026-11-01 — Per-package automatic-execution administrator control
+
+- Working branch: `fix/trading-auto-execution-admin-control`; based on canonical `main` at `964da01b179e5aa656720348eaf65fe7be8e6810`. Previous branch head before this progress update: `c056141bda7ba6399f1598d5748c6221a71d3ca0`.
+- Re-enabled the existing per-package automatic trade execution selector in `TradingDeliveryPolicyEditor`; it now saves the selected Boolean through the existing audited policy mutation. No duplicate control was added.
+- Removed the one-way disable-only status/action from the persistent admin panel; it now reports the saved package state. Disabling the package policy or automatic delivery also disables automatic execution in the same partial update.
+- Updated the canonical Trading specification, admin configuration manual and contract test to describe the revised administrator control. Historical migration notes remain explicit as historical facts, not current UI prohibitions.
+- Validation: source-level replacements and GitHub read-back completed. Local `pnpm check`, `pnpm test` and `pnpm build` have not been run in this environment; exact-head CI is required before merge. No production database, deployment or customer funds were touched.
+
+---
+
 ## 2026-11-01 — Persistent administrator Trading control panel
 
 - Working branch: `feat/admin-global-trading-control-panel`; based on canonical `main` at `e5800f221f08a28e56c46e33427da49f3a52d781`. The implementation/test head immediately before this progress update was `b95a8a7ff52b9b5ac7d81bff98747e2239934fe1`.
