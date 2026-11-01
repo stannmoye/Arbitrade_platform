@@ -65,6 +65,27 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(defaults).toContain("policyVersion:1");
   });
 
+
+  it("returns the package's persisted enabled state from package creation", () => {
+    const start = source.indexOf("export async function createAdminTradingPackage(");
+    const end = source.indexOf("\\nexport async function updateAdminTradingPackage(", start);
+    const implementation = source.slice(start, end);
+    expect(implementation).toContain("enabled:input.enabled,termsVersion:1");
+    expect(implementation).not.toContain("enabled:false,termsVersion:1");
+  });
+
+  it("keeps popup delivery running while a settlement gate blocks automatic execution", () => {
+    const start = source.indexOf("export async function runAutoTradeCycle(");
+    const end = source.indexOf("\\nexport async function createTrade(", start);
+    const implementation = source.slice(start, end);
+    expect(implementation).toContain("pausedUntilSettled=outstandingTrades>0");
+    expect(implementation).not.toContain("return {customers:0,allocations:0");
+    expect(implementation).toContain("allowAutomaticExecution:!pausedUntilSettled");
+    const deliveryStart = source.indexOf("export async function listCustomerOpportunities(");
+    const deliveryEnd = source.indexOf("export async function runAutoTradeCycle(", deliveryStart);
+    expect(source.slice(deliveryStart, deliveryEnd)).toContain("options.allowAutomaticExecution!==false");
+  });
+
   it("rechecks auto-assigned tier eligibility inside the trade-allocation transaction", () => {
     const start = source.indexOf("export async function createTrade(");
     const end = source.indexOf("\nexport async function ", start + 5);
