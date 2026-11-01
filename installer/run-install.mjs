@@ -158,15 +158,9 @@ if (mode === "fresh" && bootstrap.databaseTableCount !== 0) {
 }
 if (mode === "fresh") {
   const email = String(bootstrap.adminEmail || "").trim().toLowerCase();
-  const customerEmail = String(bootstrap.customerEmail || "").trim().toLowerCase();
   const password = String(bootstrap.adminPassword || "");
-  const customerPassword = String(bootstrap.customerPassword || "");
   if (!email || email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail("A valid administrator email of at most 320 characters is required for a fresh installation.");
   if (password.length < 12 || password.length > 200) fail("The administrator password must be between 12 and 200 characters.");
-  if (!customerEmail || customerEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) fail("A valid customer email of at most 320 characters is required for a fresh installation.");
-  if (customerPassword.length < 12 || customerPassword.length > 200) fail("The customer password must be between 12 and 200 characters.");
-  if (email === customerEmail) fail("Administrator and customer accounts must use different email addresses.");
-  if (password === customerPassword) fail("Administrator and customer passwords must be different.");
 }
 
 try {
@@ -292,7 +286,7 @@ async function setStage(stage) {
 }
 await writeFile(progressPath, JSON.stringify(progress, null, 2) + "\n", { mode: 0o600, flag: "wx" });
 if (mode === "fresh") {
-  console.log("\n[installer] Initializing a fresh database. Reward processing remains disabled unless separately enabled by an administrator.");
+  console.log("\n[installer] Initializing an empty database with a new administrator only. Existing customer and operational records are not imported.");
   await setStage("main-database-migrations");
   run("node", ["scripts/guarded-main-migrate.mjs"]);
   await setStage("portal-database-migrations");
@@ -311,8 +305,6 @@ if (mode === "fresh") {
   run("node", ["installer/create-initial-accounts.mjs"], {
     ADMIN_EMAIL: String(bootstrap.adminEmail).trim().toLowerCase(),
     ADMIN_PASSWORD: String(bootstrap.adminPassword),
-    CUSTOMER_EMAIL: String(bootstrap.customerEmail).trim().toLowerCase(),
-    CUSTOMER_PASSWORD: String(bootstrap.customerPassword),
   });
 } else {
   console.log("\n[installer] Existing-database mode: applying forward migrations while preserving account credentials and financial records.");
