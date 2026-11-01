@@ -623,8 +623,16 @@ async function runAdminAppearanceInteractionCheck(browser) {
     // before asserting that its controls have hydrated.
     await page.goto(`${BASE_URL}/ops-console-7f3a`, { waitUntil: "domcontentloaded" });
     await page.getByRole("heading", { name: "Control centre" }).waitFor({ state: "visible", timeout: 15000 });
-    await page.getByRole("button", { name: /Platform Configuration/ }).click();
-    await page.getByRole("button", { name: /Appearance & Themes/ }).click();
+    await page.getByRole("button", { name: "Open Admin Menus" }).click();
+    const reopenedAdminDrawer = page.locator("#admin-navigation-drawer");
+    await reopenedAdminDrawer.waitFor({ state: "visible" });
+    const reopenedPlatformConfigurationGroup = reopenedAdminDrawer.locator(".admin-secondary-group-heading")
+      .filter({ hasText: "Platform Configuration" });
+    await reopenedPlatformConfigurationGroup.waitFor({ state: "visible" });
+    if (await reopenedPlatformConfigurationGroup.getAttribute("aria-expanded") !== "true") {
+      await reopenedPlatformConfigurationGroup.click();
+    }
+    await reopenedAdminDrawer.getByRole("button", { name: /Appearance & Themes/ }).click();
     await page.getByRole("heading", { name: "Theme management" }).waitFor({ state: "visible", timeout: 15000 });
     await page.getByLabel("Default theme").waitFor({ state: "visible" });
     await page.getByRole("status").filter({ hasText: "Customer theme selection is enabled" }).waitFor({ state: "visible" });
