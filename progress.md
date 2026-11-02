@@ -1,3 +1,16 @@
+## 2026-11-02 — Trade Settings redesign Phase 0 (draft PR)
+
+- PR number/link: pending creation in this command; update this entry immediately after GitHub assigns it.
+- Working branch: `feature/trade-settings-redesign-phase0`.
+- Exact base SHA: `59c425414b981bc2fd8720119f2d4b650b97ab15` (fetched `origin/main`).
+- Added `docs/trading/TRADE_SETTINGS_REDESIGN_DECISIONS.md` from the attached Trade Settings Administration Blueprint. This is a documentation-only decision checkpoint; no application behavior changed.
+- Confirmed existing source already has one Trade Settings group, a read-only Guide, a single owner for current per-tier policy switches, save/read-back protection, admin-published opportunities, and hard-disabled automatic financial execution. These must not be recreated or duplicated.
+- Blocking product decisions remain explicit: global-vs-package scope/migration semantics, fail-closed handling of legacy pauses, and fee policy A/B/C plus round-up definition. No migration, financial change, settlement change, database write, deployment, or customer record change is allowed before those decisions and canonical-spec reconciliation.
+- Validation before push: `git diff --check`; no application test/build run because this checkpoint changes documentation only.
+- Next safe action: review/accept the fee and global migration decisions, then implement the typed owner registry/navigation checkpoint with uniqueness tests.
+
+---
+
 ## 2026-11-02 — Customer informational pop-up persistence and clarity
 
 ## 2026-11-02 — Fix tier-term saves blocked by delivery-policy activation gate
