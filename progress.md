@@ -1,5 +1,16 @@
-## 2026-11-02 — Trade Settings Checkpoint 6G: verified Package Settings and durable fee snapshots
+## 2026-11-02 — Trade Settings Checkpoint 6H: fee snapshot allocation CI follow-up
 
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`; implementation commit: `ae90506a`.
+- Exact-head CI on 6G exposed two remaining database integration failures: trade allocation did not select fee fields from the locked popup row, and the direct company-rotation integration fixture omitted the newly required fee snapshot values.
+- Fixed the createTrade projection to load rate/rounding/version from the persisted popup and added an integration assertion that those exact snapshot values reach the allocated trade. Completed the direct rotation fixture with valid immutable fee fields.
+- Local validation passed after the fix: `pnpm check`; full `pnpm test` (941 passed, 17 skipped); `pnpm build`; and `git diff --check`.
+- MySQL 8.4/MariaDB 11.4 company-rotation and worker integration checks must be rerun on the updated exact head; they remain unverified until GitHub Actions completes.
+- Remaining acceptance includes the critical global-vs-package owner/runtime split, operational-route scoping/pagination, and current Guide/browser/accessibility review.
+- Next safe action: publish the 6H follow-up, confirm the four failed matrix jobs turn green, then address global settings ownership/runtime before route/Guide cleanup.
+
+---
+
+## 2026-11-02 — Trade Settings Checkpoint 6G: verified Package Settings and durable fee snapshots
 - PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`; implementation commit: `41b98336`.
 - Package Settings now converts `datetime-local` values as UTC, preserves dirty drafts across polling, handles package renames during read-back, and verifies every submitted field plus the incremented package/policy versions before reporting success.
 - The atomic audit event now records complete old/new package terms and fee bounds/rounding with both versions. The disposable integration adds non-null UTC date assertions and full audit snapshot coverage.
