@@ -1,3 +1,14 @@
+## 2026-11-02 — Trade Settings redesign Phase 0 decisions approved
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Approved decision: Fee B. Package fee min/max bounds are integer basis points; select one inclusive rate once at opportunity creation, persist the rate and policy version, never reroll on retry/restart, charge only realized positive gross profit, and ceil the fee at the currency minor-unit boundary.
+- Approved decision: Migration 1. Preserve customer entitlements, opportunities, trades, settlements, wallets and ledger entries; preserve legacy package OFF/missing/invalid safety state as paused; initialize global delivery masters OFF when any legacy policy is unsafe; initialize global Require Previous Settlement ON; record conflicts/audit evidence; remove package-level runtime copies only after compatibility/read-back tests.
+- Reconciled `docs/TRADING_SYSTEM_SPECIFICATION.md`, `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md`, and `docs/trading/TRADE_SETTINGS_REDESIGN_DECISIONS.md` with those decisions. No application code, schema, migration, database, customer record, deployment, wallet, settlement, or financial execution changed.
+- Validation before commit: `git diff --check`. Focused contract tests are the next validation step; the exact updated head will be recorded by Git history and CI.
+- Next safe action: implement the typed settings-owner registry and navigation uniqueness tests. Keep the migration as a separate reviewed checkpoint with forward-only SQL, compatibility reader, conflict report and disposable-database tests.
+
+---
+
 ## 2026-11-02 — Trade Settings redesign Phase 0 (draft PR)
 
 - PR number/link: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274).

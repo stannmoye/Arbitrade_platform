@@ -1,7 +1,7 @@
 # Trade Settings Redesign — Phase 0 Decision Record
 
-**Status:** Draft decision checkpoint; no application behavior changed.
-**PR:** Assigned when this branch is opened; this file and `progress.md` must retain the link.
+**Status:** Phase 0 decisions approved; no application behavior changed.
+**PR:** [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274).
 **Source base:** `main` at `59c425414b981bc2fd8720119f2d4b650b97ab15`.
 **Scope:** Trade Settings Administration Blueprint, attached to this task.
 
@@ -42,20 +42,22 @@ The redesign must not recreate the Guide, duplicate existing owners, claim the p
 4. Initialize global **Require Previous Settlement** to ON. Future OFF changes require authorization, reason, audit evidence and server enforcement for future allocations only.
 5. Remove package-level runtime copies only after read-back and consumer tests prove the canonical global value is used.
 
-This is a proposal, not an applied migration.
+Migration 1 is approved as the forward-only, fail-closed target. It is not yet applied to a database; implementation requires a migration, compatibility reader, conflict report, and tests.
 
-## Fee-policy decision needed
+## Approved decisions
 
-The blueprint does not define how a fee is selected from min/max bounds. Before implementing editable bounds, choose one:
+The approved fee policy is **B**: configure package min/max fee bounds in integer basis points and select one inclusive rate once when the opportunity is created. Persist the selected rate and policy version with the opportunity; retries and restarts must never reroll it. Apply the fee only to realized positive gross profit. “Round up” means ceiling the fee amount at the currency minor-unit boundary. Principal, gross result, fee, net result and total credit remain separate; no fee applies to principal, expected returns, a loss, or an unverified result.
+
+The blueprint does not define how a fee is selected from min/max bounds. The approved selection rule is:
 
 - **A — Keep fixed policy:** retain the current versioned 15% rule and do not add editable min/max bounds in this PR.
-- **B — Select at opportunity creation:** choose an inclusive integer-basis-point rate from the package bounds once, persist/version it, never reroll on retries, and charge only realized positive gross profit.
+- **B — Select at opportunity creation:** approved. Choose an inclusive integer-basis-point rate from the package bounds once, persist/version it, never reroll on retries, and charge only realized positive gross profit.
 - **C — Explicit package rate:** save a concrete rate constrained by min/max and use that exact snapshot.
 
 For B or C, explicitly define whether round-up means ceiling at the currency minor-unit boundary. Principal, gross result, fee, net result and total credit remain separate; no fee may apply to principal, expected returns, losses or unverified results.
 
 ## Phase 0 exit gate
 
-This checkpoint records the audit and blockers only. Until the fee choice and global-control migration semantics are accepted and the canonical trading specification and admin manual are reconciled together, this branch must not change application code, schema, migrations, database state, customer records, hosted deployment, worker behavior, fees, settlement or financial execution.
+The fee and migration decisions are now accepted and recorded in the canonical trading specification and admin manual. This branch still does not change application code, schema, migrations, database state, customer records, hosted deployment, worker behavior, fees, settlement or financial execution.
 
-The next safe implementation checkpoint is a settings-owner registry/navigation refinement with uniqueness tests, preserving the existing read-only Guide.
+The next safe implementation checkpoint is the typed settings-owner registry/navigation refinement with uniqueness tests, preserving the existing read-only Guide. The approved global migration may not be applied until its forward-only SQL, compatibility reader, conflict report and disposable-database tests are reviewed.
