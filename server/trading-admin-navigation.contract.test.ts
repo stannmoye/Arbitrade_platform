@@ -273,7 +273,14 @@ describe("Trading menu ownership and quota save feedback", () => {
     expect(adminApp).toContain('dirtyPackageIds.current.has(id)');
     expect(adminApp).toContain('dirtyPackageIds.current.add(id)');
     expect(adminApp).toContain('const refreshed=await q.refetch()');
-    expect(adminApp).toContain('Number(persisted.opportunitiesPerDay)===Number(saved.opportunitiesPerDay)');
+    expect(adminApp).toContain('onSuccess:async(saved:any,variables:any)=>');
+    expect(adminApp).toContain('Number(persisted.minimumQualifyingBalanceUsdMinor)===Number(variables.minimumQualifyingBalanceUsdMinor)');
+    expect(adminApp).toContain('Number(persisted.durationMonths)===Number(variables.durationMonths)');
+    expect(adminApp).toContain('Number(persisted.opportunitiesPerDay)===Number(variables.opportunitiesPerDay)');
+    expect(adminApp).toContain('sameDate(persisted.startsAt,variables.startsAt)');
+    expect(adminApp).toContain('sameDate(persisted.expiresAt,variables.expiresAt)');
+    expect(adminApp).toContain('Boolean(persisted.enabled)===Boolean(variables.enabled)');
+    expect(adminApp).toContain('Number(persisted.termsVersion)>Number(previous?.termsVersion??0)');
     expect(adminApp).toContain('Saved and verified from the database: ');
     expect(adminApp).toContain('Saving tier…');
     expect(adminApp).toContain('<h2>{draft.name||pkg.name}</h2>');
