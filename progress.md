@@ -1,3 +1,14 @@
+## 2026-11-02 — Trade Settings Checkpoint 1A: typed owner registry
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Added `client/src/trade-settings-registry.ts`, a typed declarative registry covering approved global controls, package terms, delivery caps and opportunity publishing. Each key declares scope, one owner route/section, validation, mutation, read query, audit policy, effective time, runtime consumer, customer effect and risk.
+- Added `server/trading-settings-owner-registry.contract.test.ts` to reject duplicate keys, missing owners/contracts, mixed global/package scope, and undocumented approved fee/migration effects.
+- No persistence path, runtime consumer, financial calculation, schema or migration was changed. Existing rendered navigation remains the canonical route registry and current per-tier controls remain unchanged until the migration checkpoint.
+- Validation: `pnpm exec vitest run server/trading-settings-owner-registry.contract.test.ts server/trading-admin-navigation.contract.test.ts` — 23 tests passed; `pnpm check` passed; `git diff --check` passed.
+- Next safe action: connect the registry to route ownership/visibility checks and add the dedicated Package Configuration/Package Settings route contracts without duplicating current controls. Keep global migration and fee runtime changes separate from navigation work.
+
+---
+
 ## 2026-11-02 — Trade Settings redesign Phase 0 decisions approved
 
 - PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
