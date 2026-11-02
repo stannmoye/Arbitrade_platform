@@ -2718,7 +2718,48 @@ export async function updateAdminTradingPackageSettings(updatedBy:number,input:{
     if(current.name!==name) await tx.update(opportunityPackagePolicies).set({packageName:name,updatedBy,updatedAt:new Date()}).where(eq(opportunityPackagePolicies.id,currentPolicy.id));
     await tx.update(packages).set({name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:nextTermsVersion}).where(eq(packages.id,input.id));
     await tx.update(opportunityPackagePolicies).set({minimumPlatformFeeBps:input.minimumPlatformFeeBps,maximumPlatformFeeBps:input.maximumPlatformFeeBps,platformFeeRoundingMode:input.platformFeeRoundingMode,updatedBy,policyVersion:nextPolicyVersion,updatedAt:new Date()}).where(eq(opportunityPackagePolicies.id,currentPolicy.id));
-    await tx.insert(v5AuditEvents).values({actorUserId:updatedBy,action:"trading_package_settings_updated",entityType:"trading_package",entityId:String(input.id),reason:auditReason,reference:"trading-package-settings:"+input.id+":"+nextTermsVersion+":"+nextPolicyVersion,metadataJson:JSON.stringify({old:{name:current.name,termsVersion:current.termsVersion,policyVersion:currentPolicy.policyVersion},new:{name,termsVersion:nextTermsVersion,policyVersion:nextPolicyVersion,minimumPlatformFeeBps:input.minimumPlatformFeeBps,maximumPlatformFeeBps:input.maximumPlatformFeeBps}})});
+    await tx.insert(v5AuditEvents).values({
+      actorUserId:updatedBy,
+      action:"trading_package_settings_updated",
+      entityType:"trading_package",
+      entityId:String(input.id),
+      reason:auditReason,
+      reference:"trading-package-settings:"+input.id+":"+nextTermsVersion+":"+nextPolicyVersion,
+      metadataJson:JSON.stringify({
+        old:{
+          name:current.name,
+          minimumQualifyingBalanceUsdMinor:Number(current.minimumQualifyingBalanceUsdMinor),
+          durationMonths:current.durationMonths,
+          opportunitiesPerDay:current.opportunitiesPerDay,
+          maxPopupsPerDay:current.maxPopupsPerDay,
+          maxActiveInvestments:current.maxActiveInvestments,
+          startsAt:current.startsAt,
+          expiresAt:current.expiresAt,
+          enabled:current.enabled,
+          termsVersion:current.termsVersion,
+          minimumPlatformFeeBps:Number(currentPolicy.minimumPlatformFeeBps),
+          maximumPlatformFeeBps:Number(currentPolicy.maximumPlatformFeeBps),
+          platformFeeRoundingMode:currentPolicy.platformFeeRoundingMode,
+          policyVersion:currentPolicy.policyVersion,
+        },
+        new:{
+          name,
+          minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,
+          durationMonths:input.durationMonths,
+          opportunitiesPerDay:input.opportunitiesPerDay,
+          maxPopupsPerDay:input.maxPopupsPerDay,
+          maxActiveInvestments:input.maxActiveInvestments,
+          startsAt:input.startsAt,
+          expiresAt:input.expiresAt,
+          enabled:input.enabled,
+          termsVersion:nextTermsVersion,
+          minimumPlatformFeeBps:input.minimumPlatformFeeBps,
+          maximumPlatformFeeBps:input.maximumPlatformFeeBps,
+          platformFeeRoundingMode:input.platformFeeRoundingMode,
+          policyVersion:nextPolicyVersion,
+        },
+      }),
+    });
   });
   return listOpportunityPackagePolicies();
 }
@@ -4016,7 +4057,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     !Number.isSafeInteger(configuredDurationSeconds)||configuredDurationSeconds<10||configuredDurationSeconds>86400||
     !Number.isSafeInteger(platformFeeRateBps)||platformFeeRateBps<0||platformFeeRateBps>10000||
     !["up","down","half_up","half_even"].includes(platformFeeRoundingMode)||!Number.isSafeInteger(feePolicyVersion)||feePolicyVersion<1
-  )) throw new Error("This pop-up has no valid saved rate and duration snapshot. Refresh opportunities after the administrator saves its tier policy.");
+  )) throw new Error("This pop-up has no valid saved rate, duration, or fee-policy snapshot. Refresh opportunities after the administrator saves its tier policy.");
   const effectiveRateBps=input.deliveryEventId!==undefined?configuredRateBps:Number(offer.expectedRewardBps||terms.rewardBps);
   const effectiveDurationSeconds=input.deliveryEventId!==undefined?configuredDurationSeconds:Number(offer.durationSeconds);
   if(!Number.isSafeInteger(effectiveRateBps)||effectiveRateBps<1||effectiveRateBps>5000) throw new Error("Selected Trading return rate is outside the supported policy bounds");

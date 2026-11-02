@@ -15,6 +15,9 @@ type PopupDelivery = {
   configuredProfitRateBps: number;
   configuredDurationSeconds: number;
   configuredPopupDisplaySeconds: number;
+  platformFeeRateBps: number;
+  platformFeeRoundingMode: string;
+  feePolicyVersion: number;
   packagePolicyVersionSnapshot: number;
   policyVersion: number;
   durationSeconds: number;
@@ -151,16 +154,17 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
         await connection.execute(
           `INSERT INTO opportunity_popup_events
             (eventKey,userId,offerId,quotaDay,packageName,symbol,currency,minimumMinor,expectedRewardBps,
-             configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds,packagePolicyVersionSnapshot,packageBadgeLabel,
+             configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds,platformFeeRateBps,platformFeeRoundingMode,feePolicyVersion,packagePolicyVersionSnapshot,packageBadgeLabel,
              companyReferenceId,companyDisplayName,companyLogoUrl,companyReferenceMetadataJson,companyReferenceOnly,
              balanceAvailableMinor,balanceStatus,marketObservedAt,marketSnapshotJson,durationSeconds,badgeLabel,badgeStyle,policyVersion,
              eventStatus,deliveredAt,createdAt,updatedAt)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
            ON DUPLICATE KEY UPDATE updatedAt=CURRENT_TIMESTAMP`,
           [
             eventKey, item.userId, item.offerId, item.quotaDay, item.packageName, item.symbol, item.currency,
             item.minimumMinor, item.expectedRewardBps, item.configuredProfitRateBps, item.configuredDurationSeconds,
-            item.configuredPopupDisplaySeconds, item.packagePolicyVersionSnapshot, item.packageBadgeLabel || null,
+            item.configuredPopupDisplaySeconds, item.platformFeeRateBps, item.platformFeeRoundingMode, item.feePolicyVersion,
+            item.packagePolicyVersionSnapshot, item.packageBadgeLabel || null,
             company?.id || null, company?.name || null, company?.logoUrl || null, company?.metadataJson || null, company ? 1 : 0,
             item.balanceAvailableMinor, item.balanceStatus, item.marketObservedAt || null, item.marketSnapshotJson || null,
             item.durationSeconds, item.badgeLabel || null, item.badgeStyle, item.policyVersion,

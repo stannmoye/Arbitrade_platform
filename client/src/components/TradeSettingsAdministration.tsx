@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, RefreshCw, ShieldAlert } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { fromUtcDateTimeInput, toUtcDateTimeInput, toUtcIsoString } from "@/lib/utcDateTime";
 
 const globalFields = [
   ["tierPolicyMaster", "Tier policy master", "Allows the server to consider otherwise-valid enabled tiers."],
@@ -58,7 +59,6 @@ type PackageDraft = {
   platformFeeRoundingMode: RoundingMode;
 };
 
-const toInputDateTime = (value: unknown) => value ? new Date(String(value)).toISOString().slice(0, 16) : "";
 const packageDraftFrom = (item: any, policy: any): PackageDraft => ({
   name: String(item?.name ?? ""),
   minimumQualifyingBalanceUsdMinor: Number(item?.minimumQualifyingBalanceUsdMinor ?? 0),
@@ -66,8 +66,8 @@ const packageDraftFrom = (item: any, policy: any): PackageDraft => ({
   opportunitiesPerDay: Number(item?.opportunitiesPerDay ?? 1),
   maxPopupsPerDay: Number(item?.maxPopupsPerDay ?? 0),
   maxActiveInvestments: Number(item?.maxActiveInvestments ?? 0),
-  startsAt: toInputDateTime(item?.startsAt),
-  expiresAt: toInputDateTime(item?.expiresAt),
+  startsAt: toUtcDateTimeInput(item?.startsAt),
+  expiresAt: toUtcDateTimeInput(item?.expiresAt),
   enabled: Boolean(item?.enabled),
   minimumPlatformFeeBps: Number(policy?.minimumPlatformFeeBps ?? 1500),
   maximumPlatformFeeBps: Number(policy?.maximumPlatformFeeBps ?? 1500),
@@ -82,6 +82,8 @@ export function AdminTradePackageSettings() {
   const [draft, setDraft] = useState<PackageDraft | null>(null);
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
+  const [draftDirty, setDraftDirty] = useState(false);
+  const [draftOwner, setDraftOwner] = useState<string | null>(null);
   const policy = useMemo(() => (policies.data ?? []).find((row: any) => row.packageName === selected) as any, [policies.data, selected]);
   const packageRow = useMemo(() => (packages.data ?? []).find((row: any) => row.name === selected) as any, [packages.data, selected]);
 
@@ -90,23 +92,39 @@ export function AdminTradePackageSettings() {
     if (!selected && first) setSelected(first);
   }, [packages.data, selected]);
   useEffect(() => {
-    if (packageRow) setDraft(packageDraftFrom(packageRow, policy));
-  }, [packageRow, policy]);
+    if (!packageRow || (draftDirty && draftOwner === selected)) return;
+    setDraft(packageDraftFrom(packageRow, policy));
+    setDraftDirty(false);
+    setDraftOwner(selected);
+  }, [packageRow, policy, selected, draftDirty, draftOwner]);
 
-  const patch = (key: keyof PackageDraft, value: unknown) => setDraft(current => current ? ({ ...current, [key]: value } as PackageDraft) : current);
-  const invalid = !draft || !selected || !reason.trim() || reason.trim().length < 5 || !draft.name.trim() || !Number.isSafeInteger(Number(draft.minimumQualifyingBalanceUsdMinor)) || Number(draft.minimumQualifyingBalanceUsdMinor) <= 0 || !Number.isInteger(Number(draft.durationMonths)) || Number(draft.durationMonths) < 1 || Number(draft.durationMonths) > 1200 || !Number.isInteger(Number(draft.opportunitiesPerDay)) || Number(draft.opportunitiesPerDay) < 1 || Number(draft.opportunitiesPerDay) > 10000 || !Number.isInteger(Number(draft.maxPopupsPerDay)) || Number(draft.maxPopupsPerDay) < 0 || Number(draft.maxPopupsPerDay) > 10000 || !Number.isInteger(Number(draft.maxActiveInvestments)) || Number(draft.maxActiveInvestments) < 0 || Number(draft.maxActiveInvestments) > 10000 || (draft.startsAt && draft.expiresAt && new Date(draft.expiresAt).getTime() <= new Date(draft.startsAt).getTime()) || !Number.isInteger(Number(draft.minimumPlatformFeeBps)) || !Number.isInteger(Number(draft.maximumPlatformFeeBps)) || Number(draft.minimumPlatformFeeBps) < 0 || Number(draft.maximumPlatformFeeBps) > 10000 || Number(draft.minimumPlatformFeeBps) > Number(draft.maximumPlatformFeeBps);
+  const patch = (key: keyof PackageDraft, value: unknown) => {
+    setDraftDirty(true);
+    setDraftOwner(selected);
+    setDraft(current => current ? ({ ...current, [key]: value } as PackageDraft) : current);
+  };
+  const startsAt = draft?.startsAt ? fromUtcDateTimeInput(draft.startsAt) : null;
+  const expiresAt = draft?.expiresAt ? fromUtcDateTimeInput(draft.expiresAt) : null;
+  const invalid = !draft || !policy || !selected || !reason.trim() || reason.trim().length < 5 || !draft.name.trim() || !Number.isSafeInteger(Number(draft.minimumQualifyingBalanceUsdMinor)) || Number(draft.minimumQualifyingBalanceUsdMinor) <= 0 || !Number.isInteger(Number(draft.durationMonths)) || Number(draft.durationMonths) < 1 || Number(draft.durationMonths) > 1200 || !Number.isInteger(Number(draft.opportunitiesPerDay)) || Number(draft.opportunitiesPerDay) < 1 || Number(draft.opportunitiesPerDay) > 10000 || !Number.isInteger(Number(draft.maxPopupsPerDay)) || Number(draft.maxPopupsPerDay) < 0 || Number(draft.maxPopupsPerDay) > 10000 || !Number.isInteger(Number(draft.maxActiveInvestments)) || Number(draft.maxActiveInvestments) < 0 || Number(draft.maxActiveInvestments) > 10000 || (draft.startsAt !== "" && !startsAt) || (draft.expiresAt !== "" && !expiresAt) || Boolean(startsAt && expiresAt && expiresAt.getTime() <= startsAt.getTime()) || !Number.isInteger(Number(draft.minimumPlatformFeeBps)) || !Number.isInteger(Number(draft.maximumPlatformFeeBps)) || Number(draft.minimumPlatformFeeBps) < 0 || Number(draft.maximumPlatformFeeBps) > 10000 || Number(draft.minimumPlatformFeeBps) > Number(draft.maximumPlatformFeeBps);
 
   const saveDraft = async () => {
-    if (!draft || invalid || !packageRow) return;
+    if (!draft || invalid || !packageRow || !policy) return;
+    const savedName = draft.name.trim();
+    const expectedStartsAt = startsAt?.toISOString() ?? null;
+    const expectedExpiresAt = expiresAt?.toISOString() ?? null;
     setMessage("");
     try {
-      await updateSettings.mutateAsync({ id: Number(packageRow.id), name: draft.name.trim(), minimumQualifyingBalanceUsdMinor: Number(draft.minimumQualifyingBalanceUsdMinor), durationMonths: Number(draft.durationMonths), opportunitiesPerDay: Number(draft.opportunitiesPerDay), maxPopupsPerDay: Number(draft.maxPopupsPerDay), maxActiveInvestments: Number(draft.maxActiveInvestments), startsAt: draft.startsAt ? new Date(draft.startsAt).toISOString() : null, expiresAt: draft.expiresAt ? new Date(draft.expiresAt).toISOString() : null, enabled: draft.enabled, minimumPlatformFeeBps: Number(draft.minimumPlatformFeeBps), maximumPlatformFeeBps: Number(draft.maximumPlatformFeeBps), platformFeeRoundingMode: draft.platformFeeRoundingMode, reason: reason.trim() });
+      await updateSettings.mutateAsync({ id: Number(packageRow.id), name: savedName, minimumQualifyingBalanceUsdMinor: Number(draft.minimumQualifyingBalanceUsdMinor), durationMonths: Number(draft.durationMonths), opportunitiesPerDay: Number(draft.opportunitiesPerDay), maxPopupsPerDay: Number(draft.maxPopupsPerDay), maxActiveInvestments: Number(draft.maxActiveInvestments), startsAt: expectedStartsAt, expiresAt: expectedExpiresAt, enabled: draft.enabled, minimumPlatformFeeBps: Number(draft.minimumPlatformFeeBps), maximumPlatformFeeBps: Number(draft.maximumPlatformFeeBps), platformFeeRoundingMode: draft.platformFeeRoundingMode, reason: reason.trim() });
       const [packagesRead, policiesRead] = await Promise.all([packages.refetch(), policies.refetch()]);
       const saved = (packagesRead.data ?? []).find((row: any) => Number(row.id) === Number(packageRow.id)) as any;
-      const savedFee = (policiesRead.data ?? []).find((row: any) => row.packageName === selected) as any;
-      const confirmed = saved && Number(saved.minimumQualifyingBalanceUsdMinor) === Number(draft.minimumQualifyingBalanceUsdMinor) && Number(saved.durationMonths) === Number(draft.durationMonths) && Number(saved.opportunitiesPerDay) === Number(draft.opportunitiesPerDay) && Number(saved.maxPopupsPerDay) === Number(draft.maxPopupsPerDay) && Number(saved.maxActiveInvestments) === Number(draft.maxActiveInvestments) && Boolean(saved.enabled) === draft.enabled && Number(savedFee?.minimumPlatformFeeBps) === Number(draft.minimumPlatformFeeBps) && Number(savedFee?.maximumPlatformFeeBps) === Number(draft.maximumPlatformFeeBps);
+      const savedFee = (policiesRead.data ?? []).find((row: any) => row.packageName === savedName) as any;
+      const confirmed = saved && savedFee && saved.name === savedName && Number(saved.minimumQualifyingBalanceUsdMinor) === Number(draft.minimumQualifyingBalanceUsdMinor) && Number(saved.durationMonths) === Number(draft.durationMonths) && Number(saved.opportunitiesPerDay) === Number(draft.opportunitiesPerDay) && Number(saved.maxPopupsPerDay) === Number(draft.maxPopupsPerDay) && Number(saved.maxActiveInvestments) === Number(draft.maxActiveInvestments) && toUtcIsoString(saved.startsAt) === expectedStartsAt && toUtcIsoString(saved.expiresAt) === expectedExpiresAt && Boolean(saved.enabled) === draft.enabled && Number(saved.termsVersion) === Number(packageRow.termsVersion) + 1 && savedFee.packageName === savedName && Number(savedFee.minimumPlatformFeeBps) === Number(draft.minimumPlatformFeeBps) && Number(savedFee.maximumPlatformFeeBps) === Number(draft.maximumPlatformFeeBps) && savedFee.platformFeeRoundingMode === draft.platformFeeRoundingMode && Number(savedFee.policyVersion) === Number(policy.policyVersion) + 1;
       if (!confirmed) throw new Error("Package Settings were submitted, but a fresh database read did not confirm every saved term. Your draft remains on screen.");
       setMessage(`Package Settings saved atomically and verified from the database for ${saved.name}. Existing customer snapshots remain unchanged.`);
+      setDraft(packageDraftFrom(saved, savedFee));
+      setDraftDirty(false);
+      setDraftOwner(saved.name);
+      setSelected(saved.name);
       setReason("");
     } catch (error) {
       const detail = error instanceof Error ? error.message : "Package Settings could not be saved.";

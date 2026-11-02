@@ -205,15 +205,28 @@ try {
     "Invalid settings must not change the package policy."
   );
 
+  const successStartsAt = new Date("2026-11-03T12:00:00.000Z");
+  const successExpiresAt = new Date("2027-11-03T12:00:00.000Z");
   await updateAdminTradingPackageSettings(
     adminId,
-    settings(renamedName, successReason)
+    settings(renamedName, successReason, {
+      startsAt: successStartsAt,
+      expiresAt: successExpiresAt,
+    })
   );
   const afterCommit = await readState();
   assert.equal(afterCommit.packageRow.name, renamedName);
   assert.equal(afterCommit.packageRow.minimumQualifyingBalanceUsdMinor, 25000);
   assert.equal(afterCommit.packageRow.durationMonths, 6);
   assert.equal(afterCommit.packageRow.opportunitiesPerDay, 8);
+  assert.equal(
+    new Date(afterCommit.packageRow.startsAt!).toISOString(),
+    successStartsAt.toISOString()
+  );
+  assert.equal(
+    new Date(afterCommit.packageRow.expiresAt!).toISOString(),
+    successExpiresAt.toISOString()
+  );
   assert.equal(
     afterCommit.packageRow.termsVersion,
     Number(beforeCommit.packageRow.termsVersion) + 1,
@@ -254,10 +267,48 @@ try {
     new RegExp(`^trading-package-settings:${packageId}:`)
   );
   const auditMetadata = JSON.parse(String(committedAudits[0].metadataJson));
+  assert.equal(auditMetadata.old.name, initialName);
+  assert.equal(auditMetadata.old.minimumQualifyingBalanceUsdMinor, 10000);
+  assert.equal(auditMetadata.old.durationMonths, 1);
+  assert.equal(auditMetadata.old.opportunitiesPerDay, 3);
+  assert.equal(auditMetadata.old.maxPopupsPerDay, 5);
+  assert.equal(auditMetadata.old.maxActiveInvestments, 1);
+  assert.equal(auditMetadata.old.startsAt, null);
+  assert.equal(auditMetadata.old.expiresAt, null);
+  assert.equal(auditMetadata.old.enabled, false);
   assert.equal(
     auditMetadata.new.termsVersion,
     Number(afterCommit.packageRow.termsVersion)
   );
+  assert.equal(
+    auditMetadata.old.termsVersion,
+    Number(beforeCommit.packageRow.termsVersion)
+  );
+  assert.equal(auditMetadata.old.minimumPlatformFeeBps, 1500);
+  assert.equal(auditMetadata.old.maximumPlatformFeeBps, 1500);
+  assert.equal(auditMetadata.old.platformFeeRoundingMode, "up");
+  assert.equal(
+    auditMetadata.old.policyVersion,
+    Number(beforeCommit.policyRow.policyVersion)
+  );
+  assert.equal(auditMetadata.new.name, renamedName);
+  assert.equal(auditMetadata.new.minimumQualifyingBalanceUsdMinor, 25000);
+  assert.equal(auditMetadata.new.durationMonths, 6);
+  assert.equal(auditMetadata.new.opportunitiesPerDay, 8);
+  assert.equal(auditMetadata.new.maxPopupsPerDay, 12);
+  assert.equal(auditMetadata.new.maxActiveInvestments, 2);
+  assert.equal(
+    new Date(auditMetadata.new.startsAt).toISOString(),
+    successStartsAt.toISOString()
+  );
+  assert.equal(
+    new Date(auditMetadata.new.expiresAt).toISOString(),
+    successExpiresAt.toISOString()
+  );
+  assert.equal(auditMetadata.new.enabled, false);
+  assert.equal(auditMetadata.new.minimumPlatformFeeBps, 1250);
+  assert.equal(auditMetadata.new.maximumPlatformFeeBps, 2400);
+  assert.equal(auditMetadata.new.platformFeeRoundingMode, "up");
   assert.equal(
     auditMetadata.new.policyVersion,
     Number(afterCommit.policyRow.policyVersion)
@@ -315,6 +366,14 @@ try {
     afterRollback.packageRow.termsVersion,
     beforeRollback.packageRow.termsVersion,
     "An audit insert failure must roll back the package version."
+  );
+  assert.equal(
+    new Date(afterRollback.packageRow.startsAt!).toISOString(),
+    successStartsAt.toISOString()
+  );
+  assert.equal(
+    new Date(afterRollback.packageRow.expiresAt!).toISOString(),
+    successExpiresAt.toISOString()
   );
   assert.equal(
     afterRollback.policyRow.packageName,
