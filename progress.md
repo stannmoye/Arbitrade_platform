@@ -1,3 +1,18 @@
+## 2026-11-02 — Customer informational pop-up persistence and clarity
+
+- Working branch: `fix/trading-customer-popup-persistence-and-visibility`, based on merged `main` commit `4d8812d197277d031ec5d340efbfcf0e457cb7a6`.
+- Customer opportunity alerts remain available after the configured expanded display duration by collapsing into a fixed bottom-of-viewport dock with Maximize and Dismiss controls. Minimize/maximize and the display timer are presentation-only.
+- Customer alerts use persisted server offer status and delivery status to determine eligibility. Closed/expired or non-delivered offers are not presented as fresh alerts.
+- The browser's Web Lock is held for the active alert lifetime and released on dismissal, withdrawal or component teardown to avoid a second tab displaying the same notice concurrently.
+- Updated the mocked Stage 2 browser acceptance flow to cover insufficient-balance details, informational-only wording, timed docking, manual minimize/maximize and dismissal.
+- The insufficient-balance state displays required capital, available balance and shortfall using the currency registry scale/symbol. Unknown balance state is labelled unavailable rather than treated as sufficient.
+- Removed automated-trade/live-progress wording and unused customer trade-history polling from informational alerts. The card states that it does not execute trades, allocate capital or change wallet balances.
+- Kept `AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false` unchanged. No wallet, ledger, allocation, settlement, production database or Blitz deployment was changed.
+- Added contract checks for current-offer gating, persistent minimize/dock behavior, balance presentation, currency precision and informational-only wording.
+- Validation: GitHub Actions for this feature branch are pending. No authenticated Blitz browser acceptance or live-host check was run; source CI alone will not prove that the customer portal is deployed.
+
+---
+
 ## 2026-11-01 — Trade Settings consolidation and quota-save integrity
 
 - Working branch: `fix/trade-settings-navigation-and-quota-save`, based on `main` commit `d4f90e5501b9f30391f3535d4807e8a2be2a5c9a`.

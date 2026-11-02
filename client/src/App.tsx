@@ -372,132 +372,213 @@ function CustomerWorkspace({user}:{user:{name:string|null;email:string|null}}) {
 function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportunityData,userEmail}:{sound:boolean;soundSettings:SoundSettings;onOpen:()=>void;delivery?:any;opportunityData?:any;userEmail:string}) {
   const lifecycle=trpc.customer.popupLifecycle.useMutation();
   const deliveryStatus=trpc.customer.popupDeliveryStatus.useMutation();
-  const trades=trpc.customer.trades.useQuery(undefined,{refetchInterval:2000,enabled:Boolean(opportunityData)});
   const [popup,setPopup]=useState<any>(null);
-  const [preAlert,setPreAlert]=useState<any>(null);
+  const [minimized,setMinimized]=useState(false);
   const popupRef=useRef<any>(null);
-  const preAlertRef=useRef<any>(null);
   const seen=useRef<Set<number>>(new Set());
   const displaying=useRef<Set<number>>(new Set());
-  // Keep server-marked eligible opportunities until their visible popup is shown;
-  // later 10-second API refreshes must not silently discard the queue.
   const pending=useRef<Map<number,any>>(new Map());
-  const shownAt=useRef<number[]>([]);
-  const nextAllowedAt=useRef(0);
   const timer=useRef<number|null>(null);
-  const preTimer=useRef<number|null>(null);
+  const releaseDisplayLock=useRef<(()=>void)|null>(null);
   const policy=delivery?.popupPolicy;
   const storageKey=`arbitrade_opportunity_popup_timing:${String(userEmail||"unknown").trim().toLowerCase()}`;
-  const syncTiming=()=>{
-    try{
-      const saved=JSON.parse(window.localStorage.getItem(storageKey)||"null");
-      if(saved&&Array.isArray(saved.shownAt)){
-        const now=Date.now();
-        const incoming=saved.shownAt.filter((value:any)=>typeof value==="number"&&Number.isFinite(value)&&now-value<86400000);
-        shownAt.current=Array.from(new Set([...shownAt.current,...incoming])).sort((a,b)=>a-b);
-        nextAllowedAt.current=Math.max(nextAllowedAt.current,Number.isFinite(saved.nextAllowedAt)?saved.nextAllowedAt:0);
-      }
-    }catch{}
+
+  const isOfferOpen=(offer:any)=>{
+    const closesAt=new Date(offer.closesAt).getTime();
+    return String(offer.offerStatus||"").toLowerCase()==="open"&&Number.isFinite(closesAt)&&closesAt>Date.now();
   };
-  useEffect(()=>{
-    syncTiming();
-    const onStorage=(event:StorageEvent)=>{if(event.key===storageKey)syncTiming()};
-    window.addEventListener("storage",onStorage);
-    return()=>window.removeEventListener("storage",onStorage);
-  },[storageKey]);
-  const isOfferOpen=(offer:any)=>{const expiresAt=new Date(offer.closesAt).getTime();return Number.isFinite(expiresAt)&&expiresAt>Date.now()};
-  const isOfferCurrent=(offer:any)=>isOfferOpen(offer)&&Boolean(opportunityData?.offers?.some((current:any)=>current.id===offer.id));
-  const random=()=>{
-    if(typeof crypto!=="undefined"&&crypto.getRandomValues){
-      const values=new Uint32Array(1);
-      crypto.getRandomValues(values);
-      return values[0]/4294967295;
-    }
-    return Math.random();
-  };
+  const isOfferCurrent=(offer:any)=>isOfferOpen(offer)&&offer.popupEligible===true&&
+    Boolean(opportunityData?.offers?.some((current:any)=>Number(current.id)===Number(offer.id)&&
+      current.popupEligible===true&&String(current.offerStatus||"").toLowerCase()==="open"));
   const canShow=()=>Boolean(delivery?.enabled&&policy);
-  const getCandidates=(available:any[])=>{
-    const now=Date.now();
-    for(const offer of available){
-      if(offer.popupEligible===true&&!seen.current.has(offer.id))pending.current.set(offer.id,offer);
-    }
-    const visibleIds=new Set(available.map((offer:any)=>offer.id));
-    for(const [id,offer] of pending.current){
-      if(!visibleIds.has(id)||!isOfferOpen(offer))pending.current.delete(id);
-    }
-    return Array.from(pending.current.values()).filter((offer:any)=>!seen.current.has(offer.id));
-  };
+
   const stop=()=>{
     stopConfiguredSound();
     popupRef.current=null;
-    preAlertRef.current=null;
     setPopup(null);
-    setPreAlert(null);
+    setMinimized(false);
+    if(releaseDisplayLock.current){releaseDisplayLock.current();releaseDisplayLock.current=null;}
     if(timer.current!==null)window.clearTimeout(timer.current);
-    if(preTimer.current!==null)window.clearTimeout(preTimer.current);
     timer.current=null;
-    preTimer.current=null;
   };
-  const showOffer=(offer:any)=>{
-    if(seen.current.has(offer.id)||displaying.current.has(offer.id)||!isOfferCurrent(offer)||popupRef.current)return;
-    displaying.current.add(offer.id);
-    const display=()=>{
-      syncTiming();
-      if(!isOfferCurrent(offer)||!canShow()||popupRef.current){
-        displaying.current.delete(offer.id);
-        return;
+  const scheduleCollapse=()=>{
+    if(timer.current!==null)window.clearTimeout(timer.current);
+    const configuredSeconds=Number(popupRef.current?.configuredPopupDisplaySeconds||policy?.popupDisplaySeconds||8);
+    const displaySeconds=Number.isFinite(configuredSeconds)?Math.min(86400,Math.max(1,Math.trunc(configuredSeconds))):8;
+    timer.current=window.setTimeout(()=>{
+      timer.current=null;
+      stopConfiguredSound();
+      setMinimized(true);
+    },displaySeconds*1000);
+  };
+  const dismiss=()=>{
+    const eventId=Number(popupRef.current?.deliveryEventId||0);
+    if(eventId>0)void lifecycle.mutateAsync({eventId,action:"dismissed"}).catch(()=>{});
+    stop();
+  };
+
+  const getCandidates=(available:any[])=>{
+    for(const offer of available){
+      if(offer.popupEligible===true&&isOfferOpen(offer)&&!seen.current.has(Number(offer.id))){
+        pending.current.set(Number(offer.id),offer);
+      }else{
+        pending.current.delete(Number(offer.id));
       }
-      displaying.current.delete(offer.id);
-      // Mark an offer as seen only after a popup is actually committed to the UI.
-      // A temporary disabled gate, competing tab, or delayed browser lock must
-      // not permanently suppress the offer in this customer's session.
-      seen.current.add(offer.id);
+    }
+    const visibleIds=new Set(available.map((offer:any)=>Number(offer.id)));
+    for(const [id,offer] of pending.current){
+      if(!visibleIds.has(id)||!isOfferOpen(offer))pending.current.delete(id);
+    }
+    return Array.from(pending.current.values()).filter((offer:any)=>!seen.current.has(Number(offer.id)));
+  };
+
+  const showOffer=(offer:any)=>{
+    const offerId=Number(offer.id);
+    if(seen.current.has(offerId)||displaying.current.has(offerId)||!isOfferCurrent(offer)||popupRef.current)return;
+    displaying.current.add(offerId);
+    const display=()=>{
+      if(!isOfferCurrent(offer)||!canShow()||popupRef.current){
+        displaying.current.delete(offerId);
+        return false;
+      }
+      displaying.current.delete(offerId);
+      seen.current.add(offerId);
       popupRef.current=offer;
       setPopup(offer);
-      if(offer.deliveryEventId) { void deliveryStatus.mutateAsync({eventId:offer.deliveryEventId,status:"received"}).then(()=>deliveryStatus.mutateAsync({eventId:offer.deliveryEventId,status:"rendered"})).catch(()=>deliveryStatus.mutate({eventId:offer.deliveryEventId,status:"failed",errorCode:"POPUP_RENDER_FAILED"})); void lifecycle.mutateAsync({eventId:offer.deliveryEventId,action:"noticed"}).catch(()=>{}); }
+      setMinimized(false);
+      if(offer.deliveryEventId){
+        void deliveryStatus.mutateAsync({eventId:offer.deliveryEventId,status:"received"})
+          .then(()=>deliveryStatus.mutateAsync({eventId:offer.deliveryEventId,status:"rendered"}))
+          .catch(()=>deliveryStatus.mutate({eventId:offer.deliveryEventId,status:"failed",errorCode:"POPUP_RENDER_FAILED"}));
+        void lifecycle.mutateAsync({eventId:offer.deliveryEventId,action:"noticed"}).catch(()=>{});
+      }
       if(sound&&soundSettings.enabled){
         unlockNotificationAudio();
         playConfiguredSound(soundSettings.opportunity,"opportunity",soundSettings.loopOpportunity);
       }
-      if(!offer.automaticTrade) timer.current=window.setTimeout(stop,Math.max(1,Number(offer.configuredPopupDisplaySeconds||policy.popupDisplaySeconds||8))*1000);
+      scheduleCollapse();
+      return true;
     };
     const locks=typeof navigator!=="undefined"?(navigator as any).locks:null;
-    if(locks?.request)void locks.request(`arbitrade-popup:${storageKey}`,()=>display()).catch(()=>{
-      displaying.current.delete(offer.id);
-      display();
+    if(locks?.request)void locks.request(storageKey,{ifAvailable:true},async(lock:any)=>{
+      if(!lock){displaying.current.delete(offerId);return;}
+      let release!:()=>void;
+      const hold=new Promise<void>(resolve=>{release=resolve;});
+      releaseDisplayLock.current=release;
+      if(!display()){
+        releaseDisplayLock.current=null;
+        release();
+        return;
+      }
+      await hold;
+    }).catch(()=>{
+      if(releaseDisplayLock.current){releaseDisplayLock.current();releaseDisplayLock.current=null;}
+      displaying.current.delete(offerId);
+      if(!popupRef.current)display();
     });
     else display();
   };
   const consider=(offer:any)=>{
-    if(seen.current.has(offer.id)||displaying.current.has(offer.id)||!canShow())return;
+    const offerId=Number(offer.id);
+    if(seen.current.has(offerId)||displaying.current.has(offerId)||!canShow())return;
     showOffer(offer);
   };
   const attemptNext=(available:any[])=>{
     if(!policy)return;
     const candidates=getCandidates(available);
-    if(!candidates.length||popupRef.current||preAlertRef.current||!canShow())return;
+    if(!candidates.length||popupRef.current||!canShow())return;
     candidates.sort((a:any,b:any)=>new Date(a.closesAt).getTime()-new Date(b.closesAt).getTime());
     consider(candidates[0]);
   };
-  useEffect(()=>{if(delivery?.pausedUntilSettled||delivery?.cooldownActive){pending.current.clear();seen.current.clear();displaying.current.clear();stop();}},[delivery?.pausedUntilSettled,delivery?.cooldownActive]);
-  useEffect(()=>{attemptNext(opportunityData?.offers||[]);},[opportunityData,policy,delivery]);
+
   useEffect(()=>{
     const id=window.setInterval(()=>attemptNext(opportunityData?.offers||[]),5000);
+    attemptNext(opportunityData?.offers||[]);
     return()=>window.clearInterval(id);
   },[opportunityData,policy,delivery]);
-  useEffect(()=>()=>{
+  useEffect(()=>{
+    if(delivery?.pausedUntilSettled||delivery?.cooldownActive){
+      pending.current.clear();
+      seen.current.clear();
+      displaying.current.clear();
+      stop();
+    }
+  },[delivery?.pausedUntilSettled,delivery?.cooldownActive]);
+  useEffect(()=>{
+    if(!popup||!Array.isArray(opportunityData?.offers))return;
+    const current=opportunityData.offers.find((offer:any)=>Number(offer.id)===Number(popup.id));
+    if(!current||current.popupEligible!==true||String(current.offerStatus||"").toLowerCase()!=="open")stop();
+  },[popup,opportunityData]);
+  useEffect(()=>()=> {
     stopConfiguredSound();
     if(timer.current!==null)window.clearTimeout(timer.current);
-    if(preTimer.current!==null)window.clearTimeout(preTimer.current);
+    if(releaseDisplayLock.current){releaseDisplayLock.current();releaseDisplayLock.current=null;}
   },[]);
-  const liveTrade=popup&&((trades.data||[]).find((trade:any)=>Number(trade.offerId)===Number(popup.id))||popup.automaticTrade);
-  useEffect(()=>{if(!popup||!liveTrade||liveTrade.status!=="settled")return; if(timer.current!==null)window.clearTimeout(timer.current); timer.current=window.setTimeout(stop,Math.max(1,Number(policy?.completionDisplaySeconds||8))*1000); return()=>{if(timer.current!==null)window.clearTimeout(timer.current)}},[popup,liveTrade?.status,policy?.completionDisplaySeconds]);
-  if(preAlert)return <div className="center-opportunity-toast pre-alert-toast"><div className="toast-live"><span className="pulse"/> MARKET SIGNAL PREVIEW <span className="toast-live-status">API-backed</span></div><h3>{preAlert.symbol} window is being evaluated</h3><p>Fresh market data detected from the connected provider. A review window may become available shortly.</p><div className="toast-timing"><Clock size={14}/> Preview lasts {policy.popupPreAlertSeconds}s; conditions can withdraw it before publication.</div><div className="toast-actions"><button className="toast-dismiss" onClick={stop}>Dismiss preview</button></div></div>;
+
   if(!popup)return null;
-  const money=popup.currency==="BTC"||popup.currency==="ETH"?`${(popup.minimumMinor/1e8).toFixed(6)} ${popup.currency}`:`${(popup.minimumMinor/100).toFixed(2)} ${popup.currency}`;
-  const automatic=Boolean(liveTrade||popup.automaticTrade);
-  const stage=liveTrade?.stage||"Opportunity Detected";
-  return <div className="center-opportunity-toast"><div className="toast-live"><span className="pulse"/> AUTOMATED OPPORTUNITY <span className="toast-live-status">Live trade progress</span></div>{popup.badgeLabel&&<span className={"trading-package-badge trading-package-badge--"+(["neutral","blue","purple","gold","green"].includes(popup.badgeStyle)?popup.badgeStyle:"neutral")}>{popup.badgeLabel}</span>}{popup.companyDisplayName&&<div className="trading-opportunity-identity popup-company-reference"><CompanyReferenceLogo name={String(popup.companyDisplayName)} logoUrl={popup.companyLogoUrl||null}/><div><strong>{popup.companyDisplayName}</strong></div></div>}<h3>{automatic?stage:`${popup.symbol} opportunity detected`}</h3><p>{popup.symbol} · opportunity-{popup.id}{liveTrade?` · ${liveTrade.tradeReference||`trade-${liveTrade.id}`}`:` · Minimum ${money}`}</p><div className="toast-timing"><Clock size={14}/> Configured return rate: {(Number(popup.configuredProfitRateBps??popup.expectedRewardBps??0)/100).toFixed(2)}% · Trade duration: {Number(popup.configuredDurationSeconds??popup.durationSeconds??0)} seconds</div><div className="toast-timing"><span className="pulse"/> {automatic?`${liveTrade?.settlementStatus||"pending"} · reward ${liveTrade?.rewardCredited?"credited":"pending"} · wallet ${liveTrade?.walletUpdated?"updated":"pending"}`:"Backend eligibility is evaluated independently of popup rendering."}</div>{automatic?<div className="trade-progress-track"><i style={{width:liveTrade?.status==="settled"?"100%":"45%"}}/></div>:<div className="toast-actions"><button className="primary-button" onClick={()=>{if(popup.deliveryEventId) void lifecycle.mutateAsync({eventId:popup.deliveryEventId,action:"opened"}).catch(()=>{});stop();onOpen()}}>Review details <ArrowUpRight size={14}/></button><button className="toast-dismiss" onClick={()=>{if(popup.deliveryEventId) void lifecycle.mutateAsync({eventId:popup.deliveryEventId,action:"dismissed"}).catch(()=>{});stop()}}>Dismiss notification</button></div>}</div>;
+  const currencyScaleRaw=Number(popup.currencyScale);
+  const currencyScale=Number.isSafeInteger(currencyScaleRaw)&&currencyScaleRaw>=0&&currencyScaleRaw<=12?currencyScaleRaw:2;
+  const currencySymbol=String(popup.currencySymbol||popup.currency||"");
+  const formatMinor=(raw:number)=>{
+    if(!Number.isSafeInteger(raw)||raw<0)return "Unavailable";
+    const divisor=10**currencyScale;
+    return `${currencySymbol} ${(raw/divisor).toFixed(currencyScale)}`;
+  };
+  const requiredMinor=Number(popup.minimumMinor);
+  const availableMinor=Number(popup.balanceAvailableMinor);
+  const requiredMoney=formatMinor(requiredMinor);
+  const availableMoney=formatMinor(availableMinor);
+  const shortfallMoney=formatMinor(Number.isSafeInteger(requiredMinor)&&Number.isSafeInteger(availableMinor)?Math.max(0,requiredMinor-availableMinor):Number.NaN);
+  const balanceStatus=String(popup.balanceStatus||"unknown").toLowerCase();
+  const insufficientBalance=balanceStatus==="insufficient";
+  const sufficientBalance=balanceStatus==="sufficient";
+  const closesAt=new Date(popup.closesAt);
+  const closesLabel=Number.isFinite(closesAt.getTime())?closesAt.toLocaleString():"Unavailable";
+  const heading=String(popup.symbol||"Opportunity")+" opportunity notice";
+
+  if(minimized)return <div className="opportunity-popup-dock" role="region" aria-label="Minimized opportunity alert" aria-live="polite">
+    <div className="opportunity-popup-dock__content">
+      <strong>{insufficientBalance?"Missed — insufficient balance":sufficientBalance?"Opportunity available":"Opportunity status unavailable"}</strong>
+      <span>{popup.companyDisplayName?String(popup.companyDisplayName)+" · ":""}{String(popup.symbol||"Opportunity")} · Closes: {closesLabel}</span>
+      {insufficientBalance&&<span>Required: {requiredMoney} · Available: {availableMoney} · Shortfall: {shortfallMoney}</span>}
+    </div>
+    <div className="opportunity-popup-dock__actions">
+      <button type="button" aria-label="Maximize opportunity alert" onClick={()=>{setMinimized(false);scheduleCollapse();}}>Maximize</button>
+      <button type="button" className="opportunity-popup-dock__dismiss" onClick={dismiss}>Dismiss</button>
+    </div>
+  </div>;
+
+  return <div className="center-opportunity-toast" role="region" aria-label="Customer opportunity alert">
+    <div className="opportunity-popup-header">
+      <div className="toast-live"><span className="pulse"/> OPPORTUNITY ALERT <span className="toast-live-status">Informational notice</span></div>
+      <button type="button" className="opportunity-popup-minimize" aria-label="Minimize opportunity alert" onClick={()=>{stopConfiguredSound();if(timer.current!==null)window.clearTimeout(timer.current);timer.current=null;setMinimized(true);}}>Minimize</button>
+    </div>
+    {popup.badgeLabel&&<span className={"trading-package-badge trading-package-badge--"+(["neutral","blue","purple","gold","green"].includes(popup.badgeStyle)?popup.badgeStyle:"neutral")}>{popup.badgeLabel}</span>}
+    {popup.companyDisplayName&&<div className="trading-opportunity-identity popup-company-reference"><CompanyReferenceLogo name={String(popup.companyDisplayName)} logoUrl={popup.companyLogoUrl||null}/><div><strong>{popup.companyDisplayName}</strong></div></div>}
+    <h3>{heading}</h3>
+    <p>Opportunity {popup.id} · {popup.symbol||"Reference unavailable"}</p>
+    {insufficientBalance?<section className="opportunity-balance-status opportunity-balance-status--insufficient" role="status">
+      <strong>Missed — insufficient balance</strong>
+      <div className="opportunity-balance-values">
+        <span>Required capital <b>{requiredMoney}</b></span>
+        <span>Available balance <b>{availableMoney}</b></span>
+        <span>Shortfall <b>{shortfallMoney}</b></span>
+      </div>
+      <p>This opportunity was not allocated because the available balance was insufficient. No funds were moved.</p>
+    </section>:sufficientBalance?<section className="opportunity-balance-status" role="status">
+      <strong>Opportunity available for review</strong>
+      <p>The balance check passed when this notice was created. This notice does not allocate or move funds.</p>
+    </section>:<section className="opportunity-balance-status opportunity-balance-status--unavailable" role="status">
+      <strong>Balance status unavailable</strong>
+      <p>No funds were allocated or moved. Review the opportunity details for current information.</p>
+    </section>}
+    <div className="toast-timing"><Clock size={14}/> Published opportunity closes: {closesLabel}</div>
+    <p className="opportunity-popup-disclaimer">Informational notice only. It does not execute a trade, allocate capital, or change a wallet balance.</p>
+    <div className="toast-actions">
+      <button className="primary-button" onClick={()=>{if(popup.deliveryEventId)void lifecycle.mutateAsync({eventId:popup.deliveryEventId,action:"opened"}).catch(()=>{});stop();onOpen();}}>Review details <ArrowUpRight size={14}/></button>
+      <button className="toast-dismiss" onClick={dismiss}>Dismiss notification</button>
+    </div>
+  </div>;
 }
 function CustomerDashboard({push,sound,setSound,soundSettings,delivery,opportunityData}:{push:(x:string)=>void;sound:boolean;setSound:(x:boolean)=>void;soundSettings:SoundSettings;delivery?:{enabled?:boolean;maxPopupsPerDay:number;maxVisibleOffers:number;pausedUntilSettled?:boolean;outstandingTrades?:number};opportunityData?:any}) {
   const balances=trpc.customer.balances.useQuery(undefined,{refetchInterval:5000});
