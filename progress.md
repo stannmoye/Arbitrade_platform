@@ -1,3 +1,17 @@
+## 2026-11-02 — Trade Settings Checkpoint 6I: single-owner global masters and runtime gates
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`; implementation commit: `c4ed38e6`.
+- Made Package Configuration the single editor/owner for Tier policy, pop-up delivery, company rotation, randomized timing, burst delivery, and per-customer Require Previous Settlement. Removed the always-visible duplicate panel and duplicate per-tier master controls; strict policy API/service boundaries reject retired global fields.
+- Wired the global masters into future delivery, allocation, company identity and timing behavior while preserving already-delivered cards and immutable popup/trade snapshots. Kept unattended financial execution locked OFF and the separate system-wide settlement pause under Global Trade Timing.
+- Global settings now use an independent optimistic-concurrency version, strict inputs, required audit reasons, detailed legacy conflict reporting, and reason-gated reactivation. Migration 0099 captures unsafe legacy package states; the timing save is atomic, versioned and audited. Extended the disposable integration runner for both global owners.
+- Refreshed the in-portal Trade Admin Guide, navigation/manual/specification ownership language and guide contract enrollment. Updated contracts that still asserted the retired per-package runtime model.
+- Local validation passed: `pnpm check`; full `pnpm test` (947 passed, 17 skipped); installer/migration suite (171 passed); `pnpm build`; focused owner/runtime suite (51 passed); and `git diff --check`.
+- MySQL 8.4/MariaDB 11.4 integration remains CI-only and must complete on the pushed exact head. No production database or hosted deployment was touched.
+- Remaining blueprint acceptance: finish the operational-route scope/pagination audit, perform a browser/accessibility review, inspect exact-head CI, and complete the documented release/staging review; do not merge or deploy without that review.
+- Next safe action: publish this checkpoint to PR #274, verify exact-head integration/migration checks, then close the remaining route-scope and accessibility items against the PDF checklist.
+
+---
+
 ## 2026-11-02 — Trade Settings Checkpoint 6H: fee snapshot allocation CI follow-up
 
 - PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`; implementation commit: `ae90506a`.
