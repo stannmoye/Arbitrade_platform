@@ -1,5 +1,18 @@
-## 2026-11-02 — Trade Settings Checkpoint 6F: disposable database save/rollback integration
+## 2026-11-02 — Trade Settings Checkpoint 6G: verified Package Settings and durable fee snapshots
 
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`; implementation commit: `41b98336`.
+- Package Settings now converts `datetime-local` values as UTC, preserves dirty drafts across polling, handles package renames during read-back, and verifies every submitted field plus the incremented package/policy versions before reporting success.
+- The atomic audit event now records complete old/new package terms and fee bounds/rounding with both versions. The disposable integration adds non-null UTC date assertions and full audit snapshot coverage.
+- Fixed the missing durable popup fee snapshot propagation: the lifecycle insert now persists the selected fee rate, rounding mode and fee-policy version. The worker integration fixtures include valid snapshots, and the real popup-delivery integration checks a non-default saved fee policy.
+- Updated stale migration-tail contracts to recognize migration 0099. Exact prior PR failures were stale 0098 expectations and the missing fee snapshot; both source/test fixes are included.
+- Local validation passed: `pnpm check`; focused Package Settings/UTC tests (9 passed); installer/migration suite (171 passed); full `pnpm test` (941 passed, 17 skipped); `pnpm build`; and `git diff --check`.
+- Disposable MySQL 8.4/MariaDB 11.4 database jobs are not run in this sandbox and remain pending on GitHub Actions after push. No production database or hosted deployment was touched.
+- Remaining blueprint acceptance: reconcile duplicate settings owners and runtime wiring, finish operational-route scope/pagination, and complete Guide/browser/accessibility review.
+- Next safe action: publish this checkpoint to PR #274, inspect exact-head CI including the Package Settings and popup/worker MySQL/MariaDB jobs, then continue with the broader ownership/runtime audit.
+
+---
+
+## 2026-11-02 — Trade Settings Checkpoint 6F: disposable database save/rollback integration
 - PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`; implementation commit: `395bf4aeab909f8964a9c89417e8e7c5ba96db09`.
 - Added `scripts/trading-package-settings.integration.ts`, guarded to loopback databases with an explicitly disposable name. It checks invalid-input no-write, one atomic package/policy commit, exactly-one version increments and audit evidence, and full rollback after an injected audit insert failure.
 - Added `.github/workflows/trading-package-settings-integration.yml` to apply guarded migrations and run the integration against disposable MySQL 8.4 and MariaDB 11.4 services.
