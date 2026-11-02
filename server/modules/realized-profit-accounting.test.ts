@@ -39,6 +39,15 @@ describe("realized trade profit accounting", () => {
     expect(calculate("half_even", 30)).toBe(4);
   });
 
+  it("implements the approved round-up policy as a currency-minor-unit ceiling", () => {
+    expect(calculateRealizedProfitSettlement({
+      principalMinor: 1000, grossProfitMinor: 1, feeRateBps: 1500, roundingMode: "up",
+    })).toMatchObject({ platformFeeMinor: 1, netProfitMinor: 0, totalReturnedMinor: 1000 });
+    expect(calculateRealizedProfitSettlement({
+      principalMinor: 1000, grossProfitMinor: 0, feeRateBps: 10000, roundingMode: "up",
+    })).toMatchObject({ platformFeeMinor: 0, netProfitMinor: 0, totalReturnedMinor: 1000 });
+  });
+
   it("rejects losses larger than committed principal rather than inventing a margin rule", () => {
     expect(() => calculateRealizedProfitSettlement({
       principalMinor: 1000, grossProfitMinor: -1001, feeRateBps: 1500, roundingMode: "half_up",

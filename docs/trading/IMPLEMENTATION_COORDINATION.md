@@ -1,3 +1,12 @@
+## 2026-11-02 — Trade Settings global/package owner split
+
+- Supersedes the 2026-10-31 per-tier Require Previous Settlement behavior below: the canonical switch is now global and applies per customer to future allocations. A separate system-wide offer-publication/automatic-allocation pause remains under Global Trade Timing & Settlement.
+- Package Configuration is the sole editor for the six global masters. Package-specific lifecycle/terms remain in Package Settings, and per-tier policy mutation inputs reject retired global-master copies.
+- Migration 0099 initializes global masters conservatively from legacy values and stores conflict names. Re-enabling a master after a legacy conflict requires a detailed reason and clears the review flag in the same audited transaction.
+- This is an unmerged feature-branch change; it has not been deployed or applied to a production database. Exact-head MySQL/MariaDB CI and remaining route/Guide/accessibility acceptance are pending.
+
+---
+
 ## 2026-10-31 — Stage 1 customer wallet API and ledger-history validation
 
 - Stage 1 implementation/test head: `39bb4565eb9a235e481d597f1190de027c5780e2`. At that exact head all 10 PR workflow groups passed, including the wallet administrator-idempotency integration on MySQL 8.4 and MariaDB 11.4, application verification, TypeScript/tests/build, installer validation, worker/tier/settlement/company-rotation integrations, Mining regression and Trading recovery checks.

@@ -13,7 +13,9 @@ describe("runtime Trading delivery quota semantics", () => {
   it("exposes the enabled delivery gate only after active tier and saved policy checks pass", () => {
     expect(delivery).toContain("if(!eligibleSubscriptions.length) return emptyResult");
     expect(delivery).toContain("if(combinedQuota<=0) return emptyResult");
-    expect(delivery).toContain("delivery:{enabled:true,packageName,maxPopupsPerDay:dailyCap");
+    expect(delivery).toContain("enabled:true,newDeliveryEnabled:globalDeliveryEnabled");
+    expect(delivery).toContain("const globalDeliveryEnabled=globalSettings.available&&globalSettings.tierPolicyMaster&&globalSettings.popupDelivery");
+    expect(delivery).toContain("if(options.workerCycle===true&&globalDeliveryEnabled");
     expect(app).toContain("delivery?.enabled&&policy");
   });
 
@@ -74,7 +76,7 @@ describe("server-owned delivery cadence and completion timing", () => {
     expect(delivery).toContain("resolveTradingDeliverySchedule({");
     expect(delivery).toContain("deliveryEventId:Number(lastDelivery?.id||0)");
     expect(delivery).toContain("policyVersion:Number(lastDelivery?.policyVersion||0)");
-    expect(delivery).toContain("randomizationEnabled:Boolean(policy?.randomizationEnabled)");
+    expect(delivery).toContain("randomizationEnabled:Boolean(globalSettings.available&&globalSettings.randomizedTiming)");
     expect(delivery).toContain("orderBy(desc(opportunityDeliveryEvents.deliveredAt))");
   });
 

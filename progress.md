@@ -1,3 +1,188 @@
+## 2026-11-02 — Trade Settings Checkpoint 6I: single-owner global masters and runtime gates
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`; implementation commit: `c4ed38e6`.
+- Made Package Configuration the single editor/owner for Tier policy, pop-up delivery, company rotation, randomized timing, burst delivery, and per-customer Require Previous Settlement. Removed the always-visible duplicate panel and duplicate per-tier master controls; strict policy API/service boundaries reject retired global fields.
+- Wired the global masters into future delivery, allocation, company identity and timing behavior while preserving already-delivered cards and immutable popup/trade snapshots. Kept unattended financial execution locked OFF and the separate system-wide settlement pause under Global Trade Timing.
+- Global settings now use an independent optimistic-concurrency version, strict inputs, required audit reasons, detailed legacy conflict reporting, and reason-gated reactivation. Migration 0099 captures unsafe legacy package states; the timing save is atomic, versioned and audited. Extended the disposable integration runner for both global owners.
+- Refreshed the in-portal Trade Admin Guide, navigation/manual/specification ownership language and guide contract enrollment. Updated contracts that still asserted the retired per-package runtime model.
+- Local validation passed: `pnpm check`; full `pnpm test` (947 passed, 17 skipped); installer/migration suite (171 passed); `pnpm build`; focused owner/runtime suite (51 passed); and `git diff --check`.
+- MySQL 8.4/MariaDB 11.4 integration remains CI-only and must complete on the pushed exact head. No production database or hosted deployment was touched.
+- Remaining blueprint acceptance: finish the operational-route scope/pagination audit, perform a browser/accessibility review, inspect exact-head CI, and complete the documented release/staging review; do not merge or deploy without that review.
+- Next safe action: publish this checkpoint to PR #274, verify exact-head integration/migration checks, then close the remaining route-scope and accessibility items against the PDF checklist.
+
+---
+
+## 2026-11-02 — Trade Settings Checkpoint 6H: fee snapshot allocation CI follow-up
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`; implementation commit: `ae90506a`.
+- Exact-head CI on 6G exposed two remaining database integration failures: trade allocation did not select fee fields from the locked popup row, and the direct company-rotation integration fixture omitted the newly required fee snapshot values.
+- Fixed the createTrade projection to load rate/rounding/version from the persisted popup and added an integration assertion that those exact snapshot values reach the allocated trade. Completed the direct rotation fixture with valid immutable fee fields.
+- Local validation passed after the fix: `pnpm check`; full `pnpm test` (941 passed, 17 skipped); `pnpm build`; and `git diff --check`.
+- MySQL 8.4/MariaDB 11.4 company-rotation and worker integration checks must be rerun on the updated exact head; they remain unverified until GitHub Actions completes.
+- Remaining acceptance includes the critical global-vs-package owner/runtime split, operational-route scoping/pagination, and current Guide/browser/accessibility review.
+- Next safe action: publish the 6H follow-up, confirm the four failed matrix jobs turn green, then address global settings ownership/runtime before route/Guide cleanup.
+
+---
+
+## 2026-11-02 — Trade Settings Checkpoint 6G: verified Package Settings and durable fee snapshots
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`; implementation commit: `41b98336`.
+- Package Settings now converts `datetime-local` values as UTC, preserves dirty drafts across polling, handles package renames during read-back, and verifies every submitted field plus the incremented package/policy versions before reporting success.
+- The atomic audit event now records complete old/new package terms and fee bounds/rounding with both versions. The disposable integration adds non-null UTC date assertions and full audit snapshot coverage.
+- Fixed the missing durable popup fee snapshot propagation: the lifecycle insert now persists the selected fee rate, rounding mode and fee-policy version. The worker integration fixtures include valid snapshots, and the real popup-delivery integration checks a non-default saved fee policy.
+- Updated stale migration-tail contracts to recognize migration 0099. Exact prior PR failures were stale 0098 expectations and the missing fee snapshot; both source/test fixes are included.
+- Local validation passed: `pnpm check`; focused Package Settings/UTC tests (9 passed); installer/migration suite (171 passed); full `pnpm test` (941 passed, 17 skipped); `pnpm build`; and `git diff --check`.
+- Disposable MySQL 8.4/MariaDB 11.4 database jobs are not run in this sandbox and remain pending on GitHub Actions after push. No production database or hosted deployment was touched.
+- Remaining blueprint acceptance: reconcile duplicate settings owners and runtime wiring, finish operational-route scope/pagination, and complete Guide/browser/accessibility review.
+- Next safe action: publish this checkpoint to PR #274, inspect exact-head CI including the Package Settings and popup/worker MySQL/MariaDB jobs, then continue with the broader ownership/runtime audit.
+
+---
+
+## 2026-11-02 — Trade Settings Checkpoint 6F: disposable database save/rollback integration
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`; implementation commit: `395bf4aeab909f8964a9c89417e8e7c5ba96db09`.
+- Added `scripts/trading-package-settings.integration.ts`, guarded to loopback databases with an explicitly disposable name. It checks invalid-input no-write, one atomic package/policy commit, exactly-one version increments and audit evidence, and full rollback after an injected audit insert failure.
+- Added `.github/workflows/trading-package-settings-integration.yml` to apply guarded migrations and run the integration against disposable MySQL 8.4 and MariaDB 11.4 services.
+- Validation passed locally: `pnpm install --frozen-lockfile`; `pnpm check`; focused Trade Settings contracts (29 tests); full `pnpm test` (935 passed, 17 skipped); `pnpm build`; Prettier and `git diff --check`.
+- The MySQL/MariaDB integration itself remains pending on GitHub Actions; this sandbox has no Docker service or configured `DATABASE_URL`. No live/production database or hosted deployment was touched.
+- Remaining blueprint acceptance is broader than this checkpoint: reconcile duplicate settings owners and runtime wiring, complete missing package fields/read-back/audit metadata, and finish operational-route scope/pagination plus Guide/browser/accessibility review.
+- Next safe action: push the checkpoint to PR #274, inspect exact-head MySQL/MariaDB workflow results, then proceed through the remaining ownership/runtime work with the financial-execution lock preserved.
+
+---
+
+## 2026-11-02 — Trade Settings Checkpoint 6E: atomic Package Settings save
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Added `updateAdminTradingPackageSettings` / `adminOperations.updateTradingPackageSettings`, a single database transaction that locks the package and its policy row, validates package transition and fee bounds together, updates both versioned records, writes one audit event and rolls back all writes on any validation or persistence error.
+- Switched Package Settings UI to the combined mutation and kept fresh package/policy read-back before showing success. Existing customer/trade snapshots remain unchanged.
+- Existing standalone package and policy mutations remain available for their other owner routes; this new mutation is the Package Settings owner path.
+- Validation: `pnpm check` passed; focused Trade Settings contracts passed (29 tests); `git diff --check` passed; `pnpm build` passed.
+- Disposable-database execution is still pending because this sandbox has no Docker and no `DATABASE_URL`; CI remains required for MySQL/MariaDB rollback rehearsal.
+- No migration or unrelated financial/customer data write was performed.
+- Next safe action: add disposable MySQL/MariaDB integration coverage for commit/rollback and version increments, then review CI results before further runtime wiring.
+
+---
+
+## 2026-11-02 — Trade Settings Checkpoint 6D: partial-save safety and API boundary contract
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Hardened the Package Settings client save flow: package terms and fee policy are still persisted through their existing independently transactional, row-locked, versioned mutations, but a failure in the second step now reports the partial-save state explicitly, refreshes both records and never claims a full-save success.
+- Added contract assertions for the partial-save message, refresh behavior, complete read-back requirement and global/package scope separation.
+- The current schema exposes separate package and policy rows, so this checkpoint does not falsely claim one database transaction spans both. A future combined transaction requires a deliberate server refactor and migration/rollback coverage.
+- Validation: `pnpm check` passed; focused Trade Settings contracts passed (29 tests); `git diff --check` passed; `pnpm build` passed.
+- No database migration or customer, wallet, ledger, settlement or entitlement write was performed by this checkpoint.
+- Next safe action: implement and test a server-side combined package-plus-policy mutation only if the review approves that transaction-boundary refactor; otherwise keep the explicit two-step behavior and proceed to CI disposable-database validation.
+
+---
+
+## 2026-11-02 — Trade Settings Checkpoint 6C: Package Settings ownership contracts
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Added `server/trade-settings-package-settings.contract.test.ts` covering the complete per-package term set, the unique Package Settings route, package/policy mutations, fresh read-back requirement and separation from global controls.
+- Validation: `pnpm check` passed; focused Trade Settings contracts passed (29 tests); `git diff --check` passed.
+- Disposable-database migration/read-back execution was not possible in this sandbox: Docker is unavailable and no `DATABASE_URL` is configured. Existing GitHub Actions disposable MySQL/MariaDB jobs remain the authoritative environment for that rehearsal.
+- No database migration was applied and no customer, wallet, ledger, settlement or entitlement record was changed.
+- Next safe action: execute the migration/read-back contract against disposable MySQL/MariaDB in CI, then harden the API into atomic package-plus-policy versioning or document the separate transaction boundary before final acceptance.
+
+---
+
+## 2026-11-02 — Trade Settings Checkpoint 6B: complete Package Settings term editor
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Expanded the Package Settings owner route beyond fee bounds to edit package identity, qualifying threshold, duration, daily entitlement, hard daily pop-up ceiling, active-investment cap, UTC start/expiry, lifecycle status, fee bounds and rounding mode.
+- Save is one package-scoped action with a required audit reason. It uses the existing package and policy mutations, then performs fresh reads of both records and refuses to show success unless every submitted term is confirmed.
+- Global controls remain exclusively owned by Package Configuration; existing customer/trade snapshots remain unchanged by later package edits.
+- Validation: `pnpm check` passed; focused Trade Settings tests passed (26 tests); `git diff --check` passed; `pnpm build` passed.
+- No database migration was applied and no wallet, settlement, customer entitlement or financial record was changed.
+- Next safe action: add explicit route-level owner contract coverage for the expanded fields, then run disposable-database migration/read-back tests.
+
+---
+
+## 2026-11-02 — Trade Settings Checkpoint 6A: operational owners and scoped Database Entries
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Added dedicated read-only owner routes for Trading History, Manual Payouts, Capital & Wallet Funding, Database Entries, and Retry & Carry-Forward Status. Existing high-impact settlement and payout mutations were not duplicated or widened.
+- Added a server-side scoped `adminOperations.ledgerActivity` read query accepting one customer and one UTC calendar day for Database Entries; the UI never loads all customer histories for that route and exposes no edit/delete controls.
+- Reused existing persisted settlement, payout, ledger, customer, package-policy and integrity queries. Carry-forward remains explicitly Off / not available until its state machine, expiry and idempotency rules exist.
+- Validation: `pnpm check` passed; focused navigation/migration contracts passed (23 tests); `git diff --check` passed; `pnpm build` passed.
+- No database migration was applied, no wallet/ledger/settlement record was changed, and no new financial mutation was introduced.
+- Next safe action: add route-level ownership contract coverage, complete remaining package term fields, then run the disposable-database migration/read-back suite before any hosted deployment.
+
+---
+
+## 2026-11-02 — Trade Settings Checkpoint 5A: fee snapshot and realized accounting
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Extended migration 0099 and the Drizzle schema with popup-event fee snapshot columns: selected fee rate, rounding mode and fee policy version.
+- During durable popup creation, the worker selects one inclusive package fee rate from the saved bounds and persists it exactly once. Delivery retries and trade allocation reuse the saved event snapshot.
+- New trades persist the fee rate, rounding mode and fee policy version. Manual settlement now uses only the stored trade snapshot and does not re-read current global fee settings, protecting historical results from later policy edits.
+- Added exact arithmetic coverage for the approved currency-minor-unit ceiling behavior and zero-profit no-fee behavior.
+- Validation: `pnpm exec vitest run server/modules/realized-profit-accounting.test.ts server/trading-settings-migration.contract.test.ts server/trading-admin-navigation.contract.test.ts` — 31 tests passed; `pnpm check` passed; `git diff --check` passed.
+- Outstanding: package form fields beyond fee bounds, complete operational route ownership, disposable-database migration execution, full build/browser/accessibility validation and staged deployment acceptance.
+- Next safe action: add the remaining blueprint operational route shells/actions using existing payout, settlement, funding, history, audit and worker APIs, keeping read-only pages mutation-free.
+
+---
+
+## 2026-11-02 — Trade Settings Checkpoint 4A: Package Configuration and Package Settings UI
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Added `client/src/components/TradeSettingsAdministration.tsx` with a dedicated global Package Configuration form and package-scoped Package Settings fee form.
+- Added canonical navigation destinations `tradePackageConfiguration` and `tradePackageSettings`, mounted from the admin portal. Global form is fail-closed when the migration is unavailable; both forms require an audit reason and show database-verification feedback.
+- Package Settings uses the existing partial policy mutation and only sends the selected package fee fields; it does not replay global controls or create defaults.
+- Validation: `pnpm exec vitest run server/trading-admin-navigation.contract.test.ts server/trading-settings-migration.contract.test.ts` — 23 tests passed; `pnpm check` passed; `git diff --check` passed.
+- Outstanding: fee snapshot selection/persistence at opportunity delivery, full package term form fields, remaining operational route surfaces, migration execution against a disposable database, browser/accessibility checks and complete test/build validation.
+- Next safe action: persist the selected package fee rate/policy version with each delivered opportunity/trade snapshot and add deterministic ceiling arithmetic integration tests before exposing more operational actions.
+
+---
+
+## 2026-11-02 — Trade Settings Checkpoint 2: schema, migration and scoped API
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Added forward-only `drizzle/0099_trade_settings_global_registry.sql` and journal registration. It adds package fee bounds/rounding fields, initializes one global settings record, initializes Require Previous Settlement ON, keeps automatic financial execution OFF, preserves unsafe legacy package states as paused, and records a migration conflict report.
+- Added typed Drizzle fields for `minimumPlatformFeeBps`, `maximumPlatformFeeBps`, and `platformFeeRoundingMode`.
+- Added fail-closed `getTradeGlobalSettings`, migration-report read, and audited partial `setTradeGlobalSettings` service functions. Disabling Require Previous Settlement requires an extended reason; malformed/missing migration state cannot be edited or treated as enabled.
+- Added admin API endpoints `tradeGlobalSettings` and `updateTradeGlobalSettings`. Existing package-policy updates now validate package-scoped fee bounds and rounding mode; automatic financial execution remains hard-disabled.
+- Added `server/trading-settings-migration.contract.test.ts`.
+- Validation: `pnpm exec vitest run server/trading-settings-migration.contract.test.ts server/trading-settings-owner-registry.contract.test.ts server/trading-admin-navigation.contract.test.ts` — 26 tests passed; `pnpm check` passed; `git diff --check` passed.
+- Migration has been authored and tested statically but not applied to any production or hosted database. No customer records, wallets, settlements or financial execution were changed.
+- Next safe action: build the Package Configuration/Package Settings admin UI against these APIs, then integrate the selected fee snapshot into opportunity/settlement persistence with dedicated arithmetic tests.
+
+---
+
+## 2026-11-02 — Trade Settings Checkpoint 1A: typed owner registry
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Added `client/src/trade-settings-registry.ts`, a typed declarative registry covering approved global controls, package terms, delivery caps and opportunity publishing. Each key declares scope, one owner route/section, validation, mutation, read query, audit policy, effective time, runtime consumer, customer effect and risk.
+- Added `server/trading-settings-owner-registry.contract.test.ts` to reject duplicate keys, missing owners/contracts, mixed global/package scope, and undocumented approved fee/migration effects.
+- No persistence path, runtime consumer, financial calculation, schema or migration was changed. Existing rendered navigation remains the canonical route registry and current per-tier controls remain unchanged until the migration checkpoint.
+- Validation: `pnpm exec vitest run server/trading-settings-owner-registry.contract.test.ts server/trading-admin-navigation.contract.test.ts` — 23 tests passed; `pnpm check` passed; `git diff --check` passed.
+- Next safe action: connect the registry to route ownership/visibility checks and add the dedicated Package Configuration/Package Settings route contracts without duplicating current controls. Keep global migration and fee runtime changes separate from navigation work.
+
+---
+
+## 2026-11-02 — Trade Settings redesign Phase 0 decisions approved
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Approved decision: Fee B. Package fee min/max bounds are integer basis points; select one inclusive rate once at opportunity creation, persist the rate and policy version, never reroll on retry/restart, charge only realized positive gross profit, and ceil the fee at the currency minor-unit boundary.
+- Approved decision: Migration 1. Preserve customer entitlements, opportunities, trades, settlements, wallets and ledger entries; preserve legacy package OFF/missing/invalid safety state as paused; initialize global delivery masters OFF when any legacy policy is unsafe; initialize global Require Previous Settlement ON; record conflicts/audit evidence; remove package-level runtime copies only after compatibility/read-back tests.
+- Reconciled `docs/TRADING_SYSTEM_SPECIFICATION.md`, `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md`, and `docs/trading/TRADE_SETTINGS_REDESIGN_DECISIONS.md` with those decisions. No application code, schema, migration, database, customer record, deployment, wallet, settlement, or financial execution changed.
+- Validation before commit: `git diff --check`. Focused contract tests are the next validation step; the exact updated head will be recorded by Git history and CI.
+- Next safe action: implement the typed settings-owner registry and navigation uniqueness tests. Keep the migration as a separate reviewed checkpoint with forward-only SQL, compatibility reader, conflict report and disposable-database tests.
+
+---
+
+## 2026-11-02 — Trade Settings redesign Phase 0 (draft PR)
+
+- PR number/link: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274).
+- Working branch: `feature/trade-settings-redesign-phase0`.
+- Exact base SHA: `59c425414b981bc2fd8720119f2d4b650b97ab15`.
+- Exact head SHA: `e914636e940c13cf0b3df696f4b8b0f12024ddd4`.
+- Added `docs/trading/TRADE_SETTINGS_REDESIGN_DECISIONS.md` from the attached Trade Settings Administration Blueprint. This is a documentation-only decision checkpoint; no application behavior changed.
+- Confirmed existing source already has one Trade Settings group, a read-only Guide, a single owner for current per-tier policy switches, save/read-back protection, admin-published opportunities, and hard-disabled automatic financial execution. These must not be recreated or duplicated.
+- Blocking product decisions remain explicit: global-vs-package scope/migration semantics, fail-closed handling of legacy pauses, and fee policy A/B/C plus round-up definition. No migration, financial change, settlement change, database write, deployment, or customer record change is allowed before those decisions and canonical-spec reconciliation.
+- Validation before push: `git diff --check`; no application test/build run because this checkpoint changes documentation only.
+- Next safe action: review/accept the fee and global migration decisions, then implement the typed owner registry/navigation checkpoint with uniqueness tests.
+
+---
+
 ## 2026-11-02 — Customer informational pop-up persistence and clarity
 
 ## 2026-11-02 — Fix tier-term saves blocked by delivery-policy activation gate

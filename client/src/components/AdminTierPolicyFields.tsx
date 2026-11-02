@@ -26,9 +26,9 @@ export function AdminTierPolicyFields({ mode, x, i, set }: {
       </div>
       <div className="form-two">
         <label>Market influence (bps)<input type="number" min="0" max="10000" value={x.marketInfluenceBps} onChange={e => set(i, "marketInfluenceBps", Number(e.target.value))} /></label>
-        <label>Maximum burst size<input type="number" min="0" max="100" value={x.maxBurstSize} onChange={e => set(i, "maxBurstSize", Number(e.target.value))} /></label>
+      <label>Maximum burst size<input type="number" min="0" max="100" value={x.maxBurstSize} onChange={e => set(i, "maxBurstSize", Number(e.target.value))} /></label>
       </div>
-      <label>Enable burst delivery <input type="checkbox" checked={Boolean(x.burstEnabled)} onChange={e => set(i, "burstEnabled", e.target.checked)} /></label>
+      <p className="policy-note">Burst delivery ON/OFF is globally owned in Trade Settings → Package Configuration. This tier supplies only its bounded maximum batch size.</p>
     </div>;
   }
 
@@ -53,7 +53,7 @@ export function AdminTierPolicyFields({ mode, x, i, set }: {
       <label>Maximum settlement attempts<input type="number" min="1" max="20" value={x.maxSettlementAttempts ?? 3} onChange={e => set(i, "maxSettlementAttempts", Number(e.target.value))} /></label>
       <label>Minimum settlement delay (seconds)<input type="number" min="0" max="604800" value={x.minSettlementDelaySeconds ?? 900} onChange={e => set(i, "minSettlementDelaySeconds", Number(e.target.value))} /></label>
       <label>Maximum settlement delay (seconds)<input type="number" min="0" max="604800" value={x.maxSettlementDelaySeconds ?? 900} onChange={e => set(i, "maxSettlementDelaySeconds", Number(e.target.value))} /></label>
-      <label>Require previous settlement <input type="checkbox" checked={Boolean(x.requirePreviousSettlement ?? true)} onChange={e => set(i, "requirePreviousSettlement", e.target.checked)} /></label>
+      <p className="policy-note">Require previous settlement is globally owned in Trade Settings → Package Configuration; pending settlements and saved snapshots are not rewritten.</p>
       <label>Close pop-up policy<select value={x.closePolicy ?? "after_final_display"} onChange={e => set(i, "closePolicy", e.target.value)}><option value="after_completion">After completion</option><option value="after_final_display">After final display</option></select></label>
     </div>
   </>;

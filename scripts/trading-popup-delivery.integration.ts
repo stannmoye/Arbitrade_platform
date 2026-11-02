@@ -82,6 +82,10 @@ try {
     maximumPayoutRateBps: 300,
     minimumTradeDurationSeconds: 300,
     maximumTradeDurationSeconds: 600,
+    minimumPlatformFeeBps: 2300,
+    maximumPlatformFeeBps: 2300,
+    platformFeeRoundingMode: "half_even",
+    policyVersion: 12,
     companyRotationEnabled: true,
     maxPopupsPerDay: 10,
     maxVisibleOffers: 5,
@@ -173,6 +177,10 @@ try {
     eventStatus: opportunityPopupEvents.eventStatus,
     deliveryStatus: opportunityPopupEvents.deliveryStatus,
     offerId: opportunityPopupEvents.offerId,
+    platformFeeRateBps: opportunityPopupEvents.platformFeeRateBps,
+    platformFeeRoundingMode: opportunityPopupEvents.platformFeeRoundingMode,
+    feePolicyVersion: opportunityPopupEvents.feePolicyVersion,
+    packagePolicyVersionSnapshot: opportunityPopupEvents.packagePolicyVersionSnapshot,
   }).from(opportunityPopupEvents).where(and(
     eq(opportunityPopupEvents.userId, userId),
     eq(opportunityPopupEvents.offerId, offerId),
@@ -180,6 +188,10 @@ try {
   assert.equal(popupRows.length, 1, "The durable popup lifecycle row must be persisted exactly once.");
   assert.equal(popupRows[0]?.eventStatus, "DELIVERED");
   assert.equal(popupRows[0]?.deliveryStatus, "delivered");
+  assert.equal(popupRows[0]?.platformFeeRateBps, 2300);
+  assert.equal(popupRows[0]?.platformFeeRoundingMode, "half_even");
+  assert.equal(popupRows[0]?.feePolicyVersion, 12);
+  assert.equal(popupRows[0]?.packagePolicyVersionSnapshot, 12);
 
   const deliveryRows = await db.select({
     offerId: opportunityDeliveryEvents.offerId,

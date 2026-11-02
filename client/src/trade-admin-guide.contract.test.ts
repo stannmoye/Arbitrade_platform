@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const guide = readFileSync(resolve(process.cwd(), "client/public/trade-admin-guide.html"), "utf8");
+const guide = readFileSync(
+  resolve(process.cwd(), "client/public/trade-admin-guide.html"),
+  "utf8"
+);
 
 describe("Trade Settings standalone admin guide", () => {
   it("is a self-contained HTML page with inline styling and no external assets", () => {
@@ -16,6 +19,7 @@ describe("Trade Settings standalone admin guide", () => {
   it("documents the Trading admin controls and customer-facing behaviour", () => {
     for (const heading of [
       'id="tiers"',
+      'id="global-controls"',
       'id="quotas"',
       'id="opportunity"',
       'id="policy"',
@@ -30,7 +34,17 @@ describe("Trade Settings standalone admin guide", () => {
     }
     expect(guide).toContain("admin_manual_deposit_credit");
     expect(guide).toContain("Insufficient balance");
-    expect(guide).toContain("carry-forward is not currently available");
+    expect(guide).toContain("Carry-forward is not currently available");
     expect(guide).toContain("Minimize/Maximize");
+  });
+
+  it("documents the single global owner and distinguishes system-wide from per-customer settlement gates", () => {
+    expect(guide).toContain(
+      "Package Configuration is the only editor for these six global ON/OFF masters"
+    );
+    expect(guide).toContain("Require Previous Settlement");
+    expect(guide).toContain("Separate system-wide pause");
+    expect(guide).toContain("legacy package conflicts");
+    expect(guide).not.toContain("persistent Trading controls panel");
   });
 });
