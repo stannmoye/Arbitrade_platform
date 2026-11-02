@@ -77,8 +77,7 @@ const packageDraftFrom = (item: any, policy: any): PackageDraft => ({
 export function AdminTradePackageSettings() {
   const packages = trpc.adminOperations.tradingPackages.useQuery(undefined, { refetchInterval: 15000 });
   const policies = trpc.adminOperations.packagePolicies.useQuery(undefined, { refetchInterval: 15000 });
-  const updatePackage = trpc.adminOperations.updateTradingPackage.useMutation();
-  const updatePolicy = trpc.adminOperations.updatePackagePolicies.useMutation();
+  const updateSettings = trpc.adminOperations.updateTradingPackageSettings.useMutation();
   const [selected, setSelected] = useState("");
   const [draft, setDraft] = useState<PackageDraft | null>(null);
   const [reason, setReason] = useState("");
@@ -100,28 +99,25 @@ export function AdminTradePackageSettings() {
   const saveDraft = async () => {
     if (!draft || invalid || !packageRow) return;
     setMessage("");
-    let packageCommitted = false;
     try {
-      await updatePackage.mutateAsync({ id: Number(packageRow.id), name: draft.name.trim(), minimumQualifyingBalanceUsdMinor: Number(draft.minimumQualifyingBalanceUsdMinor), durationMonths: Number(draft.durationMonths), opportunitiesPerDay: Number(draft.opportunitiesPerDay), maxPopupsPerDay: Number(draft.maxPopupsPerDay), maxActiveInvestments: Number(draft.maxActiveInvestments), startsAt: draft.startsAt ? new Date(draft.startsAt).toISOString() : null, expiresAt: draft.expiresAt ? new Date(draft.expiresAt).toISOString() : null, enabled: draft.enabled, reason: reason.trim() });
-      packageCommitted = true;
-      await updatePolicy.mutateAsync({ reason: reason.trim(), policies: [{ packageName: selected, minimumPlatformFeeBps: Number(draft.minimumPlatformFeeBps), maximumPlatformFeeBps: Number(draft.maximumPlatformFeeBps), platformFeeRoundingMode: draft.platformFeeRoundingMode }] });
+      await updateSettings.mutateAsync({ id: Number(packageRow.id), name: draft.name.trim(), minimumQualifyingBalanceUsdMinor: Number(draft.minimumQualifyingBalanceUsdMinor), durationMonths: Number(draft.durationMonths), opportunitiesPerDay: Number(draft.opportunitiesPerDay), maxPopupsPerDay: Number(draft.maxPopupsPerDay), maxActiveInvestments: Number(draft.maxActiveInvestments), startsAt: draft.startsAt ? new Date(draft.startsAt).toISOString() : null, expiresAt: draft.expiresAt ? new Date(draft.expiresAt).toISOString() : null, enabled: draft.enabled, minimumPlatformFeeBps: Number(draft.minimumPlatformFeeBps), maximumPlatformFeeBps: Number(draft.maximumPlatformFeeBps), platformFeeRoundingMode: draft.platformFeeRoundingMode, reason: reason.trim() });
       const [packagesRead, policiesRead] = await Promise.all([packages.refetch(), policies.refetch()]);
       const saved = (packagesRead.data ?? []).find((row: any) => Number(row.id) === Number(packageRow.id)) as any;
       const savedFee = (policiesRead.data ?? []).find((row: any) => row.packageName === selected) as any;
       const confirmed = saved && Number(saved.minimumQualifyingBalanceUsdMinor) === Number(draft.minimumQualifyingBalanceUsdMinor) && Number(saved.durationMonths) === Number(draft.durationMonths) && Number(saved.opportunitiesPerDay) === Number(draft.opportunitiesPerDay) && Number(saved.maxPopupsPerDay) === Number(draft.maxPopupsPerDay) && Number(saved.maxActiveInvestments) === Number(draft.maxActiveInvestments) && Boolean(saved.enabled) === draft.enabled && Number(savedFee?.minimumPlatformFeeBps) === Number(draft.minimumPlatformFeeBps) && Number(savedFee?.maximumPlatformFeeBps) === Number(draft.maximumPlatformFeeBps);
       if (!confirmed) throw new Error("Package Settings were submitted, but a fresh database read did not confirm every saved term. Your draft remains on screen.");
-      setMessage(`Package Settings saved and verified from the database for ${saved.name}. Existing customer snapshots remain unchanged.`);
+      setMessage(`Package Settings saved atomically and verified from the database for ${saved.name}. Existing customer snapshots remain unchanged.`);
       setReason("");
     } catch (error) {
       const detail = error instanceof Error ? error.message : "Package Settings could not be saved.";
-      setMessage(packageCommitted ? `Package terms were saved, but the fee policy step failed: ${detail} Refresh before retrying; no full-save success is claimed.` : detail);
+      setMessage(`Package Settings were not saved: ${detail}`);
       void packages.refetch();
       void policies.refetch();
     }
   };
 
   return <div className="arb-page portal-page">
-    <div className="portal-page-top"><div><div className="eyebrow">Trade Settings · one package owner</div><h1>Package Settings</h1><p>One tier’s identity, eligibility, capital bounds, fee terms, quota, dates and lifecycle status. Changes apply to future assignments and deliveries; existing snapshots are preserved.</p></div><button className="primary-button" type="button" onClick={() => void saveDraft()} disabled={invalid || updatePackage.isPending || updatePolicy.isPending}><Check size={15}/>{updatePackage.isPending || updatePolicy.isPending ? "Saving…" : "Save package settings"}</button></div>
+    <div className="portal-page-top"><div><div className="eyebrow">Trade Settings · one package owner</div><h1>Package Settings</h1><p>One tier’s identity, eligibility, capital bounds, fee terms, quota, dates and lifecycle status. Changes apply to future assignments and deliveries; existing snapshots are preserved.</p></div><button className="primary-button" type="button" onClick={() => void saveDraft()} disabled={invalid || updateSettings.isPending}><Check size={15}/>{updateSettings.isPending ? "Saving atomically…" : "Save package settings"}</button></div>
     {(packages.isLoading || policies.isLoading) && <div className="empty-state">Loading persisted package terms…</div>}
     {(packages.isError || policies.isError) && <div className="admin-ops-empty error" role="alert">Package terms are unavailable or incomplete. No defaults are created automatically. <button className="secondary-button" type="button" onClick={() => { void packages.refetch(); void policies.refetch(); }}><RefreshCw size={14}/>Retry</button></div>}
     {draft && <>

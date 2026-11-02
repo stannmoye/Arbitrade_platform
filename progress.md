@@ -1,3 +1,16 @@
+## 2026-11-02 — Trade Settings Checkpoint 6E: atomic Package Settings save
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Added `updateAdminTradingPackageSettings` / `adminOperations.updateTradingPackageSettings`, a single database transaction that locks the package and its policy row, validates package transition and fee bounds together, updates both versioned records, writes one audit event and rolls back all writes on any validation or persistence error.
+- Switched Package Settings UI to the combined mutation and kept fresh package/policy read-back before showing success. Existing customer/trade snapshots remain unchanged.
+- Existing standalone package and policy mutations remain available for their other owner routes; this new mutation is the Package Settings owner path.
+- Validation: `pnpm check` passed; focused Trade Settings contracts passed (29 tests); `git diff --check` passed; `pnpm build` passed.
+- Disposable-database execution is still pending because this sandbox has no Docker and no `DATABASE_URL`; CI remains required for MySQL/MariaDB rollback rehearsal.
+- No migration or unrelated financial/customer data write was performed.
+- Next safe action: add disposable MySQL/MariaDB integration coverage for commit/rollback and version increments, then review CI results before further runtime wiring.
+
+---
+
 ## 2026-11-02 — Trade Settings Checkpoint 6D: partial-save safety and API boundary contract
 
 - PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.

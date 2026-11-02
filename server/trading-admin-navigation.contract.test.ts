@@ -127,9 +127,9 @@ describe("Trading tier effective-date validation", () => {
     expect(tierRoutes).toContain('startsAt: z.string().datetime().nullable()');
     expect(tierRoutes).toContain('expiresAt: z.string().datetime().nullable()');
     expect(tierRoutes).toContain('Date.parse(input.expiresAt) > Date.parse(input.startsAt)');
-    expect(tierRoutes.match(/Date.parse\(input\.expiresAt\) > Date.parse\(input\.startsAt\)/g)).toHaveLength(2);
+    expect(tierRoutes.match(/Date.parse\(input\.expiresAt\) > Date.parse\(input\.startsAt\)/g)).toHaveLength(3);
     expect(tierRoutes).toContain('path: ["expiresAt"]');
-    expect(tierRoutes.match(/path: \["expiresAt"\]/g)).toHaveLength(2);
+    expect(tierRoutes.match(/path: \["expiresAt"\]/g)).toHaveLength(3);
     const createService = serverDb.indexOf("export async function createAdminTradingPackage");
     const updateService = serverDb.indexOf("export async function updateAdminTradingPackage", createService);
     const nextService = serverDb.indexOf("export async function", updateService + 5);

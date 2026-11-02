@@ -2677,6 +2677,52 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
   });
 }
 
+export async function updateAdminTradingPackageSettings(updatedBy:number,input:{
+  id:number; name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
+  opportunitiesPerDay:number; maxPopupsPerDay:number; maxActiveInvestments:number;
+  startsAt:Date|null; expiresAt:Date|null; enabled:boolean;
+  minimumPlatformFeeBps:number; maximumPlatformFeeBps:number;
+  platformFeeRoundingMode:"up"|"down"|"half_up"|"half_even"; reason:string;
+}) {
+  const auditReason=String(input.reason??"").trim();
+  if(auditReason.length<5||auditReason.length>500) throw new Error("Provide an audit reason of 5–500 characters");
+  if(!Number.isSafeInteger(input.id)||input.id<=0) throw new Error("Package ID is invalid");
+  const name=input.name.trim();
+  if(!name||name.length>80) throw new Error("Package name must contain 1–80 characters");
+  if(!Number.isSafeInteger(input.minimumQualifyingBalanceUsdMinor)||input.minimumQualifyingBalanceUsdMinor<=0) throw new Error("Minimum qualifying balance must be a positive USD minor-unit integer");
+  if(!Number.isSafeInteger(input.durationMonths)||input.durationMonths<1||input.durationMonths>1200) throw new Error("Package duration must be 1–1200 calendar months");
+  if(!Number.isSafeInteger(input.opportunitiesPerDay)||input.opportunitiesPerDay<1||input.opportunitiesPerDay>10000) throw new Error("Daily opportunity quota must be between 1 and 10000");
+  if(!Number.isSafeInteger(input.maxPopupsPerDay)||input.maxPopupsPerDay<0||input.maxPopupsPerDay>10000) throw new Error("Package popup cap must be between 0 and 10000");
+  if(!Number.isSafeInteger(input.maxActiveInvestments)||input.maxActiveInvestments<0||input.maxActiveInvestments>10000) throw new Error("Package active-investment cap must be between 0 and 10000");
+  if(input.startsAt&&!Number.isFinite(input.startsAt.getTime())) throw new Error("Package start time is invalid");
+  if(input.expiresAt&&!Number.isFinite(input.expiresAt.getTime())) throw new Error("Package expiry time is invalid");
+  if(input.startsAt&&input.expiresAt&&input.expiresAt<=input.startsAt) throw new Error("Package expiry must be later than its start time");
+  if(!Number.isSafeInteger(input.minimumPlatformFeeBps)||!Number.isSafeInteger(input.maximumPlatformFeeBps)||input.minimumPlatformFeeBps<0||input.maximumPlatformFeeBps<input.minimumPlatformFeeBps||input.maximumPlatformFeeBps>10000) throw new Error("Platform fee bounds must satisfy 0 ≤ minimum ≤ maximum ≤ 10000 bps");
+  if(!["up","down","half_up","half_even"].includes(input.platformFeeRoundingMode)) throw new Error("Platform fee rounding mode is invalid");
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  await db.transaction(async tx=>{
+    const current=(await tx.select().from(packages).where(eq(packages.id,input.id)).limit(1).for("update"))[0];
+    if(!current) throw new Error("Trading package not found");
+    const conflicting=(await tx.select({id:packages.id}).from(packages).where(eq(packages.name,name)).limit(1).for("update"))[0];
+    if(conflicting&&conflicting.id!==input.id) throw new Error("A tier with this name already exists");
+    const currentPolicy=(await tx.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,current.name)).limit(1).for("update"))[0];
+    if(!currentPolicy) throw new Error("Saved Trading policy is missing; reconcile it explicitly before saving Package Settings.");
+    if(current.name!==name){
+      const target=(await tx.select({id:opportunityPackagePolicies.id}).from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,name)).limit(1).for("update"))[0];
+      if(target&&target.id!==currentPolicy.id) throw new Error("A tier policy with the new name already exists; reconcile it before renaming this tier.");
+    }
+    if(isTradingTierEnablingTransition(Boolean(current.enabled),input.enabled)&&(!currentPolicy.enabled||!currentPolicy.automaticDelivery||Number(currentPolicy.minimumPayoutRateBps)<1||Number(currentPolicy.maximumPayoutRateBps)<Number(currentPolicy.minimumPayoutRateBps)||Number(currentPolicy.minimumTradeDurationSeconds)<10||Number(currentPolicy.maximumTradeDurationSeconds)<Number(currentPolicy.minimumTradeDurationSeconds)||Number(currentPolicy.maximumTradeDurationSeconds)>86400)) throw new Error("Save and enable a valid pop-up delivery policy with payout-rate and duration bounds before enabling this Trading tier.");
+    const nextTermsVersion=Number(current.termsVersion||1)+1;
+    const nextPolicyVersion=Number(currentPolicy.policyVersion||0)+1;
+    if(!Number.isSafeInteger(nextTermsVersion)||!Number.isSafeInteger(nextPolicyVersion)) throw new Error("Package or policy version has reached its limit");
+    if(current.name!==name) await tx.update(opportunityPackagePolicies).set({packageName:name,updatedBy,updatedAt:new Date()}).where(eq(opportunityPackagePolicies.id,currentPolicy.id));
+    await tx.update(packages).set({name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:nextTermsVersion}).where(eq(packages.id,input.id));
+    await tx.update(opportunityPackagePolicies).set({minimumPlatformFeeBps:input.minimumPlatformFeeBps,maximumPlatformFeeBps:input.maximumPlatformFeeBps,platformFeeRoundingMode:input.platformFeeRoundingMode,updatedBy,policyVersion:nextPolicyVersion,updatedAt:new Date()}).where(eq(opportunityPackagePolicies.id,currentPolicy.id));
+    await tx.insert(v5AuditEvents).values({actorUserId:updatedBy,action:"trading_package_settings_updated",entityType:"trading_package",entityId:String(input.id),reason:auditReason,reference:"trading-package-settings:"+input.id+":"+nextTermsVersion+":"+nextPolicyVersion,metadataJson:JSON.stringify({old:{name:current.name,termsVersion:current.termsVersion,policyVersion:currentPolicy.policyVersion},new:{name,termsVersion:nextTermsVersion,policyVersion:nextPolicyVersion,minimumPlatformFeeBps:input.minimumPlatformFeeBps,maximumPlatformFeeBps:input.maximumPlatformFeeBps}})});
+  });
+  return listOpportunityPackagePolicies();
+}
+
 /**
  * Customer-safe, read-only progressive eligibility summary. Returns only the
  * current automatically assigned tier and at most one next milestone with the

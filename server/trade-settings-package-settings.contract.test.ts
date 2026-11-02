@@ -27,19 +27,18 @@ describe("Package Settings single-owner term contract", () => {
     expect(app).toContain('section==="tradePackageSettings"');
   });
 
-  it("uses package and fee-policy mutations without replaying global settings", () => {
-    expect(packageEditor).toContain("trpc.adminOperations.updateTradingPackage.useMutation");
-    expect(packageEditor).toContain("trpc.adminOperations.updatePackagePolicies.useMutation");
+  it("uses one atomic package-settings mutation without replaying global settings", () => {
+    expect(packageEditor).toContain("trpc.adminOperations.updateTradingPackageSettings.useMutation");
     expect(packageEditor).toContain("const [packagesRead, policiesRead] = await Promise.all");
     expect(packageEditor).toContain("a fresh database read did not confirm every saved term");
     expect(packageEditor).toContain("Existing customer snapshots remain unchanged");
-    expect(packageEditor).toContain("Package terms were saved, but the fee policy step failed");
-    expect(packageEditor).toContain("no full-save success is claimed");
+    expect(packageEditor).toContain("saved atomically and verified");
     expect(packageEditor).toContain("void packages.refetch()");
     expect(packageEditor).toContain("void policies.refetch()");
     expect(packageEditor).not.toContain("updateTradeGlobalSettings");
-    expect(router).toContain("updateTradingPackage: adminProcedure.input");
-    expect(router).toContain("updatePackagePolicies: adminProcedure.input");
+    expect(router).toContain("updateTradingPackageSettings: adminProcedure.input");
+    expect(router).toContain("updateAdminTradingPackageSettings(ctx.user.id");
+    expect(readFileSync(new URL("./db.ts", import.meta.url), "utf8")).toContain('action:"trading_package_settings_updated"');
   });
 
   it("keeps the global safety controls on the separate Package Configuration owner", () => {
