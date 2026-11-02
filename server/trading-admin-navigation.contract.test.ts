@@ -286,6 +286,8 @@ describe("Trading menu ownership and quota save feedback", () => {
     expect(adminApp).toContain('Saving tier…');
     expect(adminApp).toContain('<h2>{draft.name||pkg.name}</h2>');
     expect(adminApp).toContain('Unsaved changes');
+    expect(adminApp).toContain('maxPopupsPerDay:Number(draft.maxPopupsPerDay??pkg.maxPopupsPerDay??0)');
+    expect(adminApp).toContain('maxActiveInvestments:Number(draft.maxActiveInvestments??pkg.maxActiveInvestments??0)');
 
     expect(policyEditor).toContain('Hard daily pop-up ceiling<input');
     expect(policyEditor).toContain('This is an operational ceiling, not the tier entitlement.');
