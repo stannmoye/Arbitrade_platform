@@ -66,6 +66,8 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
   ]},
   { id: "trade-settings", label: "Trade Settings", detail: "One place for tier rules, opportunity delivery, trade records and system health", items: [
     { id: "trade-settings-overview", target: "tradeSystemOverview", label: "Trading Overview", detail: "View current delivery, open work and system status", icon: Gauge },
+    { id: "trade-package-configuration", target: "tradePackageConfiguration", label: "Package Configuration", detail: "Own global eligibility, delivery and safety masters", icon: Settings2 },
+    { id: "trade-package-settings", target: "tradePackageSettings", label: "Package Settings", detail: "Own one package's terms, fee bounds and entitlement values", icon: PackageCheck },
     { id: "trade-tiers-eligibility", target: "packages", focus: "tiers", label: "Tiers & Eligibility", detail: "Create and edit admin-managed tiers, thresholds, duration and assigned entitlements", icon: PackageCheck },
     { id: "trade-daily-delivery-caps", target: "packages", focus: "quotas", label: "Per-tier Daily Delivery Caps", detail: "Set per-tier hard pop-up ceilings, simultaneous display limits and counting windows", icon: Layers3 },
     { id: "trade-delivery-policy", target: "packages", focus: "policy", label: "Per-tier Offer Rules & Capital Limits", detail: "Configure per-tier capital bounds and published offer limits; ON/OFF switches stay in the shared Trading controls panel", icon: SlidersHorizontal },

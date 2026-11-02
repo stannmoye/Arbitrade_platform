@@ -1,3 +1,15 @@
+## 2026-11-02 — Trade Settings Checkpoint 4A: Package Configuration and Package Settings UI
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Added `client/src/components/TradeSettingsAdministration.tsx` with a dedicated global Package Configuration form and package-scoped Package Settings fee form.
+- Added canonical navigation destinations `tradePackageConfiguration` and `tradePackageSettings`, mounted from the admin portal. Global form is fail-closed when the migration is unavailable; both forms require an audit reason and show database-verification feedback.
+- Package Settings uses the existing partial policy mutation and only sends the selected package fee fields; it does not replay global controls or create defaults.
+- Validation: `pnpm exec vitest run server/trading-admin-navigation.contract.test.ts server/trading-settings-migration.contract.test.ts` — 23 tests passed; `pnpm check` passed; `git diff --check` passed.
+- Outstanding: fee snapshot selection/persistence at opportunity delivery, full package term form fields, remaining operational route surfaces, migration execution against a disposable database, browser/accessibility checks and complete test/build validation.
+- Next safe action: persist the selected package fee rate/policy version with each delivered opportunity/trade snapshot and add deterministic ceiling arithmetic integration tests before exposing more operational actions.
+
+---
+
 ## 2026-11-02 — Trade Settings Checkpoint 2: schema, migration and scoped API
 
 - PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
