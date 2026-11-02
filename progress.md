@@ -1,3 +1,16 @@
+## 2026-11-02 — Trade Settings Checkpoint 5A: fee snapshot and realized accounting
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Extended migration 0099 and the Drizzle schema with popup-event fee snapshot columns: selected fee rate, rounding mode and fee policy version.
+- During durable popup creation, the worker selects one inclusive package fee rate from the saved bounds and persists it exactly once. Delivery retries and trade allocation reuse the saved event snapshot.
+- New trades persist the fee rate, rounding mode and fee policy version. Manual settlement now uses only the stored trade snapshot and does not re-read current global fee settings, protecting historical results from later policy edits.
+- Added exact arithmetic coverage for the approved currency-minor-unit ceiling behavior and zero-profit no-fee behavior.
+- Validation: `pnpm exec vitest run server/modules/realized-profit-accounting.test.ts server/trading-settings-migration.contract.test.ts server/trading-admin-navigation.contract.test.ts` — 31 tests passed; `pnpm check` passed; `git diff --check` passed.
+- Outstanding: package form fields beyond fee bounds, complete operational route ownership, disposable-database migration execution, full build/browser/accessibility validation and staged deployment acceptance.
+- Next safe action: add the remaining blueprint operational route shells/actions using existing payout, settlement, funding, history, audit and worker APIs, keeping read-only pages mutation-free.
+
+---
+
 ## 2026-11-02 — Trade Settings Checkpoint 4A: Package Configuration and Package Settings UI
 
 - PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.

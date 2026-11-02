@@ -10,6 +10,8 @@ describe("Trade Settings Checkpoint 2 migration and API contracts", () => {
   it("is forward-only, preserves strict safety defaults, and records conflicts", () => {
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS `minimumPlatformFeeBps`");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS `maximumPlatformFeeBps`");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS `platformFeeRateBps`");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS `feePolicyVersion`");
     expect(migration).toContain("trade.settings.global.v1");
     expect(migration).toContain("'requirePreviousSettlement', TRUE");
     expect(migration).toContain("'automaticFinancialExecution', FALSE");
@@ -26,6 +28,8 @@ describe("Trade Settings Checkpoint 2 migration and API contracts", () => {
     expect(schema).toContain('platformFeeRoundingMode: varchar("platformFeeRoundingMode", { length: 16 }).default("up").notNull()');
     expect(db).toContain("Platform fee bounds must satisfy 0 ≤ minimum ≤ maximum ≤ 10000 bps");
     expect(db).toContain("platformFeeRoundingMode");
+    expect(db).toContain("Settlement never re-reads today's fee settings");
+    expect(db).toContain("platformFeeRateBps:input.deliveryEventId!==undefined?platformFeeRateBps");
   });
 
   it("fails closed before migration and audits global partial updates", () => {

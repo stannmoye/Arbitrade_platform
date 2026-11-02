@@ -7,6 +7,11 @@ ALTER TABLE `opportunity_package_policies`
   ADD COLUMN IF NOT EXISTS `maximumPlatformFeeBps` int NOT NULL DEFAULT 1500,
   ADD COLUMN IF NOT EXISTS `platformFeeRoundingMode` varchar(16) NOT NULL DEFAULT 'up';
 
+ALTER TABLE `opportunity_popup_events`
+  ADD COLUMN IF NOT EXISTS `platformFeeRateBps` int NOT NULL DEFAULT 1500,
+  ADD COLUMN IF NOT EXISTS `platformFeeRoundingMode` varchar(16) NOT NULL DEFAULT 'up',
+  ADD COLUMN IF NOT EXISTS `feePolicyVersion` int NOT NULL DEFAULT 1;
+
 -- The approved fee policy is package-scoped. Existing packages receive an
 -- explicit 15% inclusive bound snapshot until an administrator changes it.
 UPDATE `opportunity_package_policies`

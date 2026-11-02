@@ -3494,12 +3494,15 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       // selection is persisted with the popup and reused by retries/trade allocation.
       const configuredProfitRateBps=chooseInclusiveInteger(Number(configured.minimumPayoutRateBps),Number(configured.maximumPayoutRateBps));
       const configuredDurationSeconds=chooseInclusiveInteger(Number(configured.minimumTradeDurationSeconds),Number(configured.maximumTradeDurationSeconds));
+      const platformFeeRateBps=chooseInclusiveInteger(Number(configured.minimumPlatformFeeBps),Number(configured.maximumPlatformFeeBps));
+      const platformFeeRoundingMode=String(configured.platformFeeRoundingMode||"up");
+      if(!Number.isSafeInteger(platformFeeRateBps)||platformFeeRateBps<0||platformFeeRateBps>10000||!["up","down","half_up","half_even"].includes(platformFeeRoundingMode)) continue;
       const configuredPopupDisplaySeconds=Number(configured.popupDisplayTargetSeconds);
       if(!Number.isSafeInteger(configuredPopupDisplaySeconds)||configuredPopupDisplaySeconds<1||configuredPopupDisplaySeconds>86400) continue;
       newlyEligible.push({...offer,packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
         minimumMinor:selected.minimumMinor,packageMinimumTradeMinor:selected.configuredMinimum,packageMaximumTradeMinor:selected.configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
-        expectedRewardBps:configuredProfitRateBps,configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds,
+        expectedRewardBps:configuredProfitRateBps,configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds,platformFeeRateBps,platformFeeRoundingMode,feePolicyVersion:Number(configured.policyVersion||1),
         durationSeconds:configuredDurationSeconds,policyVersion:Number(configured.policyVersion||1),packagePolicyVersionSnapshot:Number(configured.policyVersion||1),
         badgeLabel:configured.badgeLabel==null?null:String(configured.badgeLabel),packageBadgeLabel:configured.badgeLabel==null?null:String(configured.badgeLabel),
         badgeStyle:["neutral","blue","purple","gold","green"].includes(String(configured.badgeStyle))?String(configured.badgeStyle):"neutral",
@@ -3519,6 +3522,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       return {userId,offerId:offer.id,quotaDay,packageName:offer.packageName,symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
         expectedRewardBps:Number(offer.expectedRewardBps),configuredProfitRateBps:Number(offer.configuredProfitRateBps),
         configuredDurationSeconds:Number(offer.configuredDurationSeconds),configuredPopupDisplaySeconds:Number(offer.configuredPopupDisplaySeconds),
+        platformFeeRateBps:Number(offer.platformFeeRateBps),platformFeeRoundingMode:String(offer.platformFeeRoundingMode||"up"),feePolicyVersion:Number(offer.feePolicyVersion||offer.policyVersion||1),
         policyVersion:Number(offer.policyVersion||1),packagePolicyVersionSnapshot:Number(offer.packagePolicyVersionSnapshot||offer.policyVersion||1),
         durationSeconds:Number(offer.configuredDurationSeconds),badgeLabel:offer.badgeLabel??null,packageBadgeLabel:offer.packageBadgeLabel??null,badgeStyle:offer.badgeStyle||"neutral",
         companyRotationEnabled:Boolean(offer.companyRotationEnabled),companyRotationCountryNames:String(offer.companyRotationCountryNames||""),
@@ -3543,6 +3547,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     expectedRewardBps:opportunityPopupEvents.expectedRewardBps,policyVersion:opportunityPopupEvents.policyVersion,
     configuredProfitRateBps:opportunityPopupEvents.configuredProfitRateBps,configuredDurationSeconds:opportunityPopupEvents.configuredDurationSeconds,
     configuredPopupDisplaySeconds:opportunityPopupEvents.configuredPopupDisplaySeconds,packagePolicyVersionSnapshot:opportunityPopupEvents.packagePolicyVersionSnapshot,
+    platformFeeRateBps:opportunityPopupEvents.platformFeeRateBps,platformFeeRoundingMode:opportunityPopupEvents.platformFeeRoundingMode,feePolicyVersion:opportunityPopupEvents.feePolicyVersion,
     packageBadgeLabel:opportunityPopupEvents.packageBadgeLabel,companyReferenceId:opportunityPopupEvents.companyReferenceId,
     companyDisplayName:opportunityPopupEvents.companyDisplayName,companyLogoUrl:opportunityPopupEvents.companyLogoUrl,
     companyReferenceMetadataJson:opportunityPopupEvents.companyReferenceMetadataJson,companyReferenceOnly:opportunityPopupEvents.companyReferenceOnly,
@@ -3957,9 +3962,14 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   // A legacy event without these snapshots is not silently re-rated at allocation.
   const configuredRateBps=Number(popupSnapshot?.configuredProfitRateBps||0);
   const configuredDurationSeconds=Number(popupSnapshot?.configuredDurationSeconds||0);
+  const platformFeeRateBps=Number(popupSnapshot?.platformFeeRateBps||0);
+  const platformFeeRoundingMode=String(popupSnapshot?.platformFeeRoundingMode||"") as FeeRoundingMode;
+  const feePolicyVersion=Number(popupSnapshot?.feePolicyVersion||0);
   if(input.deliveryEventId!==undefined&&(
     !Number.isSafeInteger(configuredRateBps)||configuredRateBps<1||configuredRateBps>5000||
-    !Number.isSafeInteger(configuredDurationSeconds)||configuredDurationSeconds<10||configuredDurationSeconds>86400
+    !Number.isSafeInteger(configuredDurationSeconds)||configuredDurationSeconds<10||configuredDurationSeconds>86400||
+    !Number.isSafeInteger(platformFeeRateBps)||platformFeeRateBps<0||platformFeeRateBps>10000||
+    !["up","down","half_up","half_even"].includes(platformFeeRoundingMode)||!Number.isSafeInteger(feePolicyVersion)||feePolicyVersion<1
   )) throw new Error("This pop-up has no valid saved rate and duration snapshot. Refresh opportunities after the administrator saves its tier policy.");
   const effectiveRateBps=input.deliveryEventId!==undefined?configuredRateBps:Number(offer.expectedRewardBps||terms.rewardBps);
   const effectiveDurationSeconds=input.deliveryEventId!==undefined?configuredDurationSeconds:Number(offer.durationSeconds);
@@ -4029,7 +4039,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const settlementReviewAt=new Date(settlesAt.getTime()+settlementDelaySeconds*1000);
   const creditAt=new Date(settlementReviewAt.getTime()+settlementPolicy.creditDelaySeconds*1000);
   const snapshotVersion=Number(popupSnapshot?.packagePolicyVersionSnapshot||packagePolicy.policyVersion||activePackageSubscription.termsVersion||1);
-  const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null,companyLogoUrl:popupSnapshot?.companyLogoUrl||null,companyReferenceMetadataJson:popupSnapshot?.companyReferenceMetadataJson||null,companyReferenceOnly:Boolean(popupSnapshot?.companyReferenceOnly??false),walletFundingPlanJson,transactionReference:ref,rewardReservedMinor:reward,settlesAt,settlementReviewAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:snapshotVersion} as any);
+  const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,platformFeeRateBps:input.deliveryEventId!==undefined?platformFeeRateBps:1500,platformFeeRoundingMode:input.deliveryEventId!==undefined?platformFeeRoundingMode:"up",feePolicyVersion:input.deliveryEventId!==undefined?feePolicyVersion:snapshotVersion,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null,companyLogoUrl:popupSnapshot?.companyLogoUrl||null,companyReferenceMetadataJson:popupSnapshot?.companyReferenceMetadataJson||null,companyReferenceOnly:Boolean(popupSnapshot?.companyReferenceOnly??false),walletFundingPlanJson,transactionReference:ref,rewardReservedMinor:reward,settlesAt,settlementReviewAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:snapshotVersion} as any);
   const tradeId=Number(result[0].insertId);
   await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,packageSubscriptionId:selectedSubscriptionId,packageId:Number(activePackageSubscription.packageId),termsVersion:Number(activePackageSubscription.termsVersion||1),policyVersion:snapshotVersion,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null})});
   if(input.deliveryEventId!==undefined) await tx.update(opportunityPopupEvents).set({tradeId,eventStatus:"TRADED",executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,tradedAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offer.id)));
@@ -4518,14 +4528,12 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
       packageName=packageRow.name;
     }
 
-    // Lock the active fee policy so this result uses one auditable, stable version.
-    const feeSettings=await tx.select().from(appSettings).where(inArray(appSettings.settingKey,[...TRADE_FEE_SETTING_KEYS])).for("update");
-    const feeByKey=new Map<string,string>();
-    for(const row of feeSettings) feeByKey.set(row.settingKey,row.settingValue);
+    // Settlement never re-reads today's fee settings. The opportunity/trade
+    // snapshot is the only fee contract for this historical financial result.
     const feePolicy=normalizeTradeFeePolicy({
-      feeRateBps:feeByKey.get("trade.platformFeeBps")??String(DEFAULT_TRADE_FEE_POLICY.feeRateBps),
-      roundingMode:feeByKey.get("trade.feeRoundingMode")??DEFAULT_TRADE_FEE_POLICY.roundingMode,
-      policyVersion:feeByKey.get("trade.feePolicyVersion")??String(DEFAULT_TRADE_FEE_POLICY.policyVersion),
+      feeRateBps:trade.platformFeeRateBps,
+      roundingMode:trade.platformFeeRoundingMode,
+      policyVersion:trade.feePolicyVersion,
     });
     const principal=Number(trade.principalMinor);
     const accounting=calculateRealizedProfitSettlement({
