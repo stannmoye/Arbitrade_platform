@@ -3,6 +3,16 @@
 **Status:** Canonical companion to `docs/TRADING_SYSTEM_SPECIFICATION.md`.  
 **Scope:** Trade/Trading only. This document defines the intended administrator controls, what each control means, the customer pop-up contract, company rotation, and worker durability. It is a requirements manual, not proof that every listed control is already implemented.
 
+## Admin navigation and unique configuration ownership
+
+All Trading pages must appear under one top-level administrator group: **Trade Settings**. The submenu names are **Trading Overview**, **Tiers & Eligibility**, **Per-tier Daily Delivery Caps**, **Per-tier Offer Rules & Capital Limits**, **Publish & Manage Opportunities**, **Per-tier Delivery Schedule**, **Global Trade Timing & Settlement**, **Per-tier Pop-up Display**, **Per-tier Company Rotation Rules**, **Company Catalogue**, **Capital & Wallet Funding Rules**, **Fees & Earnings Limits**, **Retries & Carry-Forward**, **Active & Pending Opportunities**, **Settlement & Reconciliation**, **System Pause & Safety**, **Worker Health & Recovery**, **Audit & Policy History**, and **Trade Settings Guide**.
+
+The persistent Trading controls panel above every admin page except Home is the only owner of the per-tier **Tier policy**, **Pop-up delivery**, **Company rotation**, **Randomized timing**, and **Burst delivery** ON/OFF switches. The detailed policy editor must not duplicate these switches. Per-tier Company Rotation Rules contains the country filters and repeat policy; Company Catalogue contains only reference records and approval metadata.
+
+The daily opportunity entitlement is configured once in **Tiers & Eligibility** as the number of additional opportunities contributed by each tier. Active qualifying tier entitlements are cumulative. **Per-tier Daily Delivery Caps** is a separate operational limiter: its hard daily pop-up ceiling and optional daily target may reduce delivery but never increase a customer's tier entitlement. To allow an entitlement of 600 opportunities/day, the hard daily ceiling must be at least 600 and the optional target must be 0. Existing customer entitlements keep their saved terms snapshot; editing tier terms applies to future automatic assignments and must not silently rewrite existing subscriptions.
+
+Tier and policy saves must show an in-progress state, a visible error when rejected, and a success confirmation only after a fresh database read verifies the changed values/version. Background polling must preserve dirty drafts. An unconfirmed read-back is an error state, not a successful save.
+
 ## 1. Non-negotiable rules
 
 1. The admin portal is the source of truth for package policy and customer pop-up behaviour. Customer UI must consume saved server configuration; it must not hardcode amounts, percentages, package names, durations, company lists, quotas, or financial results.
@@ -53,7 +63,7 @@ Controls may be grouped into tabs such as **Package & Badge**, **Capital & Profi
 
 ### Explicit configuration and activation gates
 
-- The create-tier form presents threshold, package duration, and daily opportunity quota as blank required fields. It does not preselect a tier threshold or quota. New tiers are enabled by default for future automatic eligibility; administrators can independently disable a tier or its delivery policy at any time.
+- The create-tier form presents threshold, package duration, and daily opportunity entitlement as blank required fields. It does not preselect a tier threshold or quota. New tiers are enabled by default for future automatic eligibility; administrators can independently disable a tier or its delivery policy at any time.
 - A newly created tier and its saved pop-up policy are enabled by default, with policy/delivery, company rotation, randomized timing and bounded burst delivery ON (maximum three pop-ups per worker cycle). The policy uses valid display defaults (policy version one, 2%–3% rate bounds, 300–900 second duration bounds). Automatic financial execution remains OFF and is not required for customer pop-up delivery. Administrators retain independent OFF controls; existing saved OFF choices are preserved.
 - Newly created tiers start with tier policy, pop-up delivery, company rotation, randomized timing and burst delivery enabled, plus valid inclusive payout-rate and trade-duration ranges for pop-up display. Administrators may switch each safe delivery control OFF per package. Existing incomplete or malformed policies remain fail-closed until corrected; valid saved settings and explicit OFF/pause choices are preserved.
 - Package activation requires an enabled, valid pop-up policy and automatic delivery, but does not require automatic financial execution. Automatic financial execution is hard-disabled in the worker for this release. No package or pop-up setting can enable it; migration 0098 clears the saved execution flag on existing package policies. Pop-up delivery remains independent of this lock.
@@ -65,10 +75,10 @@ Controls may be grouped into tabs such as **Package & Badge**, **Capital & Profi
 
 - The database-backed opportunity worker distributes already-published, open opportunity rows. It does not currently create new opportunity offers automatically.
 - Market-data refresh stores reference instrument and FX snapshots. The current `ensureMarketDrivenOpportunities` implementation expires stale offers and reports the count of remaining open offers; it explicitly returns `generationDisabled: true` and `created: 0`.
-- An administrator must publish a validated opportunity in **Admin portal → Opportunity Engine → New allocation window**, or import a reviewed CSV through **Import opportunity ledger**. The customer delivery worker can only deliver offers that are present, open, within their time window, and compatible with the customer's active tier policy and quota.
+- An administrator must publish a validated opportunity in **Admin portal → Trade Settings → Publish & Manage Opportunities**, or import a reviewed CSV through **Import opportunity ledger**. The customer delivery worker can only deliver offers that are present, open, within their time window, and compatible with the customer's active tier policy and quota.
 - The manual publishing form starts with blank symbol, venue, minimum amount, payout basis-point and duration fields; it does not prefill placeholder assets, venues or payout terms. Enter only reviewed, source-backed offer terms. Client-side validation and server-side validation must both pass before publication.
-- If the open-offer count is zero, no customer pop-up can be produced, even when package eligibility and pop-up delivery are enabled. The administrator Opportunity Engine now states this source requirement.
-- If the open-offer count is zero, no customer pop-up can be produced, even when package eligibility and pop-up delivery are enabled. The administrator Opportunity Engine now states this source requirement.
+- If the open-offer count is zero, no customer pop-up can be produced, even when package eligibility and pop-up delivery are enabled. The Trade Settings opportunity-publishing page now states this source requirement.
+- If the open-offer count is zero, no customer pop-up can be produced, even when package eligibility and pop-up delivery are enabled. The Trade Settings opportunity-publishing page now states this source requirement.
 - If the block-until-settled setting pauses new delivery while a prior trade is outstanding, already-published offers remain open until their own expiry; they are not permanently closed by the pause. Once the prior trade is resolved, still-valid offers may be delivered if the customer remains eligible.
 - Do not remove the generation-disabled guard by synthesizing a reward, venue, price, quote or execution result from reference market data. Any future automatic offer publisher must consume explicitly approved offer terms and verified source evidence; it must not invent financial terms.
 - An empty verified-company rotation pool removes the company identity from the pop-up, not the opportunity itself. Company verification is not a prerequisite for the card to display.
@@ -158,16 +168,16 @@ The global allocation pause applies only to new allocations. It does not suspend
 
 ## 6. Administrator company catalogue and tier-list presentation
 
-- **Trade Settings → Show offers → Company names shown** opens a dedicated administrator company-catalogue page, not the opportunity engine or package/tier editor.
+- **Trade Settings → Company Catalogue** opens a dedicated administrator company-catalogue page, not the opportunity engine or package/tier editor.
 - The page reads the existing 1,811 logo-ID-aligned records from `companyCatalogueReference`; it must not create a replacement catalogue or alter the source records.
 - Display 10 company records per page with Previous/Next controls, total/matching counts, search by company name/domain/supplied ticker/exchange, and exact country-folder filtering.
 - Each result keeps its local logo, stable Logo ID, company name, country folder, supplied ticker/code, exchange, workbook status/classification, parent ticker and reason together. Show reference-only/unverified status; do not imply that a supplied ticker is a verified active security.
-- **Trade Settings → Set up trades → Customer tiers** displays 5 administrator-managed tiers per page with Previous/Next controls. Creating, editing, enabling, saving, and audit reasons remain unchanged by paging. Do not hide or discard tiers when moving between pages.
+- **Trade Settings → Tiers & Eligibility** displays 5 administrator-managed tiers per page with Previous/Next controls. Creating, editing, enabling, saving, and audit reasons remain unchanged by paging. Do not hide or discard tiers when moving between pages.
 - Package/tier policy settings remain in their dedicated submenu; company-catalogue navigation must not render package controls.
 
 ## 6A. Administrator company catalogue bulk management
 
-Open **Trade Settings → Show offers → Company names shown** to manage the existing 1,811 logo-ID-aligned reference records.
+Open **Trade Settings → Company Catalogue** to manage the existing 1,811 logo-ID-aligned reference records.
 
 | Control | Behaviour |
 | --- | --- |

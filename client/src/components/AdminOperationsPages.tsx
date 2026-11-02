@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   BadgeCheck,
   CalendarClock,
+  Check,
   CheckCircle2,
   CircleDollarSign,
   Clock3,
@@ -10,11 +11,13 @@ import {
   FileText,
   RefreshCw,
   ShieldCheck,
+  ToggleLeft,
+  ToggleRight,
   Users,
   XCircle,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 type CustomerRecord = {
   id: number;
@@ -113,6 +116,41 @@ function timestamp(value: Date | string | null | undefined) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
 }
+
+export function AdminSettings({focus}:{focus?:"tradeDuration"}={}){ const q=trpc.adminOperations.settings.useQuery(); const save=trpc.adminOperations.updateSettings.useMutation(); const [tab,setTab]=useState<"ticket"|"trade"|"password">(focus==="tradeDuration"?"trade":"ticket"); useEffect(()=>{if(focus==="tradeDuration")setTab("trade")},[focus]); const [maxMb,setMaxMb]=useState(25); const [types,setTypes]=useState("image/*,application/pdf,text/plain,.doc,.docx,.xls,.xlsx");  const [settlementMinutes,setSettlementMinutes]=useState(15); const [creditDelaySeconds,setCreditDelaySeconds]=useState(0); const [cooldownSeconds,setCooldownSeconds]=useState(30); const [nextPopupFormulaDelaySeconds,setNextPopupFormulaDelaySeconds]=useState(30); const [popupCooldownSeconds,setPopupCooldownSeconds]=useState(45); const [popupDisplaySeconds,setPopupDisplaySeconds]=useState(8); const [popupPreAlertSeconds,setPopupPreAlertSeconds]=useState(4); const [popupJitterSeconds,setPopupJitterSeconds]=useState(90); const [popupMaxPerHour,setPopupMaxPerHour]=useState(12); const [marketRefreshIntervalMinutes,setMarketRefreshIntervalMinutes]=useState(120); const [blockUntilSettled,setBlockUntilSettled]=useState(true); const [saved,setSaved]=useState(false); const [settingsMessage,setSettingsMessage]=useState(""); const [settingsMessageKind,setSettingsMessageKind]=useState<"success"|"error">("success"); useEffect(()=>{if(q.data){setMaxMb(q.data.ticket.maxAttachmentMb);setTypes(q.data.ticket.allowedMimeTypes.join(","));setSettlementMinutes(Math.max(1,Math.ceil(Number(q.data.trade?.settlementDelaySeconds||900)/60)));setCreditDelaySeconds(Number(q.data.trade?.creditDelaySeconds||0));setCooldownSeconds(Number(q.data.trade?.cooldownSeconds||30));setNextPopupFormulaDelaySeconds(Number(q.data.trade?.nextPopupFormulaDelaySeconds||30));setPopupCooldownSeconds(Number(q.data.trade?.popupCooldownSeconds||45));setPopupDisplaySeconds(Number(q.data.trade?.popupDisplaySeconds||8));setPopupPreAlertSeconds(Number(q.data.trade?.popupPreAlertSeconds||4));setPopupJitterSeconds(Number(q.data.trade?.popupJitterSeconds||90));setPopupMaxPerHour(Number(q.data.trade?.popupMaxPerHour||12));setMarketRefreshIntervalMinutes(Number(q.data.trade?.marketRefreshIntervalMinutes||120));setBlockUntilSettled(q.data.trade?.blockUntilSettled!==false)}},[q.data]); const submit=async()=>{
+    setSaved(false);
+    setSettingsMessage("");
+    try{
+      if(focus==="tradeDuration"){
+        const trade={settlementDelaySeconds:Math.round(settlementMinutes*60),creditDelaySeconds,cooldownSeconds,nextPopupFormulaDelaySeconds,popupCooldownSeconds,popupDisplaySeconds,popupPreAlertSeconds,popupJitterSeconds,popupMaxPerHour,marketRefreshIntervalMinutes,blockUntilSettled};
+        await save.mutateAsync({trade});
+        const refreshed=await q.refetch();
+        const stored=refreshed.data?.trade as Record<string,unknown>|undefined;
+        const confirmed=!refreshed.isError&&Boolean(stored)&&Object.entries(trade).every(([key,value])=>typeof value==="boolean"?stored?.[key]===value:Number(stored?.[key])===value);
+        if(!confirmed)throw new Error("Global Trade settings were submitted, but a fresh server read did not confirm every saved value. Your changes remain on screen; please refresh and check the settings.");
+        setSettingsMessageKind("success");
+        setSettingsMessage("Global Trade timing and settlement settings saved and verified from the database. Other settings sections were not changed.");
+      }else if(tab==="ticket"){
+        const ticket={maxAttachmentMb:maxMb,allowedMimeTypes:types.split(",").map(v=>v.trim()).filter(Boolean)};
+        await save.mutateAsync({ticket});
+        const refreshed=await q.refetch();
+        const stored=refreshed.data?.ticket;
+        const confirmed=!refreshed.isError&&Boolean(stored)&&Number(stored?.maxAttachmentMb)===ticket.maxAttachmentMb&&stored?.allowedMimeTypes.join(",")===ticket.allowedMimeTypes.join(",");
+        if(!confirmed)throw new Error("Ticket settings were submitted, but a fresh server read did not confirm the saved values. Your changes remain on screen; please refresh and check the settings.");
+        setSettingsMessageKind("success");
+        setSettingsMessage("Ticket settings saved and verified from the database. Trade and other settings were not changed.");
+      }else{
+        return;
+      }
+      setSaved(true);
+      setTimeout(()=>setSaved(false),1800);
+    }catch(error){
+      setSettingsMessageKind("error");
+      setSettingsMessage(error instanceof Error?error.message:"Settings could not be saved.");
+    }
+  }; return <div className="arb-page portal-page settings-page"><div className="portal-page-top"><div><div className="eyebrow">Administration</div><h1>{focus==="tradeDuration"?"Global Trade Timing & Settlement":"Settings"}</h1><p>{focus==="tradeDuration"?"Manage global settlement, wallet-credit and pop-up timing defaults. Per-tier daily caps, delivery schedules and display overrides are configured in their dedicated Trade Settings pages. Scheduled time is not proof of execution or settlement.":"Manage application settings. Each save updates only the section currently open."}</p></div><span className="admin-live-chip"><span className="pulse"/> Policy control</span></div>{settingsMessage&&<div className={"test-notice "+(settingsMessageKind==="error"?"error":"success")} role={settingsMessageKind==="error"?"alert":"status"} aria-live="polite">{settingsMessage}</div>}{!focus&&<div className="settings-tabs"><button className={tab==="ticket"?"active":""} onClick={()=>setTab("ticket")}>Ticket settings</button><button className={tab==="password"?"active":""} onClick={()=>setTab("password")}>Password & security</button></div>}{tab==="ticket"&&!focus&&<div className="settings-card"><div className="eyebrow">Customer support uploads</div><h2>Attachment policy</h2><label>Maximum attachment size (MB)<input type="number" min="1" max="100" value={maxMb} onChange={e=>setMaxMb(Number(e.target.value))}/></label><label>Accepted file types<input value={types} onChange={e=>setTypes(e.target.value)}/></label></div>}{tab==="trade"&&focus==="tradeDuration"&&<div className="settings-card"><div className="eyebrow">Wallet settlement gate</div><h2>Global timing and settlement defaults</h2><p>The scheduled time is an estimate only; elapsed time never confirms execution or credits funds. An authorized administrator must record the actual settlement result and reference before principal or realized profit is posted. While a confirmed trade is outstanding, new opportunities are blocked globally.</p><label>Settlement review delay (minutes)<input type="number" min="1" max="10080" value={settlementMinutes} onChange={e=>setSettlementMinutes(Number(e.target.value)||1)}/><small>Wait after trade completion before an administrator may review the actual result. Saved as settlementReviewAt.</small></label><label>Wallet credit delay after review becomes due (seconds)<input type="number" min="0" max="604800" value={creditDelaySeconds} onChange={e=>setCreditDelaySeconds(Math.max(0,Number(e.target.value)||0))}/><small>Added to settlementReviewAt to create creditAt. The result must still be administrator-confirmed before the worker can post it.</small></label><label>Global cooldown before the next opportunity (seconds)<input type="number" min="0" max="604800" value={cooldownSeconds} onChange={e=>setCooldownSeconds(Math.max(0,Number(e.target.value)||0))}/><small>After wallet credit, wait before allowing the next eligible opportunity window.</small></label><>
+<div className="form-two"><label>Global formula delay before next pop-up (seconds)<input type="number" min="0" max="604800" value={nextPopupFormulaDelaySeconds} onChange={e=>setNextPopupFormulaDelaySeconds(Math.max(0,Number(e.target.value)||0))}/><small>Server-side delay before the next opportunity calculation can deliver.</small></label><label>Global notification gap (seconds)<input type="number" min="0" max="604800" value={popupCooldownSeconds} onChange={e=>setPopupCooldownSeconds(Math.max(0,Number(e.target.value)||0))}/><small>Minimum client notification spacing.</small></label></div><div className="form-two"><label>Global pop-up display default (seconds)<input type="number" min="1" max="3600" value={popupDisplaySeconds} onChange={e=>setPopupDisplaySeconds(Math.max(1,Number(e.target.value)||1))}/></label><label>Global pre-alert duration (seconds)<input type="number" min="0" max="3600" value={popupPreAlertSeconds} onChange={e=>setPopupPreAlertSeconds(Math.max(0,Number(e.target.value)||0))}/></label></div><div className="form-two"><label>Global pop-up timing jitter (seconds)<input type="number" min="0" max="604800" value={popupJitterSeconds} onChange={e=>setPopupJitterSeconds(Math.max(0,Number(e.target.value)||0))}/></label><label>Global pop-up hourly ceiling<input type="number" min="1" max="10000" value={popupMaxPerHour} onChange={e=>setPopupMaxPerHour(Math.max(1,Number(e.target.value)||1))}/></label></div><label>Market-data refresh interval (minutes)<input type="number" min="1" max="10080" value={marketRefreshIntervalMinutes} onChange={e=>setMarketRefreshIntervalMinutes(Math.max(1,Number(e.target.value)||1))}/><small>Worker restart is not required; future refresh scheduling uses the persisted value.</small></label>
+</><div className="admin-toggle-row"><div><strong>Block opportunities until all trades settle</strong><span>No new offers are published or delivered while principal and profit remain outstanding.</span></div><button className={`toggle-switch ${blockUntilSettled?"on":""}`} onClick={()=>setBlockUntilSettled(!blockUntilSettled)}>{blockUntilSettled?<ToggleRight size={28}/>:<ToggleLeft size={28}/>}</button></div></div>}{tab==="password"&&!focus&&<div className="settings-card"><div className="eyebrow">Identity security</div><h2>Password & security</h2><p>The admin password is managed by the configured local identity session. Passwords are stored as salted hashes.</p></div>}{(focus==="tradeDuration"||tab==="ticket")&&<div className="settings-actions"><button className="primary-button" onClick={submit} disabled={save.isPending||q.isLoading||q.isError}>{save.isPending?"Saving…":saved?"Saved":focus?"Save global Trade timing settings":"Save ticket settings"} <Check size={14}/></button><span>Only the section shown on this page is submitted; other saved settings are left unchanged.</span></div>}</div>; }
 
 export function AdminOpportunityDelivery() {
   const query = trpc.adminOperations.popupLifecycleSummary.useQuery(undefined, { refetchInterval: 10_000 });

@@ -69,36 +69,40 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 </section>
 
 <section class="section anchor" id="menu">
-<div class="eyebrow">02 · Find your way around</div><h2>Trade menu map</h2>
-<p>The current admin navigation separates Trading into these groups. The guide itself is added after the existing Trading history/audit item, following Worker Health in the menu sequence.</p>
-<div class="table-wrap"><table><thead><tr><th>Menu / submenu</th><th>What it is for</th><th>What you do there</th></tr></thead><tbody>
-<tr><td><strong>Set up trades → Trading home</strong></td><td>Quick status overview</td><td>Review recent lifecycle totals, enabled policy rows, open offers, pending settlements and the global allocation gate.</td></tr>
-<tr><td><strong>Set up trades → Customer tiers</strong></td><td>Tier definitions</td><td>Create or edit a tier's name, threshold, duration, daily allowance and effective dates.</td></tr>
-<tr><td><strong>Set up trades → Daily trade allowance</strong></td><td>Tier quotas</td><td>Review and configure daily delivery targets and quota windows.</td></tr>
-<tr><td><strong>Set up trades → How trades finish</strong></td><td>Timing rules</td><td>Set settlement timing, wallet-credit delay, cooldown and popup timing rules.</td></tr>
-<tr><td><strong>Show offers → When offers appear</strong></td><td>Opportunity Engine</td><td>Review delivery activity, set safety values, publish/import opportunities and edit tier policies.</td></tr>
-<tr><td><strong>Show offers → Customer pop-up timing</strong></td><td>Display-only settings</td><td>Adjust expanded and completed-card display times for each tier.</td></tr>
-<tr><td><strong>Show offers → Company names shown</strong></td><td>Company catalogue references</td><td>Configure country-folder filters and repeat handling. This is reference display, not trade proof.</td></tr>
-<tr><td><strong>Finish trades → Returns and fees</strong></td><td>Fee policy</td><td>Review or save the positive-profit fee rate and rounding rule.</td></tr>
-<tr><td><strong>Finish trades → Try failed trades again</strong></td><td>Technical retry settings</td><td>Set per-tier attempt limits and retry delay. Carry-forward is not currently available.</td></tr>
-<tr><td><strong>Finish trades → Check finished trades</strong></td><td>Settlement and ledger review</td><td>Inspect pending settlement, verify evidence, confirm actual results and review wallet/ledger differences.</td></tr>
-<tr><td><strong>Watch problems → Open and waiting work</strong></td><td>Delivery lifecycle</td><td>Review delivered, opened, dismissed, traded, settled and insufficient-balance counts.</td></tr>
-<tr><td><strong>Watch problems → Pause new trades</strong></td><td>Global safety switch</td><td>Pause or resume new allocations with an audit reason.</td></tr>
-<tr><td><strong>Watch problems → Worker health</strong></td><td>Background service monitor</td><td>Check persisted worker heartbeats and the tier-qualification job queue; retry a dead-lettered qualification job with a reason.</td></tr>
-<tr><td><strong>History → Who changed what</strong></td><td>Audit log</td><td>Review administrator changes and the reasons recorded for them.</td></tr>
-<tr><td><strong>History → Trade Settings Guide</strong></td><td>This handbook</td><td>Read explanations without changing Trading data.</td></tr>
+<div class="eyebrow">02 · Find your way around</div><h2>Trade Settings menu map</h2>
+<p>All Trading configuration and monitoring now lives under one top-level <strong>Trade Settings</strong> group. Each setting has one primary page. The persistent Trading controls panel above page content (except Home) is the only place for the per-tier ON/OFF switches.</p>
+<div class="table-wrap"><table><thead><tr><th>Trade Settings submenu</th><th>What it is for</th><th>What you do there</th></tr></thead><tbody>
+<tr><td><strong>Trading Overview</strong></td><td>Operations summary</td><td>Review delivery totals, pending work, open opportunities, settlement status and global pause state.</td></tr>
+<tr><td><strong>Tiers &amp; Eligibility</strong></td><td>Package entitlement rules</td><td>Edit tier names, qualifying thresholds, duration, daily opportunity entitlement and effective dates.</td></tr>
+<tr><td><strong>Per-tier Daily Delivery Caps</strong></td><td>Operational delivery ceilings</td><td>Set the hard daily pop-up ceiling, concurrent visible-offer limit, optional target cap and counting window.</td></tr>
+<tr><td><strong>Per-tier Offer Rules &amp; Capital Limits</strong></td><td>Published offer constraints</td><td>Set required capital bounds and configured reward-rate/duration eligibility bounds. Switches are not repeated here.</td></tr>
+<tr><td><strong>Publish &amp; Manage Opportunities</strong></td><td>Opportunity publishing</td><td>Publish reviewed opportunities, import validated CSV records and inspect the saved open feed.</td></tr>
+<tr><td><strong>Per-tier Delivery Schedule</strong></td><td>Per-tier cadence</td><td>Set minimum/maximum spacing and post-completion intervals for future pop-up delivery.</td></tr>
+<tr><td><strong>Global Trade Timing &amp; Settlement</strong></td><td>Closing and review timing</td><td>Review trade-duration estimates and global settlement/closing settings; time alone never confirms settlement.</td></tr>
+<tr><td><strong>Per-tier Pop-up Display</strong></td><td>Display-only settings</td><td>Adjust expanded pop-up and completion-card display durations.</td></tr>
+<tr><td><strong>Per-tier Company Rotation Rules</strong></td><td>Rotation configuration</td><td>Choose approved-company country filters and repeat-handling rules. ON/OFF is in the persistent controls panel.</td></tr>
+<tr><td><strong>Company Catalogue</strong></td><td>Reference records</td><td>Search and manage company reference records and their approval status. This page does not repeat rotation settings.</td></tr>
+<tr><td><strong>Capital &amp; Wallet Funding Rules</strong></td><td>Capital policy</td><td>Review required capital and permitted wallet funding rules.</td></tr>
+<tr><td><strong>Fees &amp; Earnings Limits</strong></td><td>Fee policy</td><td>Configure Trading fees and review earnings ceilings.</td></tr>
+<tr><td><strong>Retries &amp; Carry-Forward</strong></td><td>Recovery policy</td><td>Set bounded retry limits and view carry-forward availability. Carry-forward is not currently enabled.</td></tr>
+<tr><td><strong>Active &amp; Pending Opportunities</strong></td><td>Lifecycle monitoring</td><td>Review delivery events waiting for customer or system action.</td></tr>
+<tr><td><strong>Settlement &amp; Reconciliation</strong></td><td>Ledger review</td><td>Inspect confirmed outcomes and reconcile trade records against wallet/ledger entries.</td></tr>
+<tr><td><strong>System Pause &amp; Safety</strong></td><td>Global pause</td><td>Pause or resume new allocations with an audit reason while preserving pending work and reconciliation.</td></tr>
+<tr><td><strong>Worker Health &amp; Recovery</strong></td><td>Background services</td><td>Check worker heartbeats, delayed work, queues and audited recovery actions.</td></tr>
+<tr><td><strong>Audit &amp; Policy History</strong></td><td>Administrator audit log</td><td>Review who changed Trading settings, why and which policy version was saved.</td></tr>
+<tr><td><strong>Trade Settings Guide</strong></td><td>This handbook</td><td>Read explanations without changing Trading data.</td></tr>
 </tbody></table></div>
-<div class="callout warn">Some canonical Trading topics are not separate menu pages in the current UI. Capital limits, delivery cadence, retry limits, badge options and company rotation are grouped inside the Opportunity Engine's tier policy editor. There is no separate customer package activation page.</div>
+<div class="callout">The persistent Trading controls panel owns the per-tier Tier policy, Pop-up delivery, Company rotation, Randomized timing and Burst delivery switches. They are not repeated on the detailed settings pages. Customer package browsing and activation controls are not available.</div>
 </section>
 
 <section class="section anchor" id="tiers">
-<div class="eyebrow">03 · Packages & eligibility</div><h2>Customer tiers: every input</h2>
+<div class="eyebrow">03 · Packages & eligibility</div><h2>Tiers &amp; Eligibility: every input</h2>
 <p>This screen defines the milestones used by the automatic qualification system. A new tier package is enabled by default for future automatic eligibility. Its pop-up policy is initialized with valid display defaults (2%–3% configured rate, 300–900 second duration, policy and pop-up delivery, company rotation, randomized timing and bounded burst delivery enabled); automatic financial execution remains OFF. Administrators can disable the package or individual delivery controls at any time.</p>
 <div class="field-list">
 <div class="field"><b>Tier name</b><span>The name administrators and the eligible customer may see, such as Starter or Growth. Use a clear unique name.</span></div>
 <div class="field"><b>Qualifying deposit threshold (USD)</b><span>The cumulative qualifying admin-credit amount needed for this tier. The server compares saved USD-minor attribution, not a customer's ordinary wallet balance.</span></div>
 <div class="field"><b>Duration (calendar months)</b><span>How long the entitlement lasts after assignment. This is package duration—not the duration of an individual trade or popup.</span></div>
-<div class="field"><b>Daily opportunity quota</b><span>How many additional opportunities this tier contributes each day while its entitlement is active.</span></div>
+<div class="field"><b>Daily opportunity entitlement</b><span>How many additional opportunities this tier contributes each day while its entitlement is active. Active qualifying tiers accumulate their contributions.</span></div>
 <div class="field"><b>Starts at</b><span>Optional local date/time when the tier becomes eligible. Blank means immediately, subject to the saved enabled state.</span></div>
 <div class="field"><b>Expires at</b><span>Optional end date/time for the tier configuration. Blank means no configured end date.</span></div>
 <div class="field"><b>Enabled</b><span>Controls whether the tier can participate in future automatic eligibility. A tier must also have a valid saved delivery policy.</span></div>
@@ -107,30 +111,28 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <h3>Buttons</h3>
 <ul>
 <li><strong>Create tier:</strong> saves a new enabled tier for future automatic eligibility. It does not manually assign it to a customer.</li>
-<li><strong>Save tier configuration:</strong> saves the edited tier terms. Future automatic assignments use the new terms; existing entitlement snapshots keep their saved terms.</li>
+<li><strong>Save tier settings:</strong> saves the edited tier terms. The page shows “Saving tier…” and then confirms the returned quota and terms version against a fresh database read. If that read-back fails, it shows an error and keeps your draft visible. Future automatic assignments use the new terms; existing entitlement snapshots keep their saved terms.</li>
 <li><strong>Refresh / Retry loading:</strong> reloads the tier list if it is stale or failed to load.</li>
 </ul>
 <div class="callout">The customer is not given a package picker. The server assigns a tier when qualifying credits meet its threshold. When multiple active tiers apply, their daily opportunity contributions are cumulative, subject to the configured overall limits.</div>
 </section>
 
 <section class="section anchor" id="quotas">
-<div class="eyebrow">04 · How many opportunities</div><h2>Daily allowance and quota controls</h2>
-<p>Quota means the number of eligible opportunity deliveries a customer may receive in the chosen time window. It is not a promise that an opportunity will exist, nor does it force a trade to happen.</p>
+<div class="eyebrow">04 · Daily delivery limits</div><h2>Per-tier Daily Delivery Caps</h2>
+<p>This page sets operational caps; it does not create or increase a customer's tier entitlement. The daily opportunity entitlement is set only in <strong>Trade Settings → Tiers &amp; Eligibility</strong>. A delivery cap can reduce that amount if it is lower.</p>
 <div class="field-list">
-<div class="field"><b>Daily popup target</b><span>Target number of popups for the tier. The actual delivered count is still constrained by eligibility, available work and safety caps.</span></div>
-<div class="field"><b>Scheduling window</b><span><strong>Rolling 24 hours</strong> measures the previous 24-hour period. <strong>Calendar day</strong> resets on the calendar boundary used by the server.</span></div>
-<div class="field"><b>Maximum pop-ups per day</b><span>Upper daily cap for this tier. It should not be set above the intended quota.</span></div>
-<div class="field"><b>Maximum visible offers</b><span>Limits how many offers can be shown at once. It controls screen density, not how many entitlements a customer has.</span></div>
-<div class="field"><b>Maximum pending deliveries</b><span>Limits the number of waiting deliveries. Extra work should remain governed by server policy rather than being silently discarded.</span></div>
-<div class="field"><b>Minimum / maximum delivery interval</b><span>Smallest and largest spacing between scheduled deliveries, in seconds. The minimum must not exceed the maximum.</span></div>
-<div class="field"><b>Randomized scheduling</b><span>Allows the delivery scheduler to vary timing within its configured bounds. It does not randomize financial results, create market evidence or change a saved trade deadline.</span></div>
+<div class="field"><b>Hard daily pop-up ceiling</b><span>Maximum number of pop-up deliveries permitted by the operational policy for a tier. It must be at least as high as the tier entitlement to allow the full amount; up to 1,000 is supported.</span></div>
+<div class="field"><b>Maximum visible offers at once</b><span>Limits simultaneous pending or displayed pop-ups. This is not a daily quota.</span></div>
+<div class="field"><b>Optional daily target cap (0 = no extra cap)</b><span>A positive value adds another ceiling across eligible tiers. Leave at 0 to use the full allowance permitted by the tier entitlement and hard daily ceiling.</span></div>
+<div class="field"><b>Delivery counting window</b><span><strong>Rolling 24 hours</strong> or <strong>Calendar day (UTC)</strong>. This controls the period used to count the operational caps.</span></div>
 </div>
-<div class="callout warn">Do not set an extremely high quota just because the input accepts a number. Choose a quota that the worker, settlement process and support team can safely handle.</div>
+<div class="callout"><strong>Example:</strong> To make a tier entitlement of 600 opportunities/day available, set the hard daily pop-up ceiling to at least 600 and leave the optional daily target at 0. The package entitlement remains the source of the customer's allowance; caps do not increase it.</div>
+<div class="callout warn">Tier edits apply to future automatic assignments. Existing customer entitlement snapshots keep the quota saved when those entitlements were created.</div>
 </section>
 
 <section class="section anchor" id="opportunity">
-<div class="eyebrow">05 · Opportunity engine</div><h2>When offers appear</h2>
-<p>This is the main workspace for offer delivery and the per-tier policy editor. It contains operational metrics, a small safety-settings area, a manual opportunity form, CSV import and the full tier policy editor. Market-data refresh stores reference instruments and FX but does not create opportunity offers; an administrator must publish a reviewed open offer or import a validated CSV before customers can receive pop-ups. If the open-offer count is zero, no customer pop-up can be created.</p>
+<div class="eyebrow">05 · Opportunity engine</div><h2>Publish &amp; Manage Opportunities</h2>
+<p>This page is the opportunity publishing workspace. It contains lifecycle metrics, reviewed opportunity publishing, CSV import and the open opportunity list. Tier rules, per-tier delivery caps, schedules and ON/OFF switches are managed only in their dedicated Trade Settings locations. Market-data refresh stores reference instruments and FX but does not create opportunity offers; an administrator must publish a reviewed open offer or import a validated CSV before customers can receive pop-ups. If the open-offer count is zero, no customer pop-up can be created.</p>
 <h3>Delivery accuracy & retention</h3>
 <ul>
 <li><strong>Delivered:</strong> how many opportunity delivery events were recorded in the rolling 24-hour window.</li>
@@ -166,22 +168,11 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 </section>
 
 <section class="section anchor" id="policy">
-<div class="eyebrow">06 · The most detailed editor</div><h2>Tier delivery, timing and safety policy</h2>
-<p>The policy editor shows a separate saved row for each tier. Changes are validated by the server, audited and versioned. The policy must be valid before customer pop-up delivery can be enabled; financial execution remains separately controlled.</p>
+<div class="eyebrow">06 · The most detailed editor</div><h2>Offer Rules &amp; Capital Limits</h2>
+<p>This editor holds offer eligibility and capital bounds for each tier. Delivery policy and pop-up delivery ON/OFF switches are available only in the persistent Trading controls panel. Changes are validated, audited and versioned by the server.</p>
 <div class="callout warn"><strong>Before enabling:</strong> save both a minimum and maximum configured return rate, and both a minimum and maximum trade duration. The two bounds in each pair must be present and valid. A newly created tier starts enabled for eligible customer pop-up delivery. Administrators can disable it at any time; financial execution remains separately controlled.</div>
-<h3>Policy and automation switches</h3>
-<div class="field-list">
-<div class="field"><b>Policy enabled</b><span>Enables this saved delivery-policy row. This is separate from the tier's own Enabled switch.</span></div>
-<div class="field"><b>Automatic pop-up delivery</b><span>Allows eligible opportunities to be delivered to customers under the saved policy.</span></div>
-<div class="field"><b>Automatic trade execution</b><span>Allows the server-owned automatic trade workflow when all eligibility, balance, policy and safety checks pass.</span></div>
-</div>
-<h3>Daily delivery</h3>
-<div class="field-list">
-<div class="field"><b>Maximum pop-ups per day</b><span>Per-tier hard cap for daily pop-up deliveries.</span></div>
-<div class="field"><b>Maximum visible offers</b><span>Maximum offers visible at the same time.</span></div>
-<div class="field"><b>Daily delivery target</b><span>Target count used by the delivery policy.</span></div>
-<div class="field"><b>Daily quota window</b><span>Rolling 24 hours or calendar day (UTC). Pick the one that matches your reporting/reset expectations.</span></div>
-</div>
+<h3>Delivery switches</h3>
+<p>Use the persistent Trading controls panel above the admin page to change Tier policy and Pop-up delivery. Company rotation, randomized timing and burst delivery switches are also owned there. This detail page does not repeat those controls. Automatic financial execution remains protected OFF.</p>
 <h3>Capital bounds</h3>
 <div class="field-list">
 <div class="field"><b>Minimum required capital (USD units)</b><span>Lowest configured capital amount. This legacy field uses whole USD units.</span></div>
@@ -218,7 +209,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 </div>
 <h3>Company spotlight rotation</h3>
 <div class="field-list">
-<div class="field"><b>Enable company spotlight rotation</b><span>Shows catalogue reference information with the opportunity. It does not create a trade or verify a listing.</span></div>
+<div class="field"><b>Company rotation status</b><span>Turn rotation ON/OFF in the persistent Trading controls panel. The settings on this page only choose the approved company pool and repeat-handling rules.</span></div>
 <div class="field"><b>Repeat policy</b><span><strong>Avoid repeats until the pool is traversed</strong> is the no-repeat preference. <strong>Allow repeats</strong> permits reuse sooner.</span></div>
 <div class="field"><b>Country-folder filters</b><span>Comma-separated exact catalogue folder labels. Blank includes the full catalogue. Folder labels are not proof of headquarters or exchange listing.</span></div>
 </div>
@@ -234,8 +225,8 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 </section>
 
 <section class="section anchor" id="timing">
-<div class="eyebrow">07 · Timing rules</div><h2>Trade Duration & Closing Rules</h2>
-<p>This page is in <strong>Set up trades → How trades finish</strong>. It has internal tabs for Ticket, Email, Trade and Password/Security; choose the Trade tab. The focused submenu opens the trade timing area directly.</p>
+<div class="eyebrow">07 · Timing rules</div><h2>Global Trade Timing &amp; Settlement</h2>
+<p>Use <strong>Trade Settings → Global Trade Timing &amp; Settlement</strong> for global closing and settlement timing. Use <strong>Trade Settings → Per-tier Delivery Schedule</strong> for per-tier pop-up spacing. All global timing defaults are configured once on this page.</p>
 <div class="field-list">
 <div class="field"><b>Settlement review delay (minutes)</b><span>Wait after the saved trade completion time before an administrator may review and confirm the actual result. The server persists this as settlementReviewAt.</span></div>
 <div class="field"><b>Wallet credit delay after review becomes due (seconds)</b><span>Added to settlementReviewAt to create creditAt. An administrator must still confirm the actual result; if confirmation is late and creditAt has passed, the worker may post immediately after confirmation.</span></div>
@@ -249,7 +240,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <div class="field"><b>Market refresh interval (minutes)</b><span>How often the market/reference data refresh process is scheduled. It is not an execution result.</span></div>
 <div class="field"><b>Block opportunities until all trades settle</b><span>When enabled, new opportunities are held until the required prior trades are settled.</span></div>
 </div>
-<p><strong>Save timing policy / Save settings</strong> persists the selected timing values. A successful save message means the settings request succeeded; check the page again if you need to verify the saved values.</p>
+<p><strong>Save global Trade timing settings</strong> submits only the global timing fields on this page, then reads them back from the server before showing a success confirmation. Ticket settings are saved separately; email settings are managed under Communications. A failed or unconfirmed read-back is shown as an error.</p>
 <div class="callout stop"><strong>Time is not settlement.</strong> The browser countdown is only a display of a server-recorded deadline. Reaching zero does not prove a trade completed, and it must not by itself credit a wallet.</div>
 </section>
 

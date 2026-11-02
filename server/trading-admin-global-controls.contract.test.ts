@@ -36,7 +36,9 @@ describe("persistent administrator Trading control panel", () => {
   it("does not expose a UI route for enabling automatic execution or disabling the settlement guard", () => {
     expect(policyEditor).not.toContain('onChange={e=>updateRow(index,"automaticTradingEnabled"');
     expect(policyEditor).not.toContain('onChange={e=>updateRow(index,"requirePreviousSettlement"');
-    expect(policyEditor).toContain('onClick={()=>updateRow(index,"automaticTradingEnabled",false)}');
+    expect(adminApp).toContain("function AdminTradingGlobalControls()");
+    expect(adminApp).toContain("disableAutomaticTrading(policy)");
+    expect(adminApp).toContain("enableSettlementGate(policy)");
     expect(policyEditor).toContain('onClick={()=>updateRow(index,"requirePreviousSettlement",true)}');
     expect(policyEditor).toContain('Math.max(900,Number(e.target.value)||900)');
     expect(adminApp).toContain("settlementTimingSafe");

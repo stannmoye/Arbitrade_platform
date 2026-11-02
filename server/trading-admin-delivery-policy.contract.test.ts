@@ -24,7 +24,8 @@ describe("administrator Trading delivery policy controls", () => {
     expect(app).toContain("enabled:x.enabled===true,automaticDelivery:x.automaticDelivery===true,automaticTradingEnabled:x.automaticTradingEnabled===true");
     expect(app).toContain("minimumPayoutRateBps:x.minimumPayoutRateBps??null");
     expect(app).toContain("companyRotationCountryNames:x.companyRotationCountryNames??\"\"");
-    expect(policyEditor).toContain("value={row.enabled?\"true\":\"false\"}");
+    expect(app).toContain('{ key: "enabled", label: "Tier policy" }');
+    expect(app).toContain('aria-checked={active}');
     expect(app).toContain("({...x,packageName:x.packageName");
     for (const binding of [
       "value={row.popupDisplayTargetSeconds}", "value={row.minIntervalSeconds}",
@@ -35,7 +36,7 @@ describe("administrator Trading delivery policy controls", () => {
 
   it("routes the Customer tiers menu to the editable package catalogue", () => {
     expect(app).toContain('(!focus||focus==="tiers")&&<AdminTradingPackageCatalogue/>');
-    expect(app).toContain('section==="packages"&&<AdminPackages focus={focus as "tiers"|"quotas"|"retries"|"display"|"delivery"|"rotation"|undefined}/>');
+    expect(app).toContain('section==="packages"&&<AdminPackages focus={focus as "tiers"|"policy"|"quotas"');
   });
 
   it("submits only changed tier policy fields instead of replaying stale full-row snapshots", () => {
@@ -61,13 +62,13 @@ describe("administrator Trading delivery policy controls", () => {
     expect(database).toContain('action:"trading_delivery_policy_updated"');
     expect(database).toContain("validatePackageAutomationPolicy(automation)");
     expect(router).toContain("updatePackagePolicies: adminProcedure.input");
-    expect(app).toContain("onError:error=>setPolicyMessage(error.message)");
-    expect(app).toContain('if(policyReason.trim().length<5){setPolicyMessage("Enter at least 5 characters explaining this policy change.");return;}');
+    expect(app).toContain('onError:error=>{setPolicyMessageKind("error");setPolicyMessage(error.message)}');
+    expect(app).toContain('setPolicyMessage("Enter at least 5 characters explaining this policy change.");');
   });
 
   it("keeps display timeout presentation-only and avoids promising a configured reward as earned profit", () => {
     expect(policyEditor).toContain("Controls display only; must not cancel an active trade.");
-    expect(app).toContain("Active trade snapshots were preserved.");
+    expect(app).toContain("existing customer and trade snapshots were preserved.");
     expect(policyEditor).toContain("This is a minimum eligibility constraint, not a generated or guaranteed return.");
     expect(database).toContain("packagePolicyVersionSnapshot:snapshotVersion");
   });

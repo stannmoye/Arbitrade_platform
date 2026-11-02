@@ -31,8 +31,7 @@ describe("Trade experience visual system", () => {
   it("gives every administrator menu a distinct parent accent and keeps expanded submenus fully sized", () => {
     expect(appSource).toContain("admin-nav-group--${group.id}");
     const menuIds = [
-      "overview", "customers", "finance", "trade-setup", "trade-offers", "trade-results",
-      "trade-monitoring", "trade-history", "verification-risk", "communications",
+      "overview", "customers", "finance", "trade-settings", "verification-risk", "communications",
       "platform-configuration", "integrations", "governance-reports",
     ];
     for (const id of menuIds) {
@@ -76,10 +75,9 @@ describe("Trade experience visual system", () => {
 
   it("uses a restrained professional financial palette with a distinct accent for every menu", () => {
     const accents = [
-      "#315B7D", "#80627A", "#8B6A3E", "#536A9A", "#39796F", "#9A5A5A",
-      "#3F7188", "#6D668C", "#8A7848", "#557A65", "#765E68", "#477A82", "#696F78",
+      "#315B7D", "#80627A", "#8B6A3E", "#536A9A", "#8A7848", "#557A65", "#765E68", "#477A82", "#696F78",
     ];
-    expect(new Set(accents).size).toBe(13);
+    expect(new Set(accents).size).toBe(9);
     for (const accent of accents) expect(portalStylesheet).toContain(`--nav-accent:${accent}`);
   });
 

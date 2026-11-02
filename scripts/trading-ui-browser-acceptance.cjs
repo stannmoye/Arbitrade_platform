@@ -530,7 +530,7 @@ async function main() {
         label + " navigation group must expand when requested.");
       return group;
     };
-    const tradeSettingsGroup = await expandAdminGroup(adminNavigation, "Set up trades");
+    const tradeSettingsGroup = await expandAdminGroup(adminNavigation, "Trade Settings");
     const navigationPalette = await adminNavigation.locator(".admin-nav-group").evaluateAll((groups) => groups.map((group) => ({
       accent: getComputedStyle(group).getPropertyValue("--nav-accent").trim(),
       label: group.querySelector(".admin-nav-group-heading span")?.textContent?.trim() ?? "",
@@ -577,7 +577,7 @@ async function main() {
       tradeGroupLayout.lastItemBottom <= tradeGroupLayout.groupBottom + 1,
       "The final expanded Trade submenu item must fit inside its visible navigation group.");
 
-    const packagesNavigation = adminNavigation.getByRole("button", { name: /customer tiers/i });
+    const packagesNavigation = adminNavigation.getByRole("button", { name: /Tiers & Eligibility/i });
     await packagesNavigation.waitFor({ state: "visible", timeout: 20_000 });
     await packagesNavigation.click();
     const packageEditorHeading = adminPage.getByRole("heading", { name: /trading tier configuration/i });
@@ -591,8 +591,8 @@ async function main() {
     await mobileMenuButton.click();
     const mobileNavigation = adminPage.locator(".admin-canonical-nav");
     await mobileNavigation.waitFor({ state: "visible", timeout: 20_000 });
-    await expandAdminGroup(mobileNavigation, "Set up trades");
-    const mobilePackagesNavigation = mobileNavigation.getByRole("button", { name: /customer tiers/i });
+    await expandAdminGroup(mobileNavigation, "Trade Settings");
+    const mobilePackagesNavigation = mobileNavigation.getByRole("button", { name: /Tiers & Eligibility/i });
     await mobilePackagesNavigation.waitFor({ state: "visible", timeout: 20_000 });
     await mobilePackagesNavigation.click();
     const mobileHeadingBounds = await packageEditorHeading.boundingBox();
