@@ -1,3 +1,15 @@
+## 2026-11-02 — Trade Settings single-owner registry checkpoint
+
+- Working branch: `feat/trade-settings-ownership-registry`, based on GitHub `main` commit `59c425414b981bc2fd8720119f2d4b650b97ab15`; checkpoint head before this handoff update: `a0eaaf2e`.
+- Checkpoint completed: added `client/src/trade-settings-registry.ts` with typed global/package/record scope metadata, one owner route, authoritative save/read paths, validation, audit policy, effective-time semantics, runtime consumer and customer impact for each registered setting. Carry-forward is explicitly read-only because its state machine is not implemented.
+- Added `client/src/trade-settings-registry.test.ts` to enforce unique keys, persistence metadata, Trade Settings route coverage and the read-only carry-forward boundary.
+- Decisions: global safety/timing controls remain separate from package terms; package terms continue to apply to future assignments/deliveries while preserving snapshots; no synthetic offers, wallet mutations or automatic financial execution were added.
+- Exact validation: `pnpm check` passed; focused command `pnpm test -- client/src/trade-settings-registry.test.ts server/trading-admin-navigation.contract.test.ts client/src/admin-navigation.test.ts client/src/trade-admin-guide.contract.test.ts` passed with 925 tests passed and 17 skipped across the repository; `git diff --check` passed.
+- No migration, database write, deployment, financial execution or settlement was performed.
+- Next safe action: wire the registry into the admin navigation/page metadata, replace the remaining legacy Trade Settings menu ownership labels with explicit Package Configuration and Package Settings owners, then add server-side registry/API scope validation before beginning schema migration.
+
+---
+
 ## 2026-11-02 — Customer informational pop-up persistence and clarity
 
 ## 2026-11-02 — Fix tier-term saves blocked by delivery-policy activation gate
