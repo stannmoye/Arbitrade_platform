@@ -1,3 +1,14 @@
+## 2026-11-02 — Trade Settings Checkpoint 6C: Package Settings ownership contracts
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Added `server/trade-settings-package-settings.contract.test.ts` covering the complete per-package term set, the unique Package Settings route, package/policy mutations, fresh read-back requirement and separation from global controls.
+- Validation: `pnpm check` passed; focused Trade Settings contracts passed (29 tests); `git diff --check` passed.
+- Disposable-database migration/read-back execution was not possible in this sandbox: Docker is unavailable and no `DATABASE_URL` is configured. Existing GitHub Actions disposable MySQL/MariaDB jobs remain the authoritative environment for that rehearsal.
+- No database migration was applied and no customer, wallet, ledger, settlement or entitlement record was changed.
+- Next safe action: execute the migration/read-back contract against disposable MySQL/MariaDB in CI, then harden the API into atomic package-plus-policy versioning or document the separate transaction boundary before final acceptance.
+
+---
+
 ## 2026-11-02 — Trade Settings Checkpoint 6B: complete Package Settings term editor
 
 - PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
