@@ -1,3 +1,15 @@
+## 2026-11-02 — Trade Settings Checkpoint 6A: operational owners and scoped Database Entries
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Added dedicated read-only owner routes for Trading History, Manual Payouts, Capital & Wallet Funding, Database Entries, and Retry & Carry-Forward Status. Existing high-impact settlement and payout mutations were not duplicated or widened.
+- Added a server-side scoped `adminOperations.ledgerActivity` read query accepting one customer and one UTC calendar day for Database Entries; the UI never loads all customer histories for that route and exposes no edit/delete controls.
+- Reused existing persisted settlement, payout, ledger, customer, package-policy and integrity queries. Carry-forward remains explicitly Off / not available until its state machine, expiry and idempotency rules exist.
+- Validation: `pnpm check` passed; focused navigation/migration contracts passed (23 tests); `git diff --check` passed; `pnpm build` passed.
+- No database migration was applied, no wallet/ledger/settlement record was changed, and no new financial mutation was introduced.
+- Next safe action: add route-level ownership contract coverage, complete remaining package term fields, then run the disposable-database migration/read-back suite before any hosted deployment.
+
+---
+
 ## 2026-11-02 — Trade Settings Checkpoint 5A: fee snapshot and realized accounting
 
 - PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.

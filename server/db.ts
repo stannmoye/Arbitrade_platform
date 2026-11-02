@@ -4745,10 +4745,19 @@ export async function createOpportunityOffer(input:{symbol:string;venueFrom:stri
 export async function bulkCreateOpportunityOffers(inputs:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number;opensAt?:Date;closesAt?:Date;rewardAt?:Date}[]) { const db=await getDb(); if(!db) throw new Error("Database is not available"); if(!inputs.length) return {created:0}; const rows=inputs.map(input=>{const opensAt=input.opensAt||new Date(); const closesAt=input.closesAt||new Date(opensAt.getTime()+input.durationSeconds*1000); return {...input,opensAt,closesAt,rewardAt:input.rewardAt||closesAt,status:"open" as const};}); await db.insert(opportunityOffers).values(rows); return {created:rows.length}; }
 
 
-export async function listAdminRecentLedgerActivity(limit = 150) {
+export async function listAdminRecentLedgerActivity(options: number | { limit?: number; userId?: number; day?: string } = 150) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const safeLimit = Math.max(1, Math.min(500, Math.floor(limit)));
+  const config = typeof options === "number" ? { limit: options } : options;
+  const safeLimit = Math.max(1, Math.min(500, Math.floor(config.limit ?? 150)));
+  const filters = [];
+  if (config.userId !== undefined) filters.push(eq(balanceLedger.userId, config.userId));
+  if (config.day) {
+    const start = new Date(`${config.day}T00:00:00.000Z`);
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+    if (Number.isNaN(start.getTime())) throw new Error("Ledger activity day must be an ISO UTC calendar date");
+    filters.push(gte(balanceLedger.createdAt, start), lt(balanceLedger.createdAt, end));
+  }
   return db.select({
     id: balanceLedger.id,
     userId: balanceLedger.userId,
@@ -4761,6 +4770,7 @@ export async function listAdminRecentLedgerActivity(limit = 150) {
     createdAt: balanceLedger.createdAt,
   }).from(balanceLedger)
     .leftJoin(users, eq(users.id, balanceLedger.userId))
+    .where(filters.length === 1 ? filters[0] : filters.length > 1 ? and(...filters) : undefined)
     .orderBy(desc(balanceLedger.createdAt))
     .limit(safeLimit);
 }

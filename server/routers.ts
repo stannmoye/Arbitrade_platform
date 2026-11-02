@@ -587,7 +587,7 @@ export const appRouter = router({
     sendCustomerEmail: adminProcedure.input(z.object({ userId: z.number().int().positive(), subject: z.string().trim().min(3).max(160), body: z.string().trim().min(1).max(8000) })).mutation(({ ctx, input }) => enqueueAdminMessage(input.userId, input.subject, input.body, `admin:${ctx.user.id}:${Date.now()}:${input.userId}`)),
     customers: adminProcedure.query(() => listAdminCustomers()),
     audit: adminProcedure.query(() => listAdminAuditEvents()),
-    ledgerActivity: adminProcedure.query(() => listAdminRecentLedgerActivity()),
+    ledgerActivity: adminProcedure.input(z.object({ userId: z.number().int().positive().optional(), day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), limit: z.number().int().min(1).max(500).optional() }).optional()).query(({ input }) => listAdminRecentLedgerActivity(input ?? undefined)),
     tradeFeePolicy: adminProcedure.query(() => getTradeFeePolicy()),
     updateTradeFeePolicy: adminProcedure.input(z.object({
       feeRateBps: z.number().int().min(0).max(10000),
