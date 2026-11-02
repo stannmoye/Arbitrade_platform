@@ -1,55 +1,186 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const adminApp = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
-const policyEditor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
-const adminCss = readFileSync(new URL("../client/src/admin-operations.css", import.meta.url), "utf8");
-const specification = readFileSync(new URL("../docs/TRADING_SYSTEM_SPECIFICATION.md", import.meta.url), "utf8");
-const manual = readFileSync(new URL("../docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md", import.meta.url), "utf8");
+const adminApp = readFileSync(
+  new URL("../client/src/App.tsx", import.meta.url),
+  "utf8"
+);
+const packageConfiguration = readFileSync(
+  new URL(
+    "../client/src/components/TradeSettingsAdministration.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+const policyEditor = readFileSync(
+  new URL(
+    "../client/src/components/TradingDeliveryPolicyEditor.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+const tierFields = readFileSync(
+  new URL(
+    "../client/src/components/AdminTierPolicyFields.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+const timingPage = readFileSync(
+  new URL("../client/src/components/AdminOperationsPages.tsx", import.meta.url),
+  "utf8"
+);
+const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
+const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const marketSync = readFileSync(
+  new URL("./marketSync.ts", import.meta.url),
+  "utf8"
+);
+const globalMigration = readFileSync(
+  new URL(
+    "../drizzle/0099_trade_settings_global_registry.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const policyRoute = router.slice(
+  router.indexOf("updatePackagePolicies: adminProcedure.input"),
+  router.indexOf("createOffer: adminProcedure.input")
+);
 
-describe("persistent administrator Trading control panel", () => {
-  it("renders above the selected page so it remains visible across admin navigation", () => {
-    const mount = adminApp.indexOf("<AdminTradingGlobalControls/>");
-    const pageRouter = adminApp.indexOf('<PortalRenderBoundary key={section} portal="admin">');
-    expect(adminApp).toContain("function AdminTradingGlobalControls()");
-    expect(mount).toBeGreaterThanOrEqual(0);
-    expect(pageRouter).toBeGreaterThan(mount);
-    expect(adminApp).toContain('trpc.adminOperations.packagePolicies.useQuery(undefined, { refetchInterval: 10000 })');
-    expect(adminApp).toContain("trpc.adminOperations.updatePackagePolicies.useMutation");
-    expect(adminApp).toContain("Pause all new delivery");
-  });
-
-  it("exposes the saved package-level switches and keeps high-impact execution controls protected", () => {
-    for (const field of ["enabled", "automaticDelivery", "companyRotationEnabled", "randomizationEnabled", "burstEnabled"]) {
-      expect(adminApp).toContain(`key: "${field}"`);
+describe("Trade Settings single-owner global masters", () => {
+  it("mounts Package Configuration as the only editor and removes the persistent duplicate panel", () => {
+    expect(adminApp).toContain('section==="tradePackageConfiguration"');
+    expect(adminApp).not.toContain("AdminTradingGlobalControls");
+    expect(adminApp).not.toContain("Pause all new delivery");
+    for (const key of [
+      "tierPolicyMaster",
+      "popupDelivery",
+      "companyRotation",
+      "randomizedTiming",
+      "burstDelivery",
+      "requirePreviousSettlement",
+    ]) {
+      expect(packageConfiguration).toContain(`"${key}"`);
     }
-    expect(adminApp).toContain("automaticTradingEnabled: false");
-    expect(adminApp).toContain("Currently enabled in saved policy");
-    expect(adminApp).toContain("Protected OFF");
-    expect(adminApp).not.toContain('if (next && (key === "enabled" || key === "automaticDelivery") && policy.automaticTradingEnabled)');
-    expect(adminApp).toContain('enabled: next, automaticTradingEnabled: false');
-    expect(adminApp).toContain('automaticDelivery: next, automaticTradingEnabled: false');
-    expect(adminApp).toContain("requirePreviousSettlement: true");
-    expect(adminApp).not.toContain("automaticTradingEnabled: true");
   });
 
-  it("does not expose a UI route for enabling automatic execution or disabling the settlement guard", () => {
-    expect(policyEditor).not.toContain('onChange={e=>updateRow(index,"automaticTradingEnabled"');
-    expect(policyEditor).not.toContain('onChange={e=>updateRow(index,"requirePreviousSettlement"');
-    expect(adminApp).toContain("function AdminTradingGlobalControls()");
-    expect(adminApp).toContain("disableAutomaticTrading(policy)");
-    expect(adminApp).toContain("enableSettlementGate(policy)");
-    expect(policyEditor).toContain('onClick={()=>updateRow(index,"requirePreviousSettlement",true)}');
-    expect(policyEditor).toContain('Math.max(900,Number(e.target.value)||900)');
-    expect(adminApp).toContain("settlementTimingSafe");
+  it("preserves dirty global drafts and confirms changed values by a fresh read", () => {
+    expect(packageConfiguration).toContain(
+      "const [draftDirty, setDraftDirty] = useState(false)"
+    );
+    expect(packageConfiguration).toContain(
+      "settings?.available && !draftDirty"
+    );
+    expect(packageConfiguration).toContain(
+      "const refreshed = await query.refetch()"
+    );
+    expect(packageConfiguration).toContain("Object.entries(changed).every");
+    expect(packageConfiguration).toContain("Your draft is still available");
+    expect(packageConfiguration).toContain("reactivatingAfterLegacyPause");
+    expect(packageConfiguration).toContain("unsafePackageNames");
+    expect(database).toContain("legacyReviewCompleted");
+    expect(database).toContain(
+      "detailed authorization reason of at least 10 characters before re-enabling a global master"
+    );
+    expect(database).toContain(
+      "current.settingsVersion !== input.expectedVersion"
+    );
+    expect(packageConfiguration).toContain(
+      "stored?.settingsVersion === expectedVersion + 1"
+    );
+    expect(router).toContain(
+      "}).strict().refine(input => Object.entries(input)"
+    );
   });
 
-  it("styles the panel for persistent desktop and mobile visibility and documents its safeguards", () => {
-    expect(adminCss).toContain(".admin-trading-global-controls");
-    expect(adminCss).toContain(".admin-trading-global-controls__grid");
-    expect(adminCss).toContain("@media (max-width: 760px)");
-    expect(specification).toContain("Persistent administrator control panel and safety boundary");
-    expect(manual).toContain("Persistent admin-wide Trading control panel");
-    expect(manual).toContain("900 seconds (15 minutes)");
+  it("prevents per-tier editors and mutations from changing global-master copies", () => {
+    for (const field of [
+      "enabled",
+      "automaticDelivery",
+      "companyRotationEnabled",
+      "randomizationEnabled",
+      "burstEnabled",
+      "requirePreviousSettlement",
+    ]) {
+      expect(policyEditor).not.toContain(`updateRow(index,"${field}"`);
+      expect(tierFields).not.toContain(`set(i, "${field}"`);
+      expect(policyRoute).not.toContain(`${field}: z.`);
+    }
+    expect(policyRoute).toContain("}).strict()).min(1).max(1000)");
+    expect(database).toContain("retiredPackageMasters");
+    expect(database).toContain("cannot be changed per package");
+    expect(policyEditor).toContain(
+      "Company rotation ON/OFF is owned by Trade Settings → Package Configuration"
+    );
+  });
+
+  it("initializes global masters fail-closed and records all conflicting legacy package switches", () => {
+    for (const legacyField of [
+      "enabled",
+      "automaticDelivery",
+      "companyRotationEnabled",
+      "randomizationEnabled",
+      "burstEnabled",
+      "requirePreviousSettlement",
+    ]) {
+      expect(globalMigration).toContain("p.`" + legacyField + "`");
+    }
+    expect(globalMigration).toContain("'legacySafetyPaused'");
+    expect(globalMigration).toContain("'unsafePackageNames'");
+    expect(globalMigration).toContain("'settingsVersion', 0");
+    expect(globalMigration).toContain(
+      "review that report and enter a detailed reason before re-enabling a master"
+    );
+  });
+
+  it("wires master OFF states to future behavior without hiding existing customer cards", () => {
+    expect(database).toContain(
+      "globalSettings.available&&globalSettings.tierPolicyMaster&&globalSettings.popupDelivery"
+    );
+    expect(database).toContain(
+      "enabled:true,newDeliveryEnabled:globalDeliveryEnabled"
+    );
+    expect(database).toContain(
+      "companyDisplayAllowed=(companyId:any)=>Boolean(globalSettings.available&&globalSettings.companyRotation"
+    );
+    expect(database).toContain(
+      "randomizationEnabled:Boolean(globalSettings.available&&globalSettings.randomizedTiming)"
+    );
+    expect(database).toContain(
+      "burstEnabled:Boolean(globalSettings.available&&globalSettings.burstDelivery)"
+    );
+    expect(database).toContain(
+      "mayAssignNewTier=globalTradeSettings.available&&globalTradeSettings.tierPolicyMaster"
+    );
+  });
+
+  it("keeps per-customer settlement safety separate from the system-wide publication pause", () => {
+    expect(packageConfiguration).toContain("future allocations");
+    expect(database).toContain("globalTradeSettings.requirePreviousSettlement");
+    expect(database).toContain(
+      'getAppSetting("trade.blockOpportunitiesUntilSettled", "true")'
+    );
+    expect(database).toContain(
+      '"trade.blockOpportunitiesUntilSettled": "true"'
+    );
+    expect(database).toContain('action: "trade_timing_policy_updated"');
+    expect(database).toContain("const nextVersion = currentVersion + 1");
+    expect(database).toContain("currentVersion !== input.expectedVersion");
+    expect(database).toContain("reason,");
+    expect(timingPage).toContain(
+      "const trade={...tradeValues,reason:tradeReason.trim()}"
+    );
+    expect(timingPage).toContain(
+      "Number(stored?.settingsVersion)===expectedVersion+1"
+    );
+    expect(timingPage).toContain("10 characters required to disable the pause");
+    expect(marketSync).toContain("settlementPolicy.blockUntilSettled");
+    expect(timingPage).toContain(
+      "Block new offers while any trade is unsettled"
+    );
+    expect(timingPage).toContain(
+      "separate from the per-customer Require Previous Settlement master"
+    );
   });
 });

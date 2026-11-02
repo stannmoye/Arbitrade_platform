@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   closeDbPool,
   getDb,
+  getTradeSettlementPolicy,
+  setTradeSettlementPolicy,
   updateAdminTradingPackageSettings,
 } from "../server/db";
 import {
+  appSettings,
   opportunityPackagePolicies,
   packages,
   users,
@@ -58,12 +61,31 @@ const initialName = `pkg-settings-${token.slice(0, 24)}`;
 const renamedName = `${initialName}-saved`;
 const rollbackName = `${initialName}-rollback`;
 const triggerName = `pkg_settings_rb_${token.slice(0, 32)}`;
+const timingTriggerName = `timing_settings_rb_${token.slice(0, 30)}`;
 const successReason = `Package Settings integration ${token}`;
 const rollbackReason = `Package Settings rollback ${token}`;
+const timingSuccessReason = `Timing Settings integration ${token}`;
+const timingRollbackReason = `Timing Settings rollback ${token}`;
+const timingSettingKeys = [
+  "trade.settlementDelaySeconds",
+  "trade.creditDelaySeconds",
+  "trade.interTradeCooldownSeconds",
+  "opportunity.nextPopupFormulaDelaySeconds",
+  "opportunity.popup.minGapSeconds",
+  "opportunity.popup.displaySeconds",
+  "opportunity.popup.preAlertSeconds",
+  "opportunity.popup.jitterSeconds",
+  "opportunity.popup.maxPerHour",
+  "market.refreshIntervalMinutes",
+  "trade.blockOpportunitiesUntilSettled",
+  "trade.settings.timing.version",
+];
 let adminId = 0;
 let packageId = 0;
 let policyId = 0;
 let triggerCreated = false;
+let timingTriggerCreated = false;
+let timingRowsBefore: Array<typeof appSettings.$inferSelect> | null = null;
 
 function matchesInjectedSqlSignal(
   error: unknown,
@@ -109,6 +131,29 @@ function settings(
     maximumPlatformFeeBps: 2400,
     platformFeeRoundingMode: "up" as const,
     reason,
+    ...overrides,
+  };
+}
+
+function timingSettings(
+  baseline: Awaited<ReturnType<typeof getTradeSettlementPolicy>>,
+  reason: string,
+  overrides: Partial<Parameters<typeof setTradeSettlementPolicy>[0]> = {}
+) {
+  return {
+    delaySeconds: baseline.settlementDelaySeconds,
+    creditDelaySeconds: baseline.creditDelaySeconds,
+    cooldownSeconds: baseline.cooldownSeconds,
+    nextPopupFormulaDelaySeconds: baseline.nextPopupFormulaDelaySeconds,
+    popupCooldownSeconds: baseline.popupCooldownSeconds,
+    popupDisplaySeconds: baseline.popupDisplaySeconds,
+    popupPreAlertSeconds: baseline.popupPreAlertSeconds,
+    popupJitterSeconds: baseline.popupJitterSeconds,
+    popupMaxPerHour: baseline.popupMaxPerHour,
+    marketRefreshIntervalMinutes: baseline.marketRefreshIntervalMinutes,
+    blockUntilSettled: baseline.blockUntilSettled,
+    reason,
+    expectedVersion: baseline.settingsVersion,
     ...overrides,
   };
 }
@@ -415,14 +460,167 @@ try {
 
   await pool.query(`DROP TRIGGER \`${triggerName}\``);
   triggerCreated = false;
+
+  const timingBaseline = await getTradeSettlementPolicy();
+  timingRowsBefore = await db
+    .select()
+    .from(appSettings)
+    .where(inArray(appSettings.settingKey, timingSettingKeys));
+  if (timingBaseline.blockUntilSettled) {
+    await assert.rejects(
+      setTradeSettlementPolicy(
+        timingSettings(timingBaseline, "pause off", {
+          blockUntilSettled: false,
+        }),
+        adminId
+      ),
+      /at least 10 characters/
+    );
+  }
+  const afterShortReason = await getTradeSettlementPolicy();
+  assert.equal(
+    afterShortReason.settingsVersion,
+    timingBaseline.settingsVersion
+  );
+  assert.equal(
+    afterShortReason.blockUntilSettled,
+    timingBaseline.blockUntilSettled
+  );
+
+  const nextCooldown =
+    timingBaseline.cooldownSeconds < 604800
+      ? timingBaseline.cooldownSeconds + 1
+      : timingBaseline.cooldownSeconds - 1;
+  const timingCommitted = await setTradeSettlementPolicy(
+    timingSettings(timingBaseline, timingSuccessReason, {
+      cooldownSeconds: nextCooldown,
+    }),
+    adminId
+  );
+  assert.equal(
+    timingCommitted.settingsVersion,
+    timingBaseline.settingsVersion + 1
+  );
+  assert.equal(timingCommitted.cooldownSeconds, nextCooldown);
+  assert.equal(
+    timingCommitted.blockUntilSettled,
+    timingBaseline.blockUntilSettled
+  );
+  const timingAudits = await db
+    .select()
+    .from(v5AuditEvents)
+    .where(
+      and(
+        eq(v5AuditEvents.action, "trade_timing_policy_updated"),
+        eq(v5AuditEvents.entityId, String(timingCommitted.settingsVersion)),
+        eq(v5AuditEvents.reason, timingSuccessReason)
+      )
+    );
+  assert.equal(
+    timingAudits.length,
+    1,
+    "A timing save must write exactly one audit event."
+  );
+  assert.equal(timingAudits[0].actorUserId, adminId);
+  const timingAuditMetadata = JSON.parse(String(timingAudits[0].metadataJson));
+  assert.equal(timingAuditMetadata.oldVersion, timingBaseline.settingsVersion);
+  assert.equal(timingAuditMetadata.newVersion, timingCommitted.settingsVersion);
+  assert.equal(
+    Number(timingAuditMetadata.new["trade.interTradeCooldownSeconds"]),
+    nextCooldown
+  );
+
+  await assert.rejects(
+    setTradeSettlementPolicy(
+      timingSettings(timingBaseline, `Timing stale ${token}`, {
+        cooldownSeconds: nextCooldown + 1,
+      }),
+      adminId
+    ),
+    /changed since this page was loaded/
+  );
+  const afterStaleWrite = await getTradeSettlementPolicy();
+  assert.equal(
+    afterStaleWrite.settingsVersion,
+    timingCommitted.settingsVersion
+  );
+  assert.equal(afterStaleWrite.cooldownSeconds, nextCooldown);
+
+  await pool.query(`CREATE TRIGGER \`${timingTriggerName}\` BEFORE INSERT ON v5_audit_events FOR EACH ROW
+    BEGIN
+      IF NEW.action='trade_timing_policy_updated' AND NEW.reason='${timingRollbackReason}' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced timing settings rollback';
+      END IF;
+    END`);
+  timingTriggerCreated = true;
+  await assert.rejects(
+    setTradeSettlementPolicy(
+      timingSettings(afterStaleWrite, timingRollbackReason, {
+        cooldownSeconds:
+          nextCooldown < 604800 ? nextCooldown + 1 : nextCooldown - 1,
+      }),
+      adminId
+    ),
+    error => matchesInjectedSqlSignal(error, "forced timing settings rollback")
+  );
+  const afterTimingRollback = await getTradeSettlementPolicy();
+  assert.equal(
+    afterTimingRollback.settingsVersion,
+    timingCommitted.settingsVersion
+  );
+  assert.equal(afterTimingRollback.cooldownSeconds, nextCooldown);
+  const rolledBackTimingAudits = await db
+    .select()
+    .from(v5AuditEvents)
+    .where(
+      and(
+        eq(v5AuditEvents.action, "trade_timing_policy_updated"),
+        eq(v5AuditEvents.reason, timingRollbackReason)
+      )
+    );
+  assert.equal(
+    rolledBackTimingAudits.length,
+    0,
+    "A failed timing audit insert must roll back the audit event."
+  );
+  await pool.query(`DROP TRIGGER \`${timingTriggerName}\``);
+  timingTriggerCreated = false;
   console.log(
-    "Package Settings integration passed: invalid-input no-write, atomic package/policy commit, single version/audit increments, rename consistency, and rollback after injected audit persistence failure."
+    "Package/Global Timing integration passed: invalid-input no-write, atomic settings commits, optimistic version conflicts, audited reason/version snapshots, and rollback after injected audit persistence failures."
   );
 } finally {
   if (triggerCreated)
     await pool
       .query(`DROP TRIGGER IF EXISTS \`${triggerName}\``)
       .catch(() => {});
+  if (timingTriggerCreated)
+    await pool
+      .query(`DROP TRIGGER IF EXISTS \`${timingTriggerName}\``)
+      .catch(() => {});
+  if (timingRowsBefore) {
+    await db
+      .delete(v5AuditEvents)
+      .where(
+        and(
+          eq(v5AuditEvents.action, "trade_timing_policy_updated"),
+          eq(v5AuditEvents.actorUserId, adminId),
+          inArray(v5AuditEvents.reason, [
+            timingSuccessReason,
+            timingRollbackReason,
+          ])
+        )
+      )
+      .catch(() => {});
+    await db
+      .transaction(async tx => {
+        await tx
+          .delete(appSettings)
+          .where(inArray(appSettings.settingKey, timingSettingKeys));
+        if (timingRowsBefore?.length)
+          await tx.insert(appSettings).values(timingRowsBefore);
+      })
+      .catch(() => {});
+  }
   if (packageId) {
     await db
       .delete(v5AuditEvents)

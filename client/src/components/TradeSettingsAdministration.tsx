@@ -4,42 +4,90 @@ import { trpc } from "@/lib/trpc";
 import { fromUtcDateTimeInput, toUtcDateTimeInput, toUtcIsoString } from "@/lib/utcDateTime";
 
 const globalFields = [
-  ["tierPolicyMaster", "Tier policy master", "Allows the server to consider otherwise-valid enabled tiers."],
+  ["tierPolicyMaster", "Tier policy master", "Allows new tier assignments and future tier-based allocations; existing entitlements remain intact."],
   ["popupDelivery", "Pop-up delivery", "Allows new informational customer pop-ups; it never enables financial execution."],
   ["companyRotation", "Company rotation", "Allows approved catalogue identities to appear when a valid identity is available."],
   ["randomizedTiming", "Randomized timing", "Uses the saved timing bounds; it never exceeds the configured maximum."],
   ["burstDelivery", "Burst delivery", "Allows only the bounded per-cycle delivery batch."],
-  ["requirePreviousSettlement", "Require previous settlement", "Safety gate for future allocations; disabling requires a detailed reason."],
+  ["requirePreviousSettlement", "Require previous settlement", "Blocks another allocation for a customer with their own unsettled trade; disabling requires a detailed reason."],
 ] as const;
 
 type GlobalField = (typeof globalFields)[number][0];
 
 export function AdminTradePackageConfiguration() {
   const query = trpc.adminOperations.tradeGlobalSettings.useQuery(undefined, { refetchInterval: 15000 });
-  const save = trpc.adminOperations.updateTradeGlobalSettings.useMutation({ onSuccess: () => { void query.refetch(); setMessage("Global settings saved and verified from the database."); }, onError: error => setMessage(error.message) });
+  const save = trpc.adminOperations.updateTradeGlobalSettings.useMutation({ onError: error => { setMessageKind("error"); setMessage(error.message); } });
   const [draft, setDraft] = useState<Partial<Record<GlobalField, boolean>>>({});
+  const [baseline, setBaseline] = useState<Partial<Record<GlobalField, boolean>>>({});
+  const [draftDirty, setDraftDirty] = useState(false);
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
+  const [messageKind, setMessageKind] = useState<"success" | "error">("success");
   const settings = query.data?.settings;
+  const rawUnsafeNames = query.data?.migrationReport?.unsafePackageNames;
+  const unsafePackageNames = Array.isArray(rawUnsafeNames) ? rawUnsafeNames.filter((name): name is string => typeof name === "string" && name.trim().length > 0) : [];
+  const rawUnsafeCount = Number(query.data?.migrationReport?.unsafePolicyCount ?? unsafePackageNames.length);
+  const unsafePackageCount = Number.isFinite(rawUnsafeCount) ? Math.max(0, rawUnsafeCount) : unsafePackageNames.length;
+  const hasChanges = globalFields.some(([key]) => draft[key] !== baseline[key]);
 
   useEffect(() => {
-    if (settings?.available) setDraft(Object.fromEntries(globalFields.map(([key]) => [key, Boolean(settings[key])])) as Partial<Record<GlobalField, boolean>>);
-  }, [settings]);
+    if (settings?.available && !draftDirty) {
+      const saved = Object.fromEntries(globalFields.map(([key]) => [key, Boolean(settings[key])])) as Partial<Record<GlobalField, boolean>>;
+      setDraft(saved);
+      setBaseline(saved);
+    }
+  }, [settings, draftDirty]);
 
-  const update = (key: GlobalField) => setDraft(current => ({ ...current, [key]: !current[key] }));
-  const saveDraft = () => save.mutate({ ...draft, reason: reason.trim() });
+  const update = (key: GlobalField) => {
+    setMessage("");
+    setDraft(current => {
+      const next = { ...current, [key]: !current[key] };
+      setDraftDirty(globalFields.some(([field]) => next[field] !== baseline[field]));
+      return next;
+    });
+  };
+  const saveDraft = async () => {
+    if (!settings?.available || save.isPending || !hasChanges) return;
+    const changed = Object.fromEntries(globalFields.filter(([key]) => draft[key] !== baseline[key]).map(([key]) => [key, Boolean(draft[key])])) as Partial<Record<GlobalField, boolean>>;
+    const disablingSettlementGate = settings.requirePreviousSettlement && changed.requirePreviousSettlement === false;
+    const reactivatingAfterLegacyPause = settings.legacySafetyPaused && globalFields.some(([key]) => baseline[key] === false && changed[key] === true);
+    const detailedReasonRequired = disablingSettlementGate || reactivatingAfterLegacyPause;
+    if (reason.trim().length < (detailedReasonRequired ? 10 : 5)) {
+      setMessageKind("error");
+      setMessage(disablingSettlementGate ? "Enter at least 10 characters authorizing the settlement-safety change." : reactivatingAfterLegacyPause ? "Review the listed legacy package conflicts and enter at least 10 characters explaining why the global master can be re-enabled." : "Enter at least 5 characters explaining this settings change.");
+      return;
+    }
+    try {
+      const expectedVersion = settings.settingsVersion;
+      await save.mutateAsync({ ...changed, reason: reason.trim(), expectedVersion });
+      const refreshed = await query.refetch();
+      const stored = refreshed.data?.settings;
+      const confirmed = !refreshed.isError && Boolean(stored?.available) && stored?.settingsVersion === expectedVersion + 1 && Object.entries(changed).every(([key, value]) => stored?.[key as GlobalField] === value);
+      if (!confirmed || !stored?.available) throw new Error("Settings were submitted, but a fresh database read did not confirm every changed value. Your draft is still available.");
+      const saved = Object.fromEntries(globalFields.map(([key]) => [key, Boolean(stored[key])])) as Partial<Record<GlobalField, boolean>>;
+      setDraft(saved);
+      setBaseline(saved);
+      setDraftDirty(false);
+      setReason("");
+      setMessageKind("success");
+      setMessage(settings.legacySafetyPaused && !stored.legacySafetyPaused ? "Changed settings were confirmed by a fresh database read; the legacy-conflict review was recorded." : "Changed global settings were confirmed by a fresh database read.");
+    } catch (error) {
+      setMessageKind("error");
+      setMessage(error instanceof Error ? error.message : "Global settings could not be saved and verified.");
+    }
+  };
 
   return <div className="arb-page portal-page">
-    <div className="portal-page-top"><div><div className="eyebrow">Trade Settings · single global owner</div><h1>Package Configuration</h1><p>Global masters apply across applicable packages. Existing trades, entitlements and settlements keep their saved snapshots.</p></div><button className="primary-button" type="button" onClick={saveDraft} disabled={!settings?.available || save.isPending || reason.trim().length < 5}><Check size={15}/>{save.isPending ? "Saving…" : "Save global settings"}</button></div>
+    <div className="portal-page-top"><div><div className="eyebrow">Trade Settings · single global owner</div><h1>Package Configuration</h1><p>Global masters apply across applicable packages. Existing trades, entitlements and settlements keep their saved snapshots.</p></div><button className="primary-button" type="button" onClick={saveDraft} disabled={!settings?.available || save.isPending || !hasChanges}><Check size={15}/>{save.isPending ? "Saving…" : "Save global settings"}</button></div>
     {query.isLoading && <div className="empty-state">Loading persisted global settings…</div>}
     {query.isError && <div className="admin-ops-empty error" role="alert">Global settings are unavailable. Nothing is assumed enabled. <button className="secondary-button" type="button" onClick={() => void query.refetch()}><RefreshCw size={14}/>Retry</button></div>}
     {settings && !settings.available && <div className="admin-ops-empty error" role="alert"><ShieldAlert size={16}/>The forward-only global migration is missing or malformed. Apply the reviewed migration before editing this page.</div>}
     {settings?.available && <>
-      <div className="admin-control-card" style={{ marginBottom: 18 }}><div className="package-detail"><span>Migration status</span><b>Version {settings.migrationVersion} · fail-closed</b></div><small>Automatic financial execution is permanently locked OFF. Legacy safety pause: {settings.legacySafetyPaused ? "active" : "not reported"}.</small></div>
-      <div className="policy-grid-admin">{globalFields.map(([key, label, explanation]) => <div className="policy-card-admin" key={key}><div><h2>{label}</h2><p>{explanation}</p><small>Global scope · future allocations/delivery only</small></div><button className={`toggle-switch ${draft[key] ? "on" : ""}`} type="button" onClick={() => update(key)} aria-label={`Toggle ${label}`}>{draft[key] ? "ON" : "OFF"}</button></div>)}</div>
+      <div className="admin-control-card" style={{ marginBottom: 18 }}><div className="package-detail"><span>Migration status</span><b>Registry v{settings.migrationVersion} · settings v{settings.settingsVersion} · fail-closed</b></div><small>Automatic financial execution is permanently locked OFF. Legacy conflict review: {settings.legacySafetyPaused ? "required before re-enabling a global master" : "complete or not required"}.</small>{settings.legacySafetyPaused && <details style={{ marginTop: 10 }}><summary>Review {unsafePackageCount} legacy package-policy conflict{unsafePackageCount === 1 ? "" : "s"}</summary>{unsafePackageNames.length > 0 ? <><ul>{unsafePackageNames.slice(0, 25).map((name, index) => <li key={`${name}-${index}`}>{name}</li>)}</ul>{unsafePackageNames.length > 25 && <small>Showing 25 of {unsafePackageNames.length} reported package names.</small>}</> : <p>No package names were returned. Inspect the migration report before enabling a global master.</p>}<small>Re-enabling any OFF global master requires a detailed reason and records this review in the audit event.</small></details>}</div>
+      <div className="policy-grid-admin">{globalFields.map(([key, label, explanation]) => <div className="policy-card-admin" key={key}><div><h2>{label}</h2><p>{explanation}</p><small>Global scope · future allocations/delivery only</small></div><button className={`toggle-switch ${draft[key] ? "on" : ""}`} type="button" onClick={() => update(key)} disabled={save.isPending} aria-pressed={Boolean(draft[key])} aria-label={`Toggle ${label}`}>{draft[key] ? "ON" : "OFF"}</button></div>)}</div>
       <label className="admin-control-card" style={{ display: "block", marginTop: 18 }}>Reason for change (required)<textarea rows={3} maxLength={500} value={reason} onChange={event => setReason(event.target.value)} placeholder="Explain the operational or safety reason."/><small>{reason.trim().length}/500 characters</small></label>
     </>}
-    {message && <div className="test-notice" role="status">{message}</div>}
+    {message && <div className={`test-notice ${messageKind}`} role={messageKind === "error" ? "alert" : "status"}>{message}</div>}
   </div>;
 }
 

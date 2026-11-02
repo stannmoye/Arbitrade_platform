@@ -14,7 +14,7 @@ describe("administrator Trading delivery policy controls", () => {
       "popupDisplayTargetSeconds", "completionDisplaySeconds", "postCompletionIntervalSeconds",
       "maxPendingDeliveries", "maxDeliveryAttempts", "maxTradeAttemptsPerDay",
       "tradeRetryDelaySeconds", "maxSuccessfulTradesPerDay", "maxConcurrentActiveTrades",
-      "requirePreviousSettlement", "minSettlementDelaySeconds", "maxSettlementDelaySeconds",
+      "minSettlementDelaySeconds", "maxSettlementDelaySeconds",
       "minimumRewardBps", "maxDailyRewardMinor", "maxRewardPerTradeMinor", "closePolicy",
     ]) {
       expect(policyEditor).toContain(field);
@@ -24,8 +24,7 @@ describe("administrator Trading delivery policy controls", () => {
     expect(app).toContain("enabled:x.enabled===true,automaticDelivery:x.automaticDelivery===true,automaticTradingEnabled:x.automaticTradingEnabled===true");
     expect(app).toContain("minimumPayoutRateBps:x.minimumPayoutRateBps??null");
     expect(app).toContain("companyRotationCountryNames:x.companyRotationCountryNames??\"\"");
-    expect(app).toContain('{ key: "enabled", label: "Tier policy" }');
-    expect(app).toContain('aria-checked={active}');
+    expect(app).not.toContain('{ key: "enabled", label: "Tier policy" }');
     expect(app).toContain("({...x,packageName:x.packageName");
     for (const binding of [
       "value={row.popupDisplayTargetSeconds}", "value={row.minIntervalSeconds}",
@@ -45,7 +44,8 @@ describe("administrator Trading delivery policy controls", () => {
     expect(router).toContain("maxPopupsPerDay: z.number().int().min(1).max(1000).optional()");
     expect(router).toContain("maxVisibleOffers: z.number().int().min(1).max(10000).optional()");
     expect(router).toContain("minimumTradeUnits: z.number().int().min(1).max(2147483647).optional()");
-    expect(router).toContain("burstEnabled: z.boolean().optional()");
+    expect(router).toContain("maxBurstSize: z.number().int().min(0).max(100).optional()");
+    expect(router).toContain("}).strict()).min(1).max(1000)");
     expect(database).toContain("...supplied,packageName:policy.packageName,updatedBy");
   });
 

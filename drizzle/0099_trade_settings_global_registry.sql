@@ -24,46 +24,60 @@ WHERE `minimumPlatformFeeBps` IS NULL
    OR `platformFeeRoundingMode` NOT IN ('up', 'down', 'half_up', 'half_even');
 
 -- Missing, disabled, malformed, or non-delivery legacy policies are preserved
--- as paused in the new global masters. No package row is silently enabled.
+-- as OFF global masters with a durable conflict report. Administrators must
+-- review that report and enter a detailed reason before re-enabling a master.
+-- No package row or customer entitlement is silently enabled or rewritten.
 INSERT INTO `app_settings` (`settingKey`, `settingValue`)
 VALUES (
   'trade.settings.global.v1',
   JSON_OBJECT(
     'migrationVersion', 1,
+    'settingsVersion', 0,
     'tierPolicyMaster', IF(EXISTS (
       SELECT 1 FROM `opportunity_package_policies` p
       WHERE p.`packageName` IS NULL
          OR p.`packageName` = ''
+         OR p.`enabled` IS NULL
+         OR p.`enabled` NOT IN (0, 1)
          OR p.`enabled` = 0
+         OR p.`automaticDelivery` IS NULL
+         OR p.`automaticDelivery` NOT IN (0, 1)
          OR p.`automaticDelivery` = 0
     ), FALSE, TRUE),
     'popupDelivery', IF(EXISTS (
       SELECT 1 FROM `opportunity_package_policies` p
       WHERE p.`packageName` IS NULL
          OR p.`packageName` = ''
+         OR p.`enabled` IS NULL
+         OR p.`enabled` NOT IN (0, 1)
          OR p.`enabled` = 0
+         OR p.`automaticDelivery` IS NULL
+         OR p.`automaticDelivery` NOT IN (0, 1)
          OR p.`automaticDelivery` = 0
     ), FALSE, TRUE),
     'companyRotation', IF(EXISTS (
       SELECT 1 FROM `opportunity_package_policies` p
       WHERE p.`packageName` IS NULL
          OR p.`packageName` = ''
-         OR p.`enabled` = 0
-         OR p.`automaticDelivery` = 0
+         OR p.`companyRotationEnabled` IS NULL
+         OR p.`companyRotationEnabled` NOT IN (0, 1)
+         OR p.`companyRotationEnabled` = 0
     ), FALSE, TRUE),
     'randomizedTiming', IF(EXISTS (
       SELECT 1 FROM `opportunity_package_policies` p
       WHERE p.`packageName` IS NULL
          OR p.`packageName` = ''
-         OR p.`enabled` = 0
-         OR p.`automaticDelivery` = 0
+         OR p.`randomizationEnabled` IS NULL
+         OR p.`randomizationEnabled` NOT IN (0, 1)
+         OR p.`randomizationEnabled` = 0
     ), FALSE, TRUE),
     'burstDelivery', IF(EXISTS (
       SELECT 1 FROM `opportunity_package_policies` p
       WHERE p.`packageName` IS NULL
          OR p.`packageName` = ''
-         OR p.`enabled` = 0
-         OR p.`automaticDelivery` = 0
+         OR p.`burstEnabled` IS NULL
+         OR p.`burstEnabled` NOT IN (0, 1)
+         OR p.`burstEnabled` = 0
     ), FALSE, TRUE),
     'requirePreviousSettlement', TRUE,
     'automaticFinancialExecution', FALSE,
@@ -71,8 +85,12 @@ VALUES (
       SELECT 1 FROM `opportunity_package_policies` p
       WHERE p.`packageName` IS NULL
          OR p.`packageName` = ''
-         OR p.`enabled` = 0
-         OR p.`automaticDelivery` = 0
+         OR p.`enabled` IS NULL OR p.`enabled` NOT IN (0, 1) OR p.`enabled` = 0
+         OR p.`automaticDelivery` IS NULL OR p.`automaticDelivery` NOT IN (0, 1) OR p.`automaticDelivery` = 0
+         OR p.`companyRotationEnabled` IS NULL OR p.`companyRotationEnabled` NOT IN (0, 1) OR p.`companyRotationEnabled` = 0
+         OR p.`randomizationEnabled` IS NULL OR p.`randomizationEnabled` NOT IN (0, 1) OR p.`randomizationEnabled` = 0
+         OR p.`burstEnabled` IS NULL OR p.`burstEnabled` NOT IN (0, 1) OR p.`burstEnabled` = 0
+         OR p.`requirePreviousSettlement` IS NULL OR p.`requirePreviousSettlement` NOT IN (0, 1) OR p.`requirePreviousSettlement` = 0
     ), TRUE, FALSE),
     'source', 'migration:0099_trade_settings_global_registry'
   )
@@ -88,14 +106,22 @@ VALUES (
     'unsafePolicyCount', (SELECT COUNT(*) FROM `opportunity_package_policies` p
       WHERE p.`packageName` IS NULL
          OR p.`packageName` = ''
-         OR p.`enabled` = 0
-         OR p.`automaticDelivery` = 0),
+         OR p.`enabled` IS NULL OR p.`enabled` NOT IN (0, 1) OR p.`enabled` = 0
+         OR p.`automaticDelivery` IS NULL OR p.`automaticDelivery` NOT IN (0, 1) OR p.`automaticDelivery` = 0
+         OR p.`companyRotationEnabled` IS NULL OR p.`companyRotationEnabled` NOT IN (0, 1) OR p.`companyRotationEnabled` = 0
+         OR p.`randomizationEnabled` IS NULL OR p.`randomizationEnabled` NOT IN (0, 1) OR p.`randomizationEnabled` = 0
+         OR p.`burstEnabled` IS NULL OR p.`burstEnabled` NOT IN (0, 1) OR p.`burstEnabled` = 0
+         OR p.`requirePreviousSettlement` IS NULL OR p.`requirePreviousSettlement` NOT IN (0, 1) OR p.`requirePreviousSettlement` = 0),
     'unsafePackageNames', COALESCE((SELECT JSON_ARRAYAGG(p.`packageName`)
       FROM `opportunity_package_policies` p
       WHERE p.`packageName` IS NULL
          OR p.`packageName` = ''
-         OR p.`enabled` = 0
-         OR p.`automaticDelivery` = 0), JSON_ARRAY()),
+         OR p.`enabled` IS NULL OR p.`enabled` NOT IN (0, 1) OR p.`enabled` = 0
+         OR p.`automaticDelivery` IS NULL OR p.`automaticDelivery` NOT IN (0, 1) OR p.`automaticDelivery` = 0
+         OR p.`companyRotationEnabled` IS NULL OR p.`companyRotationEnabled` NOT IN (0, 1) OR p.`companyRotationEnabled` = 0
+         OR p.`randomizationEnabled` IS NULL OR p.`randomizationEnabled` NOT IN (0, 1) OR p.`randomizationEnabled` = 0
+         OR p.`burstEnabled` IS NULL OR p.`burstEnabled` NOT IN (0, 1) OR p.`burstEnabled` = 0
+         OR p.`requirePreviousSettlement` IS NULL OR p.`requirePreviousSettlement` NOT IN (0, 1) OR p.`requirePreviousSettlement` = 0), JSON_ARRAY()),
     'requirePreviousSettlementInitialized', TRUE,
     'source', 'migration:0099_trade_settings_global_registry'
   )

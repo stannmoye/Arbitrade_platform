@@ -1,16 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { tradeSettingsByKey, tradeSettingsRegistry } from "../client/src/trade-settings-registry";
+import {
+  tradeSettingsByKey,
+  tradeSettingsRegistry,
+} from "../client/src/trade-settings-registry";
 
 describe("Trade Settings single-owner registry", () => {
   it("assigns every registered setting exactly one stable key and owner route", () => {
-    const keys = tradeSettingsRegistry.map((definition) => definition.key);
-    const owners = tradeSettingsRegistry.map((definition) => definition.ownerRoute);
+    const keys = tradeSettingsRegistry.map(definition => definition.key);
+    const owners = tradeSettingsRegistry.map(
+      definition => definition.ownerRoute
+    );
 
     expect(new Set(keys).size).toBe(keys.length);
     expect(new Set(owners).size).toBeGreaterThan(1);
     expect(Object.keys(tradeSettingsByKey).sort()).toEqual([...keys].sort());
     for (const definition of tradeSettingsRegistry) {
-      expect(definition.key).toMatch(/^trade\.(global|package|record)\.[a-zA-Z0-9.]+$/);
+      expect(definition.key).toMatch(
+        /^trade\.(global|package|record)\.[a-zA-Z0-9.]+$/
+      );
       expect(definition.ownerRoute).toMatch(/^trade-settings-[a-z0-9-]+$/);
       expect(definition.ownerSection.length).toBeGreaterThan(0);
       expect(definition.saveMutation.length).toBeGreaterThan(0);
@@ -21,22 +28,83 @@ describe("Trade Settings single-owner registry", () => {
   });
 
   it("keeps global controls out of package scope and package terms out of global scope", () => {
-    const globalKeys = tradeSettingsRegistry.filter((definition) => definition.scope === "global");
-    const packageKeys = tradeSettingsRegistry.filter((definition) => definition.scope === "package");
+    const globalKeys = tradeSettingsRegistry.filter(
+      definition => definition.scope === "global"
+    );
+    const packageKeys = tradeSettingsRegistry.filter(
+      definition => definition.scope === "package"
+    );
 
-    expect(globalKeys.every((definition) => definition.ownerRoute === "trade-settings-package-configuration" || definition.ownerRoute === "trade-settings-retry-carry-forward")).toBe(true);
-    expect(packageKeys.every((definition) => definition.ownerRoute === "trade-settings-package-settings" || definition.ownerRoute === "trade-settings-daily-delivery-caps")).toBe(true);
-    expect(tradeSettingsRegistry.find((definition) => definition.key === "trade.package.feePolicy")?.risk).toBe("financial");
-    expect(tradeSettingsRegistry.find((definition) => definition.key === "trade.global.requirePreviousSettlement")?.risk).toBe("safety");
+    expect(
+      globalKeys.every(definition =>
+        [
+          "trade-settings-package-configuration",
+          "trade-settings-retry-carry-forward",
+          "trade-settings-global-trade-timing",
+        ].includes(definition.ownerRoute)
+      )
+    ).toBe(true);
+    expect(
+      packageKeys.every(
+        definition =>
+          definition.ownerRoute === "trade-settings-package-settings" ||
+          definition.ownerRoute === "trade-settings-daily-delivery-caps"
+      )
+    ).toBe(true);
+    expect(
+      tradeSettingsRegistry.find(
+        definition => definition.key === "trade.package.feePolicy"
+      )?.risk
+    ).toBe("financial");
+    expect(
+      tradeSettingsRegistry.find(
+        definition =>
+          definition.key === "trade.global.requirePreviousSettlement"
+      )?.risk
+    ).toBe("safety");
+  });
+
+  it("assigns each global master one Package Configuration owner and a real runtime consumer", () => {
+    const packageConfigurationKeys = [
+      "trade.global.tierPolicyMaster",
+      "trade.global.popupDelivery",
+      "trade.global.companyRotation",
+      "trade.global.randomizedTiming",
+      "trade.global.burstDelivery",
+      "trade.global.requirePreviousSettlement",
+    ];
+    for (const key of packageConfigurationKeys) {
+      const setting =
+        tradeSettingsByKey[key as keyof typeof tradeSettingsByKey];
+      expect(setting?.ownerRoute).toBe("trade-settings-package-configuration");
+      expect(setting?.runtimeConsumer.length).toBeGreaterThan(0);
+    }
+    expect(
+      tradeSettingsByKey["trade.global.blockUntilSettled"].ownerRoute
+    ).toBe("trade-settings-global-trade-timing");
+    expect(
+      tradeSettingsByKey["trade.global.blockUntilSettled"].runtimeConsumer
+    ).toContain("ensureMarketDrivenOpportunities");
+    expect(
+      tradeSettingsByKey["trade.global.requirePreviousSettlement"].ownerRoute
+    ).not.toBe(tradeSettingsByKey["trade.global.blockUntilSettled"].ownerRoute);
   });
 
   it("documents the approved fee snapshot and fail-closed migration effects", () => {
-    const fee = tradeSettingsRegistry.find((definition) => definition.key === "trade.package.feePolicy");
-    const settlement = tradeSettingsRegistry.find((definition) => definition.key === "trade.global.requirePreviousSettlement");
+    const fee = tradeSettingsRegistry.find(
+      definition => definition.key === "trade.package.feePolicy"
+    );
+    const settlement = tradeSettingsRegistry.find(
+      definition => definition.key === "trade.global.requirePreviousSettlement"
+    );
 
     expect(fee?.validation).toContain("minor-unit ceiling");
-    expect(fee?.effectiveTime).toContain("existing opportunities keep their fee snapshot");
+    expect(fee?.effectiveTime).toContain(
+      "existing opportunities keep their fee snapshot"
+    );
     expect(settlement?.validation).toContain("ON by default");
-    expect(settlement?.effectiveTime).toContain("future allocations only");
+    expect(settlement?.effectiveTime).toContain(
+      "future allocations for that customer only"
+    );
   });
 });

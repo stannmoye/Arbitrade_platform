@@ -23,7 +23,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
   <div class="hero-meta">
     <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 12h18"/></svg> Admin guide</span>
     <span class="pill">Based on the current portal source</span>
-    <span class="pill">Last reviewed: 30 October 2026</span>
+    <span class="pill">Last reviewed: 2 November 2026</span>
     <span class="pill">Simple HTML · no external libraries</span>
   </div>
 </header>
@@ -32,6 +32,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <h2>On this page</h2>
 <a href="#start">1. Start here</a>
 <a href="#menu">2. Trade menu map</a>
+<a href="#global-controls">Global masters · Package Configuration</a>
 <a href="#tiers">3. Packages & eligibility</a>
 <a href="#quotas">4. Daily quotas</a>
 <a href="#opportunity">5. Opportunity engine</a>
@@ -70,17 +71,18 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 
 <section class="section anchor" id="menu">
 <div class="eyebrow">02 · Find your way around</div><h2>Trade Settings menu map</h2>
-<p>All Trading configuration and monitoring now lives under one top-level <strong>Trade Settings</strong> group. Each setting has one primary page. The persistent Trading controls panel above page content (except Home) is the only place for the per-tier ON/OFF switches.</p>
+<p>All Trading configuration and monitoring lives under one top-level <strong>Trade Settings</strong> group. Each setting has one primary page. Global ON/OFF masters have one editor in <strong>Package Configuration</strong>; package-specific terms and caps remain in their own editors.</p>
 <div class="table-wrap"><table><thead><tr><th>Trade Settings submenu</th><th>What it is for</th><th>What you do there</th></tr></thead><tbody>
 <tr><td><strong>Trading Overview</strong></td><td>Operations summary</td><td>Review delivery totals, pending work, open opportunities, settlement status and global pause state.</td></tr>
 <tr><td><strong>Tiers &amp; Eligibility</strong></td><td>Package entitlement rules</td><td>Edit tier names, qualifying thresholds, duration, daily opportunity entitlement and effective dates.</td></tr>
+<tr><td><strong>Package Configuration</strong></td><td>Global masters</td><td>Set the global Tier policy, Pop-up delivery, Company rotation, Randomized timing, Burst delivery and per-customer settlement masters.</td></tr>
 <tr><td><strong>Per-tier Daily Delivery Caps</strong></td><td>Operational delivery ceilings</td><td>Set the hard daily pop-up ceiling, concurrent visible-offer limit, optional target cap and counting window.</td></tr>
 <tr><td><strong>Per-tier Offer Rules &amp; Capital Limits</strong></td><td>Published offer constraints</td><td>Set required capital bounds and configured reward-rate/duration eligibility bounds. Switches are not repeated here.</td></tr>
 <tr><td><strong>Publish &amp; Manage Opportunities</strong></td><td>Opportunity publishing</td><td>Publish reviewed opportunities, import validated CSV records and inspect the saved open feed.</td></tr>
 <tr><td><strong>Per-tier Delivery Schedule</strong></td><td>Per-tier cadence</td><td>Set minimum/maximum spacing and post-completion intervals for future pop-up delivery.</td></tr>
-<tr><td><strong>Global Trade Timing &amp; Settlement</strong></td><td>Closing and review timing</td><td>Review trade-duration estimates and global settlement/closing settings; time alone never confirms settlement.</td></tr>
+<tr><td><strong>Global Trade Timing &amp; Settlement</strong></td><td>Shared timing and system-wide pause</td><td>Set lifecycle clocks and the separate “Block new offers while any trade is unsettled” control; time alone never confirms settlement.</td></tr>
 <tr><td><strong>Per-tier Pop-up Display</strong></td><td>Display-only settings</td><td>Adjust expanded pop-up and completion-card display durations.</td></tr>
-<tr><td><strong>Per-tier Company Rotation Rules</strong></td><td>Rotation configuration</td><td>Choose approved-company country filters and repeat-handling rules. ON/OFF is in the persistent controls panel.</td></tr>
+<tr><td><strong>Per-tier Company Rotation Rules</strong></td><td>Rotation configuration</td><td>Choose approved-company country filters and repeat-handling rules. The global ON/OFF master is in Package Configuration.</td></tr>
 <tr><td><strong>Company Catalogue</strong></td><td>Reference records</td><td>Search and manage company reference records and their approval status. This page does not repeat rotation settings.</td></tr>
 <tr><td><strong>Capital &amp; Wallet Funding Rules</strong></td><td>Capital policy</td><td>Review required capital and permitted wallet funding rules.</td></tr>
 <tr><td><strong>Fees &amp; Earnings Limits</strong></td><td>Fee policy</td><td>Configure Trading fees and review earnings ceilings.</td></tr>
@@ -92,12 +94,27 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <tr><td><strong>Audit &amp; Policy History</strong></td><td>Administrator audit log</td><td>Review who changed Trading settings, why and which policy version was saved.</td></tr>
 <tr><td><strong>Trade Settings Guide</strong></td><td>This handbook</td><td>Read explanations without changing Trading data.</td></tr>
 </tbody></table></div>
-<div class="callout">The persistent Trading controls panel owns the per-tier Tier policy, Pop-up delivery, Company rotation, Randomized timing and Burst delivery switches. They are not repeated on the detailed settings pages. Customer package browsing and activation controls are not available.</div>
+<div class="callout">Package Configuration is the single editor for global masters. Global Trade Timing &amp; Settlement owns a separate system-wide publication pause. Per-tier editors do not repeat global switches. Customer package browsing and activation controls are not available.</div>
+</section>
+
+<section class="section anchor" id="global-controls">
+<div class="eyebrow">Global owner · Package Configuration</div><h2>Global masters and settlement safety</h2>
+<p>Package Configuration is the only editor for these six global ON/OFF masters. Package-specific lifecycle status, terms, caps, filters, retry rules and display overrides remain in their dedicated pages.</p>
+<div class="table-wrap"><table><thead><tr><th>Master</th><th>What OFF means</th><th>Scope and effective time</th></tr></thead><tbody>
+<tr><td><strong>Tier policy master</strong></td><td>No new automatic tier assignments or future tier-based allocations.</td><td>Global; existing entitlements are retained and existing settlement/reconciliation work continues.</td></tr>
+<tr><td><strong>Pop-up delivery</strong></td><td>No new informational customer cards are delivered.</td><td>Global; already-delivered cards remain visible and keep their saved snapshots.</td></tr>
+<tr><td><strong>Company rotation</strong></td><td>No new company identity is attached or shown.</td><td>Global presentation control; it does not change opportunity economics or existing trade snapshots.</td></tr>
+<tr><td><strong>Randomized timing</strong></td><td>Uses fixed minimum spacing rather than a randomized interval.</td><td>Global; saved package timing bounds still apply and the maximum is never exceeded.</td></tr>
+<tr><td><strong>Burst delivery</strong></td><td>Uses the non-burst delivery path.</td><td>Global; package and worker-cycle bounds still apply.</td></tr>
+<tr><td><strong>Require Previous Settlement</strong></td><td>A customer may receive another allocation before their own prior trade settles, subject to all other controls.</td><td>Per-customer future allocation gate; ON by default. OFF requires an authorized, detailed reason and audit record.</td></tr>
+</tbody></table></div>
+<div class="callout warn"><strong>Separate system-wide pause:</strong> “Block new offers while any trade is unsettled” is owned by Global Trade Timing &amp; Settlement. It pauses system-wide offer publication and automatic allocations while any trade is outstanding; it is not the per-customer Require Previous Settlement master.</div>
+<div class="callout">All changes require a reason, submit only changed fields, survive background polling without losing a draft, and show success only after a fresh database read confirms the saved values. If migration 0099 reports legacy package conflicts, review the listed names before re-enabling a master; reactivation requires a detailed reason and writes the review with the setting change. Automatic financial execution remains locked OFF.</div>
 </section>
 
 <section class="section anchor" id="tiers">
 <div class="eyebrow">03 · Packages & eligibility</div><h2>Tiers &amp; Eligibility: every input</h2>
-<p>This screen defines the milestones used by the automatic qualification system. A new tier package is enabled by default for future automatic eligibility. Its pop-up policy is initialized with valid display defaults (2%–3% configured rate, 300–900 second duration, policy and pop-up delivery, company rotation, randomized timing and bounded burst delivery enabled); automatic financial execution remains OFF. Administrators can disable the package or individual delivery controls at any time.</p>
+<p>This screen defines package milestones and per-package lifecycle status for the automatic qualification system. Package enabled status is separate from the global Tier policy and Pop-up delivery masters. Package creation may save validated display, schedule and quota defaults, but it never changes global masters or enables automatic financial execution. Existing customer entitlement snapshots remain intact when package terms change.</p>
 <div class="field-list">
 <div class="field"><b>Tier name</b><span>The name administrators and the eligible customer may see, such as Starter or Growth. Use a clear unique name.</span></div>
 <div class="field"><b>Qualifying deposit threshold (USD)</b><span>The cumulative qualifying admin-credit amount needed for this tier. The server compares saved USD-minor attribution, not a customer's ordinary wallet balance.</span></div>
@@ -132,7 +149,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 
 <section class="section anchor" id="opportunity">
 <div class="eyebrow">05 · Opportunity engine</div><h2>Publish &amp; Manage Opportunities</h2>
-<p>This page is the opportunity publishing workspace. It contains lifecycle metrics, reviewed opportunity publishing, CSV import and the open opportunity list. Tier rules, per-tier delivery caps, schedules and ON/OFF switches are managed only in their dedicated Trade Settings locations. Market-data refresh stores reference instruments and FX but does not create opportunity offers; an administrator must publish a reviewed open offer or import a validated CSV before customers can receive pop-ups. If the open-offer count is zero, no customer pop-up can be created.</p>
+<p>This page is the opportunity publishing workspace. It contains lifecycle metrics, reviewed opportunity publishing, CSV import and the open opportunity list. Tier rules, per-tier delivery caps and schedules are managed in their dedicated Trade Settings locations; global ON/OFF switches live only in Package Configuration. Market-data refresh stores reference instruments and FX but does not create opportunity offers; an administrator must publish a reviewed open offer or import a validated CSV before customers can receive pop-ups. If the open-offer count is zero, no customer pop-up can be created.</p>
 <h3>Delivery accuracy & retention</h3>
 <ul>
 <li><strong>Delivered:</strong> how many opportunity delivery events were recorded in the rolling 24-hour window.</li>
@@ -169,10 +186,10 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 
 <section class="section anchor" id="policy">
 <div class="eyebrow">06 · The most detailed editor</div><h2>Offer Rules &amp; Capital Limits</h2>
-<p>This editor holds offer eligibility and capital bounds for each tier. Delivery policy and pop-up delivery ON/OFF switches are available only in the persistent Trading controls panel. Changes are validated, audited and versioned by the server.</p>
-<div class="callout warn"><strong>Before enabling:</strong> save both a minimum and maximum configured return rate, and both a minimum and maximum trade duration. The two bounds in each pair must be present and valid. A newly created tier starts enabled for eligible customer pop-up delivery. Administrators can disable it at any time; financial execution remains separately controlled.</div>
-<h3>Delivery switches</h3>
-<p>Use the persistent Trading controls panel above the admin page to change Tier policy and Pop-up delivery. Company rotation, randomized timing and burst delivery switches are also owned there. This detail page does not repeat those controls. Automatic financial execution remains protected OFF.</p>
+<p>This editor holds package-specific offer eligibility and capital bounds. Global ON/OFF masters are managed only in Package Configuration. Changes here are validated, audited and versioned by the server.</p>
+<div class="callout warn"><strong>Before enabling package eligibility:</strong> save both a minimum and maximum configured return rate, and both a minimum and maximum trade duration. The bounds in each pair must be present and valid. Package lifecycle enablement and global master states are separate controls; financial execution remains locked OFF.</div>
+<h3>Global masters and per-tier settings</h3>
+<p>Package Configuration owns global Tier policy, Pop-up delivery, Company rotation, Randomized timing, Burst delivery and Require Previous Settlement. This detail page does not repeat those switches. Per-tier timing ranges, retry limits, concurrency and display settings remain package-specific. Automatic financial execution remains protected OFF.</p>
 <h3>Capital bounds</h3>
 <div class="field-list">
 <div class="field"><b>Minimum required capital (USD units)</b><span>Lowest configured capital amount. This legacy field uses whole USD units.</span></div>
@@ -193,7 +210,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <div class="field"><b>Trade retry delay (seconds)</b><span>Wait between eligible technical retry attempts. Current input accepts 5–3,600 seconds.</span></div>
 <div class="field"><b>Maximum successful trades per day</b><span>Daily cap on successful trades for the tier.</span></div>
 <div class="field"><b>Maximum concurrent active trades</b><span>How many active trades may overlap under the policy.</span></div>
-<div class="field"><b>Require previous trade settlement</b><span>If Yes, wait for the previous trade to settle before allowing another one. If No, use the configured concurrency cap.</span></div>
+<div class="field"><b>Require Previous Settlement (global master)</b><span>This is not a per-tier input. It is managed in Package Configuration and blocks a customer’s future allocation until that customer’s prior non-cancelled trade is fully settled. The system-wide offer-publication pause is separate and lives in Global Trade Timing &amp; Settlement.</span></div>
 <div class="field"><b>Minimum / maximum settlement delay</b><span>Lower and upper settlement timing bounds, in seconds.</span></div>
 </div>
 <h3>Package badge</h3>
@@ -209,7 +226,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 </div>
 <h3>Company spotlight rotation</h3>
 <div class="field-list">
-<div class="field"><b>Company rotation status</b><span>Turn rotation ON/OFF in the persistent Trading controls panel. The settings on this page only choose the approved company pool and repeat-handling rules.</span></div>
+<div class="field"><b>Global company-rotation master</b><span>Turn company identity ON/OFF only in Package Configuration. This page only chooses approved-country filters and repeat-handling rules.</span></div>
 <div class="field"><b>Repeat policy</b><span><strong>Avoid repeats until the pool is traversed</strong> is the no-repeat preference. <strong>Allow repeats</strong> permits reuse sooner.</span></div>
 <div class="field"><b>Country-folder filters</b><span>Comma-separated exact catalogue folder labels. Blank includes the full catalogue. Folder labels are not proof of headquarters or exchange listing.</span></div>
 </div>

@@ -18,18 +18,20 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(implementation).toContain(".innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))");
     expect(implementation).toContain("noPackage:true");
     expect(implementation).toContain("eq(packages.enabled,true)");
+    expect(implementation).toContain("const globalDeliveryEnabled=globalSettings.available&&globalSettings.tierPolicyMaster&&globalSettings.popupDelivery");
+    expect(implementation).toContain("if(options.workerCycle===true&&globalDeliveryEnabled");
     expect(implementation).not.toContain("packageDeliveryDisabled:true");
     expect(implementation).toContain("const eligibleSubscriptions=subscriptions.filter(subscription=>");
-    expect(implementation).toContain("return Boolean(configured && configured.enabled && configured.automaticDelivery && hasConfiguredTradingOfferPolicy(configured))");
+    expect(implementation).toContain("return Boolean(configured && hasConfiguredTradingOfferPolicy(configured))");
     expect(implementation).not.toContain("return !configured");
     expect(source).toContain("function hasConfiguredTradingOfferPolicy(policy:any):boolean");
     expect(source).toContain("minimumPayoutRateBps==null?NaN:Number(policy.minimumPayoutRateBps)");
     expect(implementation).toContain("packagePolicyPaused:true");
     expect(implementation).toContain("const autoTradeCandidates=tradeCandidates.filter((offer:any)=>");
-    expect(implementation).toContain("if(offer.executionEligible!==true || allocationControls.allocationsPaused) return false;");
+    expect(implementation).toContain("if(offer.executionEligible!==true || allocationControls.allocationsPaused || !globalSettings.available || !globalSettings.tierPolicyMaster) return false;");
     expect(implementation).toContain("deliveryStatus:opportunityPopupEvents.deliveryStatus");
     expect(implementation).toContain('["delivered","received","rendered","failed"].includes(String(row.deliveryStatus))');
-    expect(implementation).toContain("Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy))");
+    expect(implementation).toContain("Boolean(packagePolicy && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy))");
     expect(implementation).toContain("if(!subscription) return null;");
     expect(implementation).toContain(".filter((offer) => offer !== null)");
     expect(implementation).not.toContain("drainMode");
@@ -39,9 +41,9 @@ describe("server-side automatic Trading tier eligibility", () => {
     const start = source.indexOf("export async function listCustomerOpportunities(");
     const end = source.indexOf("export async function runAutoTradeCycle(", start);
     const implementation = source.slice(start, end);
-    expect(implementation).toContain("return Boolean(configured && configured.enabled && configured.automaticDelivery && hasConfiguredTradingOfferPolicy(configured))");
+    expect(implementation).toContain("return Boolean(configured && hasConfiguredTradingOfferPolicy(configured))");
     expect(implementation).not.toContain("configured.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(configured)");
-    expect(implementation).toContain("Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy))");
+    expect(implementation).toContain("Boolean(packagePolicy && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy))");
   });
 
   it("allows an administrator to enable a valid pop-up tier while automatic execution remains off", () => {

@@ -181,7 +181,7 @@ describe("Automatic Trading tier qualification", () => {
   });
 
   it("keeps opportunity generation and customer responses read-only", () => {
-    expect(databaseSource).toContain("if(options.workerCycle===true&&!formulaCooling&&remainingQuota>0)");
+    expect(databaseSource).toContain("if(options.workerCycle===true&&globalDeliveryEnabled&&!formulaCooling&&remainingQuota>0)");
     expect(databaseSource).toContain("if(options.workerCycle===true) await markDueTradesAwaitingConfirmation(userId)");
     expect(databaseSource).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false;");
     expect(databaseSource).toContain("const auto=AUTOMATIC_FINANCIAL_EXECUTION_ENABLED && options.workerCycle===true && options.allowAutomaticExecution!==false");
@@ -249,9 +249,16 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1");
     expect(databaseSource).toContain("Save and enable a valid pop-up delivery policy with payout-rate and duration bounds before enabling this Trading tier.");
     expect(databaseSource).toContain("Automatic financial execution is a separate control");
-    expect(routerSource).toContain("enabled: z.boolean().optional(),");
-    expect(routerSource).toContain("automaticDelivery: z.boolean().optional(),");
-    expect(routerSource).toContain("automaticTradingEnabled: z.boolean().optional(),");
+    expect(routerSource).toContain("updateTradingPackage: adminProcedure.input");
+    expect(routerSource).toContain("enabled: z.boolean(),");
+    const policyRoute = routerSource.slice(
+      routerSource.indexOf("updatePackagePolicies: adminProcedure.input"),
+      routerSource.indexOf("createOffer: adminProcedure.input")
+    );
+    expect(policyRoute).toContain("}).strict()).min(1).max(1000)");
+    for (const retiredField of ["enabled", "automaticDelivery", "automaticTradingEnabled"]) {
+      expect(policyRoute).not.toContain(`${retiredField}: z.`);
+    }
     expect(databaseSource).toContain("packageName:nextName,updatedBy,policyVersion:nextPolicyVersion");
     expect(databaseSource).not.toContain("values({packageName:nextName,updatedBy})");
   });
@@ -259,7 +266,7 @@ describe("Automatic Trading tier qualification", () => {
   it("creates tiers through the authorized audited admin route", () => {
     expect(routerSource).toContain("createTradingPackage: adminProcedure.input");
     expect(routerSource).toContain("packageName: z.string().trim().min(1).max(80)");
-    expect(routerSource).toContain("      })).min(1).max(1000),");
+    expect(routerSource).toContain("      }).strict()).min(1).max(1000),");
     expect(routerSource).toContain("updateOpportunityPackagePolicies(ctx.user.id, input.policies, input.reason)");
     expect(databaseSource).toContain("Opportunity policy references an unknown Trading tier");
     expect(databaseSource).toContain('where(eq(opportunityPackagePolicies.packageName,policy.packageName)).limit(1).for("update")');

@@ -377,13 +377,14 @@ These controls define how new customers are screened and onboarded. Country-spec
 |---|---|
 | **Trading Overview** | Current delivery totals, pending work, open opportunities, settlement status and the global pause state. |
 | **Tiers & Eligibility** | Tier name, qualifying USD threshold, entitlement duration, daily opportunity entitlement, effective dates and enabled state. Only qualifying admin-issued credits determine automatic eligibility. |
+| **Package Configuration** | The single owner for global Tier policy, Pop-up delivery, Company rotation, Randomized timing, Burst delivery and per-customer Require Previous Settlement masters. |
 | **Per-tier Daily Delivery Caps** | The hard daily pop-up ceiling, maximum visible offers, optional daily target cap and the delivery-counting window. These are operational limits: they can reduce the tier entitlement but cannot increase it. |
-| **Per-tier Offer Rules & Capital Limits** | Required capital bounds and configured reward-rate/trade-duration eligibility bounds. ON/OFF switches are located only in the persistent Trading controls panel above the page content. |
+| **Per-tier Offer Rules & Capital Limits** | Required capital bounds and configured reward-rate/trade-duration eligibility bounds. Global ON/OFF switches are owned only by Package Configuration. |
 | **Publish & Manage Opportunities** | Publish reviewed opportunity records, import validated CSV rows and inspect the open opportunity feed. This page does not edit tier or delivery policy. |
 | **Per-tier Delivery Schedule** | Per-tier spacing between eligible pop-ups, randomized timing bounds and post-completion delivery intervals. |
-| **Global Trade Timing & Settlement** | Trade timing estimates and the global closing/settlement review settings. A scheduled time is not proof of execution or settlement. |
+| **Global Trade Timing & Settlement** | Trade timing estimates, global closing/settlement review settings, and the separate system-wide “Block new offers while any trade is unsettled” pause. A scheduled time is not proof of execution or settlement. |
 | **Per-tier Pop-up Display** | Expanded pop-up and completion-card display durations. Display settings do not cancel active records. |
-| **Per-tier Company Rotation Rules** | Approved-company country filters and repeat-handling rules. The ON/OFF rotation switch remains in the persistent Trading controls panel. |
+| **Per-tier Company Rotation Rules** | Approved-company country filters and repeat-handling rules. The ON/OFF rotation master is in Package Configuration. |
 | **Company Catalogue** | Search and manage the separate company reference records, approval state and catalogue metadata. It does not contain a second copy of the rotation settings editor. |
 | **Capital & Wallet Funding Rules** | Review the permitted capital requirements and wallet-funding policy used by Trading. This is not the customer Wallet & Ledger history page. |
 | **Fees & Earnings Limits** | Configure the Trading fee policy and review configured earnings ceilings. |
@@ -397,7 +398,7 @@ These controls define how new customers are screened and onboarded. Country-spec
 
 ### One owner for each setting
 
-The persistent Trading controls panel is shown above administrator content on every page except the clean Home/overview page. It is the single owner of the per-tier **Tier policy**, **Pop-up delivery**, **Company rotation**, **Randomized timing**, and **Burst delivery** ON/OFF switches. The detailed Per-tier Offer Rules & Capital Limits, Per-tier Daily Delivery Caps and Per-tier Company Rotation Rules pages do not repeat those switches.
+Package Configuration is the single editor for the global **Tier policy**, **Pop-up delivery**, **Company rotation**, **Randomized timing**, **Burst delivery**, and per-customer **Require Previous Settlement** masters. Per-tier Offer Rules & Capital Limits, Daily Delivery Caps and Company Rotation Rules do not repeat those switches. The distinct system-wide pause remains under Global Trade Timing & Settlement; it is not the same as the per-customer settlement guard.
 
 The daily opportunity entitlement is stored on the tier as `opportunitiesPerDay`. The hard daily pop-up ceiling and optional daily target are separate operational caps. For example, to make a tier allowance of 600 opportunities/day available, the hard daily pop-up ceiling must be at least 600 and the optional daily target must be 0 (no additional target cap). The delivery caps never raise a tier's assigned entitlement.
 
@@ -490,7 +491,7 @@ Shows persisted opportunity lifecycle totals, such as delivered, noticed, opened
 
 ### Delivery safety information
 
-Displays the legacy/global countdown and signup-credit settings currently present in the opportunity workspace. Signup credits do not qualify customers for Trading tiers. Tier quotas, hard delivery caps, delivery schedules and policy switches are edited only in their dedicated Trade Settings submenu or the persistent controls panel.
+Displays the legacy/global countdown and signup-credit settings currently present in the opportunity workspace. Signup credits do not qualify customers for Trading tiers. Tier quotas, hard delivery caps and delivery schedules are edited in their dedicated Trade Settings pages; global policy switches are owned only by Package Configuration.
 
 ### Publish an opportunity
 

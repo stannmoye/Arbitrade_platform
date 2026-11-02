@@ -1,5 +1,12 @@
 # Admin Trading UI Fix Log
 
+## 2026-11-02 — Single-owner global masters and settlement-control separation
+
+- Removed the always-visible legacy global-switch panel. Package Configuration is now the only editor for the six global tier, delivery, company, timing, burst and per-customer settlement masters; per-tier policy APIs strictly reject their retired copies.
+- Global settings drafts survive polling, mutations submit only changed fields, and success requires a fresh database read-back. Re-enabling an OFF master after legacy conflicts requires a detailed reason; the conflict list and review are retained in the audit transaction.
+- Restored the separate system-wide “Block new offers while any trade is unsettled” control under Global Trade Timing & Settlement. It is distinct from the per-customer Require Previous Settlement master.
+- Migration 0099 now initializes each global master fail-closed from the corresponding legacy switch and records affected package names. Existing cards, entitlements and financial snapshots remain unchanged.
+
 ## 2026-11-01 — Single Trade Settings menu and quota-save integrity
 
 - Replaced five separate Trading navigation groups with one top-level **Trade Settings** group and one descriptive submenu per destination.
