@@ -3859,6 +3859,8 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
      id:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,eventStatus:opportunityPopupEvents.eventStatus,tradeId:opportunityPopupEvents.tradeId,
      expectedRewardBps:opportunityPopupEvents.expectedRewardBps,configuredProfitRateBps:opportunityPopupEvents.configuredProfitRateBps,
      configuredDurationSeconds:opportunityPopupEvents.configuredDurationSeconds,configuredPopupDisplaySeconds:opportunityPopupEvents.configuredPopupDisplaySeconds,
+     platformFeeRateBps:opportunityPopupEvents.platformFeeRateBps,platformFeeRoundingMode:opportunityPopupEvents.platformFeeRoundingMode,
+     feePolicyVersion:opportunityPopupEvents.feePolicyVersion,
      packagePolicyVersionSnapshot:opportunityPopupEvents.packagePolicyVersionSnapshot,packageBadgeLabel:opportunityPopupEvents.packageBadgeLabel,
      companyReferenceId:opportunityPopupEvents.companyReferenceId,companyDisplayName:opportunityPopupEvents.companyDisplayName,
      companyLogoUrl:opportunityPopupEvents.companyLogoUrl,companyReferenceMetadataJson:opportunityPopupEvents.companyReferenceMetadataJson,

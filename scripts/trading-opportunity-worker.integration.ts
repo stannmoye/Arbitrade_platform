@@ -476,10 +476,20 @@ try {
     "Exactly one concurrent request should take the committed-allocation replay path.");
   assert.ok(rejectedAllocations.every((result) => /quota.*used|no remaining quota/i.test(String(result.reason?.message || result.reason))),
     "Losing opportunity requests must fail for quota exhaustion, not unrelated validation errors.");
-  const allocatedTrades = await db.select({ id: tradePositions.id, offerId: tradePositions.offerId, principalMinor: tradePositions.principalMinor })
+  const allocatedTrades = await db.select({
+    id: tradePositions.id,
+    offerId: tradePositions.offerId,
+    principalMinor: tradePositions.principalMinor,
+    platformFeeRateBps: tradePositions.platformFeeRateBps,
+    platformFeeRoundingMode: tradePositions.platformFeeRoundingMode,
+    feePolicyVersion: tradePositions.feePolicyVersion,
+  })
     .from(tradePositions).where(eq(tradePositions.userId, userId));
   assert.equal(allocatedTrades.length, 1, "Concurrent cross-event allocation must create exactly one trade for a one-opportunity daily quota.");
   assert.equal(Number(allocatedTrades[0].principalMinor), 25000);
+  assert.equal(Number(allocatedTrades[0].platformFeeRateBps), 1500);
+  assert.equal(allocatedTrades[0].platformFeeRoundingMode, "up");
+  assert.equal(Number(allocatedTrades[0].feePolicyVersion), 1);
   const winningOfferId = Number(allocatedTrades[0].offerId);
   const winningEventId = winningOfferId === offerId ? eventId : secondEventId;
   const winningLeaseToken = winningOfferId === offerId ? recoveredClaim.executionLeaseToken : secondClaim.executionLeaseToken;
