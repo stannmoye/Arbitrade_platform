@@ -1,3 +1,15 @@
+## 2026-11-02 — Trade Settings Checkpoint 6B: complete Package Settings term editor
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Expanded the Package Settings owner route beyond fee bounds to edit package identity, qualifying threshold, duration, daily entitlement, hard daily pop-up ceiling, active-investment cap, UTC start/expiry, lifecycle status, fee bounds and rounding mode.
+- Save is one package-scoped action with a required audit reason. It uses the existing package and policy mutations, then performs fresh reads of both records and refuses to show success unless every submitted term is confirmed.
+- Global controls remain exclusively owned by Package Configuration; existing customer/trade snapshots remain unchanged by later package edits.
+- Validation: `pnpm check` passed; focused Trade Settings tests passed (26 tests); `git diff --check` passed; `pnpm build` passed.
+- No database migration was applied and no wallet, settlement, customer entitlement or financial record was changed.
+- Next safe action: add explicit route-level owner contract coverage for the expanded fields, then run disposable-database migration/read-back tests.
+
+---
+
 ## 2026-11-02 — Trade Settings Checkpoint 6A: operational owners and scoped Database Entries
 
 - PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
