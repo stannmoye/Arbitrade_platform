@@ -280,7 +280,8 @@ describe("Trading menu ownership and quota save feedback", () => {
     expect(adminApp).toContain('sameDate(persisted.startsAt,variables.startsAt)');
     expect(adminApp).toContain('sameDate(persisted.expiresAt,variables.expiresAt)');
     expect(adminApp).toContain('Boolean(persisted.enabled)===Boolean(variables.enabled)');
-    expect(adminApp).toContain('Number(persisted.termsVersion)>Number(previous?.termsVersion??0)');
+    expect(adminApp).toContain('const previousTermsVersion=Number(drafts[Number(saved.id)]?.termsVersion??0)');
+    expect(adminApp).toContain('Number(persisted.termsVersion)>previousTermsVersion');
     expect(adminApp).toContain('Saved and verified from the database: ');
     expect(adminApp).toContain('Saving tier…');
     expect(adminApp).toContain('<h2>{draft.name||pkg.name}</h2>');
