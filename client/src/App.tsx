@@ -380,7 +380,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   const pending=useRef<Map<number,any>>(new Map());
   const timer=useRef<number|null>(null);
   const policy=delivery?.popupPolicy;
-  const storageKey=`arbitrade-popup:${String(userEmail||"unknown").trim().toLowerCase()}`;
+  const storageKey=`arbitrade_opportunity_popup_timing:${String(userEmail||"unknown").trim().toLowerCase()}`;
 
   const isOfferOpen=(offer:any)=>{
     const closesAt=new Date(offer.closesAt).getTime();
