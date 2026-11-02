@@ -3494,7 +3494,10 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       executionStatus:row.executionStatus,executionAttemptCount:Number(row.executionAttemptCount||0),executionRetryAfter:row.executionRetryAfter,executionRetryDay:row.executionRetryDay,executionLastErrorCode:row.executionLastErrorCode,
       maxTradeAttemptsPerDay:Number(policyByName.get(String(row.packageName))?.maxTradeAttemptsPerDay??5),
       tradeRetryDelaySeconds:Number(policyByName.get(String(row.packageName))?.tradeRetryDelaySeconds??30),
-      popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus)&&["delivered","received","rendered"].includes(String(row.deliveryStatus)),
+      // A failed browser status write is retryable delivery state, not proof that
+      // the opportunity itself expired or became ineligible. Keep it available so
+      // a refreshed customer portal can retry rendering and status recording.
+      popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus)&&["delivered","received","rendered","failed"].includes(String(row.deliveryStatus)),
       executionEligible:isPopupExecutionEligible({eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus,executionStatus:row.executionStatus}),
       eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus};
   }).filter((offer) => offer !== null);
@@ -3531,7 +3534,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       currencyScale:Number(currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase())?.scale??2),
       currencySymbol:String(currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase())?.symbol||row.currency),
       popupEligible:row.offerStatus==="open"&&Boolean(row.closesAt&&new Date(row.closesAt).getTime()>now.getTime())&&
-        ["DELIVERED","NOTICED"].includes(row.eventStatus)&&["delivered","received","rendered"].includes(String(row.deliveryStatus)),
+        ["DELIVERED","NOTICED"].includes(row.eventStatus)&&["delivered","received","rendered","failed"].includes(String(row.deliveryStatus)),
       automaticTrade:executed};
   });
   return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{enabled:true,packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,

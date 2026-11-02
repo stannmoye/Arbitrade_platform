@@ -82,7 +82,8 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(delivery).toContain("currencyScale:Number(currencyRows.find");
     expect(delivery).toContain("currencySymbol:String(currencyRows.find");
     expect(delivery).toContain('popupEligible:row.offerStatus==="open"');
-    expect(delivery).toContain('["delivered","received","rendered"].includes(String(row.deliveryStatus))');
+    expect(delivery).toContain('["delivered","received","rendered","failed"].includes(String(row.deliveryStatus))');
+    expect(delivery).toContain("a refreshed customer portal can retry rendering and status recording");
   });
 
   it("holds the browser tab lock until the opportunity alert is dismissed or withdrawn", () => {
