@@ -27,7 +27,7 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(implementation).toContain("const autoTradeCandidates=tradeCandidates.filter((offer:any)=>");
     expect(implementation).toContain("if(offer.executionEligible!==true || allocationControls.allocationsPaused) return false;");
     expect(implementation).toContain("deliveryStatus:opportunityPopupEvents.deliveryStatus");
-    expect(implementation).toContain('["delivered","received","rendered"].includes(String(row.deliveryStatus))');
+    expect(implementation).toContain('["delivered","received","rendered","failed"].includes(String(row.deliveryStatus))');
     expect(implementation).toContain("Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy))");
     expect(implementation).toContain("if(!subscription) return null;");
     expect(implementation).toContain(".filter((offer) => offer !== null)");
