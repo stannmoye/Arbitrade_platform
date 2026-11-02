@@ -33,6 +33,10 @@ describe("Package Settings single-owner term contract", () => {
     expect(packageEditor).toContain("const [packagesRead, policiesRead] = await Promise.all");
     expect(packageEditor).toContain("a fresh database read did not confirm every saved term");
     expect(packageEditor).toContain("Existing customer snapshots remain unchanged");
+    expect(packageEditor).toContain("Package terms were saved, but the fee policy step failed");
+    expect(packageEditor).toContain("no full-save success is claimed");
+    expect(packageEditor).toContain("void packages.refetch()");
+    expect(packageEditor).toContain("void policies.refetch()");
     expect(packageEditor).not.toContain("updateTradeGlobalSettings");
     expect(router).toContain("updateTradingPackage: adminProcedure.input");
     expect(router).toContain("updatePackagePolicies: adminProcedure.input");

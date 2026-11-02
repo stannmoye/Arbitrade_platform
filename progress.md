@@ -1,3 +1,15 @@
+## 2026-11-02 — Trade Settings Checkpoint 6D: partial-save safety and API boundary contract
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Hardened the Package Settings client save flow: package terms and fee policy are still persisted through their existing independently transactional, row-locked, versioned mutations, but a failure in the second step now reports the partial-save state explicitly, refreshes both records and never claims a full-save success.
+- Added contract assertions for the partial-save message, refresh behavior, complete read-back requirement and global/package scope separation.
+- The current schema exposes separate package and policy rows, so this checkpoint does not falsely claim one database transaction spans both. A future combined transaction requires a deliberate server refactor and migration/rollback coverage.
+- Validation: `pnpm check` passed; focused Trade Settings contracts passed (29 tests); `git diff --check` passed; `pnpm build` passed.
+- No database migration or customer, wallet, ledger, settlement or entitlement write was performed by this checkpoint.
+- Next safe action: implement and test a server-side combined package-plus-policy mutation only if the review approves that transaction-boundary refactor; otherwise keep the explicit two-step behavior and proceed to CI disposable-database validation.
+
+---
+
 ## 2026-11-02 — Trade Settings Checkpoint 6C: Package Settings ownership contracts
 
 - PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.

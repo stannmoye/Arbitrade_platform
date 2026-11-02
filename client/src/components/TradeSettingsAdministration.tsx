@@ -100,8 +100,10 @@ export function AdminTradePackageSettings() {
   const saveDraft = async () => {
     if (!draft || invalid || !packageRow) return;
     setMessage("");
+    let packageCommitted = false;
     try {
-      const savedPackage = await updatePackage.mutateAsync({ id: Number(packageRow.id), name: draft.name.trim(), minimumQualifyingBalanceUsdMinor: Number(draft.minimumQualifyingBalanceUsdMinor), durationMonths: Number(draft.durationMonths), opportunitiesPerDay: Number(draft.opportunitiesPerDay), maxPopupsPerDay: Number(draft.maxPopupsPerDay), maxActiveInvestments: Number(draft.maxActiveInvestments), startsAt: draft.startsAt ? new Date(draft.startsAt).toISOString() : null, expiresAt: draft.expiresAt ? new Date(draft.expiresAt).toISOString() : null, enabled: draft.enabled, reason: reason.trim() });
+      await updatePackage.mutateAsync({ id: Number(packageRow.id), name: draft.name.trim(), minimumQualifyingBalanceUsdMinor: Number(draft.minimumQualifyingBalanceUsdMinor), durationMonths: Number(draft.durationMonths), opportunitiesPerDay: Number(draft.opportunitiesPerDay), maxPopupsPerDay: Number(draft.maxPopupsPerDay), maxActiveInvestments: Number(draft.maxActiveInvestments), startsAt: draft.startsAt ? new Date(draft.startsAt).toISOString() : null, expiresAt: draft.expiresAt ? new Date(draft.expiresAt).toISOString() : null, enabled: draft.enabled, reason: reason.trim() });
+      packageCommitted = true;
       await updatePolicy.mutateAsync({ reason: reason.trim(), policies: [{ packageName: selected, minimumPlatformFeeBps: Number(draft.minimumPlatformFeeBps), maximumPlatformFeeBps: Number(draft.maximumPlatformFeeBps), platformFeeRoundingMode: draft.platformFeeRoundingMode }] });
       const [packagesRead, policiesRead] = await Promise.all([packages.refetch(), policies.refetch()]);
       const saved = (packagesRead.data ?? []).find((row: any) => Number(row.id) === Number(packageRow.id)) as any;
@@ -111,7 +113,10 @@ export function AdminTradePackageSettings() {
       setMessage(`Package Settings saved and verified from the database for ${saved.name}. Existing customer snapshots remain unchanged.`);
       setReason("");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Package Settings could not be saved.");
+      const detail = error instanceof Error ? error.message : "Package Settings could not be saved.";
+      setMessage(packageCommitted ? `Package terms were saved, but the fee policy step failed: ${detail} Refresh before retrying; no full-save success is claimed.` : detail);
+      void packages.refetch();
+      void policies.refetch();
     }
   };
 
