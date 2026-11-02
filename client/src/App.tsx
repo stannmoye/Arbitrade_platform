@@ -880,7 +880,7 @@ function AdminTradingPackageCatalogue(){
   const update=trpc.adminOperations.updateTradingPackage.useMutation({
     onSuccess:async(saved:any,variables:any)=>{
       try{
-        const previous=(q.data as any[]|undefined)?.find(row=>Number(row.id)===Number(saved.id));
+        const previousTermsVersion=Number(drafts[Number(saved.id)]?.termsVersion??0);
         const refreshed=await q.refetch();
         const persisted=(refreshed.data as any[]|undefined)?.find(row=>Number(row.id)===Number(saved.id));
         const sameDate=(actual:any,expected:any)=>{
@@ -897,7 +897,7 @@ function AdminTradingPackageCatalogue(){
           sameDate(persisted.startsAt,variables.startsAt)&&
           sameDate(persisted.expiresAt,variables.expiresAt)&&
           Boolean(persisted.enabled)===Boolean(variables.enabled)&&
-          Number(persisted.termsVersion)>Number(previous?.termsVersion??0)&&
+          Number(persisted.termsVersion)>previousTermsVersion&&
           Number(persisted.termsVersion)===Number(saved.termsVersion));
         if(!confirmed){
           setMessageKind("error");
