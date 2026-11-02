@@ -8,7 +8,7 @@
 - Updated navigation, editor and menu contract tests plus the canonical Trading spec, admin menu guide, in-portal guide, configuration manual and admin UI fix log.
 - The general Settings form previously submitted ticket, email and Trade settings together. It now submits only the active section: ticket settings or the dedicated Global Trade Timing & Settlement page. The duplicate Trade and placeholder Email tabs were removed from general Settings; email editing remains under Communications. Successful saves are confirmed by a fresh server read.
 - No schema migration, customer entitlement rewrite, wallet/ledger mutation, financial execution, settlement, production deployment or Blitz configuration change was performed. Automatic financial execution remains OFF.
-- Follow-up hardening: tier-save read-back now compares every submitted tier field against a fresh query result and requires the terms version to advance; the navigation contract test asserts each comparison.
+- Follow-up hardening: tier-save read-back compares every submitted tier field against a fresh query result and requires the terms version to advance beyond the preserved editor-draft baseline, so the 30-second background refresh cannot invalidate the version comparison; the navigation contract test asserts each comparison.
 - Validation status: exact-head CI for the follow-up commits is pending; do not treat code changes as deployed or production-verified until CI and the user's post-deployment checks pass.
 
 ---
