@@ -3,7 +3,7 @@
 - PR number/link: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274).
 - Working branch: `feature/trade-settings-redesign-phase0`.
 - Exact base SHA: `59c425414b981bc2fd8720119f2d4b650b97ab15`.
-- Exact head SHA: `df783a231070f61d115cfe7b1b4a16483e73565a`.
+- Exact head SHA: `af4ee6ff9efbd8c0f0c8c62f9f6e78b607e93e43`.
 - Added `docs/trading/TRADE_SETTINGS_REDESIGN_DECISIONS.md` from the attached Trade Settings Administration Blueprint. This is a documentation-only decision checkpoint; no application behavior changed.
 - Confirmed existing source already has one Trade Settings group, a read-only Guide, a single owner for current per-tier policy switches, save/read-back protection, admin-published opportunities, and hard-disabled automatic financial execution. These must not be recreated or duplicated.
 - Blocking product decisions remain explicit: global-vs-package scope/migration semantics, fail-closed handling of legacy pauses, and fee policy A/B/C plus round-up definition. No migration, financial change, settlement change, database write, deployment, or customer record change is allowed before those decisions and canonical-spec reconciliation.
