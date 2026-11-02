@@ -3527,7 +3527,12 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       companyLogoUrl:companyDisplayAllowed(row.companyReferenceId)?row.companyLogoUrl:null,companyReferenceMetadataJson:companyDisplayAllowed(row.companyReferenceId)?row.companyReferenceMetadataJson:null,companyReferenceOnly:companyDisplayAllowed(row.companyReferenceId)&&Boolean(row.companyReferenceOnly),
       badgeLabel:row.badgeLabel??null,badgeStyle:["neutral","blue","purple","gold","green"].includes(String(row.badgeStyle))?String(row.badgeStyle):"neutral",
       policyVersion:Number(row.policyVersion||base.policyVersion||1),marketObservedAt:row.marketObservedAt,sector:row.sector,industry:row.industry,
-      listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus),automaticTrade:executed};
+      listingStatus:row.listingStatus,offerStatus:row.offerStatus,
+      currencyScale:Number(currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase())?.scale??2),
+      currencySymbol:String(currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase())?.symbol||row.currency),
+      popupEligible:row.offerStatus==="open"&&Boolean(row.closesAt&&new Date(row.closesAt).getTime()>now.getTime())&&
+        ["DELIVERED","NOTICED"].includes(row.eventStatus)&&["delivered","received","rendered"].includes(String(row.deliveryStatus)),
+      automaticTrade:executed};
   });
   return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{enabled:true,packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,
     remainingDailyQuota:Math.max(0,deliveryCapacity.dailyRemaining-newlyEligible.length),
