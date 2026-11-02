@@ -1,3 +1,15 @@
+## 2026-11-02 — Trade Settings Checkpoint 6F: disposable database save/rollback integration
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`; implementation commit: `395bf4aeab909f8964a9c89417e8e7c5ba96db09`.
+- Added `scripts/trading-package-settings.integration.ts`, guarded to loopback databases with an explicitly disposable name. It checks invalid-input no-write, one atomic package/policy commit, exactly-one version increments and audit evidence, and full rollback after an injected audit insert failure.
+- Added `.github/workflows/trading-package-settings-integration.yml` to apply guarded migrations and run the integration against disposable MySQL 8.4 and MariaDB 11.4 services.
+- Validation passed locally: `pnpm install --frozen-lockfile`; `pnpm check`; focused Trade Settings contracts (29 tests); full `pnpm test` (935 passed, 17 skipped); `pnpm build`; Prettier and `git diff --check`.
+- The MySQL/MariaDB integration itself remains pending on GitHub Actions; this sandbox has no Docker service or configured `DATABASE_URL`. No live/production database or hosted deployment was touched.
+- Remaining blueprint acceptance is broader than this checkpoint: reconcile duplicate settings owners and runtime wiring, complete missing package fields/read-back/audit metadata, and finish operational-route scope/pagination plus Guide/browser/accessibility review.
+- Next safe action: push the checkpoint to PR #274, inspect exact-head MySQL/MariaDB workflow results, then proceed through the remaining ownership/runtime work with the financial-execution lock preserved.
+
+---
+
 ## 2026-11-02 — Trade Settings Checkpoint 6E: atomic Package Settings save
 
 - PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
