@@ -2091,10 +2091,9 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
   const offer = {
     id: 50501, offerId: 50501, deliveryEventId: 60501,
     packageName: "QA Eligible Tier", symbol: "BTC/USD", currency: "USD",
-    minimumMinor: 10000, expectedRewardBps: 250, configuredProfitRateBps: 250,
-    configuredDurationSeconds: 300, configuredPopupDisplaySeconds: 30,
-    durationSeconds: 300, closesAt: "2099-12-31T23:59:59.000Z",
-    popupEligible: true, automaticTrade: false,
+    minimumMinor: 10000, balanceAvailableMinor: 4500, balanceStatus: "insufficient",
+    currencyScale: 2, currencySymbol: "$", configuredPopupDisplaySeconds: 1,
+    closesAt: "2099-12-31T23:59:59.000Z", offerStatus: "open", popupEligible: true,
     companyDisplayName: "Verified QA Company", companyLogoUrl: null,
     badgeLabel: "QA tier", badgeStyle: "green",
   };
@@ -2126,11 +2125,9 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
             delivery: {
               enabled: true, packageName: "QA Eligible Tier", maxPopupsPerDay: 6,
               maxVisibleOffers: 2, remainingDailyQuota: 6, remainingVisibleSlots: 2,
-              popupPolicy: { popupDisplaySeconds: 30, completionDisplaySeconds: 8 },
+              popupPolicy: { popupDisplaySeconds: 1 },
             },
           };
-        } else if (procedure === "customer.trades") {
-          data = [];
         } else if (procedure === "customer.soundSettings") {
           data = { enabled: false, opportunity: "soft-chime", loopOpportunity: false };
         } else if (procedure === "customer.balances") {
@@ -2145,19 +2142,40 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     });
     await page.goto(new URL("/customer", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.getByRole("heading", { name: "Welcome back, Jordan." }).waitFor({ state: "visible", timeout: 15000 });
-    const popup = page.locator(".center-opportunity-toast").filter({ hasText: "BTC/USD opportunity detected" });
+    const popup = page.locator(".center-opportunity-toast").filter({ hasText: "BTC/USD opportunity notice" });
     await popup.waitFor({ state: "visible", timeout: 10000 });
     const companyVisible = await popup.getByText("Verified QA Company").isVisible().catch(() => false);
-    const detailsVisible = await popup.getByText(/Configured return rate: 2\.50%/).isVisible().catch(() => false);
-    record("eligible-open-opportunity-renders-customer-popup", await popup.isVisible().catch(() => false), {
-      offerId: offer.id, companyVisible, detailsVisible,
+    const popupText = await popup.innerText();
+    const insufficientVisible = popupText.includes("Missed — insufficient balance") &&
+      popupText.includes("$ 100.00") && popupText.includes("$ 45.00") && popupText.includes("$ 55.00");
+    const informationalOnly = popupText.includes("Informational notice only") &&
+      !popupText.includes("AUTOMATED OPPORTUNITY") && !popupText.includes("Configured return rate:");
+    record("eligible-open-opportunity-renders-informational-customer-popup", await popup.isVisible().catch(() => false), {
+      offerId: offer.id, companyVisible, insufficientVisible, informationalOnly,
       note: "Customer session and opportunity API are mocked; this verifies React rendering and the client eligibility gate, not live server publication or account authorization.",
     });
     record("verified-company-reference-is-rendered", companyVisible, { companyName: offer.companyDisplayName });
-    await page.waitForTimeout(250);
+    record("insufficient-balance-is-explained-with-required-available-and-shortfall", insufficientVisible);
+    record("popup-makes-no-financial-execution-claim", informationalOnly);
+    await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: 5000 });
+    const dock = page.locator(".opportunity-popup-dock");
+    record("configured-display-duration-collapses-alert-into-dock", await dock.isVisible().catch(() => false), {
+      dockText: await dock.innerText().catch(() => ""), pageErrors,
+    });
+    await dock.getByRole("button", { name: "Maximize opportunity alert" }).click();
+    await popup.waitFor({ state: "visible", timeout: 3000 });
+    record("customer-can-maximize-docked-alert", await popup.isVisible().catch(() => false));
+    await popup.getByRole("button", { name: "Minimize opportunity alert" }).click();
+    await dock.waitFor({ state: "visible", timeout: 3000 });
+    record("customer-can-manually-minimize-alert", await dock.isVisible().catch(() => false));
     record("popup-delivery-lifecycle-is-acknowledged", mutationCalls.some(call =>
       call.procedure === "customer.popupDeliveryStatus" && call.input?.status === "rendered"
     ), { mutationCalls, pageErrors });
+    await dock.getByRole("button", { name: "Dismiss" }).click();
+    await dock.waitFor({ state: "detached", timeout: 3000 });
+    record("customer-can-dismiss-opportunity-alert", mutationCalls.some(call =>
+      call.procedure === "customer.popupLifecycle" && call.input?.action === "dismissed"
+    ), { mutationCalls });
   } catch (error) {
     record("customer-opportunity-popup-interaction-completes", false, {
       error: error instanceof Error ? error.message : String(error),
