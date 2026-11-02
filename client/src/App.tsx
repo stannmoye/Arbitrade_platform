@@ -878,14 +878,30 @@ function AdminTradingPackageCatalogue(){
   const [messageKind,setMessageKind]=useState<"success"|"error">("success");
   const dirtyPackageIds=useRef(new Set<number>());
   const update=trpc.adminOperations.updateTradingPackage.useMutation({
-    onSuccess:async(saved:any)=>{
+    onSuccess:async(saved:any,variables:any)=>{
       try{
+        const previous=(q.data as any[]|undefined)?.find(row=>Number(row.id)===Number(saved.id));
         const refreshed=await q.refetch();
         const persisted=(refreshed.data as any[]|undefined)?.find(row=>Number(row.id)===Number(saved.id));
-        const confirmed=Boolean(persisted&&Number(persisted.opportunitiesPerDay)===Number(saved.opportunitiesPerDay)&&Number(persisted.termsVersion)===Number(saved.termsVersion)&&String(persisted.name)===String(saved.name));
+        const sameDate=(actual:any,expected:any)=>{
+          if(expected===null||expected===undefined)return actual===null||actual===undefined;
+          const actualTime=new Date(actual).getTime();
+          const expectedTime=new Date(expected).getTime();
+          return Number.isFinite(actualTime)&&actualTime===expectedTime;
+        };
+        const confirmed=Boolean(persisted&&
+          String(persisted.name)===String(variables.name)&&
+          Number(persisted.minimumQualifyingBalanceUsdMinor)===Number(variables.minimumQualifyingBalanceUsdMinor)&&
+          Number(persisted.durationMonths)===Number(variables.durationMonths)&&
+          Number(persisted.opportunitiesPerDay)===Number(variables.opportunitiesPerDay)&&
+          sameDate(persisted.startsAt,variables.startsAt)&&
+          sameDate(persisted.expiresAt,variables.expiresAt)&&
+          Boolean(persisted.enabled)===Boolean(variables.enabled)&&
+          Number(persisted.termsVersion)>Number(previous?.termsVersion??0)&&
+          Number(persisted.termsVersion)===Number(saved.termsVersion));
         if(!confirmed){
           setMessageKind("error");
-          setMessage("The update request completed, but a fresh server read did not confirm the saved tier quota and terms version. Your draft has been kept on screen. Refresh the page or retry after checking the server.");
+          setMessage("The update request completed, but a fresh server read did not confirm the tier name, qualifying threshold, duration, daily entitlement, effective dates, enabled state and new terms version. Your draft has been kept on screen. Refresh the page or retry after checking the server.");
           return;
         }
         dirtyPackageIds.current.delete(Number(saved.id));
