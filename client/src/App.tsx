@@ -379,6 +379,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   const displaying=useRef<Set<number>>(new Set());
   const pending=useRef<Map<number,any>>(new Map());
   const timer=useRef<number|null>(null);
+  const releaseDisplayLock=useRef<(()=>void)|null>(null);
   const policy=delivery?.popupPolicy;
   const storageKey=`arbitrade_opportunity_popup_timing:${String(userEmail||"unknown").trim().toLowerCase()}`;
 
@@ -396,6 +397,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
     popupRef.current=null;
     setPopup(null);
     setMinimized(false);
+    if(releaseDisplayLock.current){releaseDisplayLock.current();releaseDisplayLock.current=null;}
     if(timer.current!==null)window.clearTimeout(timer.current);
     timer.current=null;
   };
@@ -437,7 +439,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
     const display=()=>{
       if(!isOfferCurrent(offer)||!canShow()||popupRef.current){
         displaying.current.delete(offerId);
-        return;
+        return false;
       }
       displaying.current.delete(offerId);
       seen.current.add(offerId);
@@ -455,11 +457,24 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
         playConfiguredSound(soundSettings.opportunity,"opportunity",soundSettings.loopOpportunity);
       }
       scheduleCollapse();
+      return true;
     };
     const locks=typeof navigator!=="undefined"?(navigator as any).locks:null;
-    if(locks?.request)void locks.request(storageKey,()=>display()).catch(()=>{
+    if(locks?.request)void locks.request(storageKey,{ifAvailable:true},async(lock:any)=>{
+      if(!lock){displaying.current.delete(offerId);return;}
+      let release!:()=>void;
+      const hold=new Promise<void>(resolve=>{release=resolve;});
+      releaseDisplayLock.current=release;
+      if(!display()){
+        releaseDisplayLock.current=null;
+        release();
+        return;
+      }
+      await hold;
+    }).catch(()=>{
+      if(releaseDisplayLock.current){releaseDisplayLock.current();releaseDisplayLock.current=null;}
       displaying.current.delete(offerId);
-      display();
+      if(!popupRef.current)display();
     });
     else display();
   };
@@ -497,6 +512,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   useEffect(()=>()=> {
     stopConfiguredSound();
     if(timer.current!==null)window.clearTimeout(timer.current);
+    if(releaseDisplayLock.current){releaseDisplayLock.current();releaseDisplayLock.current=null;}
   },[]);
 
   if(!popup)return null;

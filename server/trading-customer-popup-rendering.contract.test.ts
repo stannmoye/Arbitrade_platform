@@ -85,6 +85,14 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(delivery).toContain('["delivered","received","rendered"].includes(String(row.deliveryStatus))');
   });
 
+  it("holds the browser tab lock until the opportunity alert is dismissed or withdrawn", () => {
+    expect(component).toContain("ifAvailable:true");
+    expect(component).toContain("await hold");
+    expect(component).toContain("releaseDisplayLock.current=release");
+    expect(component).toContain("releaseDisplayLock.current()");
+    expect(component).toContain("releaseDisplayLock.current=null");
+  });
+
   it("does not poll trade history for informational-only opportunity alerts", () => {
     expect(component).not.toContain("trpc.customer.trades.useQuery");
     expect(component).not.toContain("automaticTrade");
