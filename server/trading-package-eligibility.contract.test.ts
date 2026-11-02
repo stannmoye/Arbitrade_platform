@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { isTradingTierEnablingTransition } from "./modules/trading-tier-activation";
 
 const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const executionOffMigrationSource = readFileSync(new URL("../drizzle/0098_disable_automatic_financial_execution.sql", import.meta.url), "utf8");
@@ -52,7 +53,12 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(implementation).toContain("!activationPolicy.enabled");
     expect(implementation).toContain("!activationPolicy.automaticDelivery");
     expect(implementation).not.toContain("!activationPolicy.automaticTradingEnabled");
+    expect(implementation).toContain("if(isTradingTierEnablingTransition(Boolean(current.enabled),input.enabled)&&(");
     expect(implementation).toContain("Automatic financial execution is a separate control");
+  });
+
+  it("does not require a valid delivery policy to edit an already-enabled tier", () => {
+    expect(isTradingTierEnablingTransition(true, true)).toBe(false);
   });
 
   it("creates new tiers with usable pop-up defaults but keeps financial execution off", () => {

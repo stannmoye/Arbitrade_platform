@@ -26,6 +26,7 @@ import { isAllowedAttachmentRequest, isSupportAttachmentStorageKeyForTicket, isV
 import { assertNotificationPayloadMatches, buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
+import { isTradingTierEnablingTransition } from "./modules/trading-tier-activation";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
 let _pool: Pool | null = null;
 
@@ -2544,7 +2545,7 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
       await tx.update(opportunityPackagePolicies).set({packageName:nextName,updatedBy,policyVersion:nextPolicyVersion,updatedAt:new Date()}).where(eq(opportunityPackagePolicies.id,currentPolicy.id));
     }
     const activationPolicy=(await tx.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,nextName)).limit(1).for("update"))[0];
-    if(input.enabled&&(
+    if(isTradingTierEnablingTransition(Boolean(current.enabled),input.enabled)&&(
       !activationPolicy||
       Number(activationPolicy.policyVersion)<1||
       !activationPolicy.enabled||

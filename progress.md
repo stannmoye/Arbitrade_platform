@@ -1,5 +1,17 @@
 ## 2026-11-02 — Customer informational pop-up persistence and clarity
 
+## 2026-11-02 — Fix tier-term saves blocked by delivery-policy activation gate
+
+- Working branch: `main`, based on GitHub main commit `df0e06e844bd29f9cbb987687cd998875b8cfb99`.
+- Root cause: `updateAdminTradingPackage` ran the delivery-policy readiness gate whenever the submitted package had `enabled=true`. This blocked quota/term edits to a package already marked enabled when its legacy/saved delivery policy was paused or incomplete, even though runtime delivery correctly remained fail-closed.
+- Fix: apply readiness validation only on a disabled-to-enabled transition. Saving terms for an already-enabled package remains authorized, transactional, audited, versioned and verified by the existing fresh-readback UI; it does not enable or repair the delivery policy. Added a tested pure transition helper and contract coverage. Updated the canonical Trading specification and admin configuration manual to state the transition-only rule.
+- A daily entitlement of 6,000 remains within the existing server-supported range of 1–10,000. Existing customer entitlement snapshots remain unchanged; the admin edit applies to future assignments.
+- Validation on this source tree: `pnpm install --frozen-lockfile` passed; focused Trade tests passed (32); `pnpm check` passed; full suite passed (925 passed, 17 skipped; 116 files passed, 3 skipped); `pnpm build` passed. Exact-head GitHub Actions for the resulting commit are pending.
+- No database write, schema migration, deployment, wallet operation, financial execution, or settlement was performed. Generated `dist/` output remains ignored and is not part of the source change.
+
+---
+
+## 2026-11-02 — Customer informational pop-up persistence and clarity
 - Working branch: `fix/trading-customer-popup-persistence-and-visibility`, based on merged `main` commit `4d8812d197277d031ec5d340efbfcf0e457cb7a6`.
 - Customer opportunity alerts remain available after the configured expanded display duration by collapsing into a fixed bottom-of-viewport dock with Maximize and Dismiss controls. Minimize/maximize and the display timer are presentation-only.
 - Customer alerts use persisted server offer status and delivery status to determine eligibility. Closed/expired or non-delivered offers are not presented as fresh alerts.
