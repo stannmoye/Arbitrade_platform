@@ -1,3 +1,17 @@
+## 2026-11-02 — Trade Settings Checkpoint 2: schema, migration and scoped API
+
+- PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.
+- Added forward-only `drizzle/0099_trade_settings_global_registry.sql` and journal registration. It adds package fee bounds/rounding fields, initializes one global settings record, initializes Require Previous Settlement ON, keeps automatic financial execution OFF, preserves unsafe legacy package states as paused, and records a migration conflict report.
+- Added typed Drizzle fields for `minimumPlatformFeeBps`, `maximumPlatformFeeBps`, and `platformFeeRoundingMode`.
+- Added fail-closed `getTradeGlobalSettings`, migration-report read, and audited partial `setTradeGlobalSettings` service functions. Disabling Require Previous Settlement requires an extended reason; malformed/missing migration state cannot be edited or treated as enabled.
+- Added admin API endpoints `tradeGlobalSettings` and `updateTradeGlobalSettings`. Existing package-policy updates now validate package-scoped fee bounds and rounding mode; automatic financial execution remains hard-disabled.
+- Added `server/trading-settings-migration.contract.test.ts`.
+- Validation: `pnpm exec vitest run server/trading-settings-migration.contract.test.ts server/trading-settings-owner-registry.contract.test.ts server/trading-admin-navigation.contract.test.ts` — 26 tests passed; `pnpm check` passed; `git diff --check` passed.
+- Migration has been authored and tested statically but not applied to any production or hosted database. No customer records, wallets, settlements or financial execution were changed.
+- Next safe action: build the Package Configuration/Package Settings admin UI against these APIs, then integrate the selected fee snapshot into opportunity/settlement persistence with dedicated arithmetic tests.
+
+---
+
 ## 2026-11-02 — Trade Settings Checkpoint 1A: typed owner registry
 
 - PR: [#274](https://github.com/stannmoye/Arbitrade_platform/pull/274); branch: `feature/trade-settings-redesign-phase0`.

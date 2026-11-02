@@ -123,6 +123,95 @@ export async function setAppSetting(key: string, value: string, updatedBy?: numb
   else await db.insert(appSettings).values({ settingKey: key, settingValue: value, updatedBy: updatedBy ?? null });
 }
 
+const TRADE_GLOBAL_SETTINGS_KEY = "trade.settings.global.v1";
+const TRADE_GLOBAL_MIGRATION_REPORT_KEY = "trade.settings.global.migrationReport.v1";
+const DEFAULT_TRADE_GLOBAL_SETTINGS = {
+  migrationVersion: 0,
+  tierPolicyMaster: false,
+  popupDelivery: false,
+  companyRotation: false,
+  randomizedTiming: false,
+  burstDelivery: false,
+  requirePreviousSettlement: true,
+  automaticFinancialExecution: false,
+  legacySafetyPaused: true,
+} as const;
+type TradeGlobalSettings = {
+  migrationVersion: number;
+  tierPolicyMaster: boolean;
+  popupDelivery: boolean;
+  companyRotation: boolean;
+  randomizedTiming: boolean;
+  burstDelivery: boolean;
+  requirePreviousSettlement: boolean;
+  automaticFinancialExecution: boolean;
+  legacySafetyPaused: boolean;
+  available: boolean;
+  source: string;
+};
+
+function parseTradeGlobalSettings(raw: unknown): TradeGlobalSettings {
+  try {
+    const parsed = JSON.parse(String(raw ?? ""));
+    if (!parsed || typeof parsed !== "object") throw new Error("not an object");
+    const value = parsed as Record<string, unknown>;
+    const booleans = ["tierPolicyMaster", "popupDelivery", "companyRotation", "randomizedTiming", "burstDelivery", "requirePreviousSettlement", "automaticFinancialExecution", "legacySafetyPaused"];
+    if (booleans.some(key => typeof value[key] !== "boolean")) throw new Error("invalid boolean");
+    const migrationVersion = Number(value.migrationVersion);
+    if (!Number.isSafeInteger(migrationVersion) || migrationVersion < 1) throw new Error("migration not applied");
+    return {
+      migrationVersion,
+      tierPolicyMaster: Boolean(value.tierPolicyMaster),
+      popupDelivery: Boolean(value.popupDelivery),
+      companyRotation: Boolean(value.companyRotation),
+      randomizedTiming: Boolean(value.randomizedTiming),
+      burstDelivery: Boolean(value.burstDelivery),
+      requirePreviousSettlement: Boolean(value.requirePreviousSettlement),
+      automaticFinancialExecution: false,
+      legacySafetyPaused: Boolean(value.legacySafetyPaused),
+      available: true,
+      source: String(value.source || "database"),
+    };
+  } catch {
+    return { ...DEFAULT_TRADE_GLOBAL_SETTINGS, available: false, source: "unavailable" };
+  }
+}
+
+export async function getTradeGlobalSettings(): Promise<TradeGlobalSettings> {
+  const raw = await getAppSetting(TRADE_GLOBAL_SETTINGS_KEY);
+  return parseTradeGlobalSettings(raw);
+}
+
+export async function getTradeGlobalMigrationReport() {
+  const raw = await getAppSetting(TRADE_GLOBAL_MIGRATION_REPORT_KEY);
+  try { return raw ? JSON.parse(raw) as Record<string, unknown> : null; } catch { return null; }
+}
+
+export async function setTradeGlobalSettings(updatedBy: number, input: Partial<Pick<TradeGlobalSettings, "tierPolicyMaster" | "popupDelivery" | "companyRotation" | "randomizedTiming" | "burstDelivery" | "requirePreviousSettlement">> & { reason: string }) {
+  if (!Number.isSafeInteger(updatedBy) || updatedBy <= 0) throw new Error("Administrator identity is required");
+  const reason = String(input.reason ?? "").trim();
+  if (reason.length < 5 || reason.length > 500) throw new Error("Provide an audit reason of 5–500 characters");
+  const requestedKeys = Object.keys(input).filter(key => key !== "reason");
+  const allowedKeys = new Set(["tierPolicyMaster", "popupDelivery", "companyRotation", "randomizedTiming", "burstDelivery", "requirePreviousSettlement"]);
+  if (!requestedKeys.length || requestedKeys.some(key => !allowedKeys.has(key))) throw new Error("Provide at least one supported global Trade Settings field");
+  if (Object.entries(input).some(([key, value]) => key !== "reason" && typeof value !== "boolean")) throw new Error("Global Trade Settings switches must be boolean");
+  const db = await getDb(); if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const row = (await tx.select().from(appSettings).where(eq(appSettings.settingKey, TRADE_GLOBAL_SETTINGS_KEY)).limit(1).for("update"))[0];
+    const current = parseTradeGlobalSettings(row?.settingValue);
+    if (!current.available) throw new Error("Global Trade Settings migration is missing or malformed; apply the forward-only migration before editing settings");
+    if (input.requirePreviousSettlement === false && current.requirePreviousSettlement !== false && reason.length < 10) throw new Error("Disabling Require Previous Settlement requires a detailed authorization reason of at least 10 characters");
+    const next = { ...current, ...Object.fromEntries(requestedKeys.map(key => [key, (input as Record<string, unknown>)[key]])), available: true, source: "admin" } as TradeGlobalSettings;
+    await tx.update(appSettings).set({ settingValue: JSON.stringify(next), updatedBy, updatedAt: new Date() }).where(eq(appSettings.settingKey, TRADE_GLOBAL_SETTINGS_KEY));
+    await tx.insert(v5AuditEvents).values({
+      actorUserId: updatedBy, action: "trade_global_settings_updated", entityType: "trade_global_settings", entityId: "global",
+      reason, reference: `trade-global-settings:${current.migrationVersion}:${Date.now()}`,
+      metadataJson: JSON.stringify({ old: current, new: next, changedKeys: requestedKeys, migrationVersion: current.migrationVersion }),
+    });
+    return next;
+  });
+}
+
 export async function updateCompanyCatalogueAdminState(input: {
   ids: string[];
   status: "verified" | "unverified" | "archived" | "disabled" | "enabled";
@@ -2451,6 +2540,7 @@ export async function listAdminTradingPackages() {
 const DEFAULT_NEW_TIER_POLICY = {
   badgeLabel:null,badgeStyle:"neutral",
   minimumPayoutRateBps:200,maximumPayoutRateBps:300,
+  minimumPlatformFeeBps:1500,maximumPlatformFeeBps:1500,platformFeeRoundingMode:"up",
   minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900,
   companyRotationEnabled:true,companyRotationCountryNames:null,
   companyRotationRepeatPolicy:"avoid_until_exhausted" as const,
@@ -2938,6 +3028,11 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
       const maximumPayoutRateBps=effective.maximumPayoutRateBps==null?null:Number(effective.maximumPayoutRateBps);
       if((minimumPayoutRateBps===null)!==(maximumPayoutRateBps===null)) throw new Error(`Set both published reward-rate bounds or leave both blank for ${policy.packageName}`);
       if(minimumPayoutRateBps!==null&&(maximumPayoutRateBps===null||!Number.isSafeInteger(minimumPayoutRateBps)||!Number.isSafeInteger(maximumPayoutRateBps)||minimumPayoutRateBps<0||maximumPayoutRateBps<minimumPayoutRateBps||maximumPayoutRateBps>5000)) throw new Error(`Published reward-rate bounds must satisfy 0 ≤ minimum ≤ maximum ≤ 5000 bps for ${policy.packageName}`);
+      const minimumPlatformFeeBps=Number(effective.minimumPlatformFeeBps);
+      const maximumPlatformFeeBps=Number(effective.maximumPlatformFeeBps);
+      const platformFeeRoundingMode=String(effective.platformFeeRoundingMode||"up");
+      if(!Number.isSafeInteger(minimumPlatformFeeBps)||!Number.isSafeInteger(maximumPlatformFeeBps)||minimumPlatformFeeBps<0||maximumPlatformFeeBps<minimumPlatformFeeBps||maximumPlatformFeeBps>10000) throw new Error(`Platform fee bounds must satisfy 0 ≤ minimum ≤ maximum ≤ 10000 bps for ${policy.packageName}`);
+      if(!["up","down","half_up","half_even"].includes(platformFeeRoundingMode)) throw new Error(`Platform fee rounding mode is invalid for ${policy.packageName}`);
       const companyRotationEnabled=effective.companyRotationEnabled==null?false:Boolean(effective.companyRotationEnabled);
       const normalizedCompanyRotationCountryNames=normalizeCompanyRotationCountryNames(effective.companyRotationCountryNames??"");
       const companyRotationCountryNames=normalizedCompanyRotationCountryNames||null;
@@ -2983,7 +3078,7 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
       validatePackageAutomationPolicy(automation);
       if(automation.minIntervalSeconds>automation.maxIntervalSeconds) throw new Error(`Delivery interval minimum exceeds maximum for ${policy.packageName}`);
       if(automation.minSettlementDelaySeconds>automation.maxSettlementDelaySeconds) throw new Error(`Settlement delay minimum exceeds maximum for ${policy.packageName}`);
-      const values:any={...effective,...automation,badgeLabel,badgeStyle,minimumPayoutRateBps,maximumPayoutRateBps,minimumTradeDurationSeconds,maximumTradeDurationSeconds,companyRotationEnabled,companyRotationCountryNames,companyRotationRepeatPolicy,updatedBy};
+      const values:any={...effective,...automation,badgeLabel,badgeStyle,minimumPayoutRateBps,maximumPayoutRateBps,minimumPlatformFeeBps,maximumPlatformFeeBps,platformFeeRoundingMode,minimumTradeDurationSeconds,maximumTradeDurationSeconds,companyRotationEnabled,companyRotationCountryNames,companyRotationRepeatPolicy,updatedBy};
       delete values.id; delete values.updatedAt; delete values.policyVersion;
       const currentVersion=Number(current?.policyVersion||0);
       const nextVersion=current?currentVersion+1:1;
