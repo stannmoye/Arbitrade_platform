@@ -44,6 +44,13 @@ describe("Trade Settings audit history query", () => {
     expect(deriveTradeAuditScope("unrelated_event", "unknown_entity")).toBeNull();
   });
 
+  it("includes the migration-created global control event in audit history with global scope", () => {
+    const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+    const allowlist = source.match(/const TRADE_SETTINGS_AUDIT_ACTIONS = \[([\s\S]*?)\] as const;/)?.[1] ?? "";
+    expect(allowlist).toContain('"trade_global_controls_migrated"');
+    expect(deriveTradeAuditScope("trade_global_controls_migrated", "trade_global_control_policy")).toBe("global");
+  });
+
   it("encodes an exact composite cursor so equal timestamps remain ordered by descending id", () => {
     const createdAt = new Date("2026-06-01T12:30:00.000Z");
     const first = encodeTradeAuditCursor(createdAt, 30);

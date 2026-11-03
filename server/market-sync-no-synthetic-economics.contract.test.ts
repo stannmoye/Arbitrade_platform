@@ -40,6 +40,7 @@ describe("trading opportunity economics integrity", () => {
     expect(pauseEnd).toBeGreaterThan(pauseStart);
     expect(pause).toContain("pausedUntilSettled: true");
     expect(pause).toContain("opportunityOffers.status, \"open\"");
+    expect(pause).toContain("gt(opportunityOffers.closesAt, now)");
     expect(pause).not.toContain("db.update(opportunityOffers)");
   });
 
@@ -62,7 +63,8 @@ describe("trading opportunity economics integrity", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(implementation).toContain('return { created: 0, available: availableOffers.length, generationDisabled: true };');
     expect(implementation).toContain('.set({ status: "closed" })');
-    expect(implementation).toContain('lt(opportunityOffers.closesAt, now)');
+    expect(implementation).toContain('lte(opportunityOffers.closesAt, now)');
+    expect(implementation).not.toContain('lt(opportunityOffers.closesAt, now)');
     expect(implementation).not.toContain('marketObservedAt, refreshedAt');
     expect(implementation).toContain('eq(opportunityOffers.status, "open")');
     expect(implementation).toContain('gt(opportunityOffers.closesAt, now)');

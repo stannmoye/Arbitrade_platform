@@ -231,11 +231,11 @@ export async function runOpportunityRetention() {
 }
 
 export async function getOpportunityLifecycleSummary() {
-  if (!process.env.DATABASE_URL) return { last24Hours: {}, retainedDaily: [], generatedAt: new Date().toISOString() };
+  if (!process.env.DATABASE_URL) return { sourceAvailable: false, last24Hours: {}, retainedDaily: [], generatedAt: null };
   return withConnection(async connection => {
-    const [recent] = await connection.query<any[]>(`SELECT COUNT(*) AS delivered, SUM(noticedAt IS NOT NULL) AS noticed, SUM(openedAt IS NOT NULL) AS opened, SUM(dismissedAt IS NOT NULL) AS dismissed, SUM(withdrawnAt IS NOT NULL) AS withdrawn, SUM(tradedAt IS NOT NULL) AS traded, SUM(settledAt IS NOT NULL) AS settled, SUM(balanceStatus='insufficient') AS zeroBalance FROM opportunity_popup_events WHERE deliveredAt >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)`);
+    const [recent] = await connection.query<any[]>(`SELECT COUNT(*) AS delivered, COALESCE(SUM(noticedAt IS NOT NULL), 0) AS noticed, COALESCE(SUM(openedAt IS NOT NULL), 0) AS opened, COALESCE(SUM(dismissedAt IS NOT NULL), 0) AS dismissed, COALESCE(SUM(withdrawnAt IS NOT NULL), 0) AS withdrawn, COALESCE(SUM(tradedAt IS NOT NULL), 0) AS traded, COALESCE(SUM(settledAt IS NOT NULL), 0) AS settled, COALESCE(SUM(balanceStatus='insufficient'), 0) AS zeroBalance FROM opportunity_popup_events WHERE deliveredAt >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)`);
     const [daily] = await connection.query<any[]>(`SELECT eventDate, SUM(deliveredCount) delivered, SUM(noticedCount) noticed, SUM(openedCount) opened, SUM(dismissedCount) dismissed, SUM(withdrawnCount) withdrawn, SUM(tradedCount) traded, SUM(settledCount) settled, SUM(zeroBalanceCount) zeroBalance FROM opportunity_popup_daily WHERE eventDate >= DATE_SUB(UTC_DATE(), INTERVAL 30 DAY) GROUP BY eventDate ORDER BY eventDate DESC LIMIT 30`);
-    return { last24Hours: recent[0] || {}, retainedDaily: daily, generatedAt: new Date().toISOString() };
+    return { sourceAvailable: true, last24Hours: recent[0] || {}, retainedDaily: daily, generatedAt: new Date().toISOString() };
   });
 }
 
