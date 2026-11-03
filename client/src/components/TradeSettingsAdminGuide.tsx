@@ -22,7 +22,7 @@ export const ownerLinks: readonly GuideOwnerLink[] = [
   { routeId: "trade-company-rotation", label: "Per-tier Company Rotation Rules", target: "packages", focus: "rotation", description: "Review per-tier approved-company filters and repeat rules. Company identity is reference metadata, not evidence of listing, execution or profit." },
   { routeId: "trade-company-catalogue", label: "Company Catalogue", target: "companyCatalogue", description: "Review company reference records and their administrator approval status. Approval controls display eligibility only; it does not verify a security or trade." },
   { routeId: "trade-capital-funding", label: "Capital & Wallet Funding Rules", target: "transactionReview", focus: "capital", description: "The capital and wallet-funding queue is unavailable in the current source. This route is read-only; it cannot accept or post funds." },
-  { routeId: "trade-fees-earnings", label: "Fees & Earnings Limits", target: "transactionReview", focus: "fees", description: "Review fee and earnings-limit information in its current source-supported scope. Configured terms are not realized earnings or a posted wallet credit." },
+  { routeId: "trade-fees-earnings", label: "Fees & Earnings Limits", target: "transactionReview", focus: "fees", description: "Review the legacy global fee record and configured earnings ceilings. The single active package-specific fee editor is under Tiers & Eligibility; this route is read-only. Configured terms are not realized earnings or a posted wallet credit." },
   { routeId: "trade-retries", label: "Retries & Carry-Forward", target: "tradeRetryPolicy", description: "Review technical delivery retries and their status. Carry-forward across daily windows is not available; a delivery retry is not a trade-execution retry." },
   { routeId: "trade-active-pending", label: "Active & Pending Opportunities", target: "deliveryMonitor", description: "Inspect informational opportunities waiting for delivery or further processing. Pending work is not an allocation, settlement or payout." },
   { routeId: "trade-manual-payouts", label: "Manual Payouts", target: "manualPayouts", description: "Review and resolve internal manual payout requests. A request or status change does not itself transfer funds through a bank or blockchain provider." },
@@ -30,6 +30,11 @@ export const ownerLinks: readonly GuideOwnerLink[] = [
   { routeId: "trade-history", label: "Trading History", target: "tradeHistory", description: "Inspect bounded read-only windows of persisted trade lifecycle and confirmed-result evidence. This route cannot confirm results or change ledger/trade records." },
   { routeId: "trade-worker-health", label: "Worker Health & Recovery", target: "tradeWorkerHealth", description: "Inspect worker heartbeat, due work and supported recovery status. A saved setting or recent heartbeat does not guarantee delivery or financial processing." },
   { routeId: "trade-audit-policy-history", label: "Audit & Policy History", target: "audit", description: "Review recorded administrator changes, reasons and policy versions. This is history, not a second editor or operational action." },
+];
+
+/** Cross-links to owner screens outside Trade Settings; these are references, not duplicate owners. */
+export const relatedOwnerLinks: readonly GuideOwnerLink[] = [
+  { routeId: "wallet-ledger", label: "Finance → Wallet & Ledger / Database Entries", target: "transactionReview", focus: "ledger", description: "Read-only wallet activity for one selected customer and one UTC day. Finance remains the sole owner; this shortcut does not add a Trade Settings ledger editor or settlement action." },
 ];
 
 /** Read-only glossary projection of the canonical ownership registry; no policy values are copied here. */
@@ -115,6 +120,19 @@ export function TradeSettingsAdminGuide({ onNavigate }: TradeSettingsAdminGuideP
           {ownerLinks.map((link) => <div className="trade-settings-guide__link" key={link.routeId}>
             <div><strong>{link.label}</strong><p>{link.description}</p></div>
             <button type="button" className="secondary-button" onClick={() => navigate(link.target, link.focus)} aria-label={`Open owner screen: ${link.label}`}>
+              Open owner <ExternalLink size={14} aria-hidden="true" />
+            </button>
+          </div>)}
+        </div>
+      </section>
+
+      <section className="settings-card" aria-labelledby="guide-related-owner-title">
+        <h2 id="guide-related-owner-title">Related owner outside Trade Settings</h2>
+        <p>Use this shortcut to reach the existing owner. It does not create a duplicate Trade Settings destination or action.</p>
+        <div className="trade-settings-guide__links">
+          {relatedOwnerLinks.map((link) => <div className="trade-settings-guide__link" key={link.routeId}>
+            <div><strong>{link.label}</strong><p>{link.description}</p></div>
+            <button type="button" className="secondary-button" onClick={() => navigate(link.target, link.focus)} aria-label={`Open related owner: ${link.label}`}>
               Open owner <ExternalLink size={14} aria-hidden="true" />
             </button>
           </div>)}
