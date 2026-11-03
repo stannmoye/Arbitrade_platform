@@ -28,13 +28,18 @@ const poolPackage = "RotationPool-" + token;
 const verificationPackage = "VerificationFilter-" + token;
 const emptyPackage = "EmptyVerified-" + token;
 const disabledPackage = "DisabledCompany-" + token;
+const packageIdByName: Record<string, number> = {
+  [mainPackage]: 910001,
+  [poolPackage]: 910002,
+  [verificationPackage]: 910003,
+  [emptyPackage]: 910004,
+  [disabledPackage]: 910005,
+};
+const maxPendingDeliveries = 3;
 const catalogueAdminStateKey = "trade.companyCatalogue.adminState";
 let originalCatalogueAdminState: { settingValue: string; updatedBy: number | null } | null | undefined;
 const quotaDay = new Date().toISOString().slice(0, 10);
-const stateKeys = [
-  "trading.companyRotation.pending." + token,
-  "trading.companyRotation.pool." + token,
-];
+const stateKeys: string[] = [];
 let userId: number | undefined;
 const offerIds: number[] = [];
 let triggerName: string | undefined;
@@ -46,11 +51,15 @@ function makeDelivery(
   countryNames = "",
   repeatPolicy: CompanySpotlightRepeatPolicy = "avoid_until_exhausted",
 ): PopupDelivery {
+  const packageId = packageIdByName[packageName];
+  assert.ok(packageId, `test fixture package must have a unique numeric identity: ${packageName}`);
   return {
     userId: userId!,
     offerId,
     quotaDay,
+    packageId,
     packageName,
+    maxPendingDeliveries,
     symbol: "ROT-" + String(offerId),
     currency: "USD",
     minimumMinor: 1000,
@@ -103,7 +112,9 @@ async function readEvent(offerId: number) {
 }
 
 async function readState(packageName: string) {
-  const key = "trading.companyRotation." + userId + "." + packageName;
+  const packageId = packageIdByName[packageName];
+  assert.ok(packageId, `test fixture package must have a unique numeric identity: ${packageName}`);
+  const key = "trading.companyRotation." + userId + "." + packageId;
   const rows = await db!.select({ settingValue: appSettings.settingValue })
     .from(appSettings).where(eq(appSettings.settingKey, key)).limit(1);
   assert.ok(rows[0], "durable package-scoped rotation cursor must exist");
@@ -155,13 +166,7 @@ try {
     packageName: "Starter",
   });
   userId = Number(userInsert[0].insertId);
-  stateKeys[0] = "trading.companyRotation." + userId + "." + mainPackage;
-  stateKeys[1] = "trading.companyRotation." + userId + "." + poolPackage;
-  stateKeys.push(
-    "trading.companyRotation." + userId + "." + verificationPackage,
-    "trading.companyRotation." + userId + "." + emptyPackage,
-    "trading.companyRotation." + userId + "." + disabledPackage,
-  );
+  stateKeys.push(...Object.values(packageIdByName).map(packageId => "trading.companyRotation." + userId + "." + packageId));
 
   const priorCatalogueRows = await db.select({
     settingValue: appSettings.settingValue,
@@ -336,7 +341,7 @@ try {
   assert.equal(noCompanyEvent.companyLogoUrl, null);
   assert.equal(Boolean(noCompanyEvent.companyReferenceOnly), false);
   const emptyCursorRows = await db.select({ settingKey: appSettings.settingKey }).from(appSettings)
-    .where(eq(appSettings.settingKey, "trading.companyRotation." + userId + "." + emptyPackage)).limit(1);
+    .where(eq(appSettings.settingKey, "trading.companyRotation." + userId + "." + packageIdByName[emptyPackage])).limit(1);
   assert.equal(emptyCursorRows.length, 0, "an empty approved pool must not create or advance a rotation cursor");
   await setCatalogueAdminState([...allVerifiedState.verifiedIds]);
 
