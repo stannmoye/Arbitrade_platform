@@ -51,7 +51,7 @@ export function AdminTierPolicyFields({ mode, x, i, set }: {
       <label>Maximum settlement attempts<input type="number" min="1" max="20" value={x.maxSettlementAttempts ?? 3} onChange={e => set(i, "maxSettlementAttempts", Number(e.target.value))} /></label>
       <label>Minimum settlement delay (seconds)<input type="number" min="0" max="604800" value={x.minSettlementDelaySeconds ?? 900} onChange={e => set(i, "minSettlementDelaySeconds", Number(e.target.value))} /></label>
       <label>Maximum settlement delay (seconds)<input type="number" min="0" max="604800" value={x.maxSettlementDelaySeconds ?? 900} onChange={e => set(i, "maxSettlementDelaySeconds", Number(e.target.value))} /></label>
-      <label>Require previous settlement <input type="checkbox" checked={Boolean(x.requirePreviousSettlement ?? true)} onChange={e => set(i, "requirePreviousSettlement", e.target.checked)} /></label>
+      <div className="admin-policy-note" role="note">Require previous settlement is a global control managed only in Trade Settings → Package Configuration. It has no per-tier override.</div>
       <label>Close pop-up policy<select value={x.closePolicy ?? "after_final_display"} onChange={e => set(i, "closePolicy", e.target.value)}><option value="after_completion">After completion</option><option value="after_final_display">After final display</option></select></label>
     </div>
   </>;

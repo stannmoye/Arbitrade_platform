@@ -490,15 +490,16 @@ try {
     "Hard-disabled automatic allocation must not create trade rows.",
   );
 
-  // The selected tier's previous-settlement switch applies across every tier
-  // belonging to the customer. A confirmed trade is not complete until credit.
+  // Previous settlement is now a canonical global control, not a per-tier
+  // switch. This integration keeps automatic financial execution hard-disabled
+  // and verifies only that a temporary settlement-related worker deferral does
+  // not consume attempts or create financial records.
   await db.update(packages).set({ opportunitiesPerDay: 5 })
     .where(eq(packages.id, packageId));
   await db.update(customerPackageSubscriptions).set({
     termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 5, maxActiveInvestments: 5 }),
   }).where(eq(customerPackageSubscriptions.id, subscriptionId));
   await db.update(opportunityPackagePolicies).set({
-    requirePreviousSettlement: true,
     maxConcurrentActiveTrades: 5,
     maxTradeAttemptsPerDay: 0,
   }).where(eq(opportunityPackagePolicies.packageName, packageName));

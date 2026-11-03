@@ -139,13 +139,18 @@ describe("Trade Settings ownership registry contract", () => {
 
   it("registers locked and unavailable controls without mutation owners", () => {
     const byKey = new Map(tradeSettingsOwnershipRegistry.map((entry) => [entry.key, entry]));
-    for (const key of ["trade.global.requirePreviousSettlement", "trade.automaticFinancialExecution", "trade.retry.carryForward"]) {
+    for (const key of ["trade.automaticFinancialExecution", "trade.retry.carryForward"]) {
       const entry = byKey.get(key);
       expect(entry, `${key} is registered`).toBeDefined();
       expect(entry?.saveMutation, `${key} has no mutation`).toBeNull();
       expect(entry?.writeOwner, `${key} has no write owner`).toBeNull();
       expect(["locked", "not-available"]).toContain(entry?.availability);
     }
+    expect(byKey.get("trade.global.requirePreviousSettlement")).toMatchObject({
+      saveMutation: "adminOperations.updateGlobalTradeControl",
+      availability: "available",
+      risk: "high",
+    });
   });
 
   it("binds audited operational actions to their current owner route contracts", () => {

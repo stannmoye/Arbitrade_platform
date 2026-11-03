@@ -30,7 +30,7 @@ import { assertNotificationPayloadMatches, buildNotificationEventKey, buildTrade
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 import { isTradingTierEnablingTransition } from "./modules/trading-tier-activation";
-import { FAIL_CLOSED_TRADE_GLOBAL_CONTROLS, TRADE_GLOBAL_CONTROL_MIGRATION_DIAGNOSTIC_KEY, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, TRADE_GLOBAL_MASTER_KEYS, parseTradeGlobalControlPolicy, type TradeGlobalMasterKey, type TradeGlobalControlStatus } from "./trading-global-policy";
+import { FAIL_CLOSED_TRADE_GLOBAL_CONTROLS, TRADE_GLOBAL_CONTROL_MIGRATION_DIAGNOSTIC_KEY, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, TRADE_GLOBAL_MASTER_KEYS, parseTradeGlobalControlPolicy, requiresPreviousSettlementForAllocation, type TradeGlobalMasterKey, type TradeGlobalControlStatus } from "./trading-global-policy";
 import { classifyTradeFeeSnapshot, normalizeImmutableTradeFeeSnapshot, normalizeLegacyTradeFeePolicy, resolvePackageFeePolicyWrite, selectLatestEffectivePackageFeePolicy } from "./modules/package-fee-policy";
 const TRADE_FEE_SETTING_KEYS = ["trade.platformFeeBps", "trade.feeRoundingMode", "trade.feePolicyVersion"] as const;
 const READ_ONLY_LEGACY_TRADE_FEE_SETTING_KEYS = new Set<string>(TRADE_FEE_SETTING_KEYS);
@@ -512,7 +512,6 @@ export async function setTradeGlobalControl(input:{key:TradeGlobalMasterKey;enab
   if(auditReason.length<5||auditReason.length>500) throw new Error("A 5–500 character administrator reason is required for global Trade control changes");
   if(!Number.isSafeInteger(input.expectedPolicyVersion)||input.expectedPolicyVersion<1) throw new Error("A valid saved global Trade policy version is required");
   if(!TRADE_GLOBAL_MASTER_KEYS.includes(input.key)) throw new Error("Unknown global Trade control key");
-  if(input.key==="requirePreviousSettlement"&&input.enabled===false) throw new Error("The global settlement prerequisite remains ON until a separately approved safety workflow is available.");
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const saved=await db.transaction(async tx=>{
     const currentRow=(await tx.select().from(appSettings).where(eq(appSettings.settingKey,TRADE_GLOBAL_CONTROL_SETTINGS_KEY)).limit(1).for("update"))[0];
@@ -4085,7 +4084,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const globalControlRow=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
     .where(eq(appSettings.settingKey,TRADE_GLOBAL_CONTROL_SETTINGS_KEY)).limit(1).for("update"))[0];
   const globalControls=parseTradeGlobalControlPolicy(globalControlRow?.settingValue);
-  const requirePreviousSettlement=!globalControls||globalControls.requirePreviousSettlement||settlementPolicy.blockUntilSettled;
+  const requirePreviousSettlement=requiresPreviousSettlementForAllocation(globalControls);
 
   const totalWalletFunds=(await tx.select({availableMinor:sql`COALESCE(SUM(${customerBalances.availableMinor}),0)`}).from(customerBalances).where(eq(customerBalances.userId,userId)))[0]; if(Number(totalWalletFunds?.availableMinor||0)<=0) throw new Error("Trading is unavailable until at least one wallet has available funds");
   const offer=(await tx.select().from(opportunityOffers).where(and(eq(opportunityOffers.id,input.offerId),eq(opportunityOffers.status,"open"))).limit(1))[0];
@@ -4169,9 +4168,10 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     if(activePositions.length>=tierActiveLimit) throw new Error("Package maximum active investments reached");
   }
   if(packagePolicy){
-    // This is a customer-wide gate, not a same-package check. A previous trade
-    // remains unsettled until the administrator-confirmed result is posted to
-    // the wallet and the lifecycle reaches its completed state.
+    // This is a customer-wide, global-policy gate, not a same-package check. A
+    // previous trade remains unsettled until its confirmed result is posted to
+    // the wallet and the lifecycle reaches its completed state. The independent
+    // opportunity-delivery pause does not override this allocation setting.
     if(requirePreviousSettlement) {
       const unsettledRows=await tx.execute(sql`SELECT id FROM trade_positions
         WHERE userId=${userId}
@@ -4179,7 +4179,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
           AND (status<>'settled' OR settlementStatus<>'completed')
         ORDER BY id ASC LIMIT 1 FOR UPDATE`) as any;
       if(unsettledRows?.[0]?.length) {
-        throw new Error("Previous trade settlement is still pending; new allocation is blocked by the selected tier policy");
+        throw new Error("Previous trade settlement is still pending; new allocation is blocked by the global previous-settlement prerequisite");
       }
     }
     const activeRows=await tx.select({id:tradePositions.id}).from(tradePositions)

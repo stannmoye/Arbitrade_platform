@@ -34,7 +34,6 @@ describe("tier policy field explanation contract", () => {
     ["Trade retry delay (seconds)", ["5–3,600 whole seconds", "already scheduled retry time", "does not reset", "enable financial execution"]],
     ["Maximum successful trades per day", ["customer-wide daily ceiling", "0–10,000", "0 = no extra cap", "UTC-day"]],
     ["Maximum concurrent active trades", ["customer-wide active-trade limit", "1–1,000", "not the number of informational pop-ups"]],
-    ["Previous-settlement prerequisite", ["Global, read-only safety guard", "not a per-tier switch", "already scheduled settlement"]],
     ["Minimum settlement delay (seconds)", ["900–604,800 whole seconds", "15 minutes–7 days", "not exceed the maximum", "existing trades remain unchanged"]],
     ["Maximum settlement delay (seconds)", ["900–604,800 whole seconds", "at least the minimum", "trade duration", "wallet-credit delay"]],
     ["Badge label", ["visual label", "40 characters", "never changes eligibility", "already delivered pop-up"]],
@@ -50,6 +49,11 @@ describe("tier policy field explanation contract", () => {
   ])("explains %s in plain language", (label, expectedHelp) => {
     const help = fieldHelp(label);
     for (const phrase of expectedHelp) expect(help.toLowerCase()).toContain(phrase.toLowerCase());
+  });
+  it("documents previous settlement as a global owner rather than a per-tier field", () => {
+    expect(editorSource).toContain("Previous-settlement prerequisite is global.");
+    expect(editorSource).toContain("Trade Settings → Package Configuration");
+    expect(editorSource).not.toContain("<label>Previous-settlement prerequisite");
   });
   it("states the key separations and the snapshot/effective-time rule", () => {
     expect(editorSource).toContain("per-tier operational delivery ceilings that can reduce that entitlement but never increase it");

@@ -9,7 +9,7 @@
 - Stage 1 is therefore **incomplete** pending that transfer boundary check. Stage 2 has not been started. PR #258 must remain open, draft and unmerged; no deployment, merge or production migration has been performed.
 
 ---
-## 2026-10-31 — Stage 3C.3 previous-settlement gate — verified
+## 2026-10-31 — Stage 3C.3 previous-settlement gate — verified at historical head
 
 - Final implementation head: `93d6f625b011fdb3bef239658bafea3f65a9eaa9` on `fix/trade-lifecycle-and-admin-policy-completion`; PR #258 remains open, draft and unmerged. The initial gate-only implementation was `208ee15`; the final head also includes deferred retry and release of both attempt budgets.
 - Enforced `requirePreviousSettlement` inside the customer-locked trade-allocation transaction. When enabled for the selected tier, any earlier non-cancelled trade for that customer, across all tiers, must have both `status=settled` and `settlementStatus=completed` before a new allocation can proceed.
@@ -20,6 +20,7 @@
 - Disposable opportunity-worker integration emitted `previousSettlementGateBlocked=true` on both MySQL 8.4 and MariaDB 11.4. It verified one trade only and unchanged wallet/ledger state after the blocked allocation.
 - All 10 exact-head workflow groups passed on final implementation head `93d6f625`, including TypeScript, tests, production build, browser recovery, installer/migration validation, Mining regression, settlement, wallet idempotency, tier qualification, opportunity worker and company rotation.
 - No production database migration, merge or deployment occurred.
+- **Superseded policy ownership (2026-11-03):** The prior per-tier switch described above is now compatibility-only. The canonical `trade.globalControls.requirePreviousSettlement` value is an audited ON/OFF administrator control in Package Configuration, defaulting ON. OFF bypasses only this prerequisite for future allocation checks; missing/malformed global policy treats it as ON. The separate block-until-settled opportunity-delivery pause and the hard-disabled automatic-financial-execution guard remain unchanged. See the current contract in `docs/TRADING_SYSTEM_SPECIFICATION.md` and `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md`.
 
 ---
 
