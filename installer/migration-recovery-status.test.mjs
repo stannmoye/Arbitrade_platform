@@ -14,7 +14,10 @@ describe("migration recovery diagnostic connection safety", () => {
     expect(source).toContain('"0055_notification_campaign_delivery_tracking.sql"');
     expect(source).toContain('"0056_support_ticket_assignment.sql"');
     expect(source).toContain('"0061_customer_totp_recovery_codes.sql"');
-    expect(source).toContain('"0102_opportunity_delivery_retry_lifecycle.sql"');
+    const trackedPortalFiles = source.match(/const portalMigrationFiles = \[([\s\S]*?)\];/)?.[1] ?? "";
+    expect(trackedPortalFiles).not.toContain("0101_package_fee_policy_versions.sql");
+    expect(trackedPortalFiles).not.toContain("0102_opportunity_delivery_retry_lifecycle.sql");
+    expect(source).toContain("reported through MAIN DRIZZLE MIGRATIONS");
     expect(source).toContain("CHECKSUM MISMATCH");
     expect(source).toContain("createHash(\"sha256\").update(sql).digest(\"hex\")");
     expect(source).toContain("const checksumsComplete = checksumMatchCount === portalMigrationFiles.length;");

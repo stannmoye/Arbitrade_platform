@@ -69,8 +69,8 @@ const portalMigrationFiles = [
   "0098_disable_automatic_financial_execution.sql",
   "0099_trading_global_timing_policy_version.sql",
   "0100_global_trade_master_controls.sql",
-  "0101_package_fee_policy_versions.sql",
-  "0102_opportunity_delivery_retry_lifecycle.sql",
+  // 0101/0102 are reported through MAIN DRIZZLE MIGRATIONS, not this
+  // portal tracker, because guarded-main-migrate owns their execution.
 ];
 let journal;
 try {

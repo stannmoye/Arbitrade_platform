@@ -267,9 +267,12 @@ describe("worker schema contracts", () => {
       "0101_package_fee_policy_versions",
       "0102_opportunity_delivery_retry_lifecycle",
     ]);
-    expect(portalRunner).toContain('"0101_package_fee_policy_versions.sql"');
+    const trackedPortalFiles = portalRunner.match(/const migrationFiles = \[([\s\S]*?)\];/)?.[1] ?? "";
+    expect(trackedPortalFiles).not.toContain("0101_package_fee_policy_versions.sql");
+    expect(trackedPortalFiles).not.toContain("0102_opportunity_delivery_retry_lifecycle.sql");
+    expect(journal.entries[feeIndex].tag).toBe("0101_package_fee_policy_versions");
+    expect(journal.entries[deliveryIndex].tag).toBe("0102_opportunity_delivery_retry_lifecycle");
     expect(runtimeSchema).toContain('drizzle/0101_package_fee_policy_versions.sql');
-    expect(portalRunner).toContain('"0102_opportunity_delivery_retry_lifecycle.sql"');
     expect(runtimeSchema).toContain("async function ensureDeliveryLifecycle(db)");
     expect(runtimeSchema).toContain("opportunity_delivery_idempotency");
     expect(portalRunner).toContain('"0076_trading_admin_policy_read_repair.sql"');

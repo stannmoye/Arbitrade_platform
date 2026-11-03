@@ -32,8 +32,14 @@ describe("opportunity delivery lifecycle migration and state boundaries", () => 
     const journal = JSON.parse(journalText);
     expect(journal.entries.at(-2)).toMatchObject({ idx: 70, tag: "0101_package_fee_policy_versions" });
     expect(journal.entries.at(-1)).toMatchObject({ idx: 71, tag: "0102_opportunity_delivery_retry_lifecycle" });
-    expect(portal).toContain('"0102_opportunity_delivery_retry_lifecycle.sql"');
-    expect(recovery).toContain('"0102_opportunity_delivery_retry_lifecycle.sql"');
+    const trackedPortalFiles = portal.match(/const migrationFiles = \[([\s\S]*?)\];/)?.[1] ?? "";
+    const trackedRecoveryFiles = recovery.match(/const portalMigrationFiles = \[([\s\S]*?)\];/)?.[1] ?? "";
+    expect(trackedPortalFiles).not.toContain("0101_package_fee_policy_versions.sql");
+    expect(trackedPortalFiles).not.toContain("0102_opportunity_delivery_retry_lifecycle.sql");
+    expect(trackedRecoveryFiles).not.toContain("0101_package_fee_policy_versions.sql");
+    expect(trackedRecoveryFiles).not.toContain("0102_opportunity_delivery_retry_lifecycle.sql");
+    expect(portal).toContain("canonical Drizzle-journal migrations");
+    expect(recovery).toContain("reported through MAIN DRIZZLE MIGRATIONS");
     expect(bridge).toContain("async function ensureDeliveryLifecycle(db)");
     expect(migration).toContain("p.`name` COLLATE utf8mb4_unicode_ci=e.`packageName` COLLATE utf8mb4_unicode_ci");
     expect(bridge).toContain("p.name COLLATE utf8mb4_unicode_ci=e.packageName COLLATE utf8mb4_unicode_ci");

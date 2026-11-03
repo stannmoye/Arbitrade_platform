@@ -129,12 +129,16 @@ describe("package-specific fee administration and immutable snapshots", () => {
       .toMatchObject({ platformFeeMinor: 0, netProfitMinor: -999 });
   });
 
-  it("registers the forward migration in portal, recovery, installer and worker schema contracts", () => {
+  it("keeps the forward migration under canonical main ownership with recovery and worker coverage", () => {
     const index = journal.entries.findIndex((entry: { tag: string }) => entry.tag === "0101_package_fee_policy_versions");
     expect(index).toBeGreaterThan(0);
     expect(journal.entries[index - 1].tag).toBe("0100_global_trade_master_controls");
-    expect(portal).toContain('"0101_package_fee_policy_versions.sql"');
-    expect(recovery).toContain('"0101_package_fee_policy_versions.sql"');
+    const portalFiles = portal.match(/const migrationFiles = \[([\s\S]*?)\];/)?.[1] ?? "";
+    const recoveryFiles = recovery.match(/const portalMigrationFiles = \[([\s\S]*?)\];/)?.[1] ?? "";
+    expect(portalFiles).not.toContain("0101_package_fee_policy_versions.sql");
+    expect(recoveryFiles).not.toContain("0101_package_fee_policy_versions.sql");
+    expect(portal).toContain("canonical Drizzle-journal migrations");
+    expect(recovery).toContain("reported through MAIN DRIZZLE MIGRATIONS");
     expect(workerBridge).toContain('drizzle/0101_package_fee_policy_versions.sql');
     expect(workerContracts).toContain('"packageFeeRateBpsSnapshot"');
     expect(workerContracts).toContain("trading_package_fee_policy_versions: {");

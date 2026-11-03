@@ -22,8 +22,10 @@ describe("portal migration diagnostic privacy", () => {
     expect(source).toContain("await executeCompatibleMigrationSql(connection, sql);");
     expect(source).toContain('"0099_trading_global_timing_policy_version.sql"');
     expect(source).toContain('"0100_global_trade_master_controls.sql"');
-    expect(source).toContain('"0101_package_fee_policy_versions.sql"');
-    expect(source).toContain('"0102_opportunity_delivery_retry_lifecycle.sql"');
+    const trackedPortalFiles = source.match(/const migrationFiles = \[([\s\S]*?)\];/)?.[1] ?? "";
+    expect(trackedPortalFiles).not.toContain('0101_package_fee_policy_versions.sql');
+    expect(trackedPortalFiles).not.toContain('0102_opportunity_delivery_retry_lifecycle.sql');
+    expect(source).toContain("canonical Drizzle-journal migrations");
     const journal = JSON.parse(await readFile(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8"));
     const masterIndex = journal.entries.findIndex(entry => entry.tag === "0100_global_trade_master_controls");
     expect(journal.entries[masterIndex + 1]?.tag).toBe("0101_package_fee_policy_versions");
