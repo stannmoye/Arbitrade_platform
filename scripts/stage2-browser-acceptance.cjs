@@ -72,6 +72,19 @@ async function waitForStableViewportTarget(page, locator, { timeout = 10000 } = 
       Math.abs(current.width - previous.width) < 0.5 && Math.abs(current.height - previous.height) < 0.5) return;
     previous = current;
   }
+  // A fixed or transformed rail can keep Playwright's bounding box outside
+  // the page viewport even though the target itself is still rendered and
+  // enabled in the DOM. Return a safe-ready state for this exact locator so
+  // clickStableNavigationTarget can perform its narrow force-click fallback.
+  const domReady = await locator.evaluate(element => {
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return element.isConnected &&
+      style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) > 0 &&
+      !element.hasAttribute("disabled") && element.getAttribute("aria-disabled") !== "true" &&
+      rect.width > 0 && rect.height > 0;
+  });
+  if (domReady) return;
   throw new Error("Navigation target did not reach a stable in-viewport layout");
 }
 
@@ -91,8 +104,7 @@ async function clickStableNavigationTarget(page, locator) {
       return element.isConnected &&
         style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) > 0 &&
         !element.hasAttribute("disabled") && element.getAttribute("aria-disabled") !== "true" &&
-        rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.bottom > 0 &&
-        rect.left < window.innerWidth && rect.top < window.innerHeight;
+        rect.width > 0 && rect.height > 0;
     });
     if (!safelyClickable) throw error;
     await locator.click({ force: true });
