@@ -1213,3 +1213,10 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 - **Local validation:** Focused migration/installer contracts — 4 files / 22 tests passed. Focused fee/history contracts — 3 files / 24 tests passed. `node --check scripts/stage2-browser-acceptance.cjs`, `pnpm check`, `pnpm build:static`, and `git diff --check` passed. Full app/installer suites were already green on the preceding integrated head; no disposable database is configured in this sandbox.
 - **Acceptance limits:** Hosted exact-head CI must re-run these fixes. Authenticated staging/browser accessibility, disposable-database execution outside CI, review/merge, deployment and release remain outstanding. Automatic financial execution remains hard-disabled.
 - **Next safe action:** Commit and push this checkpoint, inspect the fresh exact-head hosted checks, and address only any remaining evidence-backed failures.
+
+
+### 2026-11-03 — PR #275 final local checkpoint before hosted rerun
+- **Integrated head:** `53f6cb67bfba3d10282e448415752dcce1a1cdc0` locally; this includes the five hosted-CI repairs plus the updated archive approval contract assertion.
+- **Local validation:** Full application suite passed — 143 files, 1,119 tests passed, 5 files / 27 tests skipped because no disposable database is configured. Full installer/migration suite passed — 31 files, 176 tests. `pnpm check`, `pnpm build:static`, `node --check scripts/stage2-browser-acceptance.cjs`, and `git diff --check` passed. The static entry remains 9.84 KB raw / 3.83 KB gzip.
+- **Safety posture:** Automatic financial execution remains hard-disabled. Settlement integration now asserts that boundary and verifies no wallet/ledger mutation; manual/admin settlement coverage remains active. Archived companies revoke customer approval and restore requires explicit re-verification. Legacy default fee tuples remain manual-review-only.
+- **Hosted rerun required:** The next exact-head CI cycle must confirm the disposable MySQL/MariaDB migration, worker, settlement, appearance, package-fee, company-rotation, and browser acceptance workflows. No deployment, merge, or release has been performed.
