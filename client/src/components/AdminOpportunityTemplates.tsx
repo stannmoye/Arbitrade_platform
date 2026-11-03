@@ -103,13 +103,13 @@ export default function AdminOpportunityTemplates() {
 
   return <section className="settings-card automatic-opportunity-templates" aria-labelledby="automatic-opportunity-heading">
     <div className="panel-heading">
-      <div><div className="eyebrow">Automatic opportunity generation</div><h2 id="automatic-opportunity-heading">Approved templates & customer assignments</h2></div>
+      <div><div className="eyebrow">Automatic opportunity generation</div><h2 id="automatic-opportunity-heading">Automatic company generation & customer assignments</h2></div>
       <button className="secondary-button" type="button" onClick={() => { void templates.refetch(); void monitor.refetch(); void control.refetch(); void companyRecords.refetch(); void companySummary.refetch(); void companyState.refetch(); }} disabled={templates.isFetching || monitor.isFetching || control.isFetching || companySummary.isFetching}>
         <RefreshCw size={14}/> Refresh
       </button>
     </div>
-    <p>The worker reads current server-assigned package entitlements and generates a separate persisted opportunity for each due customer. It uses approved templates for company-specific base terms; each opportunity snapshots the customer's package-specific configured payout rate and duration. No manual opportunity publication or CSV import is required for this path.</p>
-    <div className="test-notice" role="note"><ShieldCheck size={14}/><span>Company identity requires a currently admin-verified, enabled, non-archived Logo ID. Template source references and review notes are administrator-provided and are not independently verified by the platform. Configured payout is not evidence of market-earned profit, execution, or settlement; financial execution remains hard-disabled.</span></div>
+    <p>The worker reads current server-assigned package entitlements and generates a separate persisted opportunity for each due customer directly from the existing 1,811-company catalogue. Each opportunity snapshots the customer's package-specific configured payout rate and duration. Approved templates are optional display-term overrides; no template is required and no manual opportunity publication or CSV import is part of this workflow.</p>
+    <div className="test-notice" role="note"><ShieldCheck size={14}/><span>Company identity uses the existing brand name and logo for a currently admin-verified, enabled, non-archived Logo ID. Brand-only records do not need a ticker, exchange, or live market feed. Optional template details are administrator-provided and are not independently verified. Configured payout is not evidence of market-earned profit, execution, or settlement; financial execution remains hard-disabled.</span></div>
     <div className="opportunity-admin-grid">
       <div className="settings-card">
         <div className="eyebrow">Generation control</div><h3>{statusLabel}</h3>
@@ -117,7 +117,7 @@ export default function AdminOpportunityTemplates() {
         <button className={control.data?.available && control.data.enabled ? "secondary-button" : "primary-button"} type="button" onClick={toggleGeneration} disabled={changeControl.isPending || !control.data}>
           {control.data?.available && control.data.enabled ? <><Pause size={14}/> Pause automatic generation</> : <><Play size={14}/> Enable automatic generation</>}
         </button>
-        <small>Default is ON after migration 0103. Saving OFF is preserved across restarts and stops new customer assignments; already-generated offers remain subject to their saved expiry and the independent delivery gates. New generation still requires an approved template, an active qualifying package, valid saved package bounds, enabled delivery, quota, schedule and an approved company.</small>
+        <small>Default is ON after migration 0103. Saving OFF is preserved across restarts and stops new customer assignments; already-generated offers remain subject to their saved expiry and the independent delivery gates. New generation requires an active qualifying package, valid saved package bounds, enabled delivery, quota, schedule and an eligible company; no template is required.</small>
       </div>
       <div className="settings-card">
         <div className="eyebrow">Worker results · UTC day</div><h3>Generated opportunity batches</h3>
@@ -125,7 +125,7 @@ export default function AdminOpportunityTemplates() {
           <div><span>Generated</span><strong>{monitor.data?.today.generated ?? "—"}</strong><b>Customer-specific opportunities</b></div>
           <div><span>Delivered</span><strong>{monitor.data?.today.delivered ?? "—"}</strong><b>Persisted popup assignments</b></div>
           <div><span>Failures</span><strong>{monitor.data?.today.failed ?? "—"}</strong><b>Worker batches + assignments</b></div>
-          <div><span>Approved templates</span><strong>{templates.data?.filter((row) => row.status === "approved").length ?? "—"}</strong><b>Reusable configured terms</b></div>
+          <div><span>Optional templates</span><strong>{templates.data?.filter((row) => row.status === "approved").length ?? "—"}</strong><b>Reusable configured terms</b></div>
         </div>
         <small>{monitor.data?.available ? `${monitor.data.batches.filter((row) => row.status === "running").length} running batch(es) · most recent ${monitor.data.batches[0]?.status ?? "not yet recorded"}` : "Generation monitor unavailable; no health state is inferred."}</small>
       </div>
@@ -153,7 +153,7 @@ export default function AdminOpportunityTemplates() {
           <div><span>Archived</span><strong>{companyStatusCounts.archived}</strong></div>
           <div><span>Eligible pool</span><strong>{eligibleCompanies.length}</strong></div>
         </div>
-        <small>Only verified, enabled, non-archived companies are eligible. Package country filters apply at generation. The source catalogue is reference data, not evidence of market listing, execution or realized profit.</small>
+        <small>Only verified, enabled, non-archived companies are eligible. Package country filters apply at generation. Company names and logos provide brand identity only; no ticker, exchange listing, live market price, execution, or realized profit is implied.</small>
       </div>
     </div>
 
@@ -162,8 +162,8 @@ export default function AdminOpportunityTemplates() {
     </div>)}
 
     <div className="settings-card">
-      <div className="eyebrow">Administrator-reviewed source rules</div><h3>{editing ? `Edit template #${editing.id}` : "Add an approved template first"}</h3>
-      <p>Templates do not contain a payout rate or duration. Those are selected from the current saved policy of the package assigned to the customer. A template's minimum must fit that package's saved capital range before generation.</p>
+      <div className="eyebrow">Optional company-specific display overrides</div><h3>{editing ? `Edit template #${editing.id}` : "Add an optional template override"}</h3>
+      <p>Templates do not contain a payout rate or duration. Those are selected from the current saved policy of the package assigned to the customer. The generator works without a template. When an approved override exists for the selected company, its display metadata may be used; the package policy remains authoritative for capital, configured return range and duration.</p>
       <p>Source references and review notes are administrator-supplied and are not independently verified. They do not prove a market listing, execution, realized profit, or a customer entitlement to funds.</p>
       <div className="company-catalogue-filters">
         <label>Search eligible company catalogue<input type="search" value={search} maxLength={100} placeholder="Company, country or Logo ID…" onChange={(event) => setSearch(event.target.value)}/></label>
@@ -202,7 +202,7 @@ export default function AdminOpportunityTemplates() {
       <div className="panel-heading"><div><div className="eyebrow">Template registry</div><h3>{templates.data?.length ?? 0} template(s)</h3></div><span>{eligibleCompanies.length.toLocaleString()} eligible verified companies</span></div>
       {templates.isLoading && <p role="status">Loading saved templates…</p>}
       {templates.isError && <p className="admin-ops-empty error" role="alert">{templates.error.message}</p>}
-      {!templates.isLoading && !templates.isError && !templates.data?.length && <p className="admin-ops-empty" role="status">No reusable templates exist yet. Create and approve one; generation fails closed until then.</p>}
+      {!templates.isLoading && !templates.isError && !templates.data?.length && <p className="admin-ops-empty" role="status">No optional templates exist. Automatic generation continues directly from the approved brand catalogue.</p>}
       <div className="published-offers">
         {templates.data?.map((row) => <article className="trade-history-row" key={row.id}>
           <Building2 size={16}/><strong>#{row.id} · {row.templateName}</strong>

@@ -5,6 +5,7 @@ const db = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const lifecycle = readFileSync(new URL("./opportunityLifecycle.ts", import.meta.url), "utf8");
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../drizzle/0103_automatic_opportunity_generation_templates.sql", import.meta.url), "utf8");
+const migration104 = readFileSync(new URL("../drizzle/0104_catalogue_native_opportunity_generation.sql", import.meta.url), "utf8");
 const journal = readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8");
 const admin = readFileSync(new URL("../client/src/components/AdminOpportunityTemplates.tsx", import.meta.url), "utf8");
 const customerQueryStart = db.indexOf("export async function listCustomerOpportunities(");
@@ -23,15 +24,17 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(customerQuery).toContain("activeSubscriptionIds.includes(Number(offer.assignedPackageSubscriptionId))");
   });
 
-  it("generates only from approved, current company templates and the customer's saved package bounds", () => {
+  it("generates from the full approved brand catalogue; templates are optional and package bounds remain authoritative", () => {
     expect(generator).toContain('eq(opportunityGenerationTemplates.status,"approved")');
     expect(generator).toContain("buildCompanySpotlightPool");
-    expect(generator).toContain("templateIds.has(company.id)");
+    expect(generator).not.toContain("templateIds.has(company.id)");
+    expect(generator).toContain('createCatalogueIdentityOpportunityTemplate(company,packageMinimum,"USD")');
     expect(generator).toContain("selectOpportunityGenerationTerms");
     expect(generator).toContain("packageUsdUnitsToNativeMinor");
     expect(generator).toContain("companyRotationEnabled");
     expect(generator).toContain("control.enabled!==true");
-    expect(generator).toContain("Approved template minimum is outside the active package's saved capital bounds.");
+    expect(generator).toContain("The active package's saved capital bounds are invalid.");
+    expect(generator).toContain("template?Number(template.id):null");
   });
 
   it("persists one immutable customer/package/template assignment under a lock and unique idempotency key", () => {
@@ -39,7 +42,7 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(generator).toContain("generationKey=`auto:");
     expect(migration).toContain("opportunity_offers_generation_key_uq");
     expect(generator).toContain("packageSnapshotJson:JSON.stringify(snapshot)");
-    expect(generator).toContain("templateVersion:Number(template.version)");
+    expect(generator).toContain("templateVersion:template?Number(template.version):null");
     expect(generator).toContain("assignedUserId:input.userId");
     expect(customerQuery).toContain("generationAssignmentByOffer");
     expect(customerQuery).toContain("savedBounds");
@@ -54,6 +57,8 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(migration).toContain("'trade.opportunityGeneration.control'");
     expect(migration).toContain("JSON_OBJECT('enabled',TRUE,'version',1");
     expect(journal).toContain('"tag": "0103_automatic_opportunity_generation_templates"');
+    expect(journal).toContain('"tag": "0104_catalogue_native_opportunity_generation"');
+    expect(migration104).toContain("MODIFY COLUMN");
   });
 
   it("revalidates pinned companies when popup persistence occurs and expires generated assignments safely", () => {
@@ -71,6 +76,7 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(admin).toContain("Enable automatic generation");
     expect(admin).toContain("Latest persisted assignments");
     expect(admin).toContain("currently admin-verified, enabled, non-archived");
+    expect(admin).toContain("no template is required");
   });
 
   it("blocks manual and bulk-import offer creation at the server API", () => {
@@ -84,7 +90,7 @@ describe("automatic opportunity generation and package-aware customer delivery",
     const openQuery = db.slice(openStart, db.indexOf("\n", openStart));
     expect(openStart).toBeGreaterThanOrEqual(0);
     expect(openQuery).toContain("isNotNull(opportunityOffers.assignedUserId)");
-    expect(openQuery).toContain("isNotNull(opportunityOffers.generationTemplateId)");
+    expect(openQuery).toContain("isNotNull(opportunityOffers.generationKey)");
     expect(db).toContain("packageBreakdown:policies.map");
     expect(db).toContain("failureSummary:failures?JSON.stringify({customers:failureDetails");
     expect(admin).toContain("Batch {batch.id}");

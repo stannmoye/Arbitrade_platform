@@ -10,7 +10,7 @@ import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modul
 import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostings, inspectWalletLedgerSnapshot } from "./modules/wallet-ledger-reconciliation";
 import { addCalendarMonths } from "./modules/calendar-months";
 import { validateOpportunityOfferClosure, validateOpportunityOfferPublication, type OpportunityOfferClosureInput, type OpportunityOfferPublicationInput } from "./modules/opportunity-publication";
-import { selectOpportunityGenerationTerms, validateOpportunityGenerationTemplate, type OpportunityGenerationTemplate } from "./modules/opportunity-generation-template";
+import { createCatalogueIdentityOpportunityTemplate, selectOpportunityGenerationTerms, validateOpportunityGenerationTemplate, type OpportunityGenerationTemplate } from "./modules/opportunity-generation-template";
 import { assessOpportunityPackageCompatibility, type OpportunityPackageCompatibility } from "./modules/opportunity-package-compatibility";
 import { claimPopupDeliveryDispatches, ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
@@ -2632,7 +2632,7 @@ export async function adjustCustomerBalance(adminId:number,input:{
   return result;
 }
 
-export async function listOpenOffers(){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();return db.select().from(opportunityOffers).where(and(isNotNull(opportunityOffers.assignedUserId),isNotNull(opportunityOffers.generationTemplateId),eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt);}
+export async function listOpenOffers(){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();return db.select().from(opportunityOffers).where(and(isNotNull(opportunityOffers.assignedUserId),isNotNull(opportunityOffers.generationKey),eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt);}
 /**
  * Use only values explicitly published on the opportunity. These are estimates
  * for reservation and display; they are not evidence of a realized outcome.
@@ -3284,11 +3284,11 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     const catalogueSetting=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
       .where(eq(appSettings.settingKey,"trade.companyCatalogue.adminState")).limit(1).for("update"))[0];
     const catalogueState=parseCompanyCatalogueAdminState(String(catalogueSetting?.settingValue||"{}"));
+    // The existing brand catalogue is the generation source. Templates are optional
+    // display-term overrides and must never shrink or gate the company rotation pool.
     const templateRows=await tx.select().from(opportunityGenerationTemplates)
       .where(eq(opportunityGenerationTemplates.status,"approved")).orderBy(opportunityGenerationTemplates.id).for("update");
-    const templateIds=new Set(templateRows.map(row=>String(row.companyReferenceId)));
-    const approvedPool=buildCompanySpotlightPool(String(selectedPolicy.companyRotationCountryNames||""),catalogueState)
-      .filter(company=>templateIds.has(company.id));
+    const approvedPool=buildCompanySpotlightPool(String(selectedPolicy.companyRotationCountryNames||""),catalogueState);
     if(!approvedPool.length)return null;
 
     let company:any;
@@ -3310,26 +3310,29 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     }else{
       company=approvedPool[crypto.randomInt(0,approvedPool.length)];
     }
-    const template=templateRows.filter(row=>row.companyReferenceId===company.id).sort((a,b)=>a.id-b.id)[0];
-    if(!template)return null;
-    const normalized=validateOpportunityGenerationTemplate({
+    const template=templateRows.filter(row=>row.companyReferenceId===company.id).sort((a,b)=>a.id-b.id)[0]||null;
+    // Approved templates are optional display-term overrides. Without one, build
+    // terms directly from the catalogue name/logo identity; no ticker or exchange is needed.
+    const currencyCode=template?String(template.currency):"USD";
+    const currencyRows=await tx.select({code:currencyRegistry.code,scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,updatedAt:currencyRegistry.updatedAt})
+      .from(currencyRegistry).where(and(eq(currencyRegistry.enabled,true),eq(currencyRegistry.code,currencyCode))).limit(1);
+    const currencyRow=currencyRows[0];if(!currencyRow)return null;
+    const packageMinimum=packageUsdUnitsToNativeMinor(Number(selectedPolicy.minimumTradeUnits),currencyCode,[currencyRow]);
+    const packageMaximum=packageUsdUnitsToNativeMinor(Number(selectedPolicy.maximumTradeUnits),currencyCode,[currencyRow]);
+    if(!Number.isSafeInteger(packageMinimum)||packageMinimum<=0||!Number.isSafeInteger(packageMaximum)||packageMaximum<packageMinimum)
+      throw new Error("The active package's saved capital bounds are invalid.");
+    const normalized=template?validateOpportunityGenerationTemplate({
       templateName:template.templateName,companyReferenceId:template.companyReferenceId,symbol:template.symbol,
-      venueFrom:template.venueFrom,venueTo:template.venueTo,currency:template.currency,minimumMinor:Number(template.minimumMinor),
+      venueFrom:template.venueFrom,venueTo:template.venueTo,currency:template.currency,minimumMinor:packageMinimum,
       sourceReference:template.sourceReference,reviewNotes:template.reviewNotes,
-    });
+    }):createCatalogueIdentityOpportunityTemplate(company,packageMinimum,"USD");
     const terms=selectOpportunityGenerationTerms(normalized,{
       minimumPayoutRateBps:selectedPolicy.minimumPayoutRateBps==null?null:Number(selectedPolicy.minimumPayoutRateBps),
       maximumPayoutRateBps:selectedPolicy.maximumPayoutRateBps==null?null:Number(selectedPolicy.maximumPayoutRateBps),
       minimumTradeDurationSeconds:selectedPolicy.minimumTradeDurationSeconds==null?null:Number(selectedPolicy.minimumTradeDurationSeconds),
       maximumTradeDurationSeconds:selectedPolicy.maximumTradeDurationSeconds==null?null:Number(selectedPolicy.maximumTradeDurationSeconds),
     });
-    const currencyRows=await tx.select({code:currencyRegistry.code,scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,updatedAt:currencyRegistry.updatedAt})
-      .from(currencyRegistry).where(and(eq(currencyRegistry.enabled,true),eq(currencyRegistry.code,terms.currency))).limit(1);
-    const currencyRow=currencyRows[0];if(!currencyRow)return null;
-    const packageMinimum=packageUsdUnitsToNativeMinor(Number(selectedPolicy.minimumTradeUnits),terms.currency,[currencyRow]);
-    const packageMaximum=packageUsdUnitsToNativeMinor(Number(selectedPolicy.maximumTradeUnits),terms.currency,[currencyRow]);
-    const minimumMinor=Math.max(terms.minimumMinor,packageMinimum);
-    if(!Number.isSafeInteger(minimumMinor)||minimumMinor<=0||minimumMinor>packageMaximum)throw new Error("Approved template minimum is outside the active package's saved capital bounds.");
+    const minimumMinor=packageMinimum;
     const displaySeconds=Math.max(1,Math.min(86400,Number(selectedPolicy.popupDisplayTargetSeconds||120)));
     const closesAt=new Date(input.now.getTime()+Math.max(86_400,terms.tradeDurationSeconds,displaySeconds)*1000);
     const rewardAt=new Date(input.now.getTime()+terms.tradeDurationSeconds*1000);
@@ -3361,7 +3364,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       companyRotationEnabled:Boolean(selectedPolicy.companyRotationEnabled),companyRotationCountryNames:String(selectedPolicy.companyRotationCountryNames||""),
       companyRotationRepeatPolicy:selectedPolicy.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
       maxPendingDeliveries:Number(selectedPolicy.maxPendingDeliveries||0),
-      configuredPayout:true,payoutSemantics:terms.payoutSemantics,templateId:Number(template.id),templateVersion:Number(template.version),
+      configuredPayout:true,payoutSemantics:terms.payoutSemantics,templateId:template?Number(template.id):null,templateVersion:template?Number(template.version):null,
       sourceReference:terms.sourceReference,reviewNotes:terms.reviewNotes,companyReferenceId:company.id,companyRotation:companyMetadata,
       generatedAt:input.now.toISOString(),generationBatchId:input.batchId,
     };
@@ -3373,7 +3376,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     if(generationKey.length>180)throw new Error("Automatic opportunity generation key exceeds the supported limit.");
     const offerInsert=await tx.insert(opportunityOffers).values({
       assignedUserId:input.userId,assignedPackageId:Number(selectedSubscription.packageId),
-      assignedPackageSubscriptionId:Number(selectedSubscription.subscriptionId),generationTemplateId:Number(template.id),generationKey,
+      assignedPackageSubscriptionId:Number(selectedSubscription.subscriptionId),generationTemplateId:template?Number(template.id):null,generationKey,
       companyReferenceId:company.id,companyDisplayName:company.name,companyLogoUrl:String(company.logoUrl||"").slice(0,500),
       companyReferenceMetadataJson:JSON.stringify(companyMetadata),configuredProfitRateBps:terms.configuredPayoutRateBps,
       configuredDurationSeconds:terms.tradeDurationSeconds,packagePolicyVersionSnapshot:Number(selectedPolicy.policyVersion||1),
@@ -3384,7 +3387,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     const offerId=Number(offerInsert[0].insertId);
     if(!Number.isSafeInteger(offerId)||offerId<1)throw new Error("Generated opportunity ID was not persisted.");
     await tx.insert(opportunityGenerationAssignments).values({
-      generationKey,batchId:input.batchId,userId:input.userId,offerId,templateId:Number(template.id),templateVersion:Number(template.version),
+      generationKey,batchId:input.batchId,userId:input.userId,offerId,templateId:template?Number(template.id):null,templateVersion:template?Number(template.version):null,
       packageId:Number(selectedSubscription.packageId),packageSubscriptionId:Number(selectedSubscription.subscriptionId),packageName:String(selectedSubscription.packageName),
       packagePolicyVersion:Number(selectedPolicy.policyVersion||1),companyReferenceId:company.id,
       configuredProfitRateBps:terms.configuredPayoutRateBps,configuredDurationSeconds:terms.tradeDurationSeconds,
@@ -4064,8 +4067,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       if(remainingQuota<=0) break;
       const offerId=Number(offer.id);
       if(deliveredOfferIds.has(offerId)||activePopupOfferIds.has(offerId)||tradeOfferIds.has(offerId)||missedOfferIds.has(offerId)) continue;
-      const generatedOffer=Number(offer.assignedUserId)===userId&&Number(offer.generationTemplateId)>0;
-      const generationAssignment=generatedOffer?generationAssignmentByOffer.get(offerId):undefined;
+      const generationAssignment=generationAssignmentByOffer.get(offerId);
+      const generatedOffer=Number(offer.assignedUserId)===userId&&Boolean(generationAssignment);
       let generationSnapshot:any=null;
       if(generatedOffer){
         if(!generationAssignment||!["generated","delivered"].includes(String(generationAssignment.status)))continue;

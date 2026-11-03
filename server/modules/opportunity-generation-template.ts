@@ -92,6 +92,38 @@ export function validateOpportunityGenerationTemplate(input: unknown): Opportuni
   };
 }
 
+/**
+ * Build default terms from a brand catalogue identity without inventing a ticker or venue.
+ * BRAND is an internal display sentinel, not a market instrument. Package rules supply
+ * the capital bounds, configured return range and duration.
+ */
+export function createCatalogueIdentityOpportunityTemplate(
+  company: { id: string; name: string },
+  minimumMinor: number,
+  currency: OpportunityGenerationTemplateCurrency = "USD",
+): OpportunityGenerationTemplate {
+  const companyReferenceId = validateText("Company reference ID", company?.id, 32);
+  if (!/^logo-brand-\d{4}$/.test(companyReferenceId)) {
+    throw new Error("Company reference ID must be an existing stable Logo ID from the company catalogue.");
+  }
+  const companyName = validateText("Company name", company?.name, 240);
+  if (!Number.isSafeInteger(minimumMinor) || minimumMinor <= 0) {
+    throw new Error("Package minimum amount must be a positive safe integer in native minor units.");
+  }
+  if (!CURRENCIES.has(currency)) throw new Error("Catalogue opportunity currency is not supported.");
+  return {
+    templateName: companyName.slice(0, 107) + " opportunity",
+    companyReferenceId,
+    symbol: "BRAND",
+    venueFrom: "Informational",
+    venueTo: "Informational",
+    currency,
+    minimumMinor,
+    sourceReference: "company-catalogue:" + companyReferenceId,
+    reviewNotes: "Brand identity only. This record does not assert a market listing, ticker, exchange, live price, or actual trade.",
+  };
+}
+
 function assertBound(name: keyof OpportunityGenerationPackageBounds, value: unknown, minimum: number, maximum: number): asserts value is number {
   if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) {
     throw new RangeError(`${name} must be a configured safe integer from ${minimum} through ${maximum}.`);

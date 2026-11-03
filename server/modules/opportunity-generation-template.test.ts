@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createCatalogueIdentityOpportunityTemplate,
   selectOpportunityGenerationTerms,
   validateOpportunityGenerationTemplate,
   type OpportunityGenerationPackageBounds,
@@ -31,6 +32,17 @@ const packageB: OpportunityGenerationPackageBounds = {
 };
 
 describe("opportunity generation templates", () => {
+  it("builds a brand-only catalogue opportunity without inventing a ticker or exchange", () => {
+    const generated = createCatalogueIdentityOpportunityTemplate({ id: "logo-brand-0991", name: "Example Brand" }, 25_000);
+    expect(generated).toMatchObject({ templateName: "Example Brand opportunity", companyReferenceId: "logo-brand-0991", symbol: "BRAND", venueFrom: "Informational", venueTo: "Informational", currency: "USD", minimumMinor: 25_000, sourceReference: "company-catalogue:logo-brand-0991" });
+    expect(generated.reviewNotes).toContain("does not assert a market listing");
+  });
+
+  it("rejects malformed catalogue identities", () => {
+    expect(() => createCatalogueIdentityOpportunityTemplate({ id: "fake", name: "Brand" }, 100)).toThrow(/Logo ID/);
+    expect(() => createCatalogueIdentityOpportunityTemplate({ id: "logo-brand-0991", name: " " }, 100)).toThrow(/Company name/);
+    expect(() => createCatalogueIdentityOpportunityTemplate({ id: "logo-brand-0991", name: "Brand" }, 0)).toThrow(/Package minimum/);
+  });
   it("normalizes template text and retains company/source provenance", () => {
     expect(validateOpportunityGenerationTemplate({
       ...template,
