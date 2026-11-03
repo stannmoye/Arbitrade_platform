@@ -41,8 +41,8 @@ describe("administrator company catalogue bulk controls", () => {
     expect(catalogue).toContain("await updateStatus.mutateAsync({ ids, status, reason })");
     expect(catalogue).toContain('applyStatus("restored")');
     expect(catalogue).not.toContain("Administrator archived selected catalogue records.");
-    expect(ownership).toContain("restore them by clearing archived status only; verification and enablement remain independent");
-    expect(ownership).toContain("8–500 character reason; restore clears archivedIds only and preserves verifiedIds and disabledIds");
+    expect(ownership).toContain("archive revokes customer approval while verification remains separate from enablement");
+    expect(ownership).toContain("archive removes verifiedIds and restore clears archivedIds without re-approving the record");
     expect(router).toContain("updateCompanyCatalogueAdminState({ ...input, ids, updatedBy: ctx.user.id })");
     expect(database).toContain("reason,");
     expect(database).toContain('reason,\n      reference: `company-catalogue:${input.status}:${updatedAt}`');
