@@ -70,6 +70,7 @@ const portalMigrationFiles = [
   "0099_trading_global_timing_policy_version.sql",
   "0100_global_trade_master_controls.sql",
   "0101_package_fee_policy_versions.sql",
+  "0102_opportunity_delivery_retry_lifecycle.sql",
 ];
 let journal;
 try {

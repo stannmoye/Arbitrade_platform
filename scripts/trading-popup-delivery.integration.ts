@@ -8,6 +8,7 @@ import {
   customerPackageSubscriptions,
   currencyRegistry,
   opportunityDeliveryEvents,
+  opportunityDeliveryIdempotency,
   opportunityOffers,
   opportunityPackagePolicies,
   opportunityPopupEvents,
@@ -17,6 +18,7 @@ import {
   users,
 } from "../drizzle/schema";
 import { parseTradeGlobalControlPolicy, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, type TradeGlobalControlPolicy } from "../server/trading-global-policy";
+import { updatePopupDeliveryStatus } from "../server/opportunityLifecycle";
 
 const db = await getDb();
 if (!db) {
@@ -234,14 +236,27 @@ try {
     id: opportunityPopupEvents.id,
     eventStatus: opportunityPopupEvents.eventStatus,
     deliveryStatus: opportunityPopupEvents.deliveryStatus,
+    packageId: opportunityPopupEvents.packageId,
     offerId: opportunityPopupEvents.offerId,
   }).from(opportunityPopupEvents).where(and(
     eq(opportunityPopupEvents.userId, userId),
     eq(opportunityPopupEvents.offerId, offerId),
   ));
   assert.equal(popupRows.length, 1, "The durable popup lifecycle row must be persisted exactly once.");
+  assert.equal(Number(popupRows[0]?.packageId), packageId,
+    "The immutable package primary key, not its mutable display name, is persisted on the event.");
+  const fenceRows = await db.select({ packageId: opportunityDeliveryIdempotency.packageId, popupEventId: opportunityDeliveryIdempotency.popupEventId })
+    .from(opportunityDeliveryIdempotency).where(and(
+      eq(opportunityDeliveryIdempotency.userId, userId), eq(opportunityDeliveryIdempotency.offerId, offerId),
+    ));
+  assert.equal(fenceRows.length, 1, "The durable user-offer idempotency fence must exist exactly once.");
+  assert.equal(Number(fenceRows[0]?.packageId), packageId);
+  assert.equal(Number(fenceRows[0]?.popupEventId), Number(popupRows[0]?.id));
   assert.equal(popupRows[0]?.eventStatus, "DELIVERED");
-  assert.equal(popupRows[0]?.deliveryStatus, "delivered");
+  assert.equal(popupRows[0]?.deliveryStatus, "queued",
+    "Worker admission queues the durable informational delivery; the customer poll owns the dispatch claim.");
+  assert.equal(Number((await db.select({ deliveryAttemptCount: opportunityPopupEvents.deliveryAttemptCount }).from(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, popupRows[0]!.id)))[0]?.deliveryAttemptCount), 0,
+    "Queue admission is not an actual dispatch attempt.");
 
   const deliveryRows = await db.select({
     offerId: opportunityDeliveryEvents.offerId,
@@ -253,7 +268,7 @@ try {
   ));
   assert.equal(deliveryRows.length, 1, "The delivery quota ledger must be persisted exactly once.");
   assert.equal(deliveryRows[0]?.quotaDay, quotaDay);
-  assert.equal(deliveryRows[0]?.status, "delivered");
+  assert.equal(deliveryRows[0]?.status, "pending");
 
   const customerRead = await listCustomerOpportunities(userId);
   assert.equal(customerRead.delivery.enabled, true);
@@ -261,7 +276,24 @@ try {
     "The normal customer read path must return the worker-created popup.");
   assert.equal(customerRead.offers[0]?.offerId, offerId);
   assert.equal(customerRead.offers[0]?.popupEligible, true);
+  assert.equal(customerRead.offers[0]?.deliveryStatus, "in_progress");
+  assert.equal(customerRead.offers[0]?.deliveryAttemptCount, 1,
+    "The first actual customer dispatch claim is attempt one.");
+  assert.ok(customerRead.offers[0]?.deliveryLeaseToken,
+    "A customer poll receives the dispatch fencing token used for acknowledgements.");
 
+  const activeLeaseToken = customerRead.offers[0]?.deliveryLeaseToken;
+  assert.ok(activeLeaseToken, "The claimed delivery must retain a fencing token until acknowledgement.");
+  await updatePopupDeliveryStatus(userId, Number(popupRows[0]?.id), "rendered", undefined, activeLeaseToken);
+  const acknowledged = await db.select({ deliveryStatus: opportunityPopupEvents.deliveryStatus, eventStatus: opportunityPopupEvents.eventStatus })
+    .from(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id)));
+  assert.equal(acknowledged[0]?.deliveryStatus, "rendered");
+  assert.equal(acknowledged[0]?.eventStatus, "DELIVERED",
+    "A rendered acknowledgement must not determine offer/trade result state.");
+  await updatePopupDeliveryStatus(userId, Number(popupRows[0]?.id), "failed", "STALE_ACK", "stale-lease-token");
+  assert.equal((await db.select({ deliveryStatus: opportunityPopupEvents.deliveryStatus }).from(opportunityPopupEvents)
+    .where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id))))[0]?.deliveryStatus, "rendered",
+    "A stale acknowledgement must not overwrite current informational delivery state.");
   const secondCycle = await listCustomerOpportunities(userId, {
     workerCycle: true,
     consumeDelivery: false,
@@ -391,6 +423,10 @@ try {
     try {
       for (const fixtureOfferId of [offerId, blockedOfferId]) {
         if (userId !== undefined && fixtureOfferId !== undefined) {
+          await db.delete(opportunityDeliveryIdempotency).where(and(
+            eq(opportunityDeliveryIdempotency.userId, userId),
+            eq(opportunityDeliveryIdempotency.offerId, fixtureOfferId),
+          ));
           await db.delete(opportunityPopupEvents).where(and(
             eq(opportunityPopupEvents.userId, userId),
             eq(opportunityPopupEvents.offerId, fixtureOfferId),

@@ -453,9 +453,9 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
       setPopup(offer);
       setMinimized(false);
       if(offer.deliveryEventId){
-        void deliveryStatus.mutateAsync({eventId:offer.deliveryEventId,status:"received"})
-          .then(()=>deliveryStatus.mutateAsync({eventId:offer.deliveryEventId,status:"rendered"}))
-          .catch(()=>deliveryStatus.mutate({eventId:offer.deliveryEventId,status:"failed",errorCode:"POPUP_RENDER_FAILED"}));
+        void deliveryStatus.mutateAsync({eventId:offer.deliveryEventId,status:"received",leaseToken:offer.deliveryLeaseToken})
+          .then(()=>deliveryStatus.mutateAsync({eventId:offer.deliveryEventId,status:"rendered",leaseToken:offer.deliveryLeaseToken}))
+          .catch(()=>deliveryStatus.mutate({eventId:offer.deliveryEventId,status:"failed",errorCode:"POPUP_RENDER_FAILED",leaseToken:offer.deliveryLeaseToken}));
         void lifecycle.mutateAsync({eventId:offer.deliveryEventId,action:"noticed"}).catch(()=>{});
       }
       if(sound&&soundSettings.enabled){

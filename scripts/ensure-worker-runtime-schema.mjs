@@ -80,6 +80,43 @@ async function ensureWithdrawnStatus(db, table, column, values) {
   return true;
 }
 
+async function ensureDeliveryLifecycleStatus(db) {
+  const [rows] = await db.execute(
+    "SELECT column_type AS columnType FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='opportunity_popup_events' AND column_name='deliveryStatus' LIMIT 1",
+  );
+  if (!rows.length) throw new Error("Required column opportunity_popup_events.deliveryStatus is missing.");
+  const current = String(rows[0].columnType || "").toLowerCase();
+  const required = ["queued", "in_progress", "retry_wait", "delivered", "received", "rendered", "failed", "dismissed", "expired"];
+  if (required.every(value => current.includes(`'${value}'`))) return false;
+  await db.query("ALTER TABLE `opportunity_popup_events` MODIFY COLUMN `deliveryStatus` ENUM('queued','in_progress','retry_wait','delivered','received','rendered','failed','dismissed','expired') NOT NULL DEFAULT 'delivered'");
+  console.log("[worker-schema] aligned opportunity popup delivery lifecycle status");
+  return true;
+}
+async function ensureDeliveryLifecycle(db) {
+  let repairs = 0;
+  const eventColumns = [
+    ["packageId", "INT NULL"], ["deliveryRetryAfter", "TIMESTAMP NULL DEFAULT NULL"],
+    ["deliveryLeaseToken", "VARCHAR(64) NULL DEFAULT NULL"], ["deliveryLeaseExpiresAt", "TIMESTAMP NULL DEFAULT NULL"],
+    ["deliveryPolicyVersionSnapshot", "INT NOT NULL DEFAULT 1"],
+  ];
+  for (const [column, definition] of eventColumns) if (await ensureColumn(db, "opportunity_popup_events", column, definition)) repairs++;
+  if (await ensureDeliveryLifecycleStatus(db)) repairs++;
+  const idempotencySql = "CREATE TABLE IF NOT EXISTS `opportunity_delivery_idempotency` (`id` INT NOT NULL AUTO_INCREMENT,`userId` INT NOT NULL,`offerId` INT NOT NULL,`popupEventId` INT NULL,`packageId` INT NOT NULL DEFAULT 0,`packageName` VARCHAR(80) NOT NULL,`createdAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY (`id`),UNIQUE KEY `opportunity_delivery_idempotency_user_offer_uq` (`userId`,`offerId`),KEY `opportunity_delivery_idempotency_popup_idx` (`popupEventId`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+  await db.query(idempotencySql);
+  if (await ensureColumn(db, "opportunity_delivery_idempotency", "packageId", "INT NOT NULL DEFAULT 0")) repairs++;
+  const indexes = [
+    ["opportunity_popup_pending_package_id_idx", "CREATE INDEX `opportunity_popup_pending_package_id_idx` ON `opportunity_popup_events` (`userId`,`packageId`,`deliveryStatus`)"],
+    ["opportunity_popup_retry_due_idx", "CREATE INDEX `opportunity_popup_retry_due_idx` ON `opportunity_popup_events` (`deliveryStatus`,`deliveryRetryAfter`)"],
+  ];
+  for (const [name, sql] of indexes) if (await ensureIndex(db, "opportunity_popup_events", name, sql)) repairs++;
+  await db.query("UPDATE opportunity_popup_events e JOIN packages p ON p.name=e.packageName SET e.packageId=p.id WHERE e.packageId IS NULL");
+  await db.query("UPDATE opportunity_popup_events e JOIN (SELECT userId,offerId,MIN(id) canonicalId FROM opportunity_popup_events GROUP BY userId,offerId HAVING COUNT(*)>1) d ON d.userId=e.userId AND d.offerId=e.offerId SET e.deliveryStatus='failed',e.deliveryRetryAfter=NULL,e.deliveryLeaseToken=NULL,e.deliveryLeaseExpiresAt=NULL,e.lastErrorCode='DELIVERY_DUPLICATE_LEGACY',e.updatedAt=CURRENT_TIMESTAMP WHERE e.id<>d.canonicalId AND e.tradeId IS NULL AND e.eventStatus NOT IN ('TRADED','SETTLED') AND e.executionStatus NOT IN ('RUNNING','SUCCEEDED') AND e.deliveryStatus IN ('queued','in_progress','retry_wait')");
+  await db.query("UPDATE opportunity_popup_events SET deliveryStatus='failed',deliveryRetryAfter=NULL,deliveryLeaseToken=NULL,deliveryLeaseExpiresAt=NULL,lastErrorCode='DELIVERY_PACKAGE_ID_UNRESOLVED',updatedAt=CURRENT_TIMESTAMP WHERE packageId IS NULL AND deliveryStatus IN ('queued','in_progress','retry_wait') AND tradeId IS NULL AND eventStatus NOT IN ('TRADED','SETTLED') AND executionStatus NOT IN ('RUNNING','SUCCEEDED')");
+  await db.query("INSERT INTO opportunity_delivery_idempotency (userId,offerId,popupEventId,packageId,packageName,createdAt) SELECT e.userId,e.offerId,e.id,COALESCE(e.packageId,0),e.packageName,e.createdAt FROM opportunity_popup_events e JOIN (SELECT userId,offerId,MIN(id) canonicalId FROM opportunity_popup_events GROUP BY userId,offerId) c ON c.canonicalId=e.id ON DUPLICATE KEY UPDATE userId=VALUES(userId)");
+  await db.query("UPDATE opportunity_delivery_idempotency d JOIN opportunity_popup_events e ON e.id=d.popupEventId SET d.packageId=COALESCE(e.packageId,0),d.packageName=e.packageName");
+  await db.query("INSERT INTO app_settings (settingKey,settingValue,updatedBy) VALUES ('trade.deliveryRetryPolicy',JSON_OBJECT('policy','none','maxAttempts',1,'intervalsSeconds',JSON_ARRAY(),'version',1,'effectiveAt',NULL,'updatedBy',NULL,'updatedAt',NULL,'reason','Initial fail-closed delivery retry policy; explicit intervals have not been saved.','configured',FALSE),NULL) ON DUPLICATE KEY UPDATE settingKey=VALUES(settingKey)");
+  return repairs;
+}
 async function main() {
   const raw = process.env.DATABASE_URL;
   if (!raw) throw new Error("DATABASE_URL is required; load the private application environment first.");
@@ -189,6 +226,7 @@ async function main() {
       "ENUM('pending','delivered','read','failed','expired','withdrawn') NOT NULL DEFAULT 'pending'",
     )) repairs++;
 
+    repairs += await ensureDeliveryLifecycle(db);
     const verified = await assertWorkerSchemaContracts(db);
     console.log(repairs
       ? `[worker-schema] PASS: applied ${repairs} additive, non-destructive runtime repair(s); verified ${verified.checkedTables} worker-critical table contracts.`

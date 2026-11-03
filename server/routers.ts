@@ -32,6 +32,7 @@ import { createHeartbeatJob, deleteHeartbeatJob, listHeartbeatJobs, updateHeartb
 import { getWorkerHealthSummary, requeueDeadQualificationJob } from "./_core/workerHealth";
 import { getTradeGlobalControls, setTradeGlobalControl, TradeGlobalControlVersionConflictError } from "./db";
 import { getPackageFeePolicies, getPackageFeeHistory, updatePackageFeePolicy } from "./db";
+import { getDeliveryRetryPolicy, updateDeliveryRetryPolicy, DeliveryRetryPolicyVersionConflictError } from "./db";
 import { closeOpportunityOffer } from "./db";
 import { getSystemDiagnosticsReport } from "./_core/systemDiagnostics";
 
@@ -350,7 +351,7 @@ export const appRouter = router({
     transactionConsole: protectedProcedure.query(({ ctx }) => listTransactionConsoleEvents(ctx.user.id, ctx.req)),
     transactionConsolePulse: protectedProcedure.mutation(({ ctx }) => recordTransactionConsolePulse(ctx.user.id, ctx.req)),
     popupLifecycle: protectedProcedure.input(z.object({ eventId: z.number().int().positive(), action: z.enum(["noticed","opened","dismissed","withdrawn","traded","settled"]) })).mutation(({ ctx, input }) => updatePopupLifecycle(ctx.user.id, input.eventId, input.action)),
-    popupDeliveryStatus: protectedProcedure.input(z.object({ eventId: z.number().int().positive(), status: z.enum(["received","rendered","failed"]), errorCode: z.string().max(80).optional() })).mutation(({ ctx, input }) => updatePopupDeliveryStatus(ctx.user.id, input.eventId, input.status, input.errorCode)),
+    popupDeliveryStatus: protectedProcedure.input(z.object({ eventId: z.number().int().positive(), status: z.enum(["received","rendered","failed"]), errorCode: z.string().max(80).optional(), leaseToken: z.string().uuid().optional() })).mutation(({ ctx, input }) => updatePopupDeliveryStatus(ctx.user.id, input.eventId, input.status, input.errorCode, input.leaseToken)),
     opportunities: protectedProcedure.query(async ({ ctx }) => { const result=await listCustomerOpportunities(ctx.user.id); for (const trade of result.autoTrades||[]) { await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{eventType:"DEBIT",status:"COMPLETED",title:"Automatic wallet debit posted",message:`${trade.symbol} available balance was debited for an automatic allocation under the saved controls.`,transactionCode:`auto-debit:${trade.tradeId}`,amountMinor:-trade.amountMinor,asset:trade.currency}); await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{eventType:"INVESTMENT",status:"COMPLETED",title:"Automatic investment confirmed",message:`${trade.symbol} was allocated automatically from the available wallet balance under the saved customer and administrator controls.`,transactionCode:`auto-investment:${trade.tradeId}`,amountMinor:trade.amountMinor,asset:trade.currency}); const allocationNoticeResults=await Promise.allSettled([createNotification(ctx.user.id,"Automatic trading allocation confirmed",`${trade.symbol} was allocated from your available ${trade.currency} balance.`,{eventKey:`auto-trade-allocation:${trade.tradeId}`,category:"trading",priority:"normal"}),createNotification(ctx.user.id,"Balance debited",`${trade.amountMinor} minor units of ${trade.currency} were reserved for the automatic allocation.`,{eventKey:`auto-trade-debit:${trade.tradeId}`,category:"ledger_debit",priority:"normal"})]); if(allocationNoticeResults.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] Automatic allocation notices failed after ledger commit."); } for (const settlement of result.settled||[]) { await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{eventType:"CREDIT",status:"COMPLETED",title:"Trade earnings credited",message:`Trade ${settlement.tradeId} matured and ${settlement.rewardMinor} minor units of earnings were credited to the ${settlement.currency} wallet.`,transactionCode:`trade-reward:${settlement.tradeId}`,amountMinor:settlement.rewardMinor,asset:settlement.currency}); await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{eventType:"TRADE_SETTLEMENT",status:"COMPLETED",title:"Trade principal released",message:`Trade ${settlement.tradeId} completed its duration and released principal plus earnings through the wallet ledger.`,transactionCode:`trade-settlement:${settlement.tradeId}`,amountMinor:settlement.totalMinor,asset:settlement.currency}); const settlementNoticeResults=await Promise.allSettled([createNotification(ctx.user.id,"Trading reward confirmed",`Trade ${settlement.tradeId} completed and the recorded reward was credited to your ${settlement.currency} wallet.`,{eventKey:`trade-reward:${settlement.tradeId}`,category:"trading_reward",priority:"high"}),createNotification(ctx.user.id,"Balance credited",`Trade ${settlement.tradeId} settlement was recorded for ${settlement.currency}.`,{eventKey:`trade-settlement-credit:${settlement.tradeId}`,category:"ledger_credit",priority:"normal"})]); if(settlementNoticeResults.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] Automatic settlement notices failed after ledger commit."); } for (const missed of result.missed||[]) await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{eventType:"MISSED_OPPORTUNITY",status:"MISSED",title:`Missed opportunity · ${missed.symbol}`,message:`The opportunity was recorded because the required wallet balance was unavailable. Estimated reward only; no ledger debit occurred.`,transactionCode:`missed-opportunity:${missed.id}`,amountMinor:missed.potentialRewardMinor,asset:missed.currency}); const safeObject=(value:any)=>{if(!value||typeof value!=="object")return value;const safe={...value};delete safe.packageName;delete safe.packageId;delete safe.packageSubscriptionId;delete safe.activationKey;delete safe.packageTermsVersion;delete safe.termsSnapshotJson;delete safe.qualifyingBalanceUsdMinor;delete safe.packageMinimumTradeMinor;delete safe.packageMaximumTradeMinor;delete safe.packageQuota;return safe;}; return {...result,offers:result.offers.map(safeObject),missed:result.missed.map(safeObject),autoTrades:result.autoTrades.map(safeObject),settled:result.settled.map(safeObject),delivery:safeObject(result.delivery)}; }),
     trades: protectedProcedure.query(async ({ ctx }) => (await listTrades(ctx.user.id)).map((value:any) => { const safe={...value}; delete safe.packageName; delete safe.packageId; delete safe.packageSubscriptionId; delete safe.activationKey; delete safe.packageTermsVersion; delete safe.termsSnapshotJson; delete safe.qualifyingBalanceUsdMinor; delete safe.packageMinimumTradeMinor; delete safe.packageMaximumTradeMinor; delete safe.packageQuota; return safe; })),
     settle: protectedProcedure.input(z.object({ tradeId: z.number().int().positive() })).mutation(async () => { throw new TRPCError({ code: "FORBIDDEN", message: "Settlement is performed manually by an administrator after the external payment is confirmed." }); }),
@@ -432,6 +433,26 @@ export const appRouter = router({
     }),
 
     globalTradeControls: adminProcedure.query(() => getTradeGlobalControls()),
+    deliveryRetryPolicy: adminProcedure.query(() => getDeliveryRetryPolicy()),
+    updateDeliveryRetryPolicy: adminProcedure.input(z.object({
+      expectedVersion: z.number().int().min(1),
+      policy: z.enum(["none", "temporary"]),
+      maxAttempts: z.number().int().min(1).max(20),
+      intervalsSeconds: z.array(z.number().int().min(5).max(3600)).max(19),
+      effectiveAt: z.string().datetime(),
+      reason: z.string().trim().min(5).max(500),
+    }).strict().superRefine((value, ctx) => {
+      const valid = value.policy === "none"
+        ? value.maxAttempts === 1 && value.intervalsSeconds.length === 0
+        : value.maxAttempts >= 2 && value.intervalsSeconds.length === value.maxAttempts - 1;
+      if (!valid) ctx.addIssue({ code: "custom", message: "Policy none requires one initial attempt and no intervals; temporary retry policy requires 2–20 attempts and exactly one 5–3,600 second interval per retry." });
+    })).mutation(async ({ ctx, input }) => {
+      try { return await updateDeliveryRetryPolicy(input, ctx.user.id); }
+      catch (error) {
+        if (error instanceof DeliveryRetryPolicyVersionConflictError) throw new TRPCError({ code: "CONFLICT", message: error.message });
+        throw error;
+      }
+    }),
     updateGlobalTradeControl: adminProcedure.input(z.object({
       key: z.enum(["tierPolicyMasterEnabled","informationalPopupDeliveryEnabled","companyRotationEnabled","randomizedTimingEnabled","burstDeliveryEnabled","requirePreviousSettlement"]),
       enabled: z.boolean(),

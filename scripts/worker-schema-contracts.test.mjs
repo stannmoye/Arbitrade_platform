@@ -226,9 +226,14 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
+    expect(last.tag).toBe("0102_opportunity_delivery_retry_lifecycle");
+    const firstTradingMigration = journal.entries.findIndex((entry) => entry.tag === "0072_wallet_ledger_reconciliation_indexes");
     const masterIndex = journal.entries.findIndex((entry) => entry.tag === "0100_global_trade_master_controls");
-    expect(journal.entries[masterIndex + 1]?.tag).toBe("0101_package_fee_policy_versions");
-    expect(journal.entries.slice(journal.entries.findIndex((entry) => entry.tag === "0072_wallet_ledger_reconciliation_indexes"), masterIndex + 1).map((entry) => entry.tag)).toEqual([
+    const feeIndex = journal.entries.findIndex((entry) => entry.tag === "0101_package_fee_policy_versions");
+    const deliveryIndex = journal.entries.findIndex((entry) => entry.tag === "0102_opportunity_delivery_retry_lifecycle");
+    expect(feeIndex).toBe(masterIndex + 1);
+    expect(deliveryIndex).toBe(feeIndex + 1);
+    expect(journal.entries.slice(firstTradingMigration, deliveryIndex + 1).map((entry) => entry.tag)).toEqual([
       "0072_wallet_ledger_reconciliation_indexes",
       "0073_trade_settlement_recovery_cases",
       "0074_trade_execution_retries",
@@ -258,6 +263,8 @@ describe("worker schema contracts", () => {
       "0098_disable_automatic_financial_execution",
       "0099_trading_global_timing_policy_version",
       "0100_global_trade_master_controls",
+      "0101_package_fee_policy_versions",
+      "0102_opportunity_delivery_retry_lifecycle",
     ]);
     expect(portalRunner).toContain('"0101_package_fee_policy_versions.sql"');
     expect(runtimeSchema).toContain('drizzle/0101_package_fee_policy_versions.sql');

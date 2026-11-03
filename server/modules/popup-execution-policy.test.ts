@@ -8,7 +8,10 @@ describe("popup presentation and execution isolation",()=>{
     expect(isPopupExecutionEligible({...delivered,eventStatus:"OPENED"})).toBe(true);
     expect(isPopupExecutionEligible({...delivered,eventStatus:"DISMISSED"})).toBe(true);
   });
-  it("keeps retryable execution eligible and fails closed for terminal, running, or unknown states",()=>{
+  it("keeps delivery status informational while failing closed for terminal, running, or unknown execution states",()=>{
+    for (const deliveryStatus of ["queued", "in_progress", "retry_wait", "delivered", "received", "rendered", "failed", "dismissed", "expired", "unknown"]) {
+      expect(isPopupExecutionEligible({ eventStatus: "DELIVERED", deliveryStatus, executionStatus: "READY" })).toBe(true);
+    }
     expect(isPopupExecutionEligible({...delivered,eventStatus:"DISMISSED",executionStatus:"RETRYING"})).toBe(true);
     expect(isPopupExecutionEligible({eventStatus:"DISMISSED",deliveryStatus:"failed",executionStatus:"PENDING"})).toBe(false);
     expect(isPopupExecutionEligible({eventStatus:"DISMISSED",deliveryStatus:"rendered",executionStatus:"SUCCEEDED"})).toBe(false);
