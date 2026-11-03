@@ -69,17 +69,19 @@ describe("Logo.dev brand-only static reference catalogue", () => {
     expect(normalizeCompanyCatalogueActionReason("x".repeat(500))).toHaveLength(500);
   });
 
-  it("applies verify, enable, archive and restore as independent status-set transitions", () => {
+  it("revokes approval on archive and never re-approves on restore", () => {
     const id = "logo-brand-0001";
     const initial = { verifiedIds: [id], archivedIds: [], disabledIds: [] };
     expect(transitionCompanyCatalogueAdminState(initial, [id], "disabled")).toEqual({ verifiedIds: [id], archivedIds: [], disabledIds: [id] });
-    expect(transitionCompanyCatalogueAdminState(initial, [id], "archived")).toEqual({ verifiedIds: [id], archivedIds: [id], disabledIds: [] });
+    expect(transitionCompanyCatalogueAdminState(initial, [id], "archived")).toEqual({ verifiedIds: [], archivedIds: [id], disabledIds: [] });
     const conflicted = { verifiedIds: [id], archivedIds: [id], disabledIds: [id] };
     expect(transitionCompanyCatalogueAdminState(conflicted, [id], "unverified")).toEqual({ verifiedIds: [], archivedIds: [id], disabledIds: [id] });
     expect(transitionCompanyCatalogueAdminState(conflicted, [id], "enabled")).toEqual({ verifiedIds: [id], archivedIds: [id], disabledIds: [] });
-    expect(transitionCompanyCatalogueAdminState(conflicted, [id], "restored")).toEqual({ verifiedIds: [id], archivedIds: [], disabledIds: [id] });
+    expect(transitionCompanyCatalogueAdminState(conflicted, [id], "restored")).toEqual({ verifiedIds: [], archivedIds: [], disabledIds: [id] });
     expect(transitionCompanyCatalogueAdminState({ verifiedIds: [], archivedIds: [id], disabledIds: [] }, [id], "verified"))
       .toEqual({ verifiedIds: [id], archivedIds: [id], disabledIds: [] });
+    expect(transitionCompanyCatalogueAdminState({ verifiedIds: [], archivedIds: [id], disabledIds: [] }, [id], "restored"))
+      .toEqual({ verifiedIds: [], archivedIds: [], disabledIds: [] });
   });
 
   it("filters by the catalogue country-folder label and reports accurate country counts", () => {

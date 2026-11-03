@@ -526,8 +526,8 @@ const registryEntries: readonly RegistryEntry[] = [
   {
     key: "trade.companyCatalogue.bulkStatus", scope: "record", ownerRoute: "trade-company-catalogue",
     section: "approval-and-lifecycle", label: "Company catalogue status action",
-    explanation: "Bulk mark selected reference records verified/unverified, enabled/disabled, archive them, or restore them by clearing archived status only; verification and enablement remain independent.",
-    units: "one or more stable Logo IDs", validation: "Mutation accepts 1–1,811 valid catalogue IDs, a supported status and a trimmed 8–500 character reason; restore clears archivedIds only and preserves verifiedIds and disabledIds.",
+    explanation: "Bulk mark selected reference records verified/unverified, enabled/disabled, archive them, or restore them by clearing archived status without re-approving them; archive revokes customer approval while verification remains separate from enablement.",
+    units: "one or more stable Logo IDs", validation: "Mutation accepts 1–1,811 valid catalogue IDs, a supported status and a trimmed 8–500 character reason; archive removes verifiedIds and restore clears archivedIds without re-approving the record.",
     saveMutation: "companyCatalogueReference.updateAdminState", readQuery: "companyCatalogueReference.adminState",
     auditRequirement: "Administrator actor, submitted reason, selected IDs and resulting status are required by the existing status-update contract.",
     effectiveTime: "Immediately on subsequent customer catalogue/pop-up reads; historical completed snapshots are not rewritten.",

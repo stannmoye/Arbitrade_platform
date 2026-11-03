@@ -61,7 +61,7 @@ export function normalizeCompanyCatalogueActionReason(reason: unknown): string {
   return normalized;
 }
 
-/** Change only the status set owned by this action; overlapping flags remain independently auditable. */
+/** Apply an audited status transition without changing source or financial records. Archival invalidates customer approval. */
 export function transitionCompanyCatalogueAdminState(
   current: CompanyCatalogueAdminStateSets,
   ids: readonly string[],
@@ -76,8 +76,14 @@ export function transitionCompanyCatalogueAdminState(
       case "unverified": verified.delete(id); break;
       case "disabled": disabled.add(id); break;
       case "enabled": disabled.delete(id); break;
-      case "archived": archived.add(id); break;
-      case "restored": archived.delete(id); break;
+      case "archived":
+        archived.add(id);
+        verified.delete(id);
+        break;
+      case "restored":
+        archived.delete(id);
+        verified.delete(id);
+        break;
     }
   }
   return {
