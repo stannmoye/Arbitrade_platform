@@ -175,7 +175,6 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       minHourlyTarget: Number(row.minHourlyTarget),
       normalHourlyTarget: Number(row.normalHourlyTarget),
       marketInfluenceBps: Number(row.marketInfluenceBps),
-      burstEnabled: Boolean(row.burstEnabled),
       maxBurstSize: Number(row.maxBurstSize),
       ...overrides,
     });
