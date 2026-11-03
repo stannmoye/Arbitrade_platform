@@ -114,7 +114,7 @@ describe("mounted Trade Settings Guide contract", () => {
 
   it("documents persisted delivery, funding, settlement and payout lifecycle states distinctly", () => {
     const expectedTerms = [
-      "Published / open offer",
+      "Generated / open customer offer",
       "Queued delivery",
       "Delivery in progress",
       "Delivery retry wait",
@@ -133,7 +133,7 @@ describe("mounted Trade Settings Guide contract", () => {
     ];
     expect(statusDefinitions.map((status) => status.term)).toEqual(expectedTerms);
 
-    expect(byTerm("Published / open offer")?.description).toContain("does not mean delivered");
+    expect(byTerm("Generated / open customer offer")?.description).toContain("does not mean delivered");
     expect(byTerm("Delivered")?.description).toContain("not a synthetic offer");
     expect(byTerm("Queued delivery")?.description).toContain("deliveryStatus=queued");
     expect(byTerm("Delivery in progress")?.description).toContain("deliveryStatus=in_progress");
@@ -152,17 +152,17 @@ describe("mounted Trade Settings Guide contract", () => {
     expect(byTerm("Payout requested")?.description).toContain("distinct from trade review/settlement");
   });
 
-  it("links offer publication to its owner while distinguishing operator review from platform verification", () => {
+  it("links generated customer offers to their owner and distinguishes template review from platform verification", () => {
     const publishRoute = ownerRoutes.find((route) => route.id === "trade-opportunity-publishing");
     const publishLink = ownerLinks.find((link) => link.routeId === "trade-opportunity-publishing");
     expect(publishRoute?.target).toBe("opportunity");
     expect(publishLink?.target).toBe(publishRoute?.target);
-    expect(publishLink?.description).toContain("Required source references and operator review notes are saved in Trade Audit History");
-    expect(publishLink?.description).toContain("does not independently verify the external evidence or the substance of the note");
-    expect(byTerm("Published / open offer")?.description).toContain("source reference and operator review note are saved in Trade Audit History");
-    expect(byTerm("Published / open offer")?.description).toContain("does not independently verify the external evidence");
+    expect(publishLink?.description).toContain("administrator-approved reusable templates");
+    expect(publishLink?.description).toContain("not independently verified");
+    expect(byTerm("Generated / open customer offer")?.description).toContain("worker-generated record assigned to a customer/package");
+    expect(byTerm("Generated / open customer offer")?.description).toContain("Historical unassigned manual/imported rows are not popup inputs");
     expect(troubleshooting.find((item) => item.routeId === "trade-opportunity-publishing")?.description)
-      .toContain("source reference and operator review note are recorded in Trade Audit History");
+      .toContain("Customer delivery uses only offers assigned to that customer");
   });
 
   it("explicitly identifies locked and unavailable functionality", () => {

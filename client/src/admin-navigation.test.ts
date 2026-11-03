@@ -14,7 +14,7 @@ describe("Trading administrator navigation", () => {
       "Tiers & Eligibility",
       "Per-tier Daily Delivery Caps",
       "Per-tier Offer Rules & Capital Limits",
-      "Publish & Manage Opportunities",
+      "Opportunity Generation & Management",
       "Per-tier Delivery Schedule",
       "Global Trade Timing & Settlement",
       "Per-tier Pop-up Display",

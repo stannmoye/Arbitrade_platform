@@ -1,0 +1,93 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+const db = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const lifecycle = readFileSync(new URL("./opportunityLifecycle.ts", import.meta.url), "utf8");
+const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
+const migration = readFileSync(new URL("../drizzle/0103_automatic_opportunity_generation_templates.sql", import.meta.url), "utf8");
+const journal = readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8");
+const admin = readFileSync(new URL("../client/src/components/AdminOpportunityTemplates.tsx", import.meta.url), "utf8");
+const customerQueryStart = db.indexOf("export async function listCustomerOpportunities(");
+const customerQueryEnd = db.indexOf("export async function claimAutoTradeCycleCustomers(", customerQueryStart);
+const customerQuery = db.slice(customerQueryStart, customerQueryEnd);
+const generatorStart = db.indexOf("async function generateAutomaticCustomerOpportunity(");
+const generatorEnd = db.indexOf("const OPPORTUNITY_GENERATION_CONTROL_KEY", generatorStart);
+const generator = db.slice(generatorStart, generatorEnd);
+
+describe("automatic opportunity generation and package-aware customer delivery", () => {
+  it("loads only offers assigned to the requesting customer; legacy manual/global offers are not popup inputs", () => {
+    expect(customerQueryStart).toBeGreaterThanOrEqual(0);
+    expect(customerQueryEnd).toBeGreaterThan(customerQueryStart);
+    expect(customerQuery).toContain("eq(opportunityOffers.assignedUserId,userId)");
+    expect(customerQuery).toContain("generateAutomaticCustomerOpportunity");
+    expect(customerQuery).toContain("activeSubscriptionIds.includes(Number(offer.assignedPackageSubscriptionId))");
+  });
+
+  it("generates only from approved, current company templates and the customer's saved package bounds", () => {
+    expect(generator).toContain('eq(opportunityGenerationTemplates.status,"approved")');
+    expect(generator).toContain("buildCompanySpotlightPool");
+    expect(generator).toContain("templateIds.has(company.id)");
+    expect(generator).toContain("selectOpportunityGenerationTerms");
+    expect(generator).toContain("packageUsdUnitsToNativeMinor");
+    expect(generator).toContain("companyRotationEnabled");
+    expect(generator).toContain("control.enabled!==true");
+    expect(generator).toContain("Approved template minimum is outside the active package's saved capital bounds.");
+  });
+
+  it("persists one immutable customer/package/template assignment under a lock and unique idempotency key", () => {
+    expect(generator).toContain("trading.opportunityGenerator.${input.userId}");
+    expect(generator).toContain("generationKey=`auto:");
+    expect(migration).toContain("opportunity_offers_generation_key_uq");
+    expect(generator).toContain("packageSnapshotJson:JSON.stringify(snapshot)");
+    expect(generator).toContain("templateVersion:Number(template.version)");
+    expect(generator).toContain("assignedUserId:input.userId");
+    expect(customerQuery).toContain("generationAssignmentByOffer");
+    expect(customerQuery).toContain("savedBounds");
+    expect(customerQuery).toContain("generatedOffer?Number(offer.configuredProfitRateBps)");
+  });
+
+  it("keeps the worker pauseable, batch-observable, and default-on only through its migration seed", () => {
+    expect(customerQuery).toContain("options.automaticGenerationEnabled===true");
+    expect(db).toContain("trade.opportunityGeneration.control");
+    expect(db).toContain("opportunityGenerationBatches");
+    expect(db).toContain("automatic_opportunity_generation_control_updated");
+    expect(migration).toContain("'trade.opportunityGeneration.control'");
+    expect(migration).toContain("JSON_OBJECT('enabled',TRUE,'version',1");
+    expect(journal).toContain('"tag": "0103_automatic_opportunity_generation_templates"');
+  });
+
+  it("revalidates pinned companies when popup persistence occurs and expires generated assignments safely", () => {
+    expect(lifecycle).toContain("if (item.companyReferenceId)");
+    expect(lifecycle).toContain("catalogueState.verifiedIds.includes(pinned.id)");
+    expect(lifecycle).toContain("opportunity_generation_assignments SET status='delivered'");
+    expect(lifecycle).toContain("opportunity_generation_assignments SET status='expired'");
+    expect(lifecycle).toContain("p.deliveryStatus='expired'");
+    expect(lifecycle).toContain("e.status='expired'");
+  });
+
+  it("offers administrator approval, reasoned pause/resume, and visible customer-specific assignment history", () => {
+    expect(admin).toContain("Approve template");
+    expect(admin).toContain("Pause automatic generation");
+    expect(admin).toContain("Enable automatic generation");
+    expect(admin).toContain("Latest persisted assignments");
+    expect(admin).toContain("currently admin-verified, enabled, non-archived");
+  });
+
+  it("blocks manual and bulk-import offer creation at the server API", () => {
+    expect(router).toContain('createOffer: adminProcedure.input(z.unknown()).mutation(() => { throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Manual opportunity publication is retired.');
+    expect(router).toContain('bulkCreateOffers: adminProcedure.input(z.unknown()).mutation(() => { throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Manual opportunity CSV import is retired.');
+    expect(db).toContain("assignedUserId:input.userId");
+  });
+
+  it("limits the admin open feed to generated assignments and exposes durable diagnostic detail", () => {
+    const openStart = db.indexOf("export async function listOpenOffers");
+    const openQuery = db.slice(openStart, db.indexOf("\n", openStart));
+    expect(openStart).toBeGreaterThanOrEqual(0);
+    expect(openQuery).toContain("isNotNull(opportunityOffers.assignedUserId)");
+    expect(openQuery).toContain("isNotNull(opportunityOffers.generationTemplateId)");
+    expect(db).toContain("packageBreakdown:policies.map");
+    expect(db).toContain("failureSummary:failures?JSON.stringify({customers:failureDetails");
+    expect(admin).toContain("Batch {batch.id}");
+    expect(admin).toContain("Package breakdown · UTC day");
+  });
+});

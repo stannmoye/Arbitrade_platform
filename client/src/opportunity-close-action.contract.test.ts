@@ -5,9 +5,10 @@ import { ownerLinks } from "./components/TradeSettingsAdminGuide";
 const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
 const closeAction = readFileSync(new URL("./components/OpportunityCloseAction.tsx", import.meta.url), "utf8");
 const guide = readFileSync(new URL("./components/TradeSettingsAdminGuide.tsx", import.meta.url), "utf8");
+const templateAdmin = readFileSync(new URL("./components/AdminOpportunityTemplates.tsx", import.meta.url), "utf8");
 const opportunityPage = app.slice(app.indexOf("function AdminOpportunityEngine()"), app.indexOf("type AdminTradeGlobalMasterKey"));
 
- describe("manual close on Publish & Manage Opportunities", () => {
+ describe("audited close on generated Opportunity Generation & Management", () => {
   it("renders the close action only from the existing owner page", () => {
     expect(opportunityPage).toContain("<OpportunityCloseAction");
     expect(app.match(/<OpportunityCloseAction\b/g)).toHaveLength(1);
@@ -19,7 +20,7 @@ const opportunityPage = app.slice(app.indexOf("function AdminOpportunityEngine()
     expect(closeAction).toContain("Required reason for manual close");
     expect(closeAction).toContain("disabled={pending || !reason.trim()}");
     expect(closeAction).toContain("Closing and verifying…");
-    expect(opportunityPage).toContain('role={closeFeedback.kind==="error"?"alert":"status"}');
+    expect(opportunityPage).toMatch(/role=\{closeFeedback\.kind\s*===\s*"error"\s*\?\s*"alert"\s*:\s*"status"\}/);
     expect(opportunityPage).toContain("A fresh persisted read-back verified its closed status and audit record.");
     expect(opportunityPage).toContain("closeFeedback.kind");
   });
@@ -30,16 +31,13 @@ const opportunityPage = app.slice(app.indexOf("function AdminOpportunityEngine()
     expect(guide).not.toContain("manual close");
   });
 
-  it("states the saved provenance fields and verification limit precisely in Guide and publishing copy", () => {
+  it("states the template provenance fields and verification limit precisely", () => {
     const ownerDescription = ownerLinks.find((link) => link.routeId === "trade-opportunity-publishing")?.description ?? "";
-    for (const copy of [ownerDescription, opportunityPage]) {
-      expect(copy).toContain("source reference");
-      expect(copy).toContain("review note");
-      expect(copy).toContain("does not independently verify");
-      expect(copy).toContain("external evidence");
-    }
-    expect(guide).toContain("Required source references and operator review notes are saved in Trade Audit History");
-    expect(guide).toContain("the platform does not independently verify the external evidence or the substance of the note");
-    expect(opportunityPage).toContain("the platform does not independently verify the external evidence or the substance of the note");
+    expect(ownerDescription).toContain("administrator-approved reusable templates");
+    expect(templateAdmin).toContain("Source reference");
+    expect(templateAdmin).toContain("Administrator review notes");
+    expect(templateAdmin).toContain("are not independently verified");
+    expect(guide).not.toContain("manually published or validated-import");
+    expect(opportunityPage).toContain("Manual publication and CSV import are disabled");
   });
 });

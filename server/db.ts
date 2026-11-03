@@ -3,13 +3,14 @@ import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, not
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool, type Pool } from "mysql2/promise";
 import { ENV } from "./_core/env";
-import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityDeliveryIdempotency, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, tradingTierQualificationJobs, tradingPackageFeePolicyVersions, adminWalletAdjustmentIdempotency, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
+import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityDeliveryIdempotency, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, opportunityGenerationTemplates, opportunityGenerationAssignments, opportunityGenerationBatches, balanceLedger, tradingTierQualificationJobs, tradingPackageFeePolicyVersions, adminWalletAdjustmentIdempotency, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
 import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostings, inspectWalletLedgerSnapshot } from "./modules/wallet-ledger-reconciliation";
 import { addCalendarMonths } from "./modules/calendar-months";
 import { validateOpportunityOfferClosure, validateOpportunityOfferPublication, type OpportunityOfferClosureInput, type OpportunityOfferPublicationInput } from "./modules/opportunity-publication";
+import { selectOpportunityGenerationTerms, validateOpportunityGenerationTemplate, type OpportunityGenerationTemplate } from "./modules/opportunity-generation-template";
 import { assessOpportunityPackageCompatibility, type OpportunityPackageCompatibility } from "./modules/opportunity-package-compatibility";
 import { claimPopupDeliveryDispatches, ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
@@ -17,8 +18,8 @@ import { calculateConfiguredProfitMinor, chooseInclusiveInteger } from "./module
 import { planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, usdUnitsToNativeMinor } from "../shared/money";
-import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, createCompanySpotlightDisplayGuard, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
-import { normalizeCompanyCatalogueActionReason, transitionCompanyCatalogueAdminState, type CompanyCatalogueStatusAction } from "./modules/company-catalogue-reference";
+import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, createCompanySpotlightDisplayGuard, isCompanySpotlightDisplayAllowed, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
+import { COMPANY_REFERENCE_CATALOGUE, getCompanyReferenceById, normalizeCompanyCatalogueActionReason, transitionCompanyCatalogueAdminState, type CompanyCatalogueStatusAction } from "./modules/company-catalogue-reference";
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule, resolveTradingBurstLimit } from "./modules/trading-delivery-quota";
@@ -2631,7 +2632,7 @@ export async function adjustCustomerBalance(adminId:number,input:{
   return result;
 }
 
-export async function listOpenOffers(){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();return db.select().from(opportunityOffers).where(and(eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt);}
+export async function listOpenOffers(){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();return db.select().from(opportunityOffers).where(and(isNotNull(opportunityOffers.assignedUserId),isNotNull(opportunityOffers.generationTemplateId),eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt);}
 /**
  * Use only values explicitly published on the opportunity. These are estimates
  * for reservation and display; they are not evidence of a realized outcome.
@@ -3207,6 +3208,326 @@ function hasConfiguredTradingOfferPolicy(policy:any):boolean {
     Number.isSafeInteger(minDuration)&&Number.isSafeInteger(maxDuration)&&minDuration>=10&&maxDuration>=minDuration&&maxDuration<=86400;
 }
 
+type AutomaticOpportunityGenerationInput={
+  userId:number;batchId:string;now:Date;quotaWindowStart:Date;
+  eligibleSubscriptions:Array<{subscriptionId:number;packageId:number;packageName:string}>;
+  companyRotationEnabled:boolean;
+};
+
+/**
+ * Creates at most one open customer-specific opportunity per active entitlement.
+ * Company rotation, template/version, package terms, offer and assignment commit
+ * together; retries reuse the persisted open offer and never reroll its terms.
+ */
+async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGenerationInput):Promise<number|null>{
+  if(!Number.isSafeInteger(input.userId)||input.userId<1||!input.batchId||input.batchId.length>64) return null;
+  const db=await getDb();if(!db)throw new Error("Database is not available");
+  const activeSubscriptionIds=input.eligibleSubscriptions.map(row=>row.subscriptionId).filter(id=>Number.isSafeInteger(id)&&id>0);
+  if(!activeSubscriptionIds.length)return null;
+  return db.transaction(async tx=>{
+    const generationLockKey=`trading.opportunityGenerator.${input.userId}`;
+    await tx.insert(appSettings).values({settingKey:generationLockKey,settingValue:"",updatedBy:input.userId})
+      .onDuplicateKeyUpdate({set:{settingKey:generationLockKey}});
+    await tx.select({id:appSettings.id}).from(appSettings).where(eq(appSettings.settingKey,generationLockKey)).limit(1).for("update");
+    const generationControlRow=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
+      .where(eq(appSettings.settingKey,OPPORTUNITY_GENERATION_CONTROL_KEY)).limit(1).for("update"))[0];
+    try{const control=JSON.parse(String(generationControlRow?.settingValue||""));if(!control||control.enabled!==true||!Number.isSafeInteger(control.version))return null;}catch{return null;}
+
+    const obsolete=(await tx.select({id:opportunityOffers.id,subscriptionId:opportunityOffers.assignedPackageSubscriptionId})
+      .from(opportunityOffers).where(and(eq(opportunityOffers.assignedUserId,input.userId),eq(opportunityOffers.status,"open"),gt(opportunityOffers.closesAt,input.now)))
+      .limit(100).for("update")).filter(row=>row.subscriptionId==null||!activeSubscriptionIds.includes(Number(row.subscriptionId)));
+    const obsoleteOfferIds=obsolete.map(row=>Number(row.id));
+    if(obsoleteOfferIds.length){
+      await tx.update(opportunityOffers).set({status:"cancelled"}).where(inArray(opportunityOffers.id,obsoleteOfferIds));
+      await tx.update(opportunityGenerationAssignments).set({status:"cancelled",failureReason:"PACKAGE_REASSIGNED",updatedAt:input.now})
+        .where(and(eq(opportunityGenerationAssignments.userId,input.userId),inArray(opportunityGenerationAssignments.offerId,obsoleteOfferIds),eq(opportunityGenerationAssignments.status,"generated")));
+    }
+    const reusable=(await tx.select({id:opportunityOffers.id}).from(opportunityOffers)
+      .where(and(eq(opportunityOffers.assignedUserId,input.userId),eq(opportunityOffers.status,"open"),gt(opportunityOffers.closesAt,input.now),inArray(opportunityOffers.assignedPackageSubscriptionId,activeSubscriptionIds)))
+      .limit(1).for("update"))[0];
+    if(reusable)return Number(reusable.id);
+
+    let selectedSubscription:any=null;
+    let selectedPolicy:any=null;
+    for(const candidate of input.eligibleSubscriptions){
+      const row=(await tx.select({
+        subscriptionId:customerPackageSubscriptions.id,packageId:packages.id,packageName:packages.name,
+        activationKey:customerPackageSubscriptions.activationKey,subscriptionStatus:customerPackageSubscriptions.status,
+        startsAt:customerPackageSubscriptions.startsAt,expiresAt:customerPackageSubscriptions.expiresAt,
+        packageEnabled:packages.enabled,packageStartsAt:packages.startsAt,packageExpiresAt:packages.expiresAt,
+        policyId:opportunityPackagePolicies.id,policyEnabled:opportunityPackagePolicies.enabled,
+        automaticDelivery:opportunityPackagePolicies.automaticDelivery,policyVersion:opportunityPackagePolicies.policyVersion,
+        minimumTradeUnits:opportunityPackagePolicies.minimumTradeUnits,maximumTradeUnits:opportunityPackagePolicies.maximumTradeUnits,
+        minimumPayoutRateBps:opportunityPackagePolicies.minimumPayoutRateBps,maximumPayoutRateBps:opportunityPackagePolicies.maximumPayoutRateBps,
+        minimumTradeDurationSeconds:opportunityPackagePolicies.minimumTradeDurationSeconds,maximumTradeDurationSeconds:opportunityPackagePolicies.maximumTradeDurationSeconds,
+        popupDisplayTargetSeconds:opportunityPackagePolicies.popupDisplayTargetSeconds,maxPendingDeliveries:opportunityPackagePolicies.maxPendingDeliveries,
+        companyRotationEnabled:opportunityPackagePolicies.companyRotationEnabled,companyRotationCountryNames:opportunityPackagePolicies.companyRotationCountryNames,
+        companyRotationRepeatPolicy:opportunityPackagePolicies.companyRotationRepeatPolicy,badgeLabel:opportunityPackagePolicies.badgeLabel,
+      }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
+        .innerJoin(opportunityPackagePolicies,eq(opportunityPackagePolicies.packageName,packages.name))
+        .where(and(eq(customerPackageSubscriptions.id,candidate.subscriptionId),eq(customerPackageSubscriptions.userId,input.userId),
+          eq(customerPackageSubscriptions.status,"active"),sql`${customerPackageSubscriptions.activationKey} LIKE 'auto-tier:%'`,
+          lte(customerPackageSubscriptions.startsAt,input.now),or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,input.now)),
+          eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,input.now)),or(isNull(packages.expiresAt),gt(packages.expiresAt,input.now)),
+          eq(opportunityPackagePolicies.enabled,true),eq(opportunityPackagePolicies.automaticDelivery,true))).limit(1).for("update"))[0];
+      if(row&&hasConfiguredTradingOfferPolicy(row)){selectedSubscription=row;selectedPolicy=row;break;}
+    }
+    if(!selectedSubscription||!selectedPolicy)return null;
+
+    const maxPending=Math.max(0,Number(selectedPolicy.maxPendingDeliveries||0));
+    if(maxPending<=0)return null;
+    const pending=(await tx.select({id:opportunityPopupEvents.id}).from(opportunityPopupEvents)
+      .where(and(eq(opportunityPopupEvents.userId,input.userId),eq(opportunityPopupEvents.packageId,Number(selectedSubscription.packageId)),
+        inArray(opportunityPopupEvents.deliveryStatus,["queued","in_progress","retry_wait"]))).limit(maxPending+1)).length;
+    if(pending>=maxPending)return null;
+
+    const catalogueSetting=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
+      .where(eq(appSettings.settingKey,"trade.companyCatalogue.adminState")).limit(1).for("update"))[0];
+    const catalogueState=parseCompanyCatalogueAdminState(String(catalogueSetting?.settingValue||"{}"));
+    const templateRows=await tx.select().from(opportunityGenerationTemplates)
+      .where(eq(opportunityGenerationTemplates.status,"approved")).orderBy(opportunityGenerationTemplates.id).for("update");
+    const templateIds=new Set(templateRows.map(row=>String(row.companyReferenceId)));
+    const approvedPool=buildCompanySpotlightPool(String(selectedPolicy.companyRotationCountryNames||""),catalogueState)
+      .filter(company=>templateIds.has(company.id));
+    if(!approvedPool.length)return null;
+
+    let company:any;
+    let rotationCycle:number|null=null;
+    let rotationSequence:number|null=null;
+    let poolFingerprint:string|null=null;
+    if(input.companyRotationEnabled&&Boolean(selectedPolicy.companyRotationEnabled)){
+      const stateKey=`trading.companyRotation.${input.userId}.${Number(selectedSubscription.packageId)}`;
+      await tx.insert(appSettings).values({settingKey:stateKey,settingValue:"",updatedBy:input.userId})
+        .onDuplicateKeyUpdate({set:{settingKey:stateKey}});
+      const priorRow=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
+        .where(eq(appSettings.settingKey,stateKey)).limit(1).for("update"))[0];
+      let priorState:CompanySpotlightState|null=null;
+      try{const parsed=JSON.parse(String(priorRow?.settingValue||""));if(parsed&&typeof parsed==="object")priorState=parsed as CompanySpotlightState;}catch{priorState=null;}
+      const selection=nextCompanySpotlight(approvedPool,priorState,input.userId,String(selectedSubscription.packageId),
+        selectedPolicy.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted");
+      company=selection.company;rotationCycle=selection.rotationCycle;rotationSequence=selection.rotationSequence;poolFingerprint=selection.poolFingerprint;
+      await tx.update(appSettings).set({settingValue:JSON.stringify(selection.state),updatedBy:input.userId,updatedAt:input.now}).where(eq(appSettings.settingKey,stateKey));
+    }else{
+      company=approvedPool[crypto.randomInt(0,approvedPool.length)];
+    }
+    const template=templateRows.filter(row=>row.companyReferenceId===company.id).sort((a,b)=>a.id-b.id)[0];
+    if(!template)return null;
+    const normalized=validateOpportunityGenerationTemplate({
+      templateName:template.templateName,companyReferenceId:template.companyReferenceId,symbol:template.symbol,
+      venueFrom:template.venueFrom,venueTo:template.venueTo,currency:template.currency,minimumMinor:Number(template.minimumMinor),
+      sourceReference:template.sourceReference,reviewNotes:template.reviewNotes,
+    });
+    const terms=selectOpportunityGenerationTerms(normalized,{
+      minimumPayoutRateBps:selectedPolicy.minimumPayoutRateBps==null?null:Number(selectedPolicy.minimumPayoutRateBps),
+      maximumPayoutRateBps:selectedPolicy.maximumPayoutRateBps==null?null:Number(selectedPolicy.maximumPayoutRateBps),
+      minimumTradeDurationSeconds:selectedPolicy.minimumTradeDurationSeconds==null?null:Number(selectedPolicy.minimumTradeDurationSeconds),
+      maximumTradeDurationSeconds:selectedPolicy.maximumTradeDurationSeconds==null?null:Number(selectedPolicy.maximumTradeDurationSeconds),
+    });
+    const currencyRows=await tx.select({code:currencyRegistry.code,scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,updatedAt:currencyRegistry.updatedAt})
+      .from(currencyRegistry).where(and(eq(currencyRegistry.enabled,true),eq(currencyRegistry.code,terms.currency))).limit(1);
+    const currencyRow=currencyRows[0];if(!currencyRow)return null;
+    const packageMinimum=packageUsdUnitsToNativeMinor(Number(selectedPolicy.minimumTradeUnits),terms.currency,[currencyRow]);
+    const packageMaximum=packageUsdUnitsToNativeMinor(Number(selectedPolicy.maximumTradeUnits),terms.currency,[currencyRow]);
+    const minimumMinor=Math.max(terms.minimumMinor,packageMinimum);
+    if(!Number.isSafeInteger(minimumMinor)||minimumMinor<=0||minimumMinor>packageMaximum)throw new Error("Approved template minimum is outside the active package's saved capital bounds.");
+    const displaySeconds=Math.max(1,Math.min(86400,Number(selectedPolicy.popupDisplayTargetSeconds||120)));
+    const closesAt=new Date(input.now.getTime()+Math.max(86_400,terms.tradeDurationSeconds,displaySeconds)*1000);
+    const rewardAt=new Date(input.now.getTime()+terms.tradeDurationSeconds*1000);
+    const companyMetadata={
+      rotationStateVersion:1,rotationCycle,rotationSequence,poolFingerprint,
+      repeatPolicy:selectedPolicy.companyRotationRepeatPolicy,
+      ticker:company.ticker,symbol:company.symbol,exchangeCode:company.exchangeCode,
+      tickerResearchStatus:company.tickerResearchStatus,tickerSource:company.tickerSource,
+      parentTicker:company.parentTicker,whyNoRealTicker:company.whyNoRealTicker,
+      tickerClassification:company.tickerClassification,countryCode:company.countryCode,
+      countryName:company.countryName,domain:company.domain,logoSourceName:company.logoSourceName,
+      logoSourceUrl:company.logoSourceUrl,listingStatus:company.listingStatus,lastVerifiedAt:company.lastVerifiedAt,
+      requiresManualVerification:company.requiresManualVerification,sourceConfidence:company.sourceConfidence,
+      sector:company.sector,headquartersCountry:company.headquartersCountry,instrumentType:company.instrumentType,
+      recordCompleteness:company.recordCompleteness,adminCatalogueStatus:"verified",referenceOnly:true,
+    };
+    const snapshot={
+      packageId:Number(selectedSubscription.packageId),packageSubscriptionId:Number(selectedSubscription.subscriptionId),
+      packageName:String(selectedSubscription.packageName),policyVersion:Number(selectedPolicy.policyVersion||1),
+      minimumTradeUnits:Number(selectedPolicy.minimumTradeUnits),maximumTradeUnits:Number(selectedPolicy.maximumTradeUnits),
+      minimumPayoutRateBps:Number(selectedPolicy.minimumPayoutRateBps),maximumPayoutRateBps:Number(selectedPolicy.maximumPayoutRateBps),
+      minimumTradeDurationSeconds:Number(selectedPolicy.minimumTradeDurationSeconds),maximumTradeDurationSeconds:Number(selectedPolicy.maximumTradeDurationSeconds),
+      packageMinimumMinor:packageMinimum,packageMaximumMinor:packageMaximum,
+      configuredProfitRateBps:terms.configuredPayoutRateBps,configuredDurationSeconds:terms.tradeDurationSeconds,minimumMinor,
+      symbol:terms.symbol,venueFrom:terms.venueFrom,venueTo:terms.venueTo,currency:terms.currency,
+      currencyRateUsd:Number(currencyRow.usdRate),currencyRateUpdatedAt:currencyRow.updatedAt?new Date(currencyRow.updatedAt).toISOString():null,
+      popupDisplayTargetSeconds:displaySeconds,badgeLabel:selectedPolicy.badgeLabel??null,
+      badgeStyle:["neutral","blue","purple","gold","green"].includes(String((selectedPolicy as any).badgeStyle))?String((selectedPolicy as any).badgeStyle):"neutral",
+      companyRotationEnabled:Boolean(selectedPolicy.companyRotationEnabled),companyRotationCountryNames:String(selectedPolicy.companyRotationCountryNames||""),
+      companyRotationRepeatPolicy:selectedPolicy.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
+      maxPendingDeliveries:Number(selectedPolicy.maxPendingDeliveries||0),
+      configuredPayout:true,payoutSemantics:terms.payoutSemantics,templateId:Number(template.id),templateVersion:Number(template.version),
+      sourceReference:terms.sourceReference,reviewNotes:terms.reviewNotes,companyReferenceId:company.id,companyRotation:companyMetadata,
+      generatedAt:input.now.toISOString(),generationBatchId:input.batchId,
+    };
+    const priorAssignmentRows=await tx.select({value:count()}).from(opportunityGenerationAssignments)
+      .where(and(eq(opportunityGenerationAssignments.userId,input.userId),eq(opportunityGenerationAssignments.packageSubscriptionId,Number(selectedSubscription.subscriptionId)),
+        gte(opportunityGenerationAssignments.generatedAt,input.quotaWindowStart)));
+    const sequence=Number(priorAssignmentRows[0]?.value||0)+1;
+    const generationKey=`auto:${input.userId}:${Number(selectedSubscription.subscriptionId)}:${input.quotaWindowStart.getTime()}:${sequence}`;
+    if(generationKey.length>180)throw new Error("Automatic opportunity generation key exceeds the supported limit.");
+    const offerInsert=await tx.insert(opportunityOffers).values({
+      assignedUserId:input.userId,assignedPackageId:Number(selectedSubscription.packageId),
+      assignedPackageSubscriptionId:Number(selectedSubscription.subscriptionId),generationTemplateId:Number(template.id),generationKey,
+      companyReferenceId:company.id,companyDisplayName:company.name,companyLogoUrl:String(company.logoUrl||"").slice(0,500),
+      companyReferenceMetadataJson:JSON.stringify(companyMetadata),configuredProfitRateBps:terms.configuredPayoutRateBps,
+      configuredDurationSeconds:terms.tradeDurationSeconds,packagePolicyVersionSnapshot:Number(selectedPolicy.policyVersion||1),
+      symbol:terms.symbol,venueFrom:terms.venueFrom,venueTo:terms.venueTo,currency:terms.currency,minimumMinor,
+      expectedRewardBps:terms.configuredPayoutRateBps,durationSeconds:terms.tradeDurationSeconds,
+      opensAt:input.now,closesAt,rewardAt,status:"open",
+    });
+    const offerId=Number(offerInsert[0].insertId);
+    if(!Number.isSafeInteger(offerId)||offerId<1)throw new Error("Generated opportunity ID was not persisted.");
+    await tx.insert(opportunityGenerationAssignments).values({
+      generationKey,batchId:input.batchId,userId:input.userId,offerId,templateId:Number(template.id),templateVersion:Number(template.version),
+      packageId:Number(selectedSubscription.packageId),packageSubscriptionId:Number(selectedSubscription.subscriptionId),packageName:String(selectedSubscription.packageName),
+      packagePolicyVersion:Number(selectedPolicy.policyVersion||1),companyReferenceId:company.id,
+      configuredProfitRateBps:terms.configuredPayoutRateBps,configuredDurationSeconds:terms.tradeDurationSeconds,
+      packageSnapshotJson:JSON.stringify(snapshot),status:"generated",generatedAt:input.now,assignedAt:input.now,expiresAt:closesAt,
+    });
+    return offerId;
+  });
+}
+
+const OPPORTUNITY_GENERATION_CONTROL_KEY="trade.opportunityGeneration.control";
+export class OpportunityGenerationControlVersionConflictError extends Error {}
+
+export async function getOpportunityGenerationControl(){
+  const raw=await getAppSetting(OPPORTUNITY_GENERATION_CONTROL_KEY);
+  try{
+    const parsed=JSON.parse(String(raw||""));
+    if(!parsed||typeof parsed!=="object"||typeof parsed.enabled!=="boolean"||!Number.isSafeInteger(parsed.version)||Number(parsed.version)<1)throw new Error("invalid");
+    return {available:true,enabled:parsed.enabled,version:Number(parsed.version),updatedBy:Number.isSafeInteger(parsed.updatedBy)?Number(parsed.updatedBy):null,
+      updatedAt:typeof parsed.updatedAt==="string"?parsed.updatedAt:null,reason:typeof parsed.reason==="string"?parsed.reason:null};
+  }catch{return {available:false,enabled:false,version:0,updatedBy:null,updatedAt:null,reason:null};}
+}
+
+export async function setOpportunityGenerationControl(input:{enabled:boolean;reason:string;expectedVersion:number},adminId:number){
+  if(!Number.isSafeInteger(adminId)||adminId<1)throw new Error("Authenticated administrator identity is required.");
+  const reason=String(input.reason||"").trim();if(reason.length<5||reason.length>500)throw new Error("Enter a generation-control reason of 5–500 characters.");
+  const db=await getDb();if(!db)throw new Error("Database is not available");
+  const changed=await db.transaction(async tx=>{
+    await tx.insert(appSettings).values({settingKey:OPPORTUNITY_GENERATION_CONTROL_KEY,settingValue:"",updatedBy:adminId})
+      .onDuplicateKeyUpdate({set:{settingKey:OPPORTUNITY_GENERATION_CONTROL_KEY}});
+    const row=(await tx.select().from(appSettings).where(eq(appSettings.settingKey,OPPORTUNITY_GENERATION_CONTROL_KEY)).limit(1).for("update"))[0];
+    let current:any={enabled:false,version:0};
+    try{const parsed=JSON.parse(String(row?.settingValue||""));if(parsed&&typeof parsed==="object"&&typeof parsed.enabled==="boolean"&&Number.isSafeInteger(parsed.version))current=parsed;}catch{current={enabled:false,version:0};}
+    if(Number(input.expectedVersion)!==Number(current.version))throw new OpportunityGenerationControlVersionConflictError("Generation control changed since it was loaded; refresh before saving.");
+    const nextVersion=Number(current.version)+1;
+    if(!Number.isSafeInteger(nextVersion)||nextVersion<1)throw new Error("Generation control version is invalid.");
+    const now=new Date();
+    const next={enabled:input.enabled,version:nextVersion,updatedBy:adminId,updatedAt:now.toISOString(),reason};
+    await tx.update(appSettings).set({settingValue:JSON.stringify(next),updatedBy:adminId,updatedAt:now}).where(eq(appSettings.settingKey,OPPORTUNITY_GENERATION_CONTROL_KEY));
+    await tx.insert(v5AuditEvents).values({actorUserId:adminId,action:"automatic_opportunity_generation_control_updated",entityType:"opportunity_generation_control",entityId:OPPORTUNITY_GENERATION_CONTROL_KEY,
+      reason,reference:`opportunity-generation-control:v${nextVersion}`,metadataJson:JSON.stringify({old:{enabled:Boolean(current.enabled),version:Number(current.version)},new:next})});
+    return next;
+  });
+  const verified=await getOpportunityGenerationControl();
+  if(!verified.available||verified.version!==changed.version||verified.enabled!==changed.enabled)throw new Error("Generation control was not verified by a fresh persisted read.");
+  return verified;
+}
+
+export async function listOpportunityGenerationTemplates(){
+  const db=await getDb();if(!db)throw new Error("Database is not available");
+  const rows=await db.select().from(opportunityGenerationTemplates).orderBy(desc(opportunityGenerationTemplates.updatedAt),desc(opportunityGenerationTemplates.id)).limit(1000);
+  const setting=(await db.select({settingValue:appSettings.settingValue}).from(appSettings).where(eq(appSettings.settingKey,"trade.companyCatalogue.adminState")).limit(1))[0];
+  const state=parseCompanyCatalogueAdminState(String(setting?.settingValue||"{}"));
+  return rows.map(row=>({ ...row,minimumMinor:Number(row.minimumMinor),company:getCompanyReferenceById(row.companyReferenceId)||null,
+    companyCurrentlyApproved:isCompanySpotlightDisplayAllowed(row.companyReferenceId,state) }));
+}
+
+export async function saveOpportunityGenerationTemplate(adminId:number,input:{id?:number;expectedVersion?:number;action:"draft"|"approve"|"disable"|"archive";template:unknown;reason:string}){
+  if(!Number.isSafeInteger(adminId)||adminId<1)throw new Error("Authenticated administrator identity is required.");
+  const reason=String(input.reason||"").trim();if(reason.length<5||reason.length>500)throw new Error("Enter an audit reason of 5–500 characters.");
+  const template=validateOpportunityGenerationTemplate(input.template);
+  if(!getCompanyReferenceById(template.companyReferenceId))throw new Error("Template company Logo ID does not exist in the source catalogue.");
+  if(input.id!==undefined&&(!Number.isSafeInteger(input.id)||input.id<1))throw new Error("Template ID is invalid.");
+  if(input.id!==undefined&&(!Number.isSafeInteger(input.expectedVersion)||Number(input.expectedVersion)<1))throw new Error("An expected template version is required when editing an existing template.");
+  if(input.id===undefined&&["disable","archive"].includes(input.action))throw new Error("A new template can only be saved as draft or approved.");
+  const db=await getDb();if(!db)throw new Error("Database is not available");
+  const id=await db.transaction(async tx=>{
+    const current=input.id===undefined?null:(await tx.select().from(opportunityGenerationTemplates).where(eq(opportunityGenerationTemplates.id,input.id)).limit(1).for("update"))[0]||null;
+    if(input.id!==undefined&&!current)throw new Error("Opportunity generation template was not found.");
+    if(current&&Number(current.version)!==Number(input.expectedVersion))throw new Error("Template changed since it was loaded; refresh before saving.");
+    if(input.action==="approve"){
+      const stateRow=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings).where(eq(appSettings.settingKey,"trade.companyCatalogue.adminState")).limit(1).for("update"))[0];
+      const state=parseCompanyCatalogueAdminState(String(stateRow?.settingValue||"{}"));
+      if(!isCompanySpotlightDisplayAllowed(template.companyReferenceId,state))throw new Error("Only currently verified, enabled, non-archived catalogue companies can be approved for opportunity generation.");
+    }
+    const nextStatus=input.action==="approve"?"approved":input.action==="disable"?"disabled":input.action==="archive"?"archived":"draft";
+    const now=new Date();
+    let templateId:number;
+    if(!current){
+      const result=await tx.insert(opportunityGenerationTemplates).values({
+        templateName:template.templateName,companyReferenceId:template.companyReferenceId,symbol:template.symbol,venueFrom:template.venueFrom,venueTo:template.venueTo,
+        currency:template.currency,minimumMinor:template.minimumMinor,sourceReference:template.sourceReference,reviewNotes:template.reviewNotes,status:nextStatus,version:1,
+        createdBy:adminId,updatedBy:adminId,approvedBy:input.action==="approve"?adminId:null,approvedAt:input.action==="approve"?now:null,
+      });
+      templateId=Number(result[0].insertId);
+    }else{
+      templateId=Number(current.id);
+      const update=await tx.update(opportunityGenerationTemplates).set({
+        templateName:template.templateName,companyReferenceId:template.companyReferenceId,symbol:template.symbol,venueFrom:template.venueFrom,venueTo:template.venueTo,
+        currency:template.currency,minimumMinor:template.minimumMinor,sourceReference:template.sourceReference,reviewNotes:template.reviewNotes,status:nextStatus,
+        version:Number(current.version)+1,updatedBy:adminId,approvedBy:input.action==="approve"?adminId:input.action==="draft"?null:current.approvedBy,
+        approvedAt:input.action==="approve"?now:input.action==="draft"?null:current.approvedAt,updatedAt:now,
+      }).where(and(eq(opportunityGenerationTemplates.id,templateId),eq(opportunityGenerationTemplates.version,Number(input.expectedVersion))));
+      if(Number((update as any)[0]?.affectedRows||0)!==1)throw new Error("Template update conflicted with a concurrent administrator edit.");
+    }
+    if(!Number.isSafeInteger(templateId)||templateId<1)throw new Error("Template persistence did not return an identifier.");
+    await tx.insert(v5AuditEvents).values({actorUserId:adminId,action:current?"automatic_opportunity_template_updated":"automatic_opportunity_template_created",
+      entityType:"opportunity_generation_template",entityId:String(templateId),reason,reference:`opportunity-generation-template:${templateId}:v${Number(current?.version||0)+1}`,
+      metadataJson:JSON.stringify({old:current?{status:current.status,version:current.version,companyReferenceId:current.companyReferenceId}:null,
+        new:{...template,status:nextStatus,version:Number(current?.version||0)+1,approvedBy:input.action==="approve"?adminId:null},action:input.action,reason})});
+    return templateId;
+  });
+  const persisted=(await db.select().from(opportunityGenerationTemplates).where(eq(opportunityGenerationTemplates.id,id)).limit(1))[0];
+  if(!persisted||persisted.status!==(input.action==="approve"?"approved":input.action==="disable"?"disabled":input.action==="archive"?"archived":"draft"))throw new Error("Template save was not verified by a fresh persisted read.");
+  return {...persisted,minimumMinor:Number(persisted.minimumMinor),company:getCompanyReferenceById(persisted.companyReferenceId)||null};
+}
+
+export async function getOpportunityGenerationMonitor(){
+  const db=await getDb();if(!db)return {available:false,control:await getOpportunityGenerationControl(),batches:[],today:{generated:0,delivered:0,failed:0},packageBreakdown:[],recentAssignments:[]};
+  const control=await getOpportunityGenerationControl();
+  const dayStart=new Date();dayStart.setUTCHours(0,0,0,0);
+  const [batches,assignments,todayGroups,todayBatchFailures,todayPackageGroups,policies]=await Promise.all([
+    db.select().from(opportunityGenerationBatches).orderBy(desc(opportunityGenerationBatches.startedAt)).limit(20),
+    db.select().from(opportunityGenerationAssignments).orderBy(desc(opportunityGenerationAssignments.generatedAt)).limit(100),
+    db.select({status:opportunityGenerationAssignments.status,total:count()}).from(opportunityGenerationAssignments)
+      .where(gte(opportunityGenerationAssignments.generatedAt,dayStart)).groupBy(opportunityGenerationAssignments.status),
+    db.select({total:sql<number>`COALESCE(SUM(${opportunityGenerationBatches.failures}),0)`}).from(opportunityGenerationBatches)
+      .where(gte(opportunityGenerationBatches.startedAt,dayStart)),
+    db.select({packageName:opportunityGenerationAssignments.packageName,status:opportunityGenerationAssignments.status,total:count()})
+      .from(opportunityGenerationAssignments).where(gte(opportunityGenerationAssignments.generatedAt,dayStart))
+      .groupBy(opportunityGenerationAssignments.packageName,opportunityGenerationAssignments.status),
+    db.select({packageName:opportunityPackagePolicies.packageName,enabled:opportunityPackagePolicies.enabled,automaticDelivery:opportunityPackagePolicies.automaticDelivery,
+      packageEnabled:packages.enabled,dailyOpportunityAllowance:packages.opportunitiesPerDay,
+      minimumPayoutRateBps:opportunityPackagePolicies.minimumPayoutRateBps,maximumPayoutRateBps:opportunityPackagePolicies.maximumPayoutRateBps,
+      minimumTradeDurationSeconds:opportunityPackagePolicies.minimumTradeDurationSeconds,maximumTradeDurationSeconds:opportunityPackagePolicies.maximumTradeDurationSeconds,
+      maxPopupsPerDay:opportunityPackagePolicies.maxPopupsPerDay,maxVisibleOffers:opportunityPackagePolicies.maxVisibleOffers,maxPendingDeliveries:opportunityPackagePolicies.maxPendingDeliveries,
+      minimumTradeUnits:opportunityPackagePolicies.minimumTradeUnits,maximumTradeUnits:opportunityPackagePolicies.maximumTradeUnits})
+      .from(opportunityPackagePolicies).innerJoin(packages,eq(packages.name,opportunityPackagePolicies.packageName)),
+  ]);
+  const todayByStatus=new Map(todayGroups.map(row=>[row.status,Number(row.total||0)]));
+  const todayGenerated=[...todayByStatus.values()].reduce((sum,value)=>sum+value,0);
+  const packageCounts=new Map<string,{generated:number;delivered:number;failed:number}>();
+  for(const row of todayPackageGroups){const countRow=packageCounts.get(row.packageName)||{generated:0,delivered:0,failed:0};const total=Number(row.total||0);countRow.generated+=total;if(row.status==="delivered")countRow.delivered+=total;if(row.status==="failed")countRow.failed+=total;packageCounts.set(row.packageName,countRow);}
+  return {available:true,control,batches,today:{generated:todayGenerated,delivered:todayByStatus.get("delivered")||0,failed:Number(todayBatchFailures[0]?.total||0)+(todayByStatus.get("failed")||0)},
+    packageBreakdown:policies.map(policy=>({packageName:policy.packageName,packageEnabled:Boolean(policy.packageEnabled),dailyOpportunityAllowance:policy.dailyOpportunityAllowance,
+      policyEnabled:Boolean(policy.enabled),automaticDelivery:Boolean(policy.automaticDelivery),
+      minimumPayoutRateBps:policy.minimumPayoutRateBps,maximumPayoutRateBps:policy.maximumPayoutRateBps,
+      minimumTradeDurationSeconds:policy.minimumTradeDurationSeconds,maximumTradeDurationSeconds:policy.maximumTradeDurationSeconds,
+      maxPopupsPerDay:policy.maxPopupsPerDay,maxVisibleOffers:policy.maxVisibleOffers,maxPendingDeliveries:policy.maxPendingDeliveries,
+      minimumTradeUnits:policy.minimumTradeUnits,maximumTradeUnits:policy.maximumTradeUnits,
+      ...(packageCounts.get(policy.packageName)||{generated:0,delivered:0,failed:0})})),
+    recentAssignments:assignments.map(row=>({...row,company:getCompanyReferenceById(row.companyReferenceId)||null}))};
+}
+
 export async function listOpportunityPackagePolicies() {
   const db=await getDb();
   if(!db) throw new Error("Database is not available");
@@ -3533,7 +3854,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
   }
   return {executed,missed:await listMissedOpportunities(userId)};
 }
-export async function listCustomerOpportunities(userId:number, options:{consumeDelivery?:boolean;workerCycle?:boolean;allowAutomaticExecution?:boolean}={}) {
+export async function listCustomerOpportunities(userId:number, options:{consumeDelivery?:boolean;workerCycle?:boolean;allowAutomaticExecution?:boolean;generationBatchId?:string;automaticGenerationEnabled?:boolean}={}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const globalPolicy=await getTradeGlobalControls();
   const now=new Date();
@@ -3541,7 +3862,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const settled:Array<{tradeId:number;rewardMinor:number;currency:string;totalMinor:number}>=[];
   if(options.workerCycle===true) await markDueTradesAwaitingConfirmation(userId);
   const controls=await ensureCustomerControls(userId);
-  const emptyResult=async (delivery:any)=>({offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery});
+  const emptyResult=async (delivery:any)=>({offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,generatedOpportunityId:null,delivery});
   if(controls.accountStatus!=="active") return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,accountInactive:true,popupPolicy:{}});
   const subscriptions=(await db.select({
     subscriptionId:customerPackageSubscriptions.id,packageId:packages.id,packageName:packages.name,
@@ -3597,7 +3918,10 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     popupPreAlertProbabilityBps:0,popupPreAlertSeconds:0,popupWithdrawalProbabilityBps:0,
     popupJitterSeconds:globalPolicy.randomizedTimingEnabled?Math.max(0,Number(policy?.maxIntervalSeconds||0)-Number(policy?.minIntervalSeconds||0)):0,
   };
-  const offerRows=await db.select().from(opportunityOffers).where(and(eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt).limit(5000);
+  let offerRows=await db.select().from(opportunityOffers).where(and(eq(opportunityOffers.assignedUserId,userId),eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt).limit(5000);
+  let generationAssignments=offerRows.length?await db.select().from(opportunityGenerationAssignments)
+    .where(and(eq(opportunityGenerationAssignments.userId,userId),inArray(opportunityGenerationAssignments.offerId,offerRows.map(row=>Number(row.id))))):[];
+  let generationAssignmentByOffer=new Map(generationAssignments.map(row=>[Number(row.offerId),row]));
   const tradeHistory=await listTrades(userId);
   const tradeOfferIds=new Set(tradeHistory.map((row:any)=>Number(row.offerId)));
   const missedHistory=await listMissedOpportunities(userId);
@@ -3713,14 +4037,52 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   let remainingQuota=deliveryCapacity.remainingQuota;
   const balancesSnapshot=await listBalances(userId);
   let newlyEligible:any[]=[];
+  let generatedOpportunityId:number|null=null;
   // Preserve the entitlement selected for newly created popups during this cycle,
   // so the later automatic-trade pass does not count that same quota slot twice.
   const assignedSubscriptionByOffer=new Map<number,any>();
+  const activeSubscriptionIds=eligibleSubscriptions.map(subscription=>Number(subscription.subscriptionId));
+  const hasUsableAssignedOffer=offerRows.some(offer=>activeSubscriptionIds.includes(Number(offer.assignedPackageSubscriptionId)));
+  if(options.workerCycle===true&&options.automaticGenerationEnabled===true&&options.generationBatchId&&
+    globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&
+    !formulaCooling&&remainingQuota>0&&!hasUsableAssignedOffer){
+    generatedOpportunityId=await generateAutomaticCustomerOpportunity({
+      userId,batchId:options.generationBatchId,now,quotaWindowStart:quotaWindow.start,
+      eligibleSubscriptions:eligibleSubscriptions.map(subscription=>({subscriptionId:Number(subscription.subscriptionId),packageId:Number(subscription.packageId),packageName:String(subscription.packageName)})),
+      companyRotationEnabled:Boolean(globalPolicy.companyRotationEnabled),
+    });
+    if(generatedOpportunityId){
+      offerRows=await db.select().from(opportunityOffers).where(and(eq(opportunityOffers.assignedUserId,userId),eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now)))
+        .orderBy(opportunityOffers.closesAt).limit(5000);
+      generationAssignments=offerRows.length?await db.select().from(opportunityGenerationAssignments)
+        .where(and(eq(opportunityGenerationAssignments.userId,userId),inArray(opportunityGenerationAssignments.offerId,offerRows.map(row=>Number(row.id))))):[];
+      generationAssignmentByOffer=new Map(generationAssignments.map(row=>[Number(row.offerId),row]));
+    }
+  }
   if(options.workerCycle===true&&globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&!formulaCooling&&remainingQuota>0){
     for(const offer of offerRows){
       if(remainingQuota<=0) break;
       const offerId=Number(offer.id);
       if(deliveredOfferIds.has(offerId)||activePopupOfferIds.has(offerId)||tradeOfferIds.has(offerId)||missedOfferIds.has(offerId)) continue;
+      const generatedOffer=Number(offer.assignedUserId)===userId&&Number(offer.generationTemplateId)>0;
+      const generationAssignment=generatedOffer?generationAssignmentByOffer.get(offerId):undefined;
+      let generationSnapshot:any=null;
+      if(generatedOffer){
+        if(!generationAssignment||!["generated","delivered"].includes(String(generationAssignment.status)))continue;
+        try{generationSnapshot=JSON.parse(String(generationAssignment.packageSnapshotJson||"{}"));}catch{continue;}
+        const minRate=Number(generationSnapshot.minimumPayoutRateBps),maxRate=Number(generationSnapshot.maximumPayoutRateBps);
+        const minDuration=Number(generationSnapshot.minimumTradeDurationSeconds),maxDuration=Number(generationSnapshot.maximumTradeDurationSeconds);
+        const savedPackageVersion=Number(generationSnapshot.policyVersion),savedPackageMinimum=Number(generationSnapshot.packageMinimumMinor),savedPackageMaximum=Number(generationSnapshot.packageMaximumMinor);
+        const savedDisplaySeconds=Number(generationSnapshot.popupDisplayTargetSeconds),savedCurrencyRate=Number(generationSnapshot.currencyRateUsd);
+        if(!Number.isSafeInteger(minRate)||!Number.isSafeInteger(maxRate)||!Number.isSafeInteger(minDuration)||!Number.isSafeInteger(maxDuration)||
+          !Number.isSafeInteger(savedPackageVersion)||savedPackageVersion<1||!Number.isSafeInteger(savedPackageMinimum)||savedPackageMinimum<=0||
+          !Number.isSafeInteger(savedPackageMaximum)||savedPackageMaximum<savedPackageMinimum||!Number.isSafeInteger(savedDisplaySeconds)||savedDisplaySeconds<1||savedDisplaySeconds>86400||
+          !Number.isFinite(savedCurrencyRate)||savedCurrencyRate<=0||generationSnapshot.currency!==offer.currency||generationSnapshot.symbol!==offer.symbol||
+          generationSnapshot.companyReferenceId!==offer.companyReferenceId||
+          Number(offer.expectedRewardBps)!==Number(generationAssignment.configuredProfitRateBps)||Number(offer.durationSeconds)!==Number(generationAssignment.configuredDurationSeconds)||
+          Number(offer.expectedRewardBps)<minRate||Number(offer.expectedRewardBps)>maxRate||Number(offer.durationSeconds)<minDuration||Number(offer.durationSeconds)>maxDuration||
+          Number(offer.minimumMinor)!==Number(generationSnapshot.minimumMinor))continue;
+      }
       const currencyRow=currencyRows.find((row:any)=>String(row.code).toUpperCase()===String(offer.currency).toUpperCase());
       if(!currencyRow) continue;
       // The administrator's rate/duration bounds filter published opportunities.
@@ -3731,10 +4093,11 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
          !Number.isSafeInteger(publishedDurationSeconds)||publishedDurationSeconds<10||publishedDurationSeconds>86400) continue;
       let selected:any=null;
       for(const candidate of eligibleSubscriptions){
+        if(Number(offer.assignedPackageSubscriptionId)!==Number(candidate.subscriptionId)||Number(offer.assignedPackageId)!==Number(candidate.packageId)) continue;
         if(!subscriptionHasQuota(candidate)) continue;
         const candidatePolicy=policyByName.get(candidate.packageName);
-        const configuredMinimum=candidatePolicy?packageUsdUnitsToNativeMinor(Number(candidatePolicy.minimumTradeUnits),String(offer.currency),currencyRows):Number(offer.minimumMinor);
-        const configuredMaximum=candidatePolicy?Math.max(configuredMinimum,packageUsdUnitsToNativeMinor(Number(candidatePolicy.maximumTradeUnits),String(offer.currency),currencyRows)):Number.MAX_SAFE_INTEGER;
+        const configuredMinimum=generatedOffer?Number(generationSnapshot.packageMinimumMinor):candidatePolicy?packageUsdUnitsToNativeMinor(Number(candidatePolicy.minimumTradeUnits),String(offer.currency),currencyRows):Number(offer.minimumMinor);
+        const configuredMaximum=generatedOffer?Number(generationSnapshot.packageMaximumMinor):candidatePolicy?Math.max(configuredMinimum,packageUsdUnitsToNativeMinor(Number(candidatePolicy.maximumTradeUnits),String(offer.currency),currencyRows)):Number.MAX_SAFE_INTEGER;
         const terms=calculateTradeTerms(userId,offer,Math.max(Number(offer.minimumMinor),configuredMinimum));
         const minimumMinor=Math.max(Number(offer.minimumMinor),Number(terms.minimumMinor||0),configuredMinimum);
         if(!Number.isSafeInteger(minimumMinor)||minimumMinor<=0||minimumMinor>configuredMaximum) continue;
@@ -3748,20 +4111,26 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(configured.maxBurstSize||0)})) break;
       // Select one administrator-configured rate and duration exactly once. The
       // selection is persisted with the popup and reused by retries/trade allocation.
-      const configuredProfitRateBps=chooseInclusiveInteger(Number(configured.minimumPayoutRateBps),Number(configured.maximumPayoutRateBps));
-      const configuredDurationSeconds=chooseInclusiveInteger(Number(configured.minimumTradeDurationSeconds),Number(configured.maximumTradeDurationSeconds));
-      const configuredPopupDisplaySeconds=Number(configured.popupDisplayTargetSeconds);
+      const configuredProfitRateBps=generatedOffer?Number(offer.configuredProfitRateBps):chooseInclusiveInteger(Number(configured.minimumPayoutRateBps),Number(configured.maximumPayoutRateBps));
+      const configuredDurationSeconds=generatedOffer?Number(offer.configuredDurationSeconds):chooseInclusiveInteger(Number(configured.minimumTradeDurationSeconds),Number(configured.maximumTradeDurationSeconds));
+      const savedBounds=generatedOffer?generationSnapshot:{minimumPayoutRateBps:configured.minimumPayoutRateBps,maximumPayoutRateBps:configured.maximumPayoutRateBps,minimumTradeDurationSeconds:configured.minimumTradeDurationSeconds,maximumTradeDurationSeconds:configured.maximumTradeDurationSeconds};
+      if(!Number.isSafeInteger(configuredProfitRateBps)||configuredProfitRateBps<Number(savedBounds.minimumPayoutRateBps)||configuredProfitRateBps>Number(savedBounds.maximumPayoutRateBps)||
+        !Number.isSafeInteger(configuredDurationSeconds)||configuredDurationSeconds<Number(savedBounds.minimumTradeDurationSeconds)||configuredDurationSeconds>Number(savedBounds.maximumTradeDurationSeconds)) continue;
+      const configuredPopupDisplaySeconds=generatedOffer?Number(generationSnapshot.popupDisplayTargetSeconds):Number(configured.popupDisplayTargetSeconds);
       if(!Number.isSafeInteger(configuredPopupDisplaySeconds)||configuredPopupDisplaySeconds<1||configuredPopupDisplaySeconds>86400) continue;
       newlyEligible.push({...offer,packageId:Number(subscription.packageId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
         minimumMinor:selected.minimumMinor,packageMinimumTradeMinor:selected.configuredMinimum,packageMaximumTradeMinor:selected.configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
         expectedRewardBps:configuredProfitRateBps,configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds,
-        durationSeconds:configuredDurationSeconds,policyVersion:Number(configured.policyVersion||1),packagePolicyVersionSnapshot:Number(configured.policyVersion||1),
-        badgeLabel:configured.badgeLabel==null?null:String(configured.badgeLabel),packageBadgeLabel:configured.badgeLabel==null?null:String(configured.badgeLabel),
-        badgeStyle:["neutral","blue","purple","gold","green"].includes(String(configured.badgeStyle))?String(configured.badgeStyle):"neutral",
-        companyRotationEnabled:globalPolicy.companyRotationEnabled,
-        companyRotationCountryNames:String(configured.companyRotationCountryNames||""),
-        companyRotationRepeatPolicy:configured.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted"});
+        durationSeconds:configuredDurationSeconds,policyVersion:generatedOffer?Number(generationSnapshot.policyVersion):Number(configured.policyVersion||1),
+        packagePolicyVersionSnapshot:generatedOffer?Number(generationSnapshot.policyVersion):Number(configured.policyVersion||1),
+        badgeLabel:(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel)==null?null:String(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel),
+        packageBadgeLabel:(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel)==null?null:String(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel),
+        badgeStyle:generatedOffer&&["neutral","blue","purple","gold","green"].includes(String(generationSnapshot.badgeStyle))?String(generationSnapshot.badgeStyle):["neutral","blue","purple","gold","green"].includes(String(configured.badgeStyle))?String(configured.badgeStyle):"neutral",
+        companyRotationEnabled:generatedOffer?Boolean(generationSnapshot.companyRotationEnabled):globalPolicy.companyRotationEnabled,
+        companyRotationCountryNames:generatedOffer?String(generationSnapshot.companyRotationCountryNames||""):String(configured.companyRotationCountryNames||""),
+        companyRotationRepeatPolicy:generatedOffer?generationSnapshot.companyRotationRepeatPolicy:configured.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
+        companyReferenceId:offer.companyReferenceId??null,companyDisplayName:offer.companyDisplayName??null,companyLogoUrl:offer.companyLogoUrl??null,companyReferenceMetadataJson:offer.companyReferenceMetadataJson??null});
       assignedSubscriptionByOffer.set(Number(offer.id),subscription);
       usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
       remainingQuota--;
@@ -3779,6 +4148,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         durationSeconds:Number(offer.configuredDurationSeconds),badgeLabel:offer.badgeLabel??null,packageBadgeLabel:offer.packageBadgeLabel??null,badgeStyle:offer.badgeStyle||"neutral",
         companyRotationEnabled:Boolean(offer.companyRotationEnabled),companyRotationCountryNames:String(offer.companyRotationCountryNames||""),
         companyRotationRepeatPolicy:offer.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
+        companyReferenceId:offer.companyReferenceId??null,companyDisplayName:offer.companyDisplayName??null,companyLogoUrl:offer.companyLogoUrl??null,companyReferenceMetadataJson:offer.companyReferenceMetadataJson??null,
         balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
         marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt,publishedExpectedRewardBps:Number(offer.expectedRewardBps),publishedDurationSeconds:Number(offer.durationSeconds),configuredProfitRateBps:Number(offer.configuredProfitRateBps),configuredDurationSeconds:Number(offer.configuredDurationSeconds)})};
     }));
@@ -3900,7 +4270,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     });
   }
   const globalDeliveryEnabled=globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled;
-  return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{enabled:globalDeliveryEnabled,globalPolicyPaused:!globalDeliveryEnabled,packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,
+  return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,generatedOpportunityId,delivery:{enabled:globalDeliveryEnabled,globalPolicyPaused:!globalDeliveryEnabled,packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,
     remainingDailyQuota:Math.max(0,deliveryCapacity.dailyRemaining-newlyEligible.length),
     remainingVisibleSlots:Math.max(0,deliveryCapacity.visibleRemaining-newlyEligible.length),
     remainingQuota,activeVisibleCount:activeVisibleCount+newlyEligible.length,schedulingPeriod:effectiveSchedulingPeriod,
@@ -3967,13 +4337,26 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
   // pop-up delivery. Continue processing eligible customers while a trade is open,
   // but suppress the automatic-execution pass for this cycle.
   const {customers,batchSize}=await claimAutoTradeCycleCustomers(input);
+  const generationControl=await getOpportunityGenerationControl();
+  const generationBatchId=crypto.randomUUID();
+  const db=await getDb();if(!db)throw new Error("Database is not available");
+  const staleBatchCutoff=new Date(Date.now()-5*60_000);
+  await db.update(opportunityGenerationBatches).set({status:"partial",failures:sql`${opportunityGenerationBatches.failures}+1`,
+    failureSummary:JSON.stringify({errorType:"WorkerInterrupted",reason:"Generation batch remained running beyond five minutes; persisted customer assignments were preserved for idempotent retry."}),
+    completedAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityGenerationBatches.status,"running"),lt(opportunityGenerationBatches.startedAt,staleBatchCutoff)));
+  await db.insert(opportunityGenerationBatches).values({id:generationBatchId,status:"running",batchSize,customersScanned:0,opportunitiesGenerated:0,failures:0});
   let allocations=0;
+  let generated=0;
+  let failures=0;
+  const failureDetails:Array<{userId:number;reason:string;errorType:string}> = [];
   for(const customer of customers){
     try{
       const result=await listCustomerOpportunities(customer.id,{
         workerCycle:true,consumeDelivery:false,allowAutomaticExecution:!pausedUntilSettled,
+        generationBatchId,automaticGenerationEnabled:generationControl.available&&generationControl.enabled,
       });
       allocations+=result.autoTrades.length;
+      if(result.generatedOpportunityId)generated++;
       for(const trade of result.autoTrades){
         const notices=[
           {title:"Automatic trading allocation confirmed",body:trade.symbol+" was allocated from your available "+trade.currency+" balance.",eventKey:"auto-trade-allocation:"+trade.tradeId,category:"trading",priority:"normal"},
@@ -3983,11 +4366,21 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
         if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] Automatic allocation notice failed after ledger commit.");
       }
     }catch(error){
+      failures++;
+      if(failureDetails.length<100){
+        const reason=(error instanceof Error?error.message:"Unknown customer-cycle failure").replace(/[\r\n\t]+/g," ").trim().slice(0,240);
+        failureDetails.push({userId:Number(customer.id),reason:reason||"Unknown customer-cycle failure",errorType:error instanceof Error?error.name:"UnknownError"});
+      }
       console.error("[AutoTrade] Customer cycle failed:",error instanceof Error?error.name:"UnknownError");
     }
   }
+  await db.update(opportunityGenerationBatches).set({
+    status:failures>0?"partial":"completed",customersScanned:customers.length,
+    opportunitiesGenerated:generated,failures,failureSummary:failures?JSON.stringify({customers:failureDetails,omitted:Math.max(0,failures-failureDetails.length)}):null,
+    completedAt:new Date(),updatedAt:new Date(),
+  }).where(eq(opportunityGenerationBatches.id,generationBatchId));
   return {
-    customers:customers.length,allocations,batchSize,
+    customers:customers.length,allocations,batchSize,generated,generationBatchId,generationControlEnabled:generationControl.available&&generationControl.enabled,
     ...(pausedUntilSettled?{pausedUntilSettled:true,outstandingTrades}:{}),
   };
 }
