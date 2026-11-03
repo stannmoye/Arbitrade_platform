@@ -85,7 +85,16 @@ describe("global Trade master policy ownership and migration", () => {
     expect(migration).toContain("MIN(`companyRotationEnabled`) = 1");
     expect(migration).toContain("MIN(`randomizationEnabled`) = 1");
     expect(migration).toContain("MIN(`burstEnabled`) = 1");
-    expect(migration).toContain("'requirePreviousSettlement', TRUE");
+    const canonicalBooleanExpressions = [
+      "'tierPolicyMasterEnabled', JSON_EXTRACT(IF(COUNT(*) > 0 AND MIN(`enabled`) = 1, 'true', 'false'), '$')",
+      "'informationalPopupDeliveryEnabled', JSON_EXTRACT(IF(COUNT(*) > 0 AND MIN(`automaticDelivery`) = 1, 'true', 'false'), '$')",
+      "'companyRotationEnabled', JSON_EXTRACT(IF(COUNT(*) > 0 AND MIN(`companyRotationEnabled`) = 1, 'true', 'false'), '$')",
+      "'randomizedTimingEnabled', JSON_EXTRACT(IF(COUNT(*) > 0 AND MIN(`randomizationEnabled`) = 1, 'true', 'false'), '$')",
+      "'burstDeliveryEnabled', JSON_EXTRACT(IF(COUNT(*) > 0 AND MIN(`burstEnabled`) = 1, 'true', 'false'), '$')",
+      "'requirePreviousSettlement', JSON_EXTRACT('true', '$')",
+    ];
+    for (const expression of canonicalBooleanExpressions) expect(migration).toContain(expression);
+    expect(migration).not.toContain("'requirePreviousSettlement', TRUE");
     expect(migration).toContain("'tierPolicyDisabledPackages'");
     expect(migration).toContain("'conflicts', JSON_OBJECT(");
     expect(migration).toContain("JSON_EXTRACT(IF(SUM(`enabled` = 0) > 0 AND SUM(`enabled` = 1) > 0, 'true', 'false'), '$')");

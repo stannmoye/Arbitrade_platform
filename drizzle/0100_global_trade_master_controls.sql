@@ -6,12 +6,12 @@ INSERT INTO `app_settings` (`settingKey`,`settingValue`,`updatedBy`)
 SELECT
   'trade.globalControls',
   JSON_OBJECT(
-    'tierPolicyMasterEnabled', IF(COUNT(*) > 0 AND MIN(`enabled`) = 1, TRUE, FALSE),
-    'informationalPopupDeliveryEnabled', IF(COUNT(*) > 0 AND MIN(`automaticDelivery`) = 1, TRUE, FALSE),
-    'companyRotationEnabled', IF(COUNT(*) > 0 AND MIN(`companyRotationEnabled`) = 1, TRUE, FALSE),
-    'randomizedTimingEnabled', IF(COUNT(*) > 0 AND MIN(`randomizationEnabled`) = 1, TRUE, FALSE),
-    'burstDeliveryEnabled', IF(COUNT(*) > 0 AND MIN(`burstEnabled`) = 1, TRUE, FALSE),
-    'requirePreviousSettlement', TRUE,
+    'tierPolicyMasterEnabled', JSON_EXTRACT(IF(COUNT(*) > 0 AND MIN(`enabled`) = 1, 'true', 'false'), '$'),
+    'informationalPopupDeliveryEnabled', JSON_EXTRACT(IF(COUNT(*) > 0 AND MIN(`automaticDelivery`) = 1, 'true', 'false'), '$'),
+    'companyRotationEnabled', JSON_EXTRACT(IF(COUNT(*) > 0 AND MIN(`companyRotationEnabled`) = 1, 'true', 'false'), '$'),
+    'randomizedTimingEnabled', JSON_EXTRACT(IF(COUNT(*) > 0 AND MIN(`randomizationEnabled`) = 1, 'true', 'false'), '$'),
+    'burstDeliveryEnabled', JSON_EXTRACT(IF(COUNT(*) > 0 AND MIN(`burstEnabled`) = 1, 'true', 'false'), '$'),
+    'requirePreviousSettlement', JSON_EXTRACT('true', '$'),
     'policyVersion', 1,
     'updatedBy', NULL,
     'updatedAt', NULL
