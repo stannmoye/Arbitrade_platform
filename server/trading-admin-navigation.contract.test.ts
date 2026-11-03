@@ -275,7 +275,8 @@ describe("Trade Settings owner route isolation", () => {
     expect(adminApp).toContain('section==="tradeAdminGuide"&&<TradeSettingsAdminGuide');
     expect(guide).toContain("onNavigate");
     expect(guide).toContain("does not save settings or perform operational actions");
-    expect(guide).toContain("not as a separate global master record");
+    expect(guide).toContain("single persisted <code>trade.globalControls</code> record");
+    expect(guide).toContain("Legacy per-package master columns are inert compatibility fields");
     expect(guide).toContain("Automatic financial execution remains hard-disabled");
     expect(guide).not.toMatch(/<form\b|<input\b|<textarea\b|useMutation\(|\.mutate\(/);
   });

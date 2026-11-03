@@ -23,7 +23,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
   <div class="hero-meta">
     <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 12h18"/></svg> Admin guide</span>
     <span class="pill">Based on the current portal source</span>
-    <span class="pill">Last reviewed: 30 October 2026</span>
+    <span class="pill">Policy field notes updated: 3 November 2026</span>
     <span class="pill">Simple HTML · no external libraries</span>
   </div>
 </header>
@@ -84,7 +84,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <tr><td><strong>Company Catalogue</strong></td><td>Reference records</td><td>Search and manage company reference records and their approval status. This page does not repeat rotation settings.</td></tr>
 <tr><td><strong>Capital &amp; Wallet Funding Rules</strong></td><td>Capital policy</td><td>Review required capital and permitted wallet funding rules.</td></tr>
 <tr><td><strong>Fees &amp; Earnings Limits</strong></td><td>Fee policy</td><td>Configure Trading fees and review earnings ceilings.</td></tr>
-<tr><td><strong>Retries &amp; Carry-Forward</strong></td><td>Recovery policy</td><td>Set bounded retry limits and view carry-forward availability. Carry-forward is not currently enabled.</td></tr>
+<tr><td><strong>Retries &amp; Carry-Forward</strong></td><td>Recovery policy</td><td>Review retry settings and carry-forward availability. The stored per-tier delivery-attempt field is not currently consumed by the worker; carry-forward is not currently enabled.</td></tr>
 <tr><td><strong>Active &amp; Pending Opportunities</strong></td><td>Lifecycle monitoring</td><td>Review delivery events waiting for customer or system action.</td></tr>
 <tr><td><strong>Settlement &amp; Reconciliation</strong></td><td>Ledger review</td><td>Inspect confirmed outcomes and reconcile trade records against wallet/ledger entries.</td></tr>
 <tr><td><strong>System Pause &amp; Safety</strong></td><td>Global pause</td><td>Pause or resume new allocations with an audit reason while preserving pending work and reconciliation.</td></tr>
@@ -181,14 +181,14 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <h3>Delivery cadence and display</h3>
 <div class="field-list">
 <div class="field"><b>Minimum / maximum interval (seconds)</b><span>Lower and upper spacing between deliveries. The lower bound must not exceed the upper bound.</span></div>
-<div class="field"><b>Expanded pop-up display duration</b><span>How long the expanded presentation stays visible. It must not cancel an active trade.</span></div>
+<div class="field"><b>Expanded pop-up display duration</b><span>Supported range: 1–86,400 seconds (1 second–24 hours). Older saved values above one day are not silently migrated; lower and save them before publishing further tier-policy changes. This is presentation-only and must not cancel an active trade.</span></div>
 <div class="field"><b>Completed card display duration</b><span>How long a completed result card remains visible.</span></div>
 <div class="field"><b>Interval after completion</b><span>Extra waiting time after completion before another delivery is considered.</span></div>
-<div class="field"><b>Maximum pending deliveries</b><span>Upper limit for pending delivery records in this tier's policy.</span></div>
+<div class="field"><b>Maximum pending deliveries</b><span>Stored and range-validated setting (0–1,000), but it is not enforced by the delivery worker. Zero is not a runtime no-delivery switch; validation rejects a positive daily target when this value is zero.</span></div>
 </div>
 <h3>Trade retry and concurrency limits</h3>
 <div class="field-list">
-<div class="field"><b>Maximum delivery attempts</b><span>How many attempts the delivery process may make before it stops retrying.</span></div>
+<div class="field"><b>Maximum delivery attempts</b><span>Stored and range-validated (1–20), but the current delivery worker does not read this field. Retries follow the separate per-opportunity policy; changing this value has no current effect.</span></div>
 <div class="field"><b>Maximum trade attempts per day</b><span>Daily cap on automatic trade attempts.</span></div>
 <div class="field"><b>Trade retry delay (seconds)</b><span>Wait between eligible technical retry attempts. Current input accepts 5–3,600 seconds.</span></div>
 <div class="field"><b>Maximum successful trades per day</b><span>Daily cap on successful trades for the tier.</span></div>
@@ -350,7 +350,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <li><strong>Set capital limits that customers can actually meet.</strong> Keep the minimum and maximum coherent. Remember that the current tier policy editor expresses these capital bounds in whole USD units.</li>
 <li><strong>Set complete rate and duration bounds.</strong> Both ends of each range must be present. Keep configured rates and durations within the approved terms and system limits.</li>
 <li><strong>Make customer display clear.</strong> Use a short badge label and a matching built-in style. Keep popup display time separate from package duration and trade duration.</li>
-<li><strong>Set conservative retry limits.</strong> Allow only bounded technical retries with a clear delay. Carry-forward is not currently available in the menu.</li>
+<li><strong>Review retry settings carefully.</strong> The stored per-tier maximum-delivery-attempt field is not currently consumed by the delivery worker; do not rely on it to cap retries. Carry-forward is not currently available.</li>
 <li><strong>Check settlement and fee rules.</strong> Confirm the fee basis and rounding method. Require evidence before confirming actual settlement.</li>
 <li><strong>Test the global pause.</strong> Confirm that pausing blocks new allocations but does not stop existing settlement or reconciliation.</li>
 <li><strong>Check Worker Health and delivery reports.</strong> Make sure the server records heartbeats and successful cycles. Investigate stale, degraded or dead-lettered items before enabling more volume.</li>

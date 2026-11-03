@@ -14,6 +14,6 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["server/**/*.test.ts", "server/**/*.spec.ts", "client/src/contexts/theme-policy.test.ts", "client/src/notification-sound-*.test.ts", "client/src/lib/**/*.test.ts", "client/src/trading-policy-patches.test.ts"],
+    include: ["server/**/*.test.ts", "server/**/*.spec.ts", "client/src/contexts/theme-policy.test.ts", "client/src/notification-sound-*.test.ts", "client/src/lib/**/*.test.ts", "client/src/trading-policy-patches.test.ts", "client/src/trade-settings-*.test.ts", "client/src/trading-delivery-policy-*.test.ts"],
   },
 });

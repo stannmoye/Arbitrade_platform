@@ -1041,11 +1041,13 @@ function AdminTradingPolicySettings({focus}:{focus?:"policy"|"quotas"|"delivery"
     const validRateBounds=minRate!==null&&maxRate!==null&&Number.isSafeInteger(minRate)&&Number.isSafeInteger(maxRate)&&minRate>=1&&maxRate>=minRate&&maxRate<=5000;
     const minDuration=row.minimumTradeDurationSeconds,maxDuration=row.maximumTradeDurationSeconds;
     const validDurationBounds=minDuration!==null&&maxDuration!==null&&Number.isSafeInteger(minDuration)&&Number.isSafeInteger(maxDuration)&&minDuration>=10&&maxDuration>=minDuration&&maxDuration<=86400;
+    const validDisplayDurations=Number.isSafeInteger(row.popupDisplayTargetSeconds)&&row.popupDisplayTargetSeconds>=1&&row.popupDisplayTargetSeconds<=86400&&Number.isSafeInteger(row.completionDisplaySeconds)&&row.completionDisplaySeconds>=1&&row.completionDisplaySeconds<=3600;
     const requiresConfiguredOfferTerms=row.enabled&&row.automaticDelivery;
     const validAutomationSwitches=!row.automaticTradingEnabled||(row.enabled&&row.automaticDelivery);
     return typeof row.enabled==="boolean"&&typeof row.automaticDelivery==="boolean"&&typeof row.automaticTradingEnabled==="boolean"&&validAutomationSwitches&&
       row.badgeLabel.length<=40&&["neutral","blue","purple","gold","green"].includes(row.badgeStyle)&&
       (!requiresConfiguredOfferTerms||(validRateBounds&&validDurationBounds))&&
+      validDisplayDurations&&
       Number.isSafeInteger(row.minimumTradeUnits)&&Number.isSafeInteger(row.maximumTradeUnits)&&row.minimumTradeUnits>=1&&row.maximumTradeUnits>=row.minimumTradeUnits&&
       Number.isSafeInteger(row.minIntervalSeconds)&&Number.isSafeInteger(row.maxIntervalSeconds)&&row.minIntervalSeconds<=row.maxIntervalSeconds&&
       Number.isSafeInteger(row.minSettlementDelaySeconds)&&Number.isSafeInteger(row.maxSettlementDelaySeconds)&&row.minSettlementDelaySeconds<=row.maxSettlementDelaySeconds&&settlementTimingSafe;

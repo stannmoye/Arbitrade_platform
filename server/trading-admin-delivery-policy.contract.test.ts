@@ -6,6 +6,7 @@ const policyEditor = readFileSync(new URL("../client/src/components/TradingDeliv
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
+const staticGuide = readFileSync(new URL("../client/public/trade-admin-guide.html", import.meta.url), "utf8");
 
 describe("administrator Trading delivery policy controls", () => {
   it("keeps timing, retry, concurrency and reward eligibility fields in the tier editor", () => {
@@ -45,6 +46,10 @@ describe("administrator Trading delivery policy controls", () => {
     expect(app).toContain("buildChangedPolicyPatches(policyBaseline,policyRows,TRADING_TIER_POLICY_PATCH_KEYS)");
     expect(router).toContain("maxPopupsPerDay: z.number().int().min(1).max(1000).optional()");
     expect(router).toContain("maxVisibleOffers: z.number().int().min(1).max(10000).optional()");
+    expect(router).toContain("popupDisplayTargetSeconds: z.number().int().min(1).max(86400).optional()");
+    expect(policyEditor).toContain('min="1" max="86400" step="1"');
+    expect(app).toContain("row.popupDisplayTargetSeconds<=86400");
+    expect(app).toContain("row.completionDisplaySeconds<=3600");
     expect(router).toContain("minimumTradeUnits: z.number().int().min(1).max(2147483647).optional()");
     const start = router.indexOf("updatePackagePolicies: adminProcedure.input");
     const end = router.indexOf("createOffer: adminProcedure.input", start);
@@ -81,5 +86,12 @@ describe("administrator Trading delivery policy controls", () => {
     expect(app).toContain("existing customer and trade snapshots were preserved.");
     expect(policyEditor).toContain("This is a minimum eligibility constraint, not a generated or guaranteed return.");
     expect(database).toContain("packagePolicyVersionSnapshot:snapshotVersion");
+  });
+
+  it("keeps the static admin guide honest about inactive delivery caps and legacy display repair", () => {
+    expect(staticGuide).toContain("not enforced by the delivery worker");
+    expect(staticGuide).toContain("does not read this field");
+    expect(staticGuide).toContain("not silently migrated");
+    expect(staticGuide).toContain("1–86,400 seconds");
   });
 });

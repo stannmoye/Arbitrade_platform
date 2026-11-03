@@ -693,7 +693,7 @@ export const appRouter = router({
         schedulingPeriod: z.enum(["rolling_24h","calendar_day"]).optional(),
         minIntervalSeconds: z.number().int().min(0).max(604800).optional(),
         maxIntervalSeconds: z.number().int().min(0).max(604800).optional(),
-        popupDisplayTargetSeconds: z.number().int().min(1).max(604800).optional(),
+        popupDisplayTargetSeconds: z.number().int().min(1).max(86400).optional(),
         completionDisplaySeconds: z.number().int().min(1).max(3600).optional(),
         postCompletionIntervalSeconds: z.number().int().min(0).max(604800).optional(),
         maxPendingDeliveries: z.number().int().min(0).max(1000).optional(),
