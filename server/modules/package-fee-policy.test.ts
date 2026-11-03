@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeImmutableTradeFeeSnapshot, normalizeLegacyTradeFeePolicy, resolvePackageFeePolicyWrite, selectLatestEffectivePackageFeePolicy } from "./package-fee-policy";
+import { classifyTradeFeeSnapshot, normalizeImmutableTradeFeeSnapshot, normalizeLegacyTradeFeePolicy, resolvePackageFeePolicyWrite, selectLatestEffectivePackageFeePolicy } from "./package-fee-policy";
 
 const policy = (version: number, effectiveAt: string, feeRateBps = version * 100) => ({
   packageId: 42,
@@ -63,6 +63,13 @@ describe("package fee effective-time resolution", () => {
       .toThrow(/valid immutable fee-policy version/);
     expect(() => normalizeImmutableTradeFeeSnapshot({ feeRateBps: 1500, roundingMode: "half_up", policyVersion: 1 }))
       .toThrow(/match migration defaults/);
+  });
+
+  it("labels migration-default legacy fee fields for read-only review without treating them as evidence", () => {
+    expect(classifyTradeFeeSnapshot({ feeRateBps: 1500, roundingMode: "half_up", policyVersion: 1 }))
+      .toBe("unsnapshotted_needs_review");
+    expect(classifyTradeFeeSnapshot({ feeRateBps: 2375, roundingMode: "half_even", policyVersion: 2 }))
+      .toBe("snapshotted");
   });
 
   it("fails closed for missing, blank, or invalid legacy global settings instead of applying defaults", () => {

@@ -189,6 +189,9 @@ try {
     status: "confirmed",
     settlementStatus: "pending",
     lifecycleStage: "Awaiting Settlement Confirmation",
+    feePolicyVersion: 2,
+    platformFeeRateBps: 2375,
+    platformFeeRoundingMode: "half_even",
   });
   const settlementTradeId = Number(settlementTradeInsert[0].insertId);
   tradeIds.push(settlementTradeId);
@@ -289,6 +292,9 @@ try {
     status: "confirmed",
     settlementStatus: "pending",
     lifecycleStage: "Awaiting Settlement Confirmation",
+    feePolicyVersion: 2,
+    platformFeeRateBps: 2375,
+    platformFeeRoundingMode: "half_even",
   });
   const immediateTradeId = Number(immediateTradeInsert[0].insertId);
   tradeIds.push(immediateTradeId);

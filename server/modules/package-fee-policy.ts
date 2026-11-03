@@ -14,6 +14,18 @@ export type ImmutableTradeFeeSnapshot = {
   policyVersion: unknown;
 };
 
+export type TradeFeeSnapshotStatus = "snapshotted" | "unsnapshotted_needs_review";
+
+/** Migration defaults are valid values, but do not prove allocation-time evidence. */
+export function classifyTradeFeeSnapshot(snapshot: ImmutableTradeFeeSnapshot): TradeFeeSnapshotStatus {
+  const feeRateBps = Number(snapshot.feeRateBps);
+  const policyVersion = Number(snapshot.policyVersion);
+  const roundingMode = String(snapshot.roundingMode);
+  return feeRateBps === 1500 && roundingMode === "half_up" && policyVersion === 1
+    ? "unsnapshotted_needs_review"
+    : "snapshotted";
+}
+
 /** Resolve the only valid optimistic-write mode from the locked current version. */
 export function resolvePackageFeePolicyWrite(currentVersion: number | null, expectedVersion: number) {
   if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0) {

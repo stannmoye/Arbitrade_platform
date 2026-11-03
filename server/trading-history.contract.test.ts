@@ -71,6 +71,15 @@ describe("admin Trading History read-only contract", () => {
     expect(complete.netProfitMinor).toBe(1275);
   });
 
+  it("exposes legacy migration-default fee rows as needing review in the pending-settlement projection", () => {
+    const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+    const queryStart = dbSource.indexOf("export async function listPendingSettlements()");
+    const queryEnd = dbSource.indexOf("export async function listTradeSettlementIntegrityIssues(", queryStart);
+    const query = dbSource.slice(queryStart, queryEnd);
+    expect(query).toContain("feeSnapshotStatus");
+    expect(query).toContain("classifyTradeFeeSnapshot");
+  });
+
   it("uses one registered admin query and a bounded descending primary-key scan with an explicit safe projection", () => {
     const routerSource = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
     const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");

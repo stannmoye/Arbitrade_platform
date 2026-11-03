@@ -30,7 +30,7 @@ import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityE
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 import { isTradingTierEnablingTransition } from "./modules/trading-tier-activation";
 import { FAIL_CLOSED_TRADE_GLOBAL_CONTROLS, TRADE_GLOBAL_CONTROL_MIGRATION_DIAGNOSTIC_KEY, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, TRADE_GLOBAL_MASTER_KEYS, parseTradeGlobalControlPolicy, type TradeGlobalMasterKey, type TradeGlobalControlStatus } from "./trading-global-policy";
-import { normalizeImmutableTradeFeeSnapshot, normalizeLegacyTradeFeePolicy, resolvePackageFeePolicyWrite, selectLatestEffectivePackageFeePolicy } from "./modules/package-fee-policy";
+import { classifyTradeFeeSnapshot, normalizeImmutableTradeFeeSnapshot, normalizeLegacyTradeFeePolicy, resolvePackageFeePolicyWrite, selectLatestEffectivePackageFeePolicy } from "./modules/package-fee-policy";
 const TRADE_FEE_SETTING_KEYS = ["trade.platformFeeBps", "trade.feeRoundingMode", "trade.feePolicyVersion"] as const;
 const READ_ONLY_LEGACY_TRADE_FEE_SETTING_KEYS = new Set<string>(TRADE_FEE_SETTING_KEYS);
 import { canReplaceDeliveryRetryPolicy, DELIVERY_RETRY_POLICY_SETTING_KEY, FAIL_CLOSED_DELIVERY_RETRY_POLICY, normalizeDeliveryRetryEffectiveAt, parseDeliveryRetryPolicy, validateDeliveryRetryPolicyInput, type PersistedDeliveryRetryPolicy } from "./modules/opportunity-delivery-retry-policy";
@@ -4538,6 +4538,8 @@ export async function listPendingSettlements(){
     settlementReference:tradePositions.settlementReference, walletUpdatedAt:tradePositions.walletUpdatedAt,
     settlementOutcome:tradePositions.settlementOutcome, realizedGrossProfitMinor:tradePositions.realizedGrossProfitMinor,
     platformFeeMinor:tradePositions.platformFeeMinor, netProfitMinor:tradePositions.netProfitMinor,
+    platformFeeRateBps:tradePositions.platformFeeRateBps, platformFeeRoundingMode:tradePositions.platformFeeRoundingMode,
+    feePolicyVersion:tradePositions.feePolicyVersion, packageIdSnapshot:tradePositions.packageIdSnapshot,
     reservationStatus:tradeRewardReservations.status,
     reservationPackageName:tradeRewardReservations.packageName,
     reservationAmountMinor:tradeRewardReservations.reservedMinor,
@@ -4546,7 +4548,12 @@ export async function listPendingSettlements(){
     .leftJoin(opportunityOffers,eq(opportunityOffers.id,tradePositions.offerId))
     .leftJoin(users,eq(users.id,tradePositions.userId))
     .leftJoin(tradeRewardReservations,eq(tradeRewardReservations.tradeId,tradePositions.id))
-    .where(and(eq(tradePositions.status,"confirmed"),or(eq(tradePositions.settlementStatus,"pending"),eq(tradePositions.settlementStatus,"confirmed_awaiting_credit")))).orderBy(desc(tradePositions.confirmedAt));
+    .where(and(eq(tradePositions.status,"confirmed"),or(eq(tradePositions.settlementStatus,"pending"),eq(tradePositions.settlementStatus,"confirmed_awaiting_credit")))).orderBy(desc(tradePositions.confirmedAt)).then((rows) => rows.map((row) => ({
+      ...row,
+      feeSnapshotStatus: row.packageIdSnapshot !== null
+        ? "snapshotted" as const
+        : classifyTradeFeeSnapshot({ feeRateBps: row.platformFeeRateBps, roundingMode: row.platformFeeRoundingMode, policyVersion: row.feePolicyVersion }),
+    })));
 }
 /**
  * Read-only reconciliation queue for settlement records whose persisted state
