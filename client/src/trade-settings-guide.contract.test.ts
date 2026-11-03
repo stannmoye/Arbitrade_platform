@@ -152,12 +152,12 @@ describe("mounted Trade Settings Guide contract", () => {
     expect(byTerm("Payout requested")?.description).toContain("distinct from trade review/settlement");
   });
 
-  it("links generated customer offers to their owner and distinguishes template review from platform verification", () => {
+  it("links generated customer offers to their owner and documents optional template provenance", () => {
     const publishRoute = ownerRoutes.find((route) => route.id === "trade-opportunity-publishing");
     const publishLink = ownerLinks.find((link) => link.routeId === "trade-opportunity-publishing");
     expect(publishRoute?.target).toBe("opportunity");
     expect(publishLink?.target).toBe(publishRoute?.target);
-    expect(publishLink?.description).toContain("administrator-approved reusable templates");
+    expect(publishLink?.description).toContain("Optional display templates are not required");
     expect(publishLink?.description).toContain("not independently verified");
     expect(byTerm("Generated / open customer offer")?.description).toContain("worker-generated record assigned to a customer/package");
     expect(byTerm("Generated / open customer offer")?.description).toContain("Historical unassigned manual/imported rows are not popup inputs");
