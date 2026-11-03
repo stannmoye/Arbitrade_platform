@@ -30,8 +30,11 @@ describe("opportunity delivery lifecycle migration and state boundaries", () => 
       read("../scripts/worker-schema-contracts.mjs"), read("../drizzle/0102_opportunity_delivery_retry_lifecycle.sql"),
     ]);
     const journal = JSON.parse(journalText);
-    expect(journal.entries.at(-2)).toMatchObject({ idx: 70, tag: "0101_package_fee_policy_versions" });
-    expect(journal.entries.at(-1)).toMatchObject({ idx: 71, tag: "0102_opportunity_delivery_retry_lifecycle" });
+    const feeIndex = journal.entries.findIndex(entry => entry.tag === "0101_package_fee_policy_versions");
+    const deliveryIndex = journal.entries.findIndex(entry => entry.tag === "0102_opportunity_delivery_retry_lifecycle");
+    expect(journal.entries[feeIndex + 1]?.tag).toBe("0102_opportunity_delivery_retry_lifecycle");
+    expect(journal.entries[deliveryIndex + 1]?.tag).toBe("0103_automatic_opportunity_generation_templates");
+    expect(journal.entries[deliveryIndex + 2]?.tag).toBe("0104_catalogue_native_opportunity_generation");
     const trackedPortalFiles = portal.match(/const migrationFiles = \[([\s\S]*?)\];/)?.[1] ?? "";
     const trackedRecoveryFiles = recovery.match(/const portalMigrationFiles = \[([\s\S]*?)\];/)?.[1] ?? "";
     expect(trackedPortalFiles).not.toContain("0101_package_fee_policy_versions.sql");
