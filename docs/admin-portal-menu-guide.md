@@ -386,8 +386,8 @@ These controls define how new customers are screened and onboarded. Country-spec
 | **Per-tier Pop-up Display** | Expanded pop-up and completion-card display durations. Display settings do not cancel active records. |
 | **Per-tier Company Rotation Rules** | Approved-company country filters and repeat-handling rules. The ON/OFF rotation switch remains in the persistent Trading controls panel. |
 | **Company Catalogue** | Search and manage the separate company reference records, approval state and catalogue metadata. It does not contain a second copy of the rotation settings editor. |
-| **Capital & Wallet Funding Rules** | Review the permitted capital requirements and wallet-funding policy used by Trading. This is not the customer Wallet & Ledger history page. |
-| **Fees & Earnings Limits** | Configure the Trading fee policy and review configured earnings ceilings. |
+| **Capital & Wallet Funding Rules** | Read-only status for the currently unavailable capital/wallet-funding queue. It cannot accept or post funds and is not the Finance Wallet & Ledger history page. |
+| **Fees & Earnings Limits** | Review the legacy global fee record and configured earnings ceilings. This route is read-only; the sole active package-specific fee editor is under Tiers & Eligibility. |
 | **Retries & Carry-Forward** | Configure bounded retry limits and review recovery behaviour. Carry-forward across daily windows is not currently enabled. |
 | **Active & Pending Opportunities** | Review opportunity delivery and lifecycle records waiting for customer or system action. |
 | **Manual Payouts** | The sole Trade Settings route for listing payout requests and recording the existing administrator paid/rejected resolution. Any external bank or blockchain transfer occurs outside Arbitrade; this page does not initiate one. |
@@ -397,7 +397,9 @@ These controls define how new customers are screened and onboarded. Country-spec
 | **Audit & Policy History** | Review who changed Trading settings, the reason, previous/new values and saved policy versions. |
 | **Trade Settings Guide** | Read the in-portal guide without changing Trading data. |
 
-**Distinct history, finance and funding routes:** Trade Settings → **Trading History** is a read-only trade-position history view, not the place to confirm actual outcomes or reconcile wallet postings. Trade Settings → **Settlement & Reconciliation** owns result confirmation and trade/ledger reconciliation. Finance → **Wallet & Ledger / Database Entries** remains the separate read-only wallet/ledger activity owner. **Capital & Wallet Funding Rules** currently has no implemented funding queue and therefore presents an explicit read-only unavailable state, with no payout or settlement controls. Manual payout review is owned only by Trade Settings → **Manual Payouts**.
+**Distinct history, finance and funding routes:** Trade Settings → **Trading History** is a read-only trade-position history view, not the place to confirm actual outcomes or reconcile wallet postings. Trade Settings → **Settlement & Reconciliation** owns result confirmation and trade/ledger reconciliation. Finance → **Wallet & Ledger / Database Entries** remains the separate read-only wallet/ledger activity owner; the Trade Settings Guide links to this existing Finance destination and does not create a second Database Entries owner. **Capital & Wallet Funding Rules** currently has no implemented funding queue and therefore presents an explicit read-only unavailable state, with no payout or settlement controls. Manual payout review is owned only by Trade Settings → **Manual Payouts**.
+
+The full route mapping that reconciles the user-provided Trade Settings Blueprint to these canonical owners is recorded in [`trading/TRADE_SETTINGS_ADMIN_BLUEPRINT_RECONCILIATION.md`](trading/TRADE_SETTINGS_ADMIN_BLUEPRINT_RECONCILIATION.md).
 
 ### One owner for each setting
 
@@ -406,6 +408,8 @@ The persistent Trading controls panel is shown above administrator content on ev
 The daily opportunity entitlement is stored on the tier as `opportunitiesPerDay`. The hard daily pop-up ceiling and optional daily target are separate operational caps. For example, to make a tier allowance of 600 opportunities/day available, the hard daily pop-up ceiling must be at least 600 and the optional daily target must be 0 (no additional target cap). The delivery caps never raise a tier's assigned entitlement.
 
 Editing tier terms increments the terms version and affects future automatic tier assignments. Existing customer entitlements retain the terms snapshot saved when the tier was assigned; an admin edit does not silently rewrite existing customer entitlement history. Each save requires an audit reason and displays a database read-back confirmation. If read-back cannot confirm the saved version/quota, the page reports an error and keeps the draft visible.
+
+The read-only **Fees & Earnings Limits** destination is not a second fee editor. The only editable package-specific, versioned fee policy is embedded in **Tiers & Eligibility**, and is owned by that route.
 
 Customers cannot browse the tier catalogue, select packages, purchase packages, activate subscriptions or change assigned entitlements. Eligibility is assigned automatically only from qualifying manual administrator credits through the admin portal; signup credits, provider/customer deposits, transfers, swaps, conversions and other non-qualifying credits remain excluded.
 
