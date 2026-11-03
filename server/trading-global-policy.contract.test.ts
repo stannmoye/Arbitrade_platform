@@ -84,8 +84,13 @@ describe("global Trade master policy ownership and migration", () => {
     expect(migration).toContain("MIN(`randomizationEnabled`) = 1");
     expect(migration).toContain("MIN(`burstEnabled`) = 1");
     expect(migration).toContain("'requirePreviousSettlement', TRUE");
-    expect(migration).toContain("tierPolicyDisabledPackages");
+    expect(migration).toContain("'tierPolicyDisabledPackages'");
+    expect(migration).toContain("'conflicts', JSON_OBJECT(");
+    expect(migration).toContain("JSON_EXTRACT(IF(SUM(`enabled` = 0) > 0 AND SUM(`enabled` = 1) > 0, 'true', 'false'), '$')");
+    expect(migration).toContain("'sourcePolicyCount', CAST(COUNT(*) AS UNSIGNED)");
+    expect(migration).toContain("COALESCE((SELECT JSON_ARRAYAGG(`packageName`)");
     expect(migration).toContain("trade-global-controls-migration-0100");
+    expect(migration).toContain("existing values are preserved");
     expect(migration).toContain("ON DUPLICATE KEY UPDATE `settingKey`=VALUES(`settingKey`)");
     expect(migration.match(/ON DUPLICATE KEY UPDATE `settingKey`=VALUES\(`settingKey`\);/g)).toHaveLength(2);
     expect(migration).toContain("'trade.globalControls'");
