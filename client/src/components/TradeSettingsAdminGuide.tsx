@@ -27,6 +27,7 @@ export const ownerLinks: readonly GuideOwnerLink[] = [
   { routeId: "trade-active-pending", label: "Active & Pending Opportunities", target: "deliveryMonitor", description: "Inspect informational opportunities waiting for delivery or further processing. Pending work is not an allocation, settlement or payout." },
   { routeId: "trade-manual-payouts", label: "Manual Payouts", target: "manualPayouts", description: "Review and resolve internal manual payout requests. A request or status change does not itself transfer funds through a bank or blockchain provider." },
   { routeId: "trade-settlement", label: "Settlement & Reconciliation", target: "transactionReview", focus: "reconciliation", description: "Review recorded result evidence and reconcile persisted trade/settlement records with ledger entries. A review confirmation alone is not a posted wallet credit." },
+  { routeId: "trade-history", label: "Trading History", target: "tradeHistory", description: "Inspect bounded read-only windows of persisted trade lifecycle and confirmed-result evidence. This route cannot confirm results or change ledger/trade records." },
   { routeId: "trade-worker-health", label: "Worker Health & Recovery", target: "tradeWorkerHealth", description: "Inspect worker heartbeat, due work and supported recovery status. A saved setting or recent heartbeat does not guarantee delivery or financial processing." },
   { routeId: "trade-audit-policy-history", label: "Audit & Policy History", target: "audit", description: "Review recorded administrator changes, reasons and policy versions. This is history, not a second editor or operational action." },
 ];
@@ -51,6 +52,7 @@ export const troubleshooting: readonly GuideTroubleshootingItem[] = [
   { issue: "Cooldown or schedule not due", routeId: "trade-duration-closing", route: "Global Trade Timing & Settlement", target: "tradeDurationRules", description: "Check the configured server-side timing gates and persisted timestamps. Browser time or a countdown does not change the authoritative schedule." },
   { issue: "Worker unhealthy or delayed", routeId: "trade-worker-health", route: "Worker Health & Recovery", target: "tradeWorkerHealth", description: "Check last attempt/success, freshness, lag and retry state. A configured setting is not proof that an informational event was delivered." },
   { issue: "Waiting for review or settlement", routeId: "trade-settlement", route: "Settlement & Reconciliation", target: "transactionReview", focus: "reconciliation", description: "Review the persisted record and its evidence. Elapsed time, a display timer or review confirmation alone does not prove settlement or wallet posting." },
+  { issue: "Inspect a saved trade record", routeId: "trade-history", route: "Trading History", target: "tradeHistory", description: "Use bounded trade-ID scan windows and persisted filters. Continue scanning when a sparse filter returns no matches; one empty window does not establish a whole-history result." },
 ];
 
 export const statusDefinitions = [

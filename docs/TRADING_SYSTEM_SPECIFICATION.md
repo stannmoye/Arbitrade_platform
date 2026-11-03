@@ -324,6 +324,7 @@ All Trading configuration, publishing, monitoring and audit destinations must ap
 - **Retries & Carry-Forward** — bounded retry and recovery configuration; do not imply carry-forward is enabled if it is not implemented.
 - **Active & Pending Opportunities** — persisted delivery/lifecycle records awaiting customer or system action.
 - **Settlement & Reconciliation** — confirmed trade outcomes and wallet/ledger reconciliation.
+- **Trading History** — bounded, read-only inspection of persisted trade lifecycle and evidence fields. It does not confirm results, reconcile ledger postings, or mutate records.
 - **Worker Health & Recovery** — worker heartbeats, queues and audited recovery.
 - **Audit & Policy History** — actor, timestamp, reason, previous/new values and saved policy versions.
 - **Trade Settings Guide** — read-only help.

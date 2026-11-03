@@ -520,6 +520,18 @@ const registryEntries: readonly RegistryEntry[] = [
     customerImpact: "Records the administrator's existing payout resolution outcome; it does not execute an external payment.",
     risk: "high", availability: "available", controlContract: "adminOperations.resolvePayoutRequest",
   },
+  {
+    key: "trade.history.read", scope: "record", ownerRoute: "trade-history",
+    section: "persisted-trade-history", label: "Trading History",
+    explanation: "Read persisted trade lifecycle and evidence fields in bounded trade-ID windows; result amounts are shown only when a saved actual-result confirmation and evidence reference exist.",
+    units: "bounded scan window of persisted trade records", validation: "Admin-only read query; supports validated customer ID, lifecycle status, settlement status, UTC confirmed-date bounds and a descending trade-ID cursor. Each scan is capped at 250 records.",
+    saveMutation: null, readQuery: "adminOperations.tradingHistory",
+    auditRequirement: "Read-only projection from trade_positions; no mutation or inference of missing result, timestamp or evidence fields.",
+    effectiveTime: "Displays the persisted trade record and its saved lifecycle/result evidence as read; no operational effect.",
+    runtimeConsumer: "Trade Settings → Trading History read-only query.",
+    customerImpact: "No customer-visible or financial effect; does not confirm results, reconcile the ledger or change any trade.",
+    risk: "low", availability: "locked",
+  },
 ];
 
 export const tradeSettingsOwnershipRegistry: readonly TradeSettingsOwnerDefinition[] = registryEntries.map((entry) => ({
@@ -547,6 +559,7 @@ export const tradeSettingsRouteOwnerIds = [
   "trade-active-pending",
   "trade-manual-payouts",
   "trade-settlement",
+  "trade-history",
   "trade-worker-health",
   "trade-audit-policy-history",
   "trade-admin-guide",

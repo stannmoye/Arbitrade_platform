@@ -251,7 +251,8 @@ describe("Trading navigation focus and plain-language controls", () => {
     expect(navigation).not.toContain('id: "trade-offers"');
     expect(navigation).not.toContain('id: "trade-results"');
     expect(navigation).not.toContain('id: "trade-monitoring"');
-    expect(navigation).not.toContain('id: "trade-history"');
+    expect(navigation).toContain('id: "trade-history", target: "tradeHistory", label: "Trading History"');
+    expect(navigation.match(/id: "trade-history"/g)).toHaveLength(1);
     expect(navigation).toContain('label: "Tiers & Eligibility"');
     expect(navigation).toContain('label: "Per-tier Daily Delivery Caps"');
     expect(navigation).toContain('label: "Publish & Manage Opportunities"');
@@ -314,7 +315,8 @@ describe("Trading menu ownership and quota save feedback", () => {
     expect(navigation).not.toContain('id: "trade-offers"');
     expect(navigation).not.toContain('id: "trade-results"');
     expect(navigation).not.toContain('id: "trade-monitoring"');
-    expect(navigation).not.toContain('id: "trade-history"');
+    expect(navigation).toContain('id: "trade-history", target: "tradeHistory", label: "Trading History"');
+    expect(navigation.match(/id: "trade-history"/g)).toHaveLength(1);
     expect(navigation).toContain('id: "trade-opportunity-publishing", target: "opportunity"');
     expect(navigation).toContain('id: "trade-company-rotation", target: "packages", focus: "rotation"');
     expect(navigation).not.toContain('id: "admin-audit-log"');

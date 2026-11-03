@@ -392,11 +392,12 @@ These controls define how new customers are screened and onboarded. Country-spec
 | **Active & Pending Opportunities** | Review opportunity delivery and lifecycle records waiting for customer or system action. |
 | **Manual Payouts** | The sole Trade Settings route for listing payout requests and recording the existing administrator paid/rejected resolution. Any external bank or blockchain transfer occurs outside Arbitrade; this page does not initiate one. |
 | **Settlement & Reconciliation** | Confirm trade outcomes and review/reconcile trade settlement records only. Payout requests are handled on Manual Payouts. |
+| **Trading History** | Inspect bounded, read-only windows of persisted trade lifecycle and confirmed-result evidence. It does not confirm results or change trade/ledger records. |
 | **Worker Health & Recovery** | Inspect worker heartbeats, queue status, delayed work and audited recovery actions. |
 | **Audit & Policy History** | Review who changed Trading settings, the reason, previous/new values and saved policy versions. |
 | **Trade Settings Guide** | Read the in-portal guide without changing Trading data. |
 
-**Distinct finance and funding routes:** Finance → **Wallet & Ledger** is read-only wallet/ledger activity and balance reconciliation; it does not review or resolve payout requests or settle trades. **Capital & Wallet Funding Rules** currently has no implemented funding queue and therefore presents an explicit read-only unavailable state, with no payout or settlement controls. Manual payout review is owned only by Trade Settings → **Manual Payouts**.
+**Distinct history, finance and funding routes:** Trade Settings → **Trading History** is a read-only trade-position history view, not the place to confirm actual outcomes or reconcile wallet postings. Trade Settings → **Settlement & Reconciliation** owns result confirmation and trade/ledger reconciliation. Finance → **Wallet & Ledger / Database Entries** remains the separate read-only wallet/ledger activity owner. **Capital & Wallet Funding Rules** currently has no implemented funding queue and therefore presents an explicit read-only unavailable state, with no payout or settlement controls. Manual payout review is owned only by Trade Settings → **Manual Payouts**.
 
 ### One owner for each setting
 

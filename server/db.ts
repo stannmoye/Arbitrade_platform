@@ -4264,6 +4264,95 @@ export async function listTrades(userId:number){
     };
   });
 }
+export type AdminTradingHistoryFilters = {
+  beforeTradeId?: number;
+  userId?: number;
+  status?: "pending" | "confirmed" | "settled" | "cancelled";
+  settlementStatus?: "pending" | "confirmed_awaiting_credit" | "completed";
+  fromDate?: string;
+  toDate?: string;
+  scanLimit: number;
+};
+export function projectAdminTradingHistoryResult<T extends {
+  settlementConfirmedAt: Date | null;
+  settlementConfirmedBy: number | null;
+  settlementReference: string | null;
+  settlementOutcome: string;
+  realizedGrossProfitMinor: number;
+  platformFeeMinor: number;
+  netProfitMinor: number;
+}>(row: T) {
+  const { settlementConfirmedBy, ...publicRow } = row;
+  const actualResultAvailable = Boolean(
+    row.settlementConfirmedAt && settlementConfirmedBy && row.settlementReference?.trim() &&
+    ["profit", "zero_profit", "loss"].includes(row.settlementOutcome),
+  );
+  return {
+    ...publicRow,
+    actualResultAvailable,
+    settlementConfirmedAt: actualResultAvailable ? row.settlementConfirmedAt : null,
+    settlementReference: actualResultAvailable ? row.settlementReference : null,
+    settlementOutcome: actualResultAvailable ? row.settlementOutcome : null,
+    realizedGrossProfitMinor: actualResultAvailable ? row.realizedGrossProfitMinor : null,
+    platformFeeMinor: actualResultAvailable ? row.platformFeeMinor : null,
+    netProfitMinor: actualResultAvailable ? row.netProfitMinor : null,
+  };
+}
+/**
+ * Read-only bounded history scan over the existing trade primary key. Filters
+ * are applied only to the bounded ID window so sparse filters cannot force an
+ * unbounded database scan or imply that one window covers all matching rows.
+ */
+export async function listAdminTradingHistory(filters: AdminTradingHistoryFilters) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const scanLimit = Math.max(25, Math.min(250, Number.isSafeInteger(filters.scanLimit) ? filters.scanLimit : 100));
+  const candidates = await db.select({
+    id: tradePositions.id,
+    userId: tradePositions.userId,
+    currency: tradePositions.currency,
+    principalMinor: tradePositions.principalMinor,
+    status: tradePositions.status,
+    settlementStatus: tradePositions.settlementStatus,
+    lifecycleStage: tradePositions.lifecycleStage,
+    confirmedAt: tradePositions.confirmedAt,
+    completionAt: tradePositions.completionAt,
+    settledAt: tradePositions.settledAt,
+    settlementConfirmedAt: tradePositions.settlementConfirmedAt,
+    settlementConfirmedBy: tradePositions.settlementConfirmedBy,
+    settlementReference: tradePositions.settlementReference,
+    settlementOutcome: tradePositions.settlementOutcome,
+    realizedGrossProfitMinor: tradePositions.realizedGrossProfitMinor,
+    platformFeeMinor: tradePositions.platformFeeMinor,
+    netProfitMinor: tradePositions.netProfitMinor,
+    walletUpdatedAt: tradePositions.walletUpdatedAt,
+  }).from(tradePositions)
+    .where(filters.beforeTradeId === undefined ? undefined : lt(tradePositions.id, filters.beforeTradeId))
+    .orderBy(desc(tradePositions.id))
+    .limit(scanLimit + 1);
+  const hasMore = candidates.length > scanLimit;
+  const scanned = candidates.slice(0, scanLimit);
+  const fromInclusive = filters.fromDate ? Date.parse(`${filters.fromDate}T00:00:00.000Z`) : undefined;
+  const toExclusive = filters.toDate ? Date.parse(`${filters.toDate}T00:00:00.000Z`) + 86_400_000 : undefined;
+  const rows = scanned.filter((row) => {
+    if (filters.userId !== undefined && row.userId !== filters.userId) return false;
+    if (filters.status !== undefined && row.status !== filters.status) return false;
+    if (filters.settlementStatus !== undefined && row.settlementStatus !== filters.settlementStatus) return false;
+    if (fromInclusive !== undefined || toExclusive !== undefined) {
+      const confirmedAt = row.confirmedAt instanceof Date ? row.confirmedAt.getTime() : new Date(row.confirmedAt).getTime();
+      if (!Number.isFinite(confirmedAt) || (fromInclusive !== undefined && confirmedAt < fromInclusive) || (toExclusive !== undefined && confirmedAt >= toExclusive)) return false;
+    }
+    return true;
+  });
+  const projectedRows = rows.map(projectAdminTradingHistoryResult);
+  return {
+    rows: projectedRows,
+    scannedCount: scanned.length,
+    hasMore,
+    nextBeforeTradeId: hasMore ? scanned[scanned.length - 1]?.id ?? null : null,
+    scanLimit,
+  };
+}
 export async function markDueTradesAwaitingConfirmation(userId:number){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const now=new Date();

@@ -3,7 +3,7 @@ import { parse as parseCookieHeader } from "cookie";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { listAdminTradeAuditHistory } from "./db";
+import { listAdminTradeAuditHistory, listAdminTradingHistory } from "./db";
 import { countCompanyReferences, findCompanyReferencesBySymbol, getCompanyReferenceById, getCompanyReferenceSummary, getRandomCompanyReference, searchCompanyReferences } from "./modules/company-catalogue-reference";
 import { createCompanySpotlightDisplayGuard, parseCompanyCatalogueAdminState } from "./modules/company-spotlight-rotation";
 import { z } from "zod";
@@ -613,7 +613,23 @@ export const appRouter = router({
         return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
       }, { message: "UTC day must be a valid YYYY-MM-DD calendar date." }),
       cursor: z.string().min(1).max(256).optional(),
-    }).strict()).query(({ input }) => listAdminRecentLedgerActivity(input)),
+      }).strict()).query(({ input }) => listAdminRecentLedgerActivity(input)),
+    tradingHistory: adminProcedure.input(z.object({
+      beforeTradeId: z.number().int().positive().max(2_147_483_647).optional(),
+      userId: z.number().int().positive().max(2_147_483_647).optional(),
+      status: z.enum(["pending", "confirmed", "settled", "cancelled"]).optional(),
+      settlementStatus: z.enum(["pending", "confirmed_awaiting_credit", "completed"]).optional(),
+      fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      scanLimit: z.number().int().min(25).max(250).default(100),
+    }).strict()
+      .refine(input => [input.fromDate, input.toDate].every(value => {
+        if (!value) return true;
+        const date = new Date(`${value}T00:00:00.000Z`);
+        return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+      }), { message: "Dates must be valid UTC calendar dates." })
+      .refine(input => !input.fromDate || !input.toDate || input.fromDate <= input.toDate, { message: "Start date must not follow end date." })
+    ).query(({ input }) => listAdminTradingHistory(input)),
     tradeFeePolicy: adminProcedure.query(() => getTradeFeePolicy()),
     updateTradeFeePolicy: adminProcedure.input(z.object({
       feeRateBps: z.number().int().min(0).max(10000),

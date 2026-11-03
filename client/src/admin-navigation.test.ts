@@ -26,6 +26,7 @@ describe("Trading administrator navigation", () => {
       "Active & Pending Opportunities",
       "Manual Payouts",
       "Settlement & Reconciliation",
+      "Trading History",
       "Worker Health & Recovery",
       "Audit & Policy History",
       "Trade Settings Guide",
@@ -49,7 +50,7 @@ describe("Trading administrator navigation", () => {
       "tradeSystemOverview", "tradePackageConfiguration", "packages", "packages", "packages", "opportunity", "packages",
       "tradeDurationRules", "tradeCustomerDisplay", "packages", "companyCatalogue",
       "transactionReview", "transactionReview", "tradeRetryPolicy", "deliveryMonitor",
-      "manualPayouts", "transactionReview", "tradeWorkerHealth", "audit", "tradeAdminGuide",
+      "manualPayouts", "transactionReview", "tradeHistory", "tradeWorkerHealth", "audit", "tradeAdminGuide",
     ]);
     expect(group("trade-settings")?.items.find((item) => item.id === "trade-package-configuration")?.target).toBe("tradePackageConfiguration");
     expect(group("trade-settings")?.items.find((item) => item.id === "trade-company-rotation")?.focus).toBe("rotation");
@@ -59,6 +60,9 @@ describe("Trading administrator navigation", () => {
     expect(adminNavigationGroups.flatMap((item) => item.items).filter((item) => item.target === "manualPayouts")).toHaveLength(1);
     expect(group("trade-settings")?.items.find((item) => item.id === "trade-settlement")?.target).toBe("transactionReview");
     expect(group("trade-settings")?.items.find((item) => item.id === "trade-settlement")?.focus).toBe("reconciliation");
+    expect(group("trade-settings")?.items.find((item) => item.id === "trade-history")?.target).toBe("tradeHistory");
+    expect(group("trade-settings")?.items.find((item) => item.id === "trade-history")?.focus).toBeUndefined();
+    expect(adminNavigationGroups.flatMap((item) => item.items).filter((item) => item.target === "tradeHistory")).toHaveLength(1);
     expect(adminNavigationGroups.flatMap((item) => item.items).find((item) => item.id === "wallet-ledger")?.focus).toBe("ledger");
     expect(group("trade-settings")?.items.find((item) => item.id === "trade-capital-funding")?.detail).toMatch(/unavailable; read-only/i);
   });
