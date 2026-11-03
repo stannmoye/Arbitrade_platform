@@ -1024,3 +1024,14 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 - **Validation:** Focused API test — 4/4 passed. Full `pnpm test` with `TEST_DATABASE_URL` set to the local disposable DB — 121 files passed, 4 skipped; 947 tests passed, 21 skipped. `pnpm check`, `pnpm build`, and `git diff --check` passed.
 - **Hosted CI / PR:** Exact-head GitHub checks have not run; this branch has no PR, and the existing matrix is gated to `main` pushes or PRs to `main`. No PR, merge, deployment, or release performed.
 - **Next safe action:** Push this checkpoint and then, as a separate increment, add forced fresh-read-back failure/recovery coverage. Continue through the remaining blueprint settings and operational-owner routes one checkpoint at a time; do not change financial safety semantics.
+
+
+### 2026-11-03 — Global Trade controls read-back recovery checkpoint
+- **Repository / branch:** `stannmoye/Arbitrade_platform` / `feat/trade-settings-admin-blueprint`.
+- **Base branch SHA:** `main` at `59c425414b981bc2fd8720119f2d4b650b97ab15`.
+- **Implementation commit:** `45f99effe09caba5224f7d262ecc6568a5c6dbfa` (`test(trading): cover global control readback recovery`).
+- **Checkpoint:** Extended the disposable global-controls API integration suite to create a temporary `app_settings` trigger that deliberately flips the persisted burst flag before the service's fresh read. The API reports the read-back mismatch; the test fetches the actual committed policy/version and successfully retries with that version. This demonstrates the post-commit mismatch and recovery path; it does not assert a rollback of the first committed write.
+- **Validation:** Focused API integration on local disposable MariaDB 10.11 — 5/5 passed. Full suite with `TEST_DATABASE_URL` using the loopback disposable database — 121 files passed, 4 skipped; 947 tests passed, 22 skipped. `pnpm check`, `pnpm build`, and `git diff --check` passed.
+- **Cleanup / safety:** Test users and audit rows were removed, both test triggers were dropped, and the original policy version was restored to 1. Only a sandbox-local disposable database was used; no production database, merge, or deployment.
+- **Hosted status:** Exact-head MySQL 8.4/MariaDB 11.4 CI has not run; no PR is open, and the workflow is gated to `main` pushes/PRs.
+- **Next safe action:** Proceed to the next discrete blueprint acceptance item: end-to-end global OFF and missing/malformed policy states, still using a disposable database. Keep financial execution locked OFF.
