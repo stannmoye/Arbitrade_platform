@@ -25,6 +25,31 @@ const THEMES = [
 const ARTIFACT_DIR = path.resolve("artifacts/stage2-browser");
 fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
 
+async function waitForStableViewportTarget(page, locator, { timeout = 10000 } = {}) {
+  await locator.waitFor({ state: "visible", timeout });
+  await locator.scrollIntoViewIfNeeded();
+  const deadline = Date.now() + timeout;
+  let previous = await locator.boundingBox();
+  while (Date.now() < deadline) {
+    const viewportHeight = await page.evaluate(() => window.innerHeight);
+    if (!previous || previous.y < 0 || previous.y + previous.height > viewportHeight) {
+      await locator.scrollIntoViewIfNeeded();
+      previous = await locator.boundingBox();
+      continue;
+    }
+    await page.waitForTimeout(100);
+    const current = await locator.boundingBox();
+    if (current && Math.abs(current.x - previous.x) < 0.5 && Math.abs(current.y - previous.y) < 0.5 &&
+      Math.abs(current.width - previous.width) < 0.5 && Math.abs(current.height - previous.height) < 0.5) return;
+    previous = current;
+  }
+  throw new Error("Navigation target did not reach a stable in-viewport layout");
+}
+
+async function clickStableNavigationTarget(page, locator) {
+  await waitForStableViewportTarget(page, locator);
+  await locator.click();
+}
 
 async function runAdminAppearanceInteractionCheck(browser) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -970,13 +995,13 @@ async function runAdminAppearanceInteractionCheck(browser) {
     // intentionally not rendered on the Finance → Wallet & Ledger route.
     const tradeSettingsGroup = page.getByRole("button", { name: /Trade Settings/ });
     if (await tradeSettingsGroup.getAttribute("aria-expanded") !== "true") {
-      await tradeSettingsGroup.click();
+      await clickStableNavigationTarget(page, tradeSettingsGroup);
     }
     const settlementDestination = page.locator(
       '#admin-main-navigation button[title="Confirm trade outcomes and reconcile trade settlement records only"]',
     );
     await settlementDestination.waitFor({ state: "visible" });
-    await settlementDestination.click();
+    await clickStableNavigationTarget(page, settlementDestination);
     await page.getByRole("heading", { name: "Settlement & Reconciliation" }).waitFor({ state: "visible" });
     const settlementRegion = page.getByRole("region", { name: "Trades awaiting manual settlement" });
     await settlementRegion.waitFor({ state: "visible" });
@@ -2328,11 +2353,12 @@ async function runAdminTradingControlsInteractionCheck(browser) {
     const tradeSettingsNavigation = page.locator("#admin-main-navigation .admin-nav-group--trade-settings");
     const tradeSettingsHeading = tradeSettingsNavigation.getByRole("button", { name: /Trade Settings/ });
     if (await tradeSettingsHeading.getAttribute("aria-expanded") !== "true") {
-      await tradeSettingsHeading.click();
+      await clickStableNavigationTarget(page, tradeSettingsHeading);
     }
-    await tradeSettingsNavigation.locator(
+    const packageConfigurationDestination = tradeSettingsNavigation.locator(
       'button[title="Manage package-policy controls and the system-wide allocation safety gate"]',
-    ).click();
+    );
+    await clickStableNavigationTarget(page, packageConfigurationDestination);
     await page.getByRole("heading", { name: "Global Trade master controls" }).waitFor({ state: "visible", timeout: 10000 });
     const unavailableNotice = page.getByRole("alert").filter({ hasText: "canonical global policy is not installed or is malformed" });
     const controlsAvailable = await unavailableNotice.count() === 0;
@@ -2341,6 +2367,7 @@ async function runAdminTradingControlsInteractionCheck(browser) {
       ["Company rotation", "companyRotationEnabled"], ["Randomized timing", "randomizedTimingEnabled"],
       ["Burst delivery", "burstDeliveryEnabled"],
     ];
+    let enabledControlInteractions = 0;
     if (!controlsAvailable) {
       const switches = page.getByRole("switch");
       record("admin-global-controls-unavailable-fail-closed",
@@ -2350,16 +2377,32 @@ async function runAdminTradingControlsInteractionCheck(browser) {
       // Switches are disabled until the required audited reason is supplied.
       await page.getByLabel("Administrator reason (required, 5–500 characters)")
         .fill("Stage 2 verifies the canonical global control owner.");
+      const disabledControls = [];
       for (const [label, key] of keys) {
         const ariaLabel = label;
         const control = page.getByRole("switch", { name: ariaLabel });
+        await waitForStableViewportTarget(page, control);
+        if (await control.isDisabled()) {
+          const mutationCallsBefore = mutationCalls.length;
+          disabledControls.push({ label, key, disabled: true, mutationCallsBefore, mutationCallsAfter: mutationCalls.length });
+          record("admin-" + key + "-unavailable-fails-closed",
+            mutationCalls.length === mutationCallsBefore,
+            { available: false, disabled: true, mutationCalls });
+          continue;
+        }
         const before = savedGlobal[key];
+        enabledControlInteractions += 1;
         await control.click();
         await page.waitForFunction(({ label, expected }) => {
           const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
           return element?.getAttribute("aria-checked") === String(expected);
         }, { label: ariaLabel, expected: !before });
         const switchedOff = savedGlobal[key] === !before;
+        await page.waitForFunction(label => {
+          const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
+          return element instanceof HTMLButtonElement && !element.disabled;
+        }, ariaLabel);
+        await waitForStableViewportTarget(page, control);
         await control.click();
         await page.waitForFunction(({ label, expected }) => {
           const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
@@ -2370,14 +2413,17 @@ async function runAdminTradingControlsInteractionCheck(browser) {
           initial: before, afterOff: !before, afterRestore: savedGlobal[key],
         });
       }
+      record("admin-global-controls-disabled-state-is-truthful",
+        disabledControls.every(control => control.mutationCallsAfter === control.mutationCallsBefore),
+        { disabledControls, mutationCalls });
     }
     const financialExecutionStayedOff = savedPolicy.automaticTradingEnabled === false &&
       mutationCalls.every(call => !Array.isArray(call.policies) ||
         call.policies.every(patch => patch.automaticTradingEnabled !== true));
     record("delivery-switches-never-enable-financial-execution", financialExecutionStayedOff, { mutationCalls, pageErrors });
     record("admin-switches-show-save-feedback",
-      !controlsAvailable || await page.getByText("Global Trade control saved and verified from a fresh database read.").isVisible().catch(() => false),
-      { controlsAvailable, note: controlsAvailable ? "Save feedback is asserted after an enabled control interaction." : "Unavailable policy is not treated as saved; no save feedback is expected." });
+      enabledControlInteractions === 0 || await page.getByText("Global Trade control saved and verified from a fresh database read.").isVisible().catch(() => false),
+      { controlsAvailable, enabledControlInteractions, note: enabledControlInteractions > 0 ? "Save feedback is asserted only after an enabled control interaction." : "No enabled control was clicked; no save feedback is expected." });
   } catch (error) {
     record("admin-trading-controls-interaction-completes", false, {
       error: error instanceof Error ? error.message : String(error),
