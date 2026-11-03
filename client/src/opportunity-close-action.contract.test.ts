@@ -33,7 +33,8 @@ const opportunityPage = app.slice(app.indexOf("function AdminOpportunityEngine()
 
   it("states the template provenance fields and verification limit precisely", () => {
     const ownerDescription = ownerLinks.find((link) => link.routeId === "trade-opportunity-publishing")?.description ?? "";
-    expect(ownerDescription).toContain("administrator-approved reusable templates");
+    expect(ownerDescription).toContain("existing approved company catalogue");
+    expect(ownerDescription).toContain("Optional display templates are not required");
     expect(templateAdmin).toContain("Source reference");
     expect(templateAdmin).toContain("Administrator review notes");
     expect(templateAdmin).toContain("are not independently verified");
