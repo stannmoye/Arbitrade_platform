@@ -2363,7 +2363,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     });
     await page.goto(new URL("/customer", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.getByRole("heading", { name: "Welcome back, Jordan." }).waitFor({ state: "visible", timeout: 15000 });
-    const popup = page.locator(".center-opportunity-toast").filter({ hasText: "BTC/USD opportunity notice" });
+    const popup = page.locator(".center-opportunity-toast").filter({ hasText: "Verified QA Company opportunity notice" });
     await popup.waitFor({ state: "visible", timeout: 10000 });
     const companyVisible = await popup.getByText("Verified QA Company").isVisible().catch(() => false);
     const popupText = await popup.innerText();
