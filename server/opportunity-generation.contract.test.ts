@@ -34,6 +34,7 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(generator).toContain('createCatalogueIdentityOpportunityTemplate(company,packageMinimum,"USD")');
     expect(generator).toContain("selectOpportunityGenerationTerms");
     expect(generator).toContain("packageUsdUnitsToNativeMinor");
+    expect(generator).toContain("opensAt:new Date(Math.floor(input.now.getTime()/1000)*1000)");
     expect(generator).toContain("companyRotationEnabled");
     expect(generator).toContain("control.enabled!==true");
     expect(generator).toContain("The active package's saved capital bounds are invalid.");
