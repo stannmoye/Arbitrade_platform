@@ -87,6 +87,9 @@ describe("global Trade master policy ownership and migration", () => {
     expect(migration).toContain("tierPolicyDisabledPackages");
     expect(migration).toContain("trade-global-controls-migration-0100");
     expect(migration).toContain("ON DUPLICATE KEY UPDATE `settingKey`=VALUES(`settingKey`)");
+    expect(migration.match(/ON DUPLICATE KEY UPDATE `settingKey`=VALUES\(`settingKey`\);/g)).toHaveLength(2);
+    expect(migration).toContain("'trade.globalControls'");
+    expect(migration).toContain("'trade.globalControls.migrationDiagnostic'");
     expect(migration).not.toMatch(/\bDROP\s+TABLE\b|\bDROP\s+COLUMN\b|\bALTER\s+TABLE\b/i);
     expect(migration).not.toMatch(/UPDATE\s+`?opportunity_package_policies`?/i);
   });
