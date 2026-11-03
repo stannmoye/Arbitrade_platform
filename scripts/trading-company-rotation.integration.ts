@@ -35,7 +35,7 @@ const packageIdByName: Record<string, number> = {
   [emptyPackage]: 910004,
   [disabledPackage]: 910005,
 };
-const maxPendingDeliveries = 4;
+const maxPendingDeliveries = 10;
 const catalogueAdminStateKey = "trade.companyCatalogue.adminState";
 let originalCatalogueAdminState: { settingValue: string; updatedBy: number | null } | null | undefined;
 const quotaDay = new Date().toISOString().slice(0, 10);

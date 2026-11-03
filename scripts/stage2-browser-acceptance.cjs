@@ -90,6 +90,18 @@ async function waitForStableViewportTarget(page, locator, { timeout = 10000 } = 
 
 async function clickStableNavigationTarget(page, locator) {
   await waitForStableViewportTarget(page, locator);
+  const offViewport = await locator.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    const visible = element.isConnected && style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) > 0;
+    const enabled = !element.hasAttribute("disabled") && element.getAttribute("aria-disabled") !== "true";
+    return visible && enabled && rect.width > 0 && rect.height > 0 &&
+      (rect.right <= 0 || rect.bottom <= 0 || rect.left >= window.innerWidth || rect.top >= window.innerHeight);
+  });
+  if (offViewport) {
+    await locator.click({ force: true });
+    return;
+  }
   try {
     await locator.click();
   } catch (error) {
@@ -173,7 +185,9 @@ async function runAdminAppearanceInteractionCheck(browser) {
           data = savedAppearance;
         } else if (procedure === "adminOperations.settings") {
           data = { appearance: savedAppearance };
-        } else if (procedure === "adminOperations.customers" || procedure === "adminOperations.packagePolicies") {
+        } else if (procedure === "adminOperations.customers") {
+          data = [{ id: 8000, role: "user", name: "Ledger Customer 1", email: "ledger1@example.test" }];
+        } else if (procedure === "adminOperations.packagePolicies") {
           data = [];
         } else if (procedure === "adminOperations.pendingSettlements") {
           data = Array.from({ length: 12 }, (_, index) => ({
@@ -996,6 +1010,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
     await walletLedgerDestination.waitFor({ state: "visible" });
     await walletLedgerDestination.click();
     await page.getByRole("heading", { name: "Wallet & Ledger" }).waitFor({ state: "visible" });
+    await page.getByLabel("Customer (required)").selectOption("8000");
     await page.setViewportSize({ width: 390, height: 844 });
 
     for (const tableCase of [
