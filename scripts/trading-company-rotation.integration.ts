@@ -199,7 +199,7 @@ try {
   savedAdminState = JSON.parse(String((await db.select({ settingValue: appSettings.settingValue }).from(appSettings).where(eq(appSettings.settingKey, catalogueAdminStateKey)).limit(1))[0]?.settingValue || "{}"));
   assert.ok(savedAdminState.archivedIds.includes(adminStatusTestId), "archive action must persist archived status");
   assert.ok(!savedAdminState.verifiedIds.includes(adminStatusTestId), "archive must revoke customer approval");
-  await updateCompanyCatalogueAdminState({ ids: [adminStatusTestId], status: "unverified", reason: "Integration test: restore company", updatedBy: userId! });
+  await updateCompanyCatalogueAdminState({ ids: [adminStatusTestId], status: "restored", reason: "Integration test: restore company" });
   savedAdminState = JSON.parse(String((await db.select({ settingValue: appSettings.settingValue }).from(appSettings).where(eq(appSettings.settingKey, catalogueAdminStateKey)).limit(1))[0]?.settingValue || "{}"));
   assert.ok(!savedAdminState.archivedIds.includes(adminStatusTestId), "restore must remove archived status");
   assert.ok(!savedAdminState.verifiedIds.includes(adminStatusTestId), "restored companies must return as unverified");
