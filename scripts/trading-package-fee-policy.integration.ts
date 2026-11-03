@@ -34,7 +34,7 @@ async function main() {
     if (!positiveVersionRejected) throw new Error("Positive expected version was accepted for an unconfigured package.");
     const initialized = await updatePackageFeePolicy({
       packageId, expectedVersion: 0, feeRateBps: 1500, roundingMode: "half_up",
-      effectiveAt: new Date(Date.now() + 5_000).toISOString(), reason: "Disposable admin initialization",
+      effectiveAt: new Date(Date.now() - 1_000).toISOString(), reason: "Disposable admin initialization",
     }, 2_147_000_001);
     const initialAuditReference = `trading-package-fee-policy:${packageId}:1`;
     auditReferences.push(initialAuditReference);
@@ -52,7 +52,7 @@ async function main() {
 
     const updated = await updatePackageFeePolicy({
       packageId, expectedVersion: 1, feeRateBps: 2375, roundingMode: "half_even",
-      effectiveAt: new Date(Date.now() + 5_000).toISOString(), reason: "Disposable integration update",
+      effectiveAt: new Date(Date.now() - 1_000).toISOString(), reason: "Disposable integration update",
     }, 2_147_000_001);
     const auditReference = `trading-package-fee-policy:${packageId}:2`;
     auditReferences.push(auditReference);
