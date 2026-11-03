@@ -31,7 +31,7 @@ export const tradeSettingRegistry = [
   {
     key: "trade.policy.tierEnabled",
     scope: "global",
-    ownerRoute: "tradeSystemHealth",
+    ownerRoute: "tradePackageConfiguration",
     ownerSection: "safety",
     label: "Tier policy gate",
     explanation: "Controls whether eligible tier delivery is allowed globally.",
@@ -49,7 +49,7 @@ export const tradeSettingRegistry = [
   {
     key: "trade.delivery.popupEnabled",
     scope: "global",
-    ownerRoute: "tradeSystemHealth",
+    ownerRoute: "tradePackageConfiguration",
     ownerSection: "safety",
     label: "Pop-up delivery gate",
     explanation: "Controls whether durable informational pop-ups may be delivered.",

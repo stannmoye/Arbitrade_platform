@@ -1,3 +1,15 @@
+## 2026-11-03 — Package Configuration and Package Settings route checkpoint
+
+- Working branch: `feat/trade-settings-ownership-registry`, based on `main` `59c425414b981bc2fd8720119f2d4b650b97ab15`.
+- Added a dedicated **Package Configuration** route (`tradePackageConfiguration`) as the sole owner of global tier-policy and informational pop-up delivery gates. Its audited control panel is no longer mounted on every admin page.
+- Renamed the tier editor destination to **Package Settings** and updated its explanatory copy. Per-tier threshold, duration and daily entitlement remain owned by the package editor; global controls are not rendered there.
+- Kept **System Pause & Safety** as a read-only operational destination so it does not duplicate Package Configuration controls. Automatic financial execution remains protected OFF.
+- Updated navigation, registry, overview and admin contract tests. No schema migration, database write, worker behavior, wallet operation, financial execution or settlement behavior changed.
+- Validation: `pnpm check` passed; full Vitest suite passed with 925 tests passed and 17 skipped; `pnpm build` passed; `git diff --check` passed.
+- Next safe action: add server-side scope validation for global-vs-package mutations and then design the forward-only canonical global settings migration. Do not reuse package policy rows as a second global source of truth.
+
+---
+
 ## 2026-11-03 — Trade Settings navigation ownership wiring checkpoint
 
 - Working branch: `feat/trade-settings-ownership-registry`, based on `main` `59c425414b981bc2fd8720119f2d4b650b97ab15`.

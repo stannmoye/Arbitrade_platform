@@ -9,7 +9,8 @@ describe("Trading administrator navigation", () => {
     expect(tradeGroup?.label).toBe("Trade Settings");
     expect(tradeGroup?.items.map((item) => item.label)).toEqual([
       "Trading Overview",
-      "Tiers & Eligibility",
+      "Package Configuration",
+      "Package Settings",
       "Per-tier Daily Delivery Caps",
       "Per-tier Offer Rules & Capital Limits",
       "Publish & Manage Opportunities",
@@ -44,13 +45,15 @@ describe("Trading administrator navigation", () => {
 
   it("routes each Trade Settings submenu to its single intended screen", () => {
     expect(group("trade-settings")?.items.map((item) => item.target)).toEqual([
-      "tradeSystemOverview", "packages", "packages", "packages", "opportunity", "packages",
+      "tradeSystemOverview", "tradePackageConfiguration", "packages", "packages", "packages", "opportunity", "packages",
       "tradeDurationRules", "tradeCustomerDisplay", "packages", "companyCatalogue",
       "transactionReview", "transactionReview", "tradeRetryPolicy", "deliveryMonitor",
       "transactionReview", "tradeSystemHealth", "tradeWorkerHealth", "audit", "tradeAdminGuide",
     ]);
     expect(group("trade-settings")?.items.find((item) => item.id === "trade-company-rotation")?.focus).toBe("rotation");
     expect(group("trade-settings")?.items.find((item) => item.id === "trade-company-catalogue")?.target).toBe("companyCatalogue");
+    expect(group("trade-settings")?.items.find((item) => item.id === "trade-package-configuration")?.target).toBe("tradePackageConfiguration");
+    expect(group("trade-settings")?.items.find((item) => item.id === "trade-package-settings")?.focus).toBe("tiers");
   });
 
   it("moves the five requested administrative sections and all their submenu entries to the right drawer", () => {
