@@ -4783,10 +4783,17 @@ export async function createOpportunityOffer(input:{symbol:string;venueFrom:stri
 export async function bulkCreateOpportunityOffers(inputs:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number;opensAt?:Date;closesAt?:Date;rewardAt?:Date}[]) { const db=await getDb(); if(!db) throw new Error("Database is not available"); if(!inputs.length) return {created:0}; const rows=inputs.map(input=>{const opensAt=input.opensAt||new Date(); const closesAt=input.closesAt||new Date(opensAt.getTime()+input.durationSeconds*1000); return {...input,opensAt,closesAt,rewardAt:input.rewardAt||closesAt,status:"open" as const};}); await db.insert(opportunityOffers).values(rows); return {created:rows.length}; }
 
 
-export async function listAdminRecentLedgerActivity(limit = 150) {
+export async function listAdminRecentLedgerActivity(input: { userId?: number; utcDay?: string } = {}) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const safeLimit = Math.max(1, Math.min(500, Math.floor(limit)));
+  if (input.userId !== undefined && (!Number.isSafeInteger(input.userId) || input.userId < 1)) throw new Error("Customer ID must be a positive integer");
+  let dayStart: Date | undefined;
+  if (input.utcDay !== undefined) {
+    dayStart = new Date(`${input.utcDay}T00:00:00.000Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.utcDay) || !Number.isFinite(dayStart.getTime()) || dayStart.toISOString().slice(0, 10) !== input.utcDay) {
+      throw new Error("UTC day must be a valid YYYY-MM-DD calendar date");
+    }
+  }
   return db.select({
     id: balanceLedger.id,
     userId: balanceLedger.userId,
@@ -4799,6 +4806,11 @@ export async function listAdminRecentLedgerActivity(limit = 150) {
     createdAt: balanceLedger.createdAt,
   }).from(balanceLedger)
     .leftJoin(users, eq(users.id, balanceLedger.userId))
+    .where(and(
+      input.userId === undefined ? undefined : eq(balanceLedger.userId, input.userId),
+      dayStart === undefined ? undefined : gte(balanceLedger.createdAt, dayStart),
+      dayStart === undefined ? undefined : lt(balanceLedger.createdAt, new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)),
+    ))
     .orderBy(desc(balanceLedger.createdAt))
-    .limit(safeLimit);
+    .limit(150);
 }

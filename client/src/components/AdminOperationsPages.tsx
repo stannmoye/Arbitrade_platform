@@ -313,7 +313,12 @@ export function AdminRiskWatchlist() {
 }
 
 export function AdminTransactionReview({ focus }: { focus?: "capital" | "fees" | "reconciliation" }) {
-  const ledgerQuery = trpc.adminOperations.ledgerActivity.useQuery(undefined, { refetchInterval: 10_000 });
+  const [ledgerCustomerId, setLedgerCustomerId] = useState("");
+  const [ledgerUtcDay, setLedgerUtcDay] = useState("");
+  const ledgerUserId = /^[1-9]\d*$/.test(ledgerCustomerId.trim()) && Number.isSafeInteger(Number(ledgerCustomerId)) ? Number(ledgerCustomerId) : undefined;
+  const ledgerFilterValid = ledgerCustomerId.trim() === "" || ledgerUserId !== undefined;
+  const ledgerFilter = { ...(ledgerUserId === undefined ? {} : { userId: ledgerUserId }), ...(ledgerUtcDay ? { utcDay: ledgerUtcDay } : {}) };
+  const ledgerQuery = trpc.adminOperations.ledgerActivity.useQuery(ledgerFilter, { enabled: ledgerFilterValid, refetchInterval: 10_000 });
   const pendingQuery = trpc.adminOperations.pendingSettlements.useQuery(undefined, { refetchInterval: 5_000 });
   const [integrityBeforeTradeId, setIntegrityBeforeTradeId] = useState<number | undefined>(undefined);
   const [walletReconciliationAfter, setWalletReconciliationAfter] = useState<{ afterUserId: number; afterCurrency: string } | undefined>(undefined);
@@ -536,7 +541,19 @@ export function AdminTransactionReview({ focus }: { focus?: "capital" | "fees" |
           <Metric label="Currencies represented" value={new Set(rows.map((row) => row.currency)).size} icon={CircleDollarSign} />
         </section>
         <section className="admin-ops-panel">
-          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Latest database entries</span><h2>Wallet activity</h2></div><span className="admin-ops-subtle">Up to 150 records</span></div>
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Latest database entries</span><h2>Wallet activity</h2></div><span className="admin-ops-subtle">Up to 150 · {ledgerUserId ? `Customer ${ledgerUserId}` : "All customers"} · {ledgerUtcDay || "All UTC dates"}</span></div>
+          <div className="admin-ops-form-grid" aria-label="Filter wallet database entries">
+            <label>Customer user ID (optional)
+              <input type="number" min={1} step={1} value={ledgerCustomerId} onChange={event => setLedgerCustomerId(event.target.value)} aria-label="Customer user ID" />
+            </label>
+            <label>UTC day (optional)
+              <input type="date" value={ledgerUtcDay} onChange={event => setLedgerUtcDay(event.target.value)} aria-label="UTC day" />
+            </label>
+            <div className="admin-ops-form-actions">
+              <button className="admin-ops-button" type="button" onClick={() => { setLedgerCustomerId(""); setLedgerUtcDay(""); }}>Clear filters</button>
+            </div>
+          </div>
+          {!ledgerFilterValid && <div className="admin-ops-empty error" role="alert">Enter a positive whole customer ID to filter ledger entries.</div>}
           <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Wallet activity ledger" onKeyDown={(event) => { if (event.key === "ArrowRight") { event.preventDefault(); event.currentTarget.scrollLeft += 80; } else if (event.key === "ArrowLeft") { event.preventDefault(); event.currentTarget.scrollLeft -= 80; } }}><table className="admin-ops-table"><thead><tr><th>Recorded</th><th>Customer</th><th>Entry type</th><th>Amount</th><th>Withdrawable</th></tr></thead><tbody>
             {rows.map((row) => <tr key={row.id}><td>{timestamp(row.createdAt)}</td><td><strong>{row.customerName || "Customer"}</strong><small>{row.customerEmail || `Account ${row.userId}`}</small></td><td><span className="admin-ops-entry-type">{row.entryType}</span></td><td className={Number(row.amountMinor) < 0 ? "amount-negative" : "amount-positive"}>{formatAmount(Number(row.amountMinor), row.currency)}</td><td><StatusPill tone={row.withdrawable ? "good" : "neutral"}>{row.withdrawable ? "Yes" : "No"}</StatusPill></td></tr>)}
             {!rows.length && <tr><td colSpan={5} className="admin-ops-table-empty">No wallet ledger entries have been recorded.</td></tr>}
