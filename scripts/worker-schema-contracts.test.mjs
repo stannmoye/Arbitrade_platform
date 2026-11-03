@@ -226,8 +226,8 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(last.tag).toBe("0098_disable_automatic_financial_execution");
-    expect(journal.entries.slice(-27).map((entry) => entry.tag)).toEqual([
+    expect(last.tag).toBe("0100_global_trade_master_controls");
+    expect(journal.entries.slice(-29).map((entry) => entry.tag)).toEqual([
       "0072_wallet_ledger_reconciliation_indexes",
       "0073_trade_settlement_recovery_cases",
       "0074_trade_execution_retries",
@@ -255,6 +255,8 @@ describe("worker schema contracts", () => {
       "0096_trade_settlement_review_timestamp",
       "0097_trading_daily_execution_attempt_accounting",
       "0098_disable_automatic_financial_execution",
+      "0099_trading_global_timing_policy_version",
+      "0100_global_trade_master_controls",
     ]);
     expect(portalRunner).toContain('"0076_trading_admin_policy_read_repair.sql"');
     expect(portalRunner).toContain('"0077_trading_package_catalogue_schema_repair.sql"');
