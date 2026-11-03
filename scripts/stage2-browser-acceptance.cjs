@@ -101,7 +101,8 @@ async function clickStableNavigationTarget(page, locator) {
       fixedRailHeading: element.classList.contains("admin-nav-group-heading"),
     };
   });
-  if (navigationGeometry.safe && (navigationGeometry.offViewport || navigationGeometry.fixedRailHeading)) {
+  if ((navigationGeometry.safe || navigationGeometry.fixedRailHeading) &&
+      (navigationGeometry.offViewport || navigationGeometry.fixedRailHeading)) {
     await locator.click({ force: true });
     return;
   }
