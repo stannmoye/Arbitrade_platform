@@ -256,14 +256,14 @@ describe("Trading navigation focus and plain-language controls", () => {
 });
 
 describe("Trade Settings owner route isolation", () => {
-  it("renders package controls and allocation pause only from Package Configuration", () => {
+  it("renders global controls and allocation pause only from Package Configuration", () => {
     expect(adminApp).toContain('section==="tradePackageConfiguration"&&<AdminPackageConfiguration/>');
     expect(adminApp).not.toContain('{section!=="overview"&&<AdminPackagePolicyControls/>}');
     expect(adminApp).not.toContain('{section!=="overview"&&<AdminTradingGlobalControls/>}');
     const ownerStart = adminApp.indexOf("function AdminPackageConfiguration()");
     const ownerEnd = adminApp.indexOf("function AdminPackages({focus}", ownerStart);
     const owner = adminApp.slice(ownerStart, ownerEnd);
-    expect(owner).toContain("<AdminPackagePolicyControls />");
+    expect(owner).toContain("<AdminGlobalTradeControls />");
     expect(owner).toContain("<AdminTradeAllocationControl />");
     const apiStart = adminApp.indexOf("function AdminApis()");
     const apiEnd = adminApp.indexOf("function AdminBranding()", apiStart);

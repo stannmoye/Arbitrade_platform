@@ -29,6 +29,7 @@ import * as privacyService from "./privacy";
 import { localIdentityService } from "./_core/localIdentityService";
 import { createHeartbeatJob, deleteHeartbeatJob, listHeartbeatJobs, updateHeartbeatJob } from "./_core/heartbeat";
 import { getWorkerHealthSummary, requeueDeadQualificationJob } from "./_core/workerHealth";
+import { getTradeGlobalControls, setTradeGlobalControl, TradeGlobalControlVersionConflictError } from "./db";
 import { getSystemDiagnosticsReport } from "./_core/systemDiagnostics";
 
 async function getCustomerApprovedCompanyReferences(
@@ -427,6 +428,19 @@ export const appRouter = router({
       }),
     }),
 
+    globalTradeControls: adminProcedure.query(() => getTradeGlobalControls()),
+    updateGlobalTradeControl: adminProcedure.input(z.object({
+      key: z.enum(["tierPolicyMasterEnabled","informationalPopupDeliveryEnabled","companyRotationEnabled","randomizedTimingEnabled","burstDeliveryEnabled","requirePreviousSettlement"]),
+      enabled: z.boolean(),
+      reason: z.string().trim().min(5).max(500),
+      expectedPolicyVersion: z.number().int().positive(),
+    }).strict()).mutation(async ({ ctx, input }) => {
+      try { return await setTradeGlobalControl(input, ctx.user.id); }
+      catch (error) {
+        if (error instanceof TradeGlobalControlVersionConflictError) throw new TRPCError({ code: "CONFLICT", message: error.message });
+        throw error;
+      }
+    }),
     tradeAllocationControls: adminProcedure.query(() => getTradeAllocationControls()),
     updateTradeAllocationControls: adminProcedure.input(z.object({
       allocationsPaused: z.boolean(),
@@ -668,16 +682,11 @@ export const appRouter = router({
         minHourlyTarget: z.number().int().min(0).max(100).optional(),
         normalHourlyTarget: z.number().int().min(0).max(100).optional(),
         marketInfluenceBps: z.number().int().min(0).max(10000).optional(),
-        burstEnabled: z.boolean().optional(),
         maxBurstSize: z.number().int().min(0).max(100).optional(),
-        enabled: z.boolean().optional(),
-        automaticDelivery: z.boolean().optional(),
-        automaticTradingEnabled: z.boolean().optional(),
         dailyPopupTarget: z.number().int().min(0).max(10000).optional(),
         schedulingPeriod: z.enum(["rolling_24h","calendar_day"]).optional(),
         minIntervalSeconds: z.number().int().min(0).max(604800).optional(),
         maxIntervalSeconds: z.number().int().min(0).max(604800).optional(),
-        randomizationEnabled: z.boolean().optional(),
         popupDisplayTargetSeconds: z.number().int().min(1).max(604800).optional(),
         completionDisplaySeconds: z.number().int().min(1).max(3600).optional(),
         postCompletionIntervalSeconds: z.number().int().min(0).max(604800).optional(),
@@ -687,7 +696,6 @@ export const appRouter = router({
         tradeRetryDelaySeconds: z.number().int().min(5).max(3600).optional(),
         maxSuccessfulTradesPerDay: z.number().int().min(0).max(10000).optional(),
         maxConcurrentActiveTrades: z.number().int().min(1).max(1000).optional(),
-        requirePreviousSettlement: z.boolean().optional(),
         minSettlementDelaySeconds: z.number().int().min(0).max(604800).optional(),
         maxSettlementDelaySeconds: z.number().int().min(0).max(604800).optional(),
         minimumRewardBps: z.number().int().min(0).max(10000).optional(),
@@ -699,11 +707,10 @@ export const appRouter = router({
         maximumPayoutRateBps: z.number().int().min(0).max(5000).nullable().optional(),
         minimumTradeDurationSeconds: z.number().int().min(10).max(86400).nullable().optional(),
         maximumTradeDurationSeconds: z.number().int().min(10).max(86400).nullable().optional(),
-        companyRotationEnabled: z.boolean().optional(),
         companyRotationCountryNames: z.string().trim().max(2000).optional(),
         companyRotationRepeatPolicy: z.enum(["avoid_until_exhausted","allow_repeats"]).optional(),
         closePolicy: z.enum(["after_completion","after_final_display"]).optional(),
-      })).min(1).max(1000),
+      }).strict()).min(1).max(1000),
     })).mutation(({ ctx, input }) => updateOpportunityPackagePolicies(ctx.user.id, input.policies, input.reason)),
     createOffer: adminProcedure.input(z.object({ symbol: z.string().min(1).max(40), venueFrom: z.string().min(1).max(80), venueTo: z.string().min(1).max(80), currency: z.enum(["USD","EUR","GBP","BTC","ETH"]), minimumMinor: z.number().int().positive(), expectedRewardBps: z.number().int().min(1).max(5000), durationSeconds: z.number().int().min(10).max(86400) })).mutation(({ input }) => createOpportunityOffer(input)),
     bulkCreateOffers: adminProcedure.input(z.object({ offers: z.array(z.object({ symbol: z.string().min(1).max(40), venueFrom: z.string().min(1).max(80), venueTo: z.string().min(1).max(80), currency: z.enum(["USD","EUR","GBP","BTC","ETH"]), minimumMinor: z.number().int().positive(), expectedRewardBps: z.number().int().min(1).max(5000), durationSeconds: z.number().int().min(10).max(86400) })).min(1).max(5000) })).mutation(({ input }) => bulkCreateOpportunityOffers(input.offers)),

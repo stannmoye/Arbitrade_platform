@@ -27,6 +27,7 @@ import { assertNotificationPayloadMatches, buildNotificationEventKey, buildTrade
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 import { isTradingTierEnablingTransition } from "./modules/trading-tier-activation";
+import { FAIL_CLOSED_TRADE_GLOBAL_CONTROLS, TRADE_GLOBAL_CONTROL_MIGRATION_DIAGNOSTIC_KEY, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, TRADE_GLOBAL_MASTER_KEYS, parseTradeGlobalControlPolicy, type TradeGlobalMasterKey, type TradeGlobalControlStatus } from "./trading-global-policy";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
 let _pool: Pool | null = null;
 
@@ -337,6 +338,56 @@ export async function setTradeSettlementPolicy(input:TradeSettlementPolicyInput,
   const persisted = await getTradeSettlementPolicy();
   const expected = { ...next, settlementDelaySeconds: next.delaySeconds };
   if (JSON.stringify(persisted) !== JSON.stringify(expected)) throw new Error("Trade timing save committed, but a fresh database read did not confirm every value and the new policy version");
+  return persisted;
+}
+function parseTradeGlobalControlDiagnostic(raw:unknown):Record<string,unknown>|null {
+  if(typeof raw!=="string") return null;
+  try { const value=JSON.parse(raw); return value&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:null; }
+  catch { return null; }
+}
+export async function getTradeGlobalControls():Promise<TradeGlobalControlStatus> {
+  const unavailable={...FAIL_CLOSED_TRADE_GLOBAL_CONTROLS,policyVersion:1,updatedBy:null,updatedAt:null,available:false,migrationDiagnostic:null};
+  const db=await getDb();
+  if(!db) return unavailable;
+  const rows=await db.select().from(appSettings).where(inArray(appSettings.settingKey,[TRADE_GLOBAL_CONTROL_SETTINGS_KEY,TRADE_GLOBAL_CONTROL_MIGRATION_DIAGNOSTIC_KEY]));
+  const policyRow=rows.find(row=>row.settingKey===TRADE_GLOBAL_CONTROL_SETTINGS_KEY);
+  const diagnostic=parseTradeGlobalControlDiagnostic(rows.find(row=>row.settingKey===TRADE_GLOBAL_CONTROL_MIGRATION_DIAGNOSTIC_KEY)?.settingValue);
+  if(!policyRow) return {...unavailable,migrationDiagnostic:diagnostic};
+  const policy=parseTradeGlobalControlPolicy(policyRow.settingValue);
+  if(!policy) return {...unavailable,migrationDiagnostic:diagnostic};
+  return {...policy,available:true,migrationDiagnostic:diagnostic};
+}
+export class TradeGlobalControlVersionConflictError extends Error {
+  constructor() { super("Global Trade controls changed in another session. Refresh the saved settings before retrying."); this.name="TradeGlobalControlVersionConflictError"; }
+}
+export async function setTradeGlobalControl(input:{key:TradeGlobalMasterKey;enabled:boolean;reason:string;expectedPolicyVersion:number},updatedBy:number) {
+  const auditReason=String(input.reason??"").trim();
+  if(auditReason.length<5||auditReason.length>500) throw new Error("A 5–500 character administrator reason is required for global Trade control changes");
+  if(!Number.isSafeInteger(input.expectedPolicyVersion)||input.expectedPolicyVersion<1) throw new Error("A valid saved global Trade policy version is required");
+  if(!TRADE_GLOBAL_MASTER_KEYS.includes(input.key)) throw new Error("Unknown global Trade control key");
+  if(input.key==="requirePreviousSettlement"&&input.enabled===false) throw new Error("The global settlement prerequisite remains ON until a separately approved safety workflow is available.");
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const saved=await db.transaction(async tx=>{
+    const currentRow=(await tx.select().from(appSettings).where(eq(appSettings.settingKey,TRADE_GLOBAL_CONTROL_SETTINGS_KEY)).limit(1).for("update"))[0];
+    if(!currentRow) throw new Error("Global Trade control migration is not installed; no settings were changed.");
+    const current=parseTradeGlobalControlPolicy(currentRow.settingValue);
+    if(!current) throw new Error("Saved global Trade controls are malformed; no settings were changed.");
+    if(current.policyVersion!==input.expectedPolicyVersion) throw new TradeGlobalControlVersionConflictError();
+    const policyVersion=current.policyVersion+1;
+    if(!Number.isSafeInteger(policyVersion)) throw new Error("Global Trade policy version has reached its limit");
+    const next={...current,[input.key]:input.enabled,policyVersion,updatedBy,updatedAt:new Date().toISOString()};
+    await tx.update(appSettings).set({settingValue:JSON.stringify(next),updatedBy,updatedAt:new Date()}).where(eq(appSettings.settingKey,TRADE_GLOBAL_CONTROL_SETTINGS_KEY));
+    await tx.insert(v5AuditEvents).values({
+      actorUserId:updatedBy,action:"trade_global_control_updated",entityType:"trade_global_control_policy",entityId:String(policyVersion),
+      reason:auditReason,reference:`trade-global-controls:${policyVersion}`,
+      metadataJson:JSON.stringify({changedKey:input.key,old:current,new:next}),
+    });
+    return next;
+  });
+  const persisted=await getTradeGlobalControls();
+  if(!persisted.available||persisted.policyVersion!==saved.policyVersion||TRADE_GLOBAL_MASTER_KEYS.some(key=>persisted[key]!==saved[key])) {
+    throw new Error("Global Trade control save committed, but a fresh database read did not confirm every value and the new policy version");
+  }
   return persisted;
 }
 export async function countOutstandingTrades(userId?: number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const rows=await db.select({id:tradePositions.id}).from(tradePositions).where(userId===undefined?eq(tradePositions.status,"confirmed"):and(eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed"))); return rows.length; }
@@ -2520,12 +2571,12 @@ const DEFAULT_NEW_TIER_POLICY = {
   badgeLabel:null,badgeStyle:"neutral",
   minimumPayoutRateBps:200,maximumPayoutRateBps:300,
   minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900,
-  companyRotationEnabled:true,companyRotationCountryNames:null,
+  companyRotationEnabled:false,companyRotationCountryNames:null,
   companyRotationRepeatPolicy:"avoid_until_exhausted" as const,
   maxPopupsPerDay:10,maxVisibleOffers:3,minimumTradeUnits:1000,maximumTradeUnits:100000,
-  minHourlyTarget:0,normalHourlyTarget:0,marketInfluenceBps:0,burstEnabled:true,maxBurstSize:3,
-  enabled:true,automaticDelivery:true,dailyPopupTarget:0,schedulingPeriod:"rolling_24h" as const,
-  minIntervalSeconds:45,maxIntervalSeconds:3600,randomizationEnabled:true,popupDisplayTargetSeconds:120,
+  minHourlyTarget:0,normalHourlyTarget:0,marketInfluenceBps:0,burstEnabled:false,maxBurstSize:3,
+  enabled:false,automaticDelivery:false,dailyPopupTarget:0,schedulingPeriod:"rolling_24h" as const,
+  minIntervalSeconds:45,maxIntervalSeconds:3600,randomizationEnabled:false,popupDisplayTargetSeconds:120,
   completionDisplaySeconds:8,postCompletionIntervalSeconds:30,maxPendingDeliveries:3,
   deliveryRetryPolicy:"temporary" as const,maxDeliveryAttempts:3,expiryHandling:"expire" as const,
   duplicatePrevention:true,audioEnabled:true,audioSound:"soft-chime",automaticTradingEnabled:false,
@@ -2616,8 +2667,6 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
     if(isTradingTierEnablingTransition(Boolean(current.enabled),input.enabled)&&(
       !activationPolicy||
       Number(activationPolicy.policyVersion)<1||
-      !activationPolicy.enabled||
-      !activationPolicy.automaticDelivery||
       !Number.isSafeInteger(Number(activationPolicy.minimumPayoutRateBps))||
       !Number.isSafeInteger(Number(activationPolicy.maximumPayoutRateBps))||
       Number(activationPolicy.minimumPayoutRateBps)<0||
@@ -2666,13 +2715,17 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
  * attribution. Called by the scheduled worker so tier start dates and admin
  * configuration changes do not depend on a customer visit or another deposit.
  */
-export async function ensureAutomaticTradingTierEntitlements(userId:number) {
+export async function ensureAutomaticTradingTierEntitlements(userId:number):Promise<boolean> {
   const db=await getDb();
   if(!db) throw new Error("Trading eligibility is temporarily unavailable.");
-  await db.transaction(async tx=>{
+  return db.transaction(async tx=>{
+    const globalSetting=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
+      .where(eq(appSettings.settingKey,TRADE_GLOBAL_CONTROL_SETTINGS_KEY)).limit(1).for("update"))[0];
+    const globalPolicy=parseTradeGlobalControlPolicy(globalSetting?.settingValue);
+    if(!globalPolicy?.tierPolicyMasterEnabled) return false;
     const user=(await tx.select({id:users.id,role:users.role,loginMethod:users.loginMethod})
       .from(users).where(eq(users.id,userId)).limit(1).for("update"))[0];
-    if(!user||user.role!=="user"||user.loginMethod==="closed") return;
+    if(!user||user.role!=="user"||user.loginMethod==="closed") return true;
     const creditedRows=await tx.select({amount:balanceLedger.qualifyingDepositUsdMinor})
       .from(balanceLedger).where(and(
         eq(balanceLedger.userId,userId),
@@ -2745,6 +2798,7 @@ export async function ensureAutomaticTradingTierEntitlements(userId:number) {
       });
       history.unshift({id:subscriptionId,userId,packageId:Number(tier.id),startsAt:now,expiresAt,status:"active",activationKey,termsSnapshotJson:JSON.stringify(snapshot),qualifyingBalanceUsdMinor:qualifyingTotal,packageTermsVersion:Number(tier.termsVersion),activatedAt:now,createdAt:now} as typeof history[number]);
     }
+    return true;
   });
 }
 
@@ -2756,6 +2810,8 @@ export async function ensureAutomaticTradingTierEntitlements(userId:number) {
 export async function runTradingTierQualificationWorkerCycle(options?: { batchSize?: number }) {
   const db=await getDb();
   if(!db) throw new Error("Trading qualification worker database is unavailable.");
+  const globalPolicy=await getTradeGlobalControls();
+  if(!globalPolicy.available||!globalPolicy.tierPolicyMasterEnabled) return {claimed:0,completed:0,retrying:0,dead:0,pausedByGlobalPolicy:true};
   const batchSize=Math.max(1,Math.min(50,Math.floor(options?.batchSize??20)));
   // MySQL TIMESTAMP has second precision here; use a stable persisted lease token.
   // Eligibility keeps full precision; a just-requeued TIMESTAMP may round into the next second.
@@ -2783,7 +2839,13 @@ export async function runTradingTierQualificationWorkerCycle(options?: { batchSi
   let completed=0,retrying=0,dead=0;
   for(const job of jobs){
     try{
-      await ensureAutomaticTradingTierEntitlements(Number(job.userId));
+      const reconciled=await ensureAutomaticTradingTierEntitlements(Number(job.userId));
+      if(!reconciled){
+        await db.update(tradingTierQualificationJobs).set({status:"pending",availableAt:new Date(Date.now()+30_000),lockedAt:null,lastError:"Global tier policy is OFF; the qualification job was retained for later review.",updatedAt:new Date()})
+          .where(and(eq(tradingTierQualificationJobs.id,job.id),eq(tradingTierQualificationJobs.status,"processing"),eq(tradingTierQualificationJobs.lockedAt,job.lockedAt)));
+        retrying++;
+        continue;
+      }
       await db.update(tradingTierQualificationJobs).set({
         status:"completed",lockedAt:null,lastError:null,updatedAt:new Date(),
       }).where(and(
@@ -2818,6 +2880,8 @@ export async function runTradingTierQualificationWorkerCycle(options?: { batchSi
 export async function getCustomerTradingEligibility(userId:number) {
   const db=await getDb();
   if(!db) throw new Error("Trading eligibility is temporarily unavailable.");
+  const globalPolicy=await getTradeGlobalControls();
+  const tierMasterEnabled=globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled;
   const now=new Date();
   const rows=await db.select({
     activationKey:customerPackageSubscriptions.activationKey,
@@ -2840,10 +2904,10 @@ export async function getCustomerTradingEligibility(userId:number) {
   const snapshotFor=(row:typeof rows[number])=>{
     try { return JSON.parse(String(row.termsSnapshotJson||"{}")); } catch { return {}; }
   };
-  const dailyOpportunityAllowance=eligibleRows.reduce((total,row)=>{
+  const dailyOpportunityAllowance=tierMasterEnabled?eligibleRows.reduce((total,row)=>{
     const quota=Number(snapshotFor(row).opportunitiesPerDay??row.dailyQuota);
     return total+(Number.isSafeInteger(quota)&&quota>=0?quota:0);
-  },0);
+  },0):0;
   if(!Number.isSafeInteger(dailyOpportunityAllowance)||dailyOpportunityAllowance<0) throw new Error("Trading eligibility quota is invalid.");
 
   // The customer receives only their highest active tier and the single next threshold,
@@ -2883,7 +2947,7 @@ export async function getCustomerTradingEligibility(userId:number) {
   tiers.sort((a,b)=>Number(a.minimumQualifyingBalanceUsdMinor)-Number(b.minimumQualifyingBalanceUsdMinor));
   const nextTier=tiers.find(tier=>Number(tier.minimumQualifyingBalanceUsdMinor)>qualifyingDepositUsdMinor);
   const currentPackage=activePackages[0]||null;
-  const nextPackage=nextTier?{
+  const nextPackage=tierMasterEnabled&&nextTier?{
     name:nextTier.name,
     minimumQualifyingBalanceUsdMinor:Number(nextTier.minimumQualifyingBalanceUsdMinor),
     amountNeededUsdMinor:Math.max(0,Number(nextTier.minimumQualifyingBalanceUsdMinor)-qualifyingDepositUsdMinor),
@@ -2891,9 +2955,10 @@ export async function getCustomerTradingEligibility(userId:number) {
     additionalDailyOpportunities:Number(nextTier.opportunitiesPerDay),
   }:null;
   return {
-    eligible:eligibleRows.length>0,
+    eligible:tierMasterEnabled&&eligibleRows.length>0,
     dailyOpportunityAllowance,
-    status:eligibleRows.length>0?"eligible":"not_eligible",
+    status:tierMasterEnabled&&eligibleRows.length>0?"eligible":"not_eligible",
+    globalTierPolicyEnabled:tierMasterEnabled,
     qualifyingDepositUsdMinor,
     currentPackage,
     nextPackage,
@@ -2902,13 +2967,14 @@ export async function getCustomerTradingEligibility(userId:number) {
 
 
 export async function previewNextCustomerCompanySpotlight(userId:number) {
+  const globalPolicy=await getTradeGlobalControls();
+  if(!globalPolicy.available||!globalPolicy.tierPolicyMasterEnabled||!globalPolicy.companyRotationEnabled) return null;
   const eligibility=await getCustomerTradingEligibility(userId);
   const packageName=String(eligibility.currentPackage?.name||"").trim();
   if(!eligibility.eligible||!packageName) throw new Error("An active automatically assigned Trading tier is required for company spotlight preview.");
   const policies=await listPersistedOpportunityPackagePolicies();
   const policy=policies.find(row=>row.packageName===packageName);
   if(!policy) throw new Error("The active Trading tier has no saved company rotation policy.");
-  if(!policy.companyRotationEnabled) return null;
   const db=await getDb();
   if(!db) throw new Error("Company spotlight preview is temporarily unavailable.");
   const catalogueRow=(await db.select({settingValue:appSettings.settingValue})
@@ -3254,6 +3320,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
 }
 export async function listCustomerOpportunities(userId:number, options:{consumeDelivery?:boolean;workerCycle?:boolean;allowAutomaticExecution?:boolean}={}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const globalPolicy=await getTradeGlobalControls();
   const now=new Date();
   const quotaDay=now.toISOString().slice(0,10);
   const settled:Array<{tradeId:number;rewardMinor:number;currency:string;totalMinor:number}>=[];
@@ -3276,12 +3343,12 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const packagePolicies=await listOpportunityPackagePolicies();
   const policyByName=new Map<string,typeof packagePolicies[number]>();
   for(const policyRow of packagePolicies) policyByName.set(policyRow.packageName,policyRow);
-  // Package-level delivery controls apply before any new popup or quota is
-  // assigned. Automatic trading can be disabled independently while delivery
-  // remains available for an administrator-configured review workflow.
+  // Package lifecycle remains tier-scoped. Global delivery masters are loaded
+  // once above; legacy per-tier copies are migration inputs only, not a second
+  // editable or runtime owner.
   const eligibleSubscriptions=subscriptions.filter(subscription=>{
     const configured=policyByName.get(subscription.packageName);
-    return Boolean(configured && configured.enabled && configured.automaticDelivery && hasConfiguredTradingOfferPolicy(configured));
+    return Boolean(configured && hasConfiguredTradingOfferPolicy(configured));
   });
   if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packagePolicyPaused:true,popupPolicy:{}});
   const quotaFor=(subscription:any)=>{
@@ -3313,7 +3380,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     popupDisplaySeconds:Math.max(1,Number(policy?.popupDisplayTargetSeconds||120)),
     popupMaxPerHour:maxPopupsPerDay,
     popupPreAlertProbabilityBps:0,popupPreAlertSeconds:0,popupWithdrawalProbabilityBps:0,
-    popupJitterSeconds:policy?.randomizationEnabled?Math.max(0,Number(policy?.maxIntervalSeconds||0)-Number(policy?.minIntervalSeconds||0)):0,
+    popupJitterSeconds:globalPolicy.randomizedTimingEnabled?Math.max(0,Number(policy?.maxIntervalSeconds||0)-Number(policy?.minIntervalSeconds||0)):0,
   };
   const offerRows=await db.select().from(opportunityOffers).where(and(eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt).limit(5000);
   const tradeHistory=await listTrades(userId);
@@ -3414,7 +3481,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     policyVersion:Number(lastDelivery?.policyVersion||0),
     minIntervalSeconds:Math.max(0,Number(policy?.minIntervalSeconds||0)),
     maxIntervalSeconds:Math.max(0,Number(policy?.maxIntervalSeconds||0)),
-    randomizationEnabled:Boolean(policy?.randomizationEnabled),
+    randomizationEnabled:globalPolicy.randomizedTimingEnabled,
   });
   const postCompletionIntervalSeconds=Math.max(0,Number(policy?.postCompletionIntervalSeconds||0));
   const lastCompletedTrade=postCompletionIntervalSeconds>0?(await db.select({completionAt:tradePositions.completionAt})
@@ -3433,7 +3500,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   // Preserve the entitlement selected for newly created popups during this cycle,
   // so the later automatic-trade pass does not count that same quota slot twice.
   const assignedSubscriptionByOffer=new Map<number,any>();
-  if(options.workerCycle===true&&!formulaCooling&&remainingQuota>0){
+  if(options.workerCycle===true&&globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&!formulaCooling&&remainingQuota>0){
     for(const offer of offerRows){
       if(remainingQuota<=0) break;
       const offerId=Number(offer.id);
@@ -3462,7 +3529,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const subscription=selected.subscription;
       const configured=selected.configured;
       if(!configured||!hasConfiguredTradingOfferPolicy(configured)) continue;
-      if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:Boolean(configured.burstEnabled),maxBurstSize:Number(configured.maxBurstSize||0)})) break;
+      if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(configured.maxBurstSize||0)})) break;
       // Select one administrator-configured rate and duration exactly once. The
       // selection is persisted with the popup and reused by retries/trade allocation.
       const configuredProfitRateBps=chooseInclusiveInteger(Number(configured.minimumPayoutRateBps),Number(configured.maximumPayoutRateBps));
@@ -3476,7 +3543,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         durationSeconds:configuredDurationSeconds,policyVersion:Number(configured.policyVersion||1),packagePolicyVersionSnapshot:Number(configured.policyVersion||1),
         badgeLabel:configured.badgeLabel==null?null:String(configured.badgeLabel),packageBadgeLabel:configured.badgeLabel==null?null:String(configured.badgeLabel),
         badgeStyle:["neutral","blue","purple","gold","green"].includes(String(configured.badgeStyle))?String(configured.badgeStyle):"neutral",
-        companyRotationEnabled:Boolean(configured.companyRotationEnabled),
+        companyRotationEnabled:globalPolicy.companyRotationEnabled,
         companyRotationCountryNames:String(configured.companyRotationCountryNames||""),
         companyRotationRepeatPolicy:configured.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted"});
       assignedSubscriptionByOffer.set(Number(offer.id),subscription);
@@ -3578,7 +3645,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const packagePolicy=policyByName.get(String(offer.packageName));
     // Disabled package policies or automatic execution must stop new allocations
     // without turning a merely visible/pending popup into a trade request.
-    return Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy));
+    return Boolean(packagePolicy && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy));
   });
   const effectiveControls=controls;
   const auto=AUTOMATIC_FINANCIAL_EXECUTION_ENABLED && options.workerCycle===true && options.allowAutomaticExecution!==false
@@ -3606,11 +3673,12 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         ["DELIVERED","NOTICED"].includes(row.eventStatus)&&["delivered","received","rendered","failed"].includes(String(row.deliveryStatus)),
       automaticTrade:executed};
   });
-  return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{enabled:true,packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,
+  const globalDeliveryEnabled=globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled;
+  return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{enabled:globalDeliveryEnabled,globalPolicyPaused:!globalDeliveryEnabled,packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,
     remainingDailyQuota:Math.max(0,deliveryCapacity.dailyRemaining-newlyEligible.length),
     remainingVisibleSlots:Math.max(0,deliveryCapacity.visibleRemaining-newlyEligible.length),
     remainingQuota,activeVisibleCount:activeVisibleCount+newlyEligible.length,schedulingPeriod:effectiveSchedulingPeriod,
-    formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:Boolean(policy?.burstEnabled),maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
+    formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
 }
 export async function claimAutoTradeCycleCustomers(input:{batchSize?:number}={}){
   const db=await getDb();
@@ -3662,9 +3730,10 @@ export async function claimAutoTradeCycleCustomers(input:{batchSize?:number}={})
 
 export async function runAutoTradeCycle(input:{batchSize?:number}={}){
   const settlementPolicy=await getTradeSettlementPolicy();
+  const globalControls=await getTradeGlobalControls();
   let outstandingTrades=0;
   let pausedUntilSettled=false;
-  if(settlementPolicy.blockUntilSettled){
+  if(!globalControls.available||globalControls.requirePreviousSettlement||settlementPolicy.blockUntilSettled){
     outstandingTrades=await countOutstandingTrades();
     pausedUntilSettled=outstandingTrades>0;
   }
@@ -3785,6 +3854,10 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   }
 
   const settlementPolicy=await getTradeSettlementPolicy();
+  const globalControlRow=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
+    .where(eq(appSettings.settingKey,TRADE_GLOBAL_CONTROL_SETTINGS_KEY)).limit(1).for("update"))[0];
+  const globalControls=parseTradeGlobalControlPolicy(globalControlRow?.settingValue);
+  const requirePreviousSettlement=!globalControls||globalControls.requirePreviousSettlement||settlementPolicy.blockUntilSettled;
 
   const totalWalletFunds=(await tx.select({availableMinor:sql`COALESCE(SUM(${customerBalances.availableMinor}),0)`}).from(customerBalances).where(eq(customerBalances.userId,userId)))[0]; if(Number(totalWalletFunds?.availableMinor||0)<=0) throw new Error("Trading is unavailable until at least one wallet has available funds");
   const offer=(await tx.select().from(opportunityOffers).where(and(eq(opportunityOffers.id,input.offerId),eq(opportunityOffers.status,"open"))).limit(1))[0];
@@ -3822,7 +3895,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   for(const row of packagePolicies) policyByName.set(row.packageName,row);
   const eligibleSubscriptions=activePackageSubscriptions.filter(subscription=>{
     const configured=policyByName.get(subscription.packageName);
-    return Boolean(configured && configured.enabled && configured.automaticDelivery && configured.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(configured));
+    return Boolean(configured && configured.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(configured));
   });
   if(!eligibleSubscriptions.length) throw new Error("New allocations are paused for all eligible Trading tier policies");
   const quotaRows=await tx.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL AND confirmedAt>=${todayStartUtc} AND confirmedAt<${tomorrowStartUtc} AND status<>'cancelled' GROUP BY packageSubscriptionId`) as any;
@@ -3861,7 +3934,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     // This is a customer-wide gate, not a same-package check. A previous trade
     // remains unsettled until the administrator-confirmed result is posted to
     // the wallet and the lifecycle reaches its completed state.
-    if(packagePolicy.requirePreviousSettlement !== false) {
+    if(requirePreviousSettlement) {
       const unsettledRows=await tx.execute(sql`SELECT id FROM trade_positions
         WHERE userId=${userId}
           AND status<>'cancelled'

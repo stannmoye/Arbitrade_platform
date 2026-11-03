@@ -8,24 +8,25 @@ const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
 
 describe("administrator Trading delivery policy controls", () => {
-  it("hydrates saved policy fields and exposes timing, retry, concurrency and reward eligibility controls", () => {
+  it("keeps timing, retry, concurrency and reward eligibility fields in the tier editor", () => {
     for (const field of [
       "dailyPopupTarget", "schedulingPeriod", "minIntervalSeconds", "maxIntervalSeconds",
       "popupDisplayTargetSeconds", "completionDisplaySeconds", "postCompletionIntervalSeconds",
       "maxPendingDeliveries", "maxDeliveryAttempts", "maxTradeAttemptsPerDay",
       "tradeRetryDelaySeconds", "maxSuccessfulTradesPerDay", "maxConcurrentActiveTrades",
-      "requirePreviousSettlement", "minSettlementDelaySeconds", "maxSettlementDelaySeconds",
+      "minSettlementDelaySeconds", "maxSettlementDelaySeconds",
       "minimumRewardBps", "maxDailyRewardMinor", "maxRewardPerTradeMinor", "closePolicy",
     ]) {
       expect(policyEditor).toContain(field);
       expect(router).toContain(field);
       expect(schema).toContain(field);
     }
-    expect(app).toContain("enabled:x.enabled===true,automaticDelivery:x.automaticDelivery===true,automaticTradingEnabled:x.automaticTradingEnabled===true");
+    expect(app).toContain("trpc.adminOperations.globalTradeControls.useQuery");
+    expect(app).toContain("trpc.adminOperations.updateGlobalTradeControl.useMutation");
     expect(app).toContain("minimumPayoutRateBps:x.minimumPayoutRateBps??null");
-    expect(app).toContain("companyRotationCountryNames:x.companyRotationCountryNames??\"\"");
-    expect(app).toContain('{ key: "enabled", label: "Tier policy" }');
-    expect(app).toContain('aria-checked={active}');
+    expect(app).toContain('companyRotationCountryNames:x.companyRotationCountryNames??""');
+    expect(app).not.toContain('{ key: "enabled", label: "Tier policy" }');
+    expect(app).not.toContain('aria-checked={active}');
     expect(app).toContain("({...x,packageName:x.packageName");
     for (const binding of [
       "value={row.popupDisplayTargetSeconds}", "value={row.minIntervalSeconds}",
@@ -39,13 +40,19 @@ describe("administrator Trading delivery policy controls", () => {
     expect(app).toContain('section==="packages"&&<AdminPackages focus={focus as "tiers"|"policy"|"quotas"');
   });
 
-  it("submits only changed tier policy fields instead of replaying stale full-row snapshots", () => {
+  it("submits only changed tier policy fields and rejects global master fields at the tier API", () => {
     expect(app).toContain("function AdminTradingPolicySettings(");
     expect(app).toContain("buildChangedPolicyPatches(policyBaseline,policyRows)");
     expect(router).toContain("maxPopupsPerDay: z.number().int().min(1).max(1000).optional()");
     expect(router).toContain("maxVisibleOffers: z.number().int().min(1).max(10000).optional()");
     expect(router).toContain("minimumTradeUnits: z.number().int().min(1).max(2147483647).optional()");
-    expect(router).toContain("burstEnabled: z.boolean().optional()");
+    const start = router.indexOf("updatePackagePolicies: adminProcedure.input");
+    const end = router.indexOf("createOffer: adminProcedure.input", start);
+    const tierMutation = router.slice(start, end);
+    for (const field of ["enabled", "automaticDelivery", "companyRotationEnabled", "randomizationEnabled", "burstEnabled", "automaticTradingEnabled", "requirePreviousSettlement"]) {
+      expect(tierMutation).not.toContain(`${field}: z.boolean().optional()`);
+    }
+    expect(tierMutation).toContain("}).strict()).min(1).max(1000)");
     expect(database).toContain("...supplied,packageName:policy.packageName,updatedBy");
   });
 

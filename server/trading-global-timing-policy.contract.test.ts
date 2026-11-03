@@ -42,7 +42,8 @@ describe("global Trade timing policy contract", () => {
 
   it("registers migration 0099 in the journal, portal runner, and installer recovery list", () => {
     const tag = "0099_trading_global_timing_policy_version";
-    expect(journal.entries.at(-1).tag).toBe(tag);
+    expect(journal.entries.some((entry:any) => entry.tag === tag)).toBe(true);
+    expect(journal.entries.at(-1).tag).toBe("0100_global_trade_master_controls");
     expect(runner).toContain(`"${tag}.sql"`);
     expect(installer).toContain(`"${tag}.sql"`);
     expect(read("../drizzle/0099_trading_global_timing_policy_version.sql")).toContain("trade.timingPolicyVersion");

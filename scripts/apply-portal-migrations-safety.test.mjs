@@ -21,9 +21,11 @@ describe("portal migration diagnostic privacy", () => {
     expect(source).toContain("multipleStatements: true");
     expect(source).toContain("await executeCompatibleMigrationSql(connection, sql);");
     expect(source).toContain('"0099_trading_global_timing_policy_version.sql"');
+    expect(source).toContain('"0100_global_trade_master_controls.sql"');
     const journal = JSON.parse(await readFile(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8"));
-    expect(journal.entries.at(-1).tag).toBe("0099_trading_global_timing_policy_version");
+    expect(journal.entries.at(-1).tag).toBe("0100_global_trade_master_controls");
     expect(await readFile(new URL("../drizzle/0099_trading_global_timing_policy_version.sql", import.meta.url), "utf8")).toContain("trade.timingPolicyVersion");
+    expect(await readFile(new URL("../drizzle/0100_global_trade_master_controls.sql", import.meta.url), "utf8")).toContain("trade.globalControls");
   });
 
   it("does not re-emit raw database errors after printing a sanitized migration code", async () => {
