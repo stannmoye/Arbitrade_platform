@@ -1276,3 +1276,11 @@ The exact candidate previously verified on PR #275 completed the full hosted mat
 
 ### 2026-11-03 — Final installer assertion repair
 The `89bd2bd6` installer log showed one remaining stale expectation in the second persisted-package reload assertion: it still expected request-only `expectedTermsVersion` to appear in the database response. That assertion is now aligned with the returned persisted `termsVersion` and no longer expects the request precondition to be echoed. No tests were run locally while investigating or making this correction. Next: commit/push the assertion repair and inspect GitHub's automatically triggered exact-head result; do not merge or deploy.
+
+
+### 2026-11-03 — Legacy per-tier delivery-attempt write disabled
+- **Branch / base:** `feat/trade-settings-admin-blueprint` / PR #275, base `main` at `59c425414b981bc2fd8720119f2d4b650b97ab15`. Starting branch head: `394d6d103745e4208986d2532a611e5fe370a317`.
+- **Change:** Removed legacy per-tier `maxDeliveryAttempts` from the strict admin API schema and database-layer patch allowlist. The stored compatibility column is retained, but can no longer be edited through package policy updates. The versioned shared Retry & Carry-Forward `maxAttempts` policy remains the sole writable and runtime-consumed setting for informational delivery attempts. Automatic financial execution remains hard-disabled.
+- **Regression coverage/docs:** Extended the delivery-policy contract test to assert per-tier API rejection and shared retry-owner usage; updated the decisions log to explain the compatibility-only legacy column.
+- **Validation:** `pnpm install --frozen-lockfile` passed. `pnpm test -- server/trading-admin-delivery-policy.contract.test.ts` ran the full repository suite: 146 files passed, 5 skipped; 1,135 tests passed, 27 skipped. `pnpm check`, `pnpm build`, and `git diff --check` passed. No local disposable database was configured; exact-head hosted CI will be checked after push.
+- **Not changed:** No retry semantics, default intervals, fees, previous-settlement gate, menu ownership, database schema/data, production settings, or financial behavior.

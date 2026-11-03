@@ -772,7 +772,6 @@ export const appRouter = router({
         completionDisplaySeconds: z.number().int().min(1).max(3600).optional(),
         postCompletionIntervalSeconds: z.number().int().min(0).max(604800).optional(),
         maxPendingDeliveries: z.number().int().min(0).max(1000).optional(),
-        maxDeliveryAttempts: z.number().int().min(1).max(20).optional(),
         maxTradeAttemptsPerDay: z.number().int().min(0).max(10000).optional(),
         tradeRetryDelaySeconds: z.number().int().min(5).max(3600).optional(),
         maxSuccessfulTradesPerDay: z.number().int().min(0).max(10000).optional(),

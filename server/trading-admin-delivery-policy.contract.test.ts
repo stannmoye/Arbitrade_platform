@@ -29,8 +29,9 @@ describe("administrator Trading delivery policy controls", () => {
     expect(app).toContain("<AdminDeliveryRetryPolicy/>");
     expect(policyEditor).not.toContain("maxDeliveryAttempts");
     expect(retryEditor).toContain("Maximum delivery attempts");
+    expect(retryEditor).toContain('api.updateDeliveryRetryPolicy.useMutation()');
+    expect(retryEditor).toContain('maxAttempts: attempts');
     expect(retryEditor).toContain("Delivery-specific retry intervals (seconds)");
-    expect(retryEditor).toContain("api.updateDeliveryRetryPolicy.useMutation()");
     expect(app).toContain("minimumPayoutRateBps:x.minimumPayoutRateBps??null");
     expect(app).toContain('companyRotationCountryNames:x.companyRotationCountryNames??""');
     expect(app).not.toContain('{ key: "enabled", label: "Tier policy" }');
@@ -65,8 +66,12 @@ describe("administrator Trading delivery policy controls", () => {
       expect(tierMutation).not.toContain(`${field}: z.boolean().optional()`);
     }
     expect(tierMutation).toContain("}).strict()).min(1).max(1000)");
+    expect(tierMutation).not.toContain("maxDeliveryAttempts");
     expect(database).toContain("const TRADING_TIER_POLICY_PATCH_KEYS = new Set([");
     expect(database).toContain("Per-tier Trading policy cannot update global or unknown fields");
+    const patchKeysStart = database.indexOf("const TRADING_TIER_POLICY_PATCH_KEYS = new Set([");
+    const patchKeysEnd = database.indexOf("]);", patchKeysStart);
+    expect(database.slice(patchKeysStart, patchKeysEnd)).not.toContain("maxDeliveryAttempts");
     expect(database).toContain("...supplied,packageName:policy.packageName,updatedBy");
   });
 
