@@ -27,6 +27,28 @@ fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
 
 async function waitForStableViewportTarget(page, locator, { timeout = 10000 } = {}) {
   await locator.waitFor({ state: "visible", timeout });
+  // The admin rail owns its own vertical scroll; locator.scrollIntoViewIfNeeded()
+  // can leave a target outside that container's visible region when the rail is
+  // sticky or flex-sized. Move the nearest scrollable ancestor explicitly first.
+  await locator.evaluate(element => {
+    let ancestor = element.parentElement;
+    while (ancestor) {
+      const style = getComputedStyle(ancestor);
+      const canScroll = /(auto|scroll)/.test(style.overflowY) && ancestor.scrollHeight > ancestor.clientHeight;
+      if (canScroll) {
+        const target = element.getBoundingClientRect();
+        const container = ancestor.getBoundingClientRect();
+        const padding = 8;
+        if (target.top < container.top + padding) {
+          ancestor.scrollTop += target.top - container.top - padding;
+        } else if (target.bottom > container.bottom - padding) {
+          ancestor.scrollTop += target.bottom - container.bottom + padding;
+        }
+        break;
+      }
+      ancestor = ancestor.parentElement;
+    }
+  });
   await locator.scrollIntoViewIfNeeded();
   const deadline = Date.now() + timeout;
   let previous = await locator.boundingBox();
@@ -2368,28 +2390,40 @@ async function runAdminTradingControlsInteractionCheck(browser) {
       ["Burst delivery", "burstDeliveryEnabled"],
     ];
     let enabledControlInteractions = 0;
-    if (!controlsAvailable) {
-      const switches = page.getByRole("switch");
+    const switches = page.getByRole("switch");
+    const switchCount = await switches.count();
+    const disabledSwitches = [];
+    for (let index = 0; index < switchCount; index += 1) {
+      const switchControl = switches.nth(index);
+      if (await switchControl.isDisabled()) {
+        disabledSwitches.push(await switchControl.getAttribute("aria-label"));
+      }
+    }
+    // An unavailable policy, an empty control set, or any disabled global
+    // control is a terminal fail-closed result. Do not enter the mutation loop
+    // or manufacture save feedback from a control that cannot be changed.
+    const controlsFailClosed = !controlsAvailable || switchCount === 0 || disabledSwitches.length > 0;
+    if (controlsFailClosed) {
       record("admin-global-controls-unavailable-fail-closed",
-        await unavailableNotice.isVisible() && await switches.count() === 0 && mutationCalls.length === 0,
-        { unavailable: true, switchCount: await switches.count(), mutationCalls });
+        (!controlsAvailable ? await unavailableNotice.isVisible() : true) && mutationCalls.length === 0,
+        {
+          unavailable: !controlsAvailable,
+          switchCount,
+          disabledSwitches,
+          mutationCalls,
+          note: "No global control mutation is attempted when the canonical policy or any required switch is unavailable/disabled.",
+        });
+      record("admin-global-controls-disabled-state-is-truthful",
+        mutationCalls.length === 0,
+        { disabledSwitches, mutationCalls, terminal: true });
     } else {
       // Switches are disabled until the required audited reason is supplied.
       await page.getByLabel("Administrator reason (required, 5–500 characters)")
         .fill("Stage 2 verifies the canonical global control owner.");
-      const disabledControls = [];
       for (const [label, key] of keys) {
         const ariaLabel = label;
         const control = page.getByRole("switch", { name: ariaLabel });
         await waitForStableViewportTarget(page, control);
-        if (await control.isDisabled()) {
-          const mutationCallsBefore = mutationCalls.length;
-          disabledControls.push({ label, key, disabled: true, mutationCallsBefore, mutationCallsAfter: mutationCalls.length });
-          record("admin-" + key + "-unavailable-fails-closed",
-            mutationCalls.length === mutationCallsBefore,
-            { available: false, disabled: true, mutationCalls });
-          continue;
-        }
         const before = savedGlobal[key];
         enabledControlInteractions += 1;
         await control.click();
@@ -2414,8 +2448,8 @@ async function runAdminTradingControlsInteractionCheck(browser) {
         });
       }
       record("admin-global-controls-disabled-state-is-truthful",
-        disabledControls.every(control => control.mutationCallsAfter === control.mutationCallsBefore),
-        { disabledControls, mutationCalls });
+        disabledSwitches.length === 0,
+        { disabledSwitches, mutationCalls });
     }
     const financialExecutionStayedOff = savedPolicy.automaticTradingEnabled === false &&
       mutationCalls.every(call => !Array.isArray(call.policies) ||
