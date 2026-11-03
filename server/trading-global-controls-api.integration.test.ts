@@ -8,6 +8,7 @@ import { closeDbPool, getDb } from "./db";
 const enabled = process.env.RUN_TRADE_GLOBAL_CONTROLS_DB_INTEGRATION === "1";
 const rawDatabaseUrl = process.env.DATABASE_URL ?? "";
 const triggerName = "test_trade_global_controls_reject_audit_insert";
+const readBackTriggerName = "test_trade_global_controls_mutate_readback";
 
 function parseDisposableLoopbackDatabaseUrl(raw: string): URL {
   let url: URL;
@@ -101,6 +102,7 @@ describe.skipIf(!enabled)("global Trade controls API against a disposable databa
     if (maintenanceConnection) {
       try {
         await maintenanceConnection.query(`DROP TRIGGER IF EXISTS \`${triggerName}\``);
+        await maintenanceConnection.query(`DROP TRIGGER IF EXISTS \`${readBackTriggerName}\``);
       } catch {
         // Preserve the original test failure; cleanup below still closes the connection.
       }
@@ -214,5 +216,53 @@ describe.skipIf(!enabled)("global Trade controls API against a disposable databa
 
     expect(await freshPolicy()).toEqual(before);
     expect(await auditRowsFor(adminId)).toHaveLength(auditCountBefore);
+  });
+
+  it("reports a read-back mismatch and recovers from the freshly observed policy version", async () => {
+    if (!adminCaller || adminId === null || !maintenanceConnection) throw new Error("Global-control read-back fixture is not ready.");
+    const before = await freshPolicy();
+    const desired = !before.burstDeliveryEnabled;
+    const auditsBefore = await auditRowsFor(adminId);
+    await maintenanceConnection.query(`DROP TRIGGER IF EXISTS \`${readBackTriggerName}\``);
+    await maintenanceConnection.query(
+      `CREATE TRIGGER \`${readBackTriggerName}\` BEFORE UPDATE ON \`app_settings\` FOR EACH ROW BEGIN IF NEW.settingKey = 'trade.globalControls' THEN SET NEW.settingValue = IF(JSON_UNQUOTE(JSON_EXTRACT(NEW.settingValue, '$.burstDeliveryEnabled')) = 'true', REPLACE(NEW.settingValue, '"burstDeliveryEnabled":true', '"burstDeliveryEnabled":false'), REPLACE(NEW.settingValue, '"burstDeliveryEnabled":false', '"burstDeliveryEnabled":true')); END IF; END`,
+    );
+
+    try {
+      await expect(adminCaller.adminOperations.updateGlobalTradeControl({
+        key: "burstDeliveryEnabled",
+        enabled: desired,
+        reason: "Force fresh read-back mismatch in disposable fixture",
+        expectedPolicyVersion: before.policyVersion,
+      })).rejects.toThrow("Global Trade control save committed, but a fresh database read did not confirm every value and the new policy version");
+    } finally {
+      await maintenanceConnection.query(`DROP TRIGGER IF EXISTS \`${readBackTriggerName}\``);
+    }
+
+    const observedAfterMismatch = await freshPolicy();
+    expect(observedAfterMismatch).toMatchObject({
+      available: true,
+      burstDeliveryEnabled: before.burstDeliveryEnabled,
+      policyVersion: before.policyVersion + 1,
+      updatedBy: adminId,
+    });
+    const auditsAfterMismatch = await auditRowsFor(adminId);
+    expect(auditsAfterMismatch).toHaveLength(auditsBefore.length + 1);
+    expect(auditsAfterMismatch.some(row => row.entityId === String(before.policyVersion + 1))).toBe(true);
+
+    const recovered = await adminCaller.adminOperations.updateGlobalTradeControl({
+      key: "burstDeliveryEnabled",
+      enabled: desired,
+      reason: "Recover global control after refreshing saved policy version",
+      expectedPolicyVersion: observedAfterMismatch.policyVersion,
+    });
+    expect(recovered).toMatchObject({
+      available: true,
+      burstDeliveryEnabled: desired,
+      policyVersion: before.policyVersion + 2,
+      updatedBy: adminId,
+    });
+    expect(await freshPolicy()).toMatchObject({ burstDeliveryEnabled: desired, policyVersion: before.policyVersion + 2 });
+    expect(await auditRowsFor(adminId)).toHaveLength(auditsBefore.length + 2);
   });
 });
