@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./marketSync.ts", import.meta.url), "utf8");
 const databaseSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const adminApp = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
+const opportunityCsv = readFileSync(new URL("../client/src/opportunity-csv.ts", import.meta.url), "utf8");
 const start = source.indexOf("export async function ensureMarketDrivenOpportunities");
 const implementation = source.slice(start);
 
@@ -40,6 +41,7 @@ describe("trading opportunity economics integrity", () => {
     expect(pauseEnd).toBeGreaterThan(pauseStart);
     expect(pause).toContain("pausedUntilSettled: true");
     expect(pause).toContain("opportunityOffers.status, \"open\"");
+    expect(pause).toContain("gt(opportunityOffers.closesAt, now)");
     expect(pause).not.toContain("db.update(opportunityOffers)");
   });
 
@@ -62,7 +64,8 @@ describe("trading opportunity economics integrity", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(implementation).toContain('return { created: 0, available: availableOffers.length, generationDisabled: true };');
     expect(implementation).toContain('.set({ status: "closed" })');
-    expect(implementation).toContain('lt(opportunityOffers.closesAt, now)');
+    expect(implementation).toContain('lte(opportunityOffers.closesAt, now)');
+    expect(implementation).not.toContain('lt(opportunityOffers.closesAt, now)');
     expect(implementation).not.toContain('marketObservedAt, refreshedAt');
     expect(implementation).toContain('eq(opportunityOffers.status, "open")');
     expect(implementation).toContain('gt(opportunityOffers.closesAt, now)');
@@ -81,8 +84,10 @@ describe("Trading opportunity publication guidance", () => {
 
 
 describe("Admin opportunity publisher error handling", () => {
-  it("reports successful and failed manual publications through the admin UI", () => {
-    expect(adminApp).toContain("Opportunity published to the database.");
+  it("reports package-compatibility outcomes and failed manual publications through the admin UI", () => {
+    expect(adminApp).toContain("Opportunity #${result.id} was published.");
+    expect(adminApp).toContain("Compatibility was not assessed because no enabled package policies were available; no tier is confirmed compatible.");
+    expect(adminApp).toContain("enabled package policies are compatible.");
     expect(adminApp).toContain("onError:error=>setPublishMessage(error.message)");
     expect(adminApp).toContain('role={create.isError?"alert":"status"}');
     expect(adminApp).toContain('create.isPending?"Publishing…":"Publish to database"');
@@ -90,9 +95,13 @@ describe("Admin opportunity publisher error handling", () => {
 
   it("does not announce CSV success before the server confirms the import", () => {
     expect(adminApp).toContain("Publishing ");
-    expect(adminApp).toContain("validated opportunities published successfully.");
+    expect(adminApp).toContain("validated opportunities published.${compatibilityNote}");
+    expect(adminApp).toContain("no tier compatibility is confirmed for those offers.");
     expect(adminApp).toContain("onError:error=>{setImportError(true);setImportStatus(error.message)}");
     expect(adminApp).toContain("reader.onerror=");
-    expect(adminApp).toContain("rows.length>5000");
+    expect(adminApp).toContain("parseOpportunityCsv(String(reader.result||\"\"))");
+    expect(opportunityCsv).toContain("const MAX_ROWS = 5000;");
+    expect(opportunityCsv).toContain("if (rows.length > MAX_ROWS)");
+    expect(opportunityCsv).not.toContain(".filter(");
   });
 });

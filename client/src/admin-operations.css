@@ -694,7 +694,7 @@
 }
 
 
-/* Persistent Trading controls shown above the content of every administrator page. */
+/* Package Configuration owner controls; never mounted on summaries or the read-only guide. */
 .admin-trading-global-controls {
   width: min(100%, 1420px);
   margin: 0 auto;
@@ -887,4 +887,53 @@
 @media (max-width: 460px) {
   .admin-trading-global-controls__switch-grid { grid-template-columns: minmax(0, 1fr); }
   .admin-trading-global-controls__package { padding: 10px; }
+}
+
+
+/* Trade Settings Guide: navigation-only help and owner references. */
+.trade-settings-guide__links,
+.trade-settings-guide__troubleshooting,
+.trade-settings-guide__statuses {
+  display: grid;
+  gap: 12px;
+}
+.trade-settings-guide__link,
+.trade-settings-guide__troubleshooting li,
+.trade-settings-guide__statuses > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: rgba(15, 23, 42, .32);
+}
+.trade-settings-guide__link p,
+.trade-settings-guide__troubleshooting p {
+  margin: 4px 0 0;
+  color: var(--muted, #94a3b8);
+}
+.trade-settings-guide__troubleshooting {
+  padding-left: 24px;
+}
+.trade-settings-guide__statuses > div {
+  align-items: flex-start;
+}
+.trade-settings-guide__statuses dt {
+  min-width: 180px;
+  font-weight: 700;
+}
+.trade-settings-guide__statuses dd {
+  margin: 0;
+  color: var(--muted, #94a3b8);
+}
+@media (max-width: 680px) {
+  .trade-settings-guide__link,
+  .trade-settings-guide__troubleshooting li,
+  .trade-settings-guide__statuses > div {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .trade-settings-guide__statuses dt { min-width: 0; }
 }

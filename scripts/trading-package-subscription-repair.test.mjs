@@ -38,7 +38,9 @@ describe("Trading customer package subscription schema repair", () => {
     expect(entry.idx).toBe(entries.indexOf(entry));
     expect(entries[entry.idx - 1].tag).toBe("0077_trading_package_catalogue_schema_repair");
     expect(entries[entry.idx + 1].tag).toBe("0079_trade_settlement_timing_schema_repair");
-    expect(entries.slice(-13).map((item) => item.tag)).toEqual([
+    const tailStart = entries.length - 17;
+    const tail = entries.slice(tailStart);
+    expect(tail.map((item) => item.tag)).toEqual([
       "0086_trading_popup_policy_snapshots",
       "0087_trading_opportunity_execution_leases",
       "0088_trading_package_policy_schema_reconciliation",
@@ -52,7 +54,16 @@ describe("Trading customer package subscription schema repair", () => {
       "0096_trade_settlement_review_timestamp",
       "0097_trading_daily_execution_attempt_accounting",
       "0098_disable_automatic_financial_execution",
+      "0099_trading_global_timing_policy_version",
+      "0100_global_trade_master_controls",
+      "0101_package_fee_policy_versions",
+      "0102_opportunity_delivery_retry_lifecycle",
     ]);
+    tail.forEach((item, offset) => {
+      const index = tailStart + offset;
+      expect(item.idx).toBe(index);
+      expect(item.when).toBeGreaterThan(entries[index - 1].when);
+    });
     expect(entry.when).toBeGreaterThan(entries.slice(0, entry.idx).reduce((latest, item) => Math.max(latest, item.when), 0));
   });
 

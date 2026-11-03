@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { isCompanySpotlightDisplayAllowed, parseCompanyCatalogueAdminState } from "./modules/company-spotlight-rotation";
 
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const catalogue = readFileSync(new URL("../client/src/components/AdminCompanyCatalogue.tsx", import.meta.url), "utf8");
+const ownership = readFileSync(new URL("../client/src/trade-settings-ownership.ts", import.meta.url), "utf8");
 const specification = readFileSync(new URL("../docs/TRADING_SYSTEM_SPECIFICATION.md", import.meta.url), "utf8");
 
 describe("administrator company catalogue bulk controls", () => {
@@ -11,7 +13,8 @@ describe("administrator company catalogue bulk controls", () => {
     expect(router).toContain("adminState: adminProcedure.query");
     expect(router).toContain("updateAdminState: adminProcedure.input");
     expect(router).toContain("updateCompanyCatalogueAdminState({ ...input, ids, updatedBy: ctx.user.id })");
-    expect(router).toContain('z.enum(["verified", "unverified", "archived", "disabled", "enabled"])');
+    expect(router).toContain('z.enum(["verified", "unverified", "archived", "restored", "disabled", "enabled"])');
+    expect(router).toContain("reason: z.string().trim().min(8).max(500)");
     expect(router).toContain(".max(1811)");
   });
 
@@ -23,16 +26,26 @@ describe("administrator company catalogue bulk controls", () => {
     expect(implementation).toContain('.for("update")');
     expect(implementation).toContain("tx.insert(v5AuditEvents).values");
     expect(implementation).toContain("actorUserId: input.updatedBy");
-    expect(implementation).toContain("reason: input.reason.trim()");
+    expect(implementation).toContain("normalizeCompanyCatalogueActionReason(input.reason)");
+    expect(implementation).toContain("transitionCompanyCatalogueAdminState(currentCatalogueState, ids, input.status)");
+    expect(implementation).toContain("reason,");
     expect(implementation).toContain("ids, updatedAt");
-    expect(implementation).toContain("verified.add(id)");
-    expect(implementation).toContain("archived.delete(id)");
-    expect(implementation).toContain("disabled.add(id)");
-    expect(implementation).toContain("disabled.delete(id)");
-    expect(implementation).toContain("disabledIds: [...disabled].sort()");
-    expect(implementation).toContain("verifiedIds: [...verified].sort()");
-    expect(implementation).toContain("archivedIds: [...archived].sort()");
-    expect(implementation).toContain("input.status === \"archived\"");
+    expect(implementation).toContain("tx.insert(v5AuditEvents).values");
+  });
+
+  it("requires and forwards a fresh operator-entered reason for each status action", () => {
+    expect(catalogue).toContain("window.prompt(");
+    expect(catalogue).toContain("case-specific reason");
+    expect(catalogue).toContain("reason.length < 8 || reason.length > 500");
+    expect(catalogue).toContain("8–500 characters");
+    expect(catalogue).toContain("await updateStatus.mutateAsync({ ids, status, reason })");
+    expect(catalogue).toContain('applyStatus("restored")');
+    expect(catalogue).not.toContain("Administrator archived selected catalogue records.");
+    expect(ownership).toContain("archive revokes customer approval while verification remains separate from enablement");
+    expect(ownership).toContain("archive removes verifiedIds and restore clears archivedIds without re-approving the record");
+    expect(router).toContain("updateCompanyCatalogueAdminState({ ...input, ids, updatedBy: ctx.user.id })");
+    expect(database).toContain("reason,");
+    expect(database).toContain('reason,\n      reference: `company-catalogue:${input.status}:${updatedAt}`');
   });
 
   it("keeps a full 1,811-ID status snapshot within the app-settings TEXT limit", () => {
@@ -56,6 +69,7 @@ describe("administrator company catalogue bulk controls", () => {
       "Disable selected",
       "Delete selected",
       "Restore selected",
+      "exact Logo ID",
       "Archived / deleted",
     ]) expect(catalogue).toContain(phrase);
     expect(catalogue).toContain("selectedIds");
@@ -71,5 +85,13 @@ describe("administrator company catalogue bulk controls", () => {
     expect(specification).toContain("or change `referenceOnly` / `eligibleForVerifiedTradeRotation`");
     expect(specification).toContain("only IDs in the persisted administrator `verifiedIds` set are eligible");
     expect(specification).toContain("never fall back to an unverified record");
+  });
+
+  it("allows customer identity only when verified and not disabled or archived, failing closed on malformed state", () => {
+    const id = "logo-brand-0001";
+    expect(isCompanySpotlightDisplayAllowed(id, parseCompanyCatalogueAdminState({ verifiedIds: [id], archivedIds: [], disabledIds: [] }))).toBe(true);
+    expect(isCompanySpotlightDisplayAllowed(id, parseCompanyCatalogueAdminState({ verifiedIds: [id], archivedIds: [id], disabledIds: [] }))).toBe(false);
+    expect(isCompanySpotlightDisplayAllowed(id, parseCompanyCatalogueAdminState({ verifiedIds: [id], archivedIds: [], disabledIds: [id] }))).toBe(false);
+    expect(isCompanySpotlightDisplayAllowed(id, parseCompanyCatalogueAdminState("{malformed"))).toBe(false);
   });
 });

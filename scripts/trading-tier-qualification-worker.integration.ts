@@ -9,12 +9,14 @@ import {
   customerBalances,
   currencyRegistry,
   customerPackageSubscriptions,
+  opportunityPackagePolicies,
   packages,
   tradingTierQualificationJobs,
   fxRateSnapshots,
   users,
   v5AuditEvents,
 } from "../drizzle/schema";
+import { TRADE_GLOBAL_CONTROL_SETTINGS_KEY } from "../server/trading-global-policy";
 
 const db = await getDb();
 if (!db) throw new Error("Worker integration requires DATABASE_URL to point to the disposable migrated database.");
@@ -32,11 +34,36 @@ let creditPathUserId;
 let adminId;
 let testCurrencyId;
 let tierIds = [];
+let originalGlobalControlRow;
 const createdLedgerIds = [];
 const createdJobIds = [];
 let testPassed = false;
 
 try {
+  const existingGlobalControlRows = await db.select({
+    settingValue: appSettings.settingValue,
+    updatedBy: appSettings.updatedBy,
+    updatedAt: appSettings.updatedAt,
+  }).from(appSettings).where(eq(appSettings.settingKey, TRADE_GLOBAL_CONTROL_SETTINGS_KEY)).limit(1);
+  originalGlobalControlRow = existingGlobalControlRows[0] ?? null;
+  const globalPolicy = JSON.stringify({
+    tierPolicyMasterEnabled: true,
+    informationalPopupDeliveryEnabled: true,
+    companyRotationEnabled: true,
+    randomizedTimingEnabled: true,
+    burstDeliveryEnabled: true,
+    requirePreviousSettlement: true,
+    policyVersion: 1,
+    updatedBy: null,
+    updatedAt: new Date().toISOString(),
+  });
+  await db.insert(appSettings).values({
+    settingKey: TRADE_GLOBAL_CONTROL_SETTINGS_KEY,
+    settingValue: globalPolicy,
+    updatedBy: null,
+  }).onDuplicateKeyUpdate({
+    set: { settingValue: globalPolicy, updatedBy: null, updatedAt: new Date() },
+  });
   // Isolated database: turn off migration-seeded tiers so the expected cumulative
   // allowance comes only from the three tiers created by this test.
   await db.update(packages).set({ enabled: false });
@@ -91,6 +118,19 @@ try {
     });
     tierIds.push(Number(inserted[0].insertId));
   }
+  // Runtime reads do not synthesize tier policy rows from schema defaults. Keep
+  // these policies valid for scheduler reads while preserving the production
+  // hard-disable for automatic financial execution.
+  await db.insert(opportunityPackagePolicies).values(tierTerms.map((terms) => ({
+    packageName: terms.name,
+    minimumPayoutRateBps: 200,
+    maximumPayoutRateBps: 300,
+    minimumTradeDurationSeconds: 300,
+    maximumTradeDurationSeconds: 900,
+    enabled: true,
+    automaticDelivery: true,
+    automaticTradingEnabled: false,
+  })));
 
   // Exercise the actual admin wallet-credit service, not synthetic ledger rows.
   // USD uses the product-defined 1:1 rate and needs no external API dependency.
@@ -504,6 +544,7 @@ try {
 } finally {
   // Keep the disposable database clean even if an assertion fails.
   await db.delete(appSettings).where(eq(appSettings.settingKey, "trade.autoTradeCycle.lastUserId")).catch(() => {});
+  await db.delete(opportunityPackagePolicies).where(inArray(opportunityPackagePolicies.packageName, packageNames)).catch(() => {});
   if (userId) {
     await db.delete(tradingTierQualificationJobs).where(eq(tradingTierQualificationJobs.userId, userId)).catch(() => {});
     await db.delete(balanceLedger).where(eq(balanceLedger.userId, userId)).catch(() => {});
@@ -532,6 +573,12 @@ try {
   }
   if (tierIds.length) {
     await db.delete(packages).where(inArray(packages.id, tierIds)).catch(() => {});
+  }
+  if (originalGlobalControlRow) {
+    await db.update(appSettings).set(originalGlobalControlRow)
+      .where(eq(appSettings.settingKey, TRADE_GLOBAL_CONTROL_SETTINGS_KEY)).catch(() => {});
+  } else {
+    await db.delete(appSettings).where(eq(appSettings.settingKey, TRADE_GLOBAL_CONTROL_SETTINGS_KEY)).catch(() => {});
   }
   if (testPassed) process.exit(0);
 }

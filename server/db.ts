@@ -3,19 +3,22 @@ import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, not
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool, type Pool } from "mysql2/promise";
 import { ENV } from "./_core/env";
-import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, tradingTierQualificationJobs, adminWalletAdjustmentIdempotency, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
+import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityDeliveryIdempotency, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, tradingTierQualificationJobs, tradingPackageFeePolicyVersions, adminWalletAdjustmentIdempotency, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
 import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostings, inspectWalletLedgerSnapshot } from "./modules/wallet-ledger-reconciliation";
 import { addCalendarMonths } from "./modules/calendar-months";
-import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
+import { validateOpportunityOfferClosure, validateOpportunityOfferPublication, type OpportunityOfferClosureInput, type OpportunityOfferPublicationInput } from "./modules/opportunity-publication";
+import { assessOpportunityPackageCompatibility, type OpportunityPackageCompatibility } from "./modules/opportunity-package-compatibility";
+import { claimPopupDeliveryDispatches, ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { calculateConfiguredProfitMinor, chooseInclusiveInteger } from "./modules/trading-popup-policy";
 import { planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, usdUnitsToNativeMinor } from "../shared/money";
 import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, createCompanySpotlightDisplayGuard, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
+import { normalizeCompanyCatalogueActionReason, transitionCompanyCatalogueAdminState, type CompanyCatalogueStatusAction } from "./modules/company-catalogue-reference";
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule, resolveTradingBurstLimit } from "./modules/trading-delivery-quota";
@@ -27,6 +30,11 @@ import { assertNotificationPayloadMatches, buildNotificationEventKey, buildTrade
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 import { isTradingTierEnablingTransition } from "./modules/trading-tier-activation";
+import { FAIL_CLOSED_TRADE_GLOBAL_CONTROLS, TRADE_GLOBAL_CONTROL_MIGRATION_DIAGNOSTIC_KEY, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, TRADE_GLOBAL_MASTER_KEYS, parseTradeGlobalControlPolicy, type TradeGlobalMasterKey, type TradeGlobalControlStatus } from "./trading-global-policy";
+import { classifyTradeFeeSnapshot, normalizeImmutableTradeFeeSnapshot, normalizeLegacyTradeFeePolicy, resolvePackageFeePolicyWrite, selectLatestEffectivePackageFeePolicy } from "./modules/package-fee-policy";
+const TRADE_FEE_SETTING_KEYS = ["trade.platformFeeBps", "trade.feeRoundingMode", "trade.feePolicyVersion"] as const;
+const READ_ONLY_LEGACY_TRADE_FEE_SETTING_KEYS = new Set<string>(TRADE_FEE_SETTING_KEYS);
+import { canReplaceDeliveryRetryPolicy, DELIVERY_RETRY_POLICY_SETTING_KEY, FAIL_CLOSED_DELIVERY_RETRY_POLICY, normalizeDeliveryRetryEffectiveAt, parseDeliveryRetryPolicy, validateDeliveryRetryPolicyInput, type PersistedDeliveryRetryPolicy } from "./modules/opportunity-delivery-retry-policy";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
 let _pool: Pool | null = null;
 
@@ -117,6 +125,9 @@ export async function getAppSetting(key: string, fallback?: string) {
   return row?.settingValue ?? fallback;
 }
 export async function setAppSetting(key: string, value: string, updatedBy?: number) {
+  if (READ_ONLY_LEGACY_TRADE_FEE_SETTING_KEYS.has(key)) {
+    throw new Error("Legacy global Trading fee settings are read-only; configure a package-specific fee policy instead");
+  }
   const db = await getDb(); if (!db) throw new Error("Database is not available");
   const existing = (await db.select().from(appSettings).where(eq(appSettings.settingKey, key)).limit(1))[0];
   if (existing) await db.update(appSettings).set({ settingValue: value, updatedBy: updatedBy ?? null }).where(eq(appSettings.settingKey, key));
@@ -125,7 +136,7 @@ export async function setAppSetting(key: string, value: string, updatedBy?: numb
 
 export async function updateCompanyCatalogueAdminState(input: {
   ids: string[];
-  status: "verified" | "unverified" | "archived" | "disabled" | "enabled";
+  status: CompanyCatalogueStatusAction;
   reason: string;
   updatedBy: number;
 }) {
@@ -133,7 +144,7 @@ export async function updateCompanyCatalogueAdminState(input: {
   if (!ids.length || ids.length > 1811 || ids.some(id => !/^logo-brand-\d{4}$/.test(id))) {
     throw new Error("Select between 1 and 1,811 valid company catalogue IDs.");
   }
-  if (!input.reason.trim() || input.reason.trim().length > 500) throw new Error("A valid reason is required.");
+  const reason = normalizeCompanyCatalogueActionReason(input.reason);
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.transaction(async tx => {
@@ -142,25 +153,11 @@ export async function updateCompanyCatalogueAdminState(input: {
       .onDuplicateKeyUpdate({ set: { settingKey } });
     const row = (await tx.select().from(appSettings).where(eq(appSettings.settingKey, settingKey)).limit(1).for("update"))[0];
     const currentCatalogueState = parseCompanyCatalogueAdminState(row?.settingValue ?? "{}");
-    const verifiedIds = [...currentCatalogueState.verifiedIds];
-    const archivedIds = [...currentCatalogueState.archivedIds];
-    const disabledIds = [...(currentCatalogueState.disabledIds ?? [])];
-    const verified = new Set(verifiedIds);
-    const archived = new Set(archivedIds);
-    const disabled = new Set(disabledIds);
+    const nextState = transitionCompanyCatalogueAdminState(currentCatalogueState, ids, input.status);
     const updatedAt = new Date().toISOString();
-    for (const id of ids) {
-      if (input.status === "verified") { verified.add(id); archived.delete(id); disabled.delete(id); }
-      if (input.status === "unverified") { verified.delete(id); archived.delete(id); disabled.delete(id); }
-      if (input.status === "archived") { verified.delete(id); disabled.delete(id); archived.add(id); }
-      if (input.status === "disabled") disabled.add(id);
-      if (input.status === "enabled") disabled.delete(id);
-    }
     const nextValue = JSON.stringify({
-      verifiedIds: [...verified].sort(),
-      archivedIds: [...archived].sort(),
-      disabledIds: [...disabled].sort(),
-      lastAction: { status: input.status, count: ids.length, reason: input.reason.trim(), updatedAt, updatedBy: input.updatedBy },
+      ...nextState,
+      lastAction: { status: input.status, count: ids.length, reason, updatedAt, updatedBy: input.updatedBy },
     });
     await tx.update(appSettings).set({ settingValue: nextValue, updatedBy: input.updatedBy, updatedAt: new Date() }).where(eq(appSettings.settingKey, settingKey));
     await tx.insert(v5AuditEvents).values({
@@ -168,7 +165,7 @@ export async function updateCompanyCatalogueAdminState(input: {
       action: "company_catalogue.bulk_status_updated",
       entityType: "company_catalogue",
       entityId: "bulk",
-      reason: input.reason.trim(),
+      reason,
       reference: `company-catalogue:${input.status}:${updatedAt}`,
       metadataJson: JSON.stringify({ status: input.status, count: ids.length, ids, updatedAt }),
     });
@@ -177,99 +174,402 @@ export async function updateCompanyCatalogueAdminState(input: {
 }
 
 export async function listAdminAuditEvents(){ const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(v5AuditEvents).orderBy(desc(v5AuditEvents.createdAt)).limit(200); }
-const TRADE_FEE_SETTING_KEYS = ["trade.platformFeeBps", "trade.feeRoundingMode", "trade.feePolicyVersion"] as const;
-const DEFAULT_TRADE_FEE_POLICY = { feeRateBps: 1500, roundingMode: "half_up" as FeeRoundingMode, policyVersion: 1 };
-function normalizeTradeFeePolicy(values: { feeRateBps: unknown; roundingMode: unknown; policyVersion: unknown }) {
-  const feeRateBps=Number(values.feeRateBps);
-  const policyVersion=Number(values.policyVersion);
-  const roundingMode=String(values.roundingMode) as FeeRoundingMode;
-  if(!Number.isInteger(feeRateBps)||feeRateBps<0||feeRateBps>10000) throw new Error("Trading fee rate setting is invalid");
-  if(!["half_up","down","up","half_even"].includes(roundingMode)) throw new Error("Trading fee rounding setting is invalid");
-  if(!Number.isSafeInteger(policyVersion)||policyVersion<1) throw new Error("Trading fee policy version is invalid");
-  return {feeRateBps,roundingMode,policyVersion};
+const TRADE_SETTINGS_AUDIT_ACTIONS = ["trade_fee_policy_updated", "trade_global_timing_policy_updated", "trade_global_control_updated", "trade_global_controls_migrated", "trade_delivery_retry_policy_updated", "trading_new_allocations_paused", "trading_new_allocations_resumed", "trading_package_created", "trading_package_terms_updated", "trading_package_fee_policy_initialized", "trading_package_fee_policy_updated", "trading_delivery_policy_updated", "company_catalogue.bulk_status_updated", "trading_opportunity_published", "trading_opportunity_closed"] as const;
+export type TradeAuditScope = "global" | "package" | "record";
+export type AdminTradeAuditHistoryFilters = { actorUserId?: number; fromDate?: string; toDate?: string; key?: string; entityType?: string; entityId?: string; package?: string; scope?: TradeAuditScope; cursor?: string; pageSize?: number };
+type TradeAuditCursor = { createdAt: string; id: number };
+export function encodeTradeAuditCursor(createdAt: Date, id: number) {
+  return Buffer.from(JSON.stringify({ createdAt: createdAt.toISOString(), id }), "utf8").toString("base64url");
+}
+export function decodeTradeAuditCursor(value?: string): TradeAuditCursor | null {
+  if (value === undefined) return null;
+  try {
+    if (!/^[A-Za-z0-9_-]{1,200}$/.test(value)) throw new Error("Invalid cursor encoding");
+    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Partial<TradeAuditCursor>;
+    const date = new Date(String(parsed.createdAt ?? ""));
+    if (!Number.isFinite(date.getTime()) || date.toISOString() !== parsed.createdAt || !Number.isSafeInteger(parsed.id) || Number(parsed.id) < 1) throw new Error("Invalid cursor values");
+    return { createdAt: date.toISOString(), id: Number(parsed.id) };
+  } catch { throw new Error("Trade audit cursor is invalid"); }
+}
+function auditRecord(value: unknown): Record<string, unknown> | null { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null; }
+function auditString(record: Record<string, unknown> | null, ...keys: string[]): string | null {
+  for (const key of keys) if (typeof record?.[key] === "string" && record[key]) return record[key] as string;
+  return null;
+}
+function parseTradeAuditMetadata(raw: string | null) { try { return raw ? auditRecord(JSON.parse(raw)) : null; } catch { return null; } }
+export function deriveTradeAuditScope(action: string, entityType: string): TradeAuditScope | null {
+  if (action === "company_catalogue.bulk_status_updated" || entityType === "company_catalogue" || entityType === "opportunity_offer") return "record";
+  if (["trading_package_created", "trading_package_terms_updated", "trading_package_fee_policy_initialized", "trading_package_fee_policy_updated", "trading_delivery_policy_updated"].includes(action)
+    || entityType === "trading_package" || entityType === "opportunity_package_policy") return "package";
+  return TRADE_SETTINGS_AUDIT_ACTIONS.includes(action as typeof TRADE_SETTINGS_AUDIT_ACTIONS[number]) ? "global" : null;
+}
+function projectTradeAuditEvent(row: typeof v5AuditEvents.$inferSelect) {
+  const metadata = parseTradeAuditMetadata(row.metadataJson);
+  const before = Object.hasOwn(metadata ?? {}, "old") ? metadata!.old : Object.hasOwn(metadata ?? {}, "oldPolicy") ? metadata!.oldPolicy : undefined;
+  const after = Object.hasOwn(metadata ?? {}, "new") ? metadata!.new : Object.hasOwn(metadata ?? {}, "newPolicy") ? metadata!.newPolicy : undefined;
+  const beforeRecord = auditRecord(before);
+  const afterRecord = auditRecord(after);
+  const version = metadata?.policyVersion ?? metadata?.nextVersion ?? metadata?.version ?? metadata?.termsVersion ?? afterRecord?.policyVersion ?? afterRecord?.termsVersion;
+  return {
+    id: row.id, actorUserId: row.actorUserId, action: row.action, entityType: row.entityType, entityId: row.entityId,
+    reason: row.reason, reference: row.reference, createdAt: row.createdAt,
+    beforeAvailable: before !== undefined, before: before ?? null, afterAvailable: after !== undefined, after: after ?? null,
+    source: auditString(metadata, "source"), scope: deriveTradeAuditScope(row.action, row.entityType),
+    policyVersion: version === undefined || version === null ? null : String(version),
+    effectiveAt: auditString(metadata, "effectiveAt") ?? auditString(afterRecord, "effectiveAt"),
+    packageName: auditString(metadata, "packageName", "name") ?? auditString(beforeRecord, "name") ?? auditString(afterRecord, "name"),
+    changedKey: auditString(metadata, "changedKey"), valueKeys: [...Object.keys(metadata ?? {}), ...Object.keys(beforeRecord ?? {}), ...Object.keys(afterRecord ?? {})],
+  };
+}
+function matchesTradeAuditFilters(event: ReturnType<typeof projectTradeAuditEvent>, filters: AdminTradeAuditHistoryFilters) {
+  const contains = (candidate: string | null | undefined, value: string | undefined) => !value || Boolean(candidate?.toLocaleLowerCase().includes(value.toLocaleLowerCase()));
+  return (!filters.key || contains(event.changedKey, filters.key) || event.valueKeys.some(key => contains(key, filters.key)) || contains(event.action, filters.key))
+    && (!filters.package || contains(event.packageName, filters.package) || contains(event.entityId, filters.package))
+    && (!filters.scope || event.scope === filters.scope);
+}
+function validAuditDate(value: string) {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+function auditKeysetPredicate(cursor: TradeAuditCursor) {
+  const date = new Date(cursor.createdAt);
+  return or(lt(v5AuditEvents.createdAt, date), and(eq(v5AuditEvents.createdAt, date), lt(v5AuditEvents.id, cursor.id)))!;
+}
+export async function listAdminTradeAuditHistory(filters: AdminTradeAuditHistoryFilters) {
+  const pageSize = filters.pageSize ?? 50;
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) throw new Error("Trade audit page size must be from 1 to 100");
+  if (filters.fromDate && !validAuditDate(filters.fromDate)) throw new Error("Trade audit start date must be a valid UTC calendar date");
+  if (filters.toDate && !validAuditDate(filters.toDate)) throw new Error("Trade audit end date must be a valid UTC calendar date");
+  if (filters.fromDate && filters.toDate && filters.fromDate > filters.toDate) throw new Error("Trade audit start date must not follow its end date");
+  let scanCursor = decodeTradeAuditCursor(filters.cursor);
+  const base: any[] = [inArray(v5AuditEvents.action, [...TRADE_SETTINGS_AUDIT_ACTIONS])];
+  if (filters.actorUserId !== undefined) base.push(eq(v5AuditEvents.actorUserId, filters.actorUserId));
+  if (filters.fromDate) base.push(gte(v5AuditEvents.createdAt, new Date(`${filters.fromDate}T00:00:00.000Z`)));
+  if (filters.toDate) { const end = new Date(`${filters.toDate}T00:00:00.000Z`); end.setUTCDate(end.getUTCDate() + 1); base.push(lt(v5AuditEvents.createdAt, end)); }
+  if (filters.entityType) base.push(eq(v5AuditEvents.entityType, filters.entityType));
+  if (filters.entityId) base.push(eq(v5AuditEvents.entityId, filters.entityId));
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const matches: ReturnType<typeof projectTradeAuditEvent>[] = [];
+  let scanned = 0;
+  let ended = false;
+  let hasMore = false;
+  let scanCapped = false;
+  const batchSize = 200;
+  const scanLimit = 1000;
+  while (scanned < scanLimit && matches.length <= pageSize && !ended) {
+    const limit = Math.min(batchSize, scanLimit - scanned);
+    const predicates = scanCursor ? [...base, auditKeysetPredicate(scanCursor)] : base;
+    const rows = await db.select().from(v5AuditEvents).where(and(...predicates)).orderBy(desc(v5AuditEvents.createdAt), desc(v5AuditEvents.id)).limit(limit);
+    if (rows.length < limit) ended = true;
+    for (const row of rows) {
+      scanned += 1;
+      scanCursor = { createdAt: row.createdAt.toISOString(), id: row.id };
+      const event = projectTradeAuditEvent(row);
+      if (matchesTradeAuditFilters(event, filters)) matches.push(event);
+      if (matches.length > pageSize) break;
+    }
+    if (matches.length > pageSize) { hasMore = true; break; }
+  }
+  if (!hasMore && !ended && scanned >= scanLimit && scanCursor) {
+    const [remainingCandidate] = await db.select({ id: v5AuditEvents.id }).from(v5AuditEvents)
+      .where(and(...base, auditKeysetPredicate(scanCursor)))
+      .orderBy(desc(v5AuditEvents.createdAt), desc(v5AuditEvents.id)).limit(1);
+    hasMore = Boolean(remainingCandidate);
+    scanCapped = hasMore;
+  }
+  const events = matches.slice(0, pageSize);
+  const nextCursor = hasMore
+    ? scanCapped && matches.length <= pageSize && scanCursor
+      ? Buffer.from(JSON.stringify(scanCursor), "utf8").toString("base64url")
+      : events.length ? encodeTradeAuditCursor(events[events.length - 1].createdAt, events[events.length - 1].id) : null
+    : null;
+  return { events, nextCursor, scanCapped };
 }
 export async function getTradeFeePolicy() {
-  const [feeRateBps,roundingMode,policyVersion]=await Promise.all([
-    getAppSetting("trade.platformFeeBps",String(DEFAULT_TRADE_FEE_POLICY.feeRateBps)),
-    getAppSetting("trade.feeRoundingMode",DEFAULT_TRADE_FEE_POLICY.roundingMode),
-    getAppSetting("trade.feePolicyVersion",String(DEFAULT_TRADE_FEE_POLICY.policyVersion)),
-  ]);
-  const policy=normalizeTradeFeePolicy({feeRateBps,roundingMode,policyVersion});
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const rows=await db.select().from(appSettings).where(inArray(appSettings.settingKey,[...TRADE_FEE_SETTING_KEYS]));
+  const byKey=new Map(rows.map(row=>[row.settingKey,row.settingValue]));
+  const missing=TRADE_FEE_SETTING_KEYS.filter(key=>!byKey.has(key));
+  if(missing.length) throw new Error(`Legacy global Trading fee settings are incomplete: ${missing.join(", ")}`);
+  const policy=normalizeLegacyTradeFeePolicy({
+    feeRateBps:byKey.get("trade.platformFeeBps"),
+    roundingMode:byKey.get("trade.feeRoundingMode"),
+    policyVersion:byKey.get("trade.feePolicyVersion"),
+  });
   return {...policy,feePercent:policy.feeRateBps/100};
 }
 export async function setTradeFeePolicy(input:{feeRateBps:number;roundingMode:FeeRoundingMode},updatedBy:number) {
-  if(!Number.isInteger(input.feeRateBps)||input.feeRateBps<0||input.feeRateBps>10000) throw new Error("Trading fee rate must be between 0% and 100%");
-  if(!["half_up","down","up","half_even"].includes(input.roundingMode)) throw new Error("Unsupported trading fee rounding mode");
+  void input; void updatedBy;
+  throw new Error("Legacy global Trading fee settings are read-only; configure a package-specific fee policy instead");
+}
+function normalizePackageFeePolicy(row:any) {
+  const feeRateBps=Number(row.feeRateBps), version=Number(row.version);
+  const roundingMode=String(row.roundingMode) as FeeRoundingMode;
+  if(!Number.isInteger(feeRateBps)||feeRateBps<0||feeRateBps>10000||!Number.isSafeInteger(version)||version<1||!["half_up","down","up","half_even"].includes(roundingMode)) throw new Error("Saved package fee policy is invalid");
+  return {...row,packageId:Number(row.packageId),version,feeRateBps,roundingMode,effectiveAt:new Date(row.effectiveAt).toISOString(),changedAt:new Date(row.changedAt).toISOString()};
+}
+export async function getPackageFeePolicies() {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
-  return db.transaction(async tx=>{
-    const rows=await tx.select().from(appSettings).where(inArray(appSettings.settingKey,[...TRADE_FEE_SETTING_KEYS])).for("update");
-    const byKey=new Map<string,string>();
-    for(const row of rows) byKey.set(row.settingKey,row.settingValue);
-    const current=normalizeTradeFeePolicy({
-      feeRateBps:byKey.get("trade.platformFeeBps")??String(DEFAULT_TRADE_FEE_POLICY.feeRateBps),
-      roundingMode:byKey.get("trade.feeRoundingMode")??DEFAULT_TRADE_FEE_POLICY.roundingMode,
-      policyVersion:byKey.get("trade.feePolicyVersion")??String(DEFAULT_TRADE_FEE_POLICY.policyVersion),
-    });
-    const next={feeRateBps:input.feeRateBps,roundingMode:input.roundingMode,policyVersion:current.policyVersion+1};
-    if(!Number.isSafeInteger(next.policyVersion)) throw new Error("Trading fee policy version has reached its limit");
-    const updateSetting=async(settingKey:string,settingValue:string)=>{
-      if(byKey.has(settingKey)) {
-        await tx.update(appSettings).set({settingValue,updatedBy,updatedAt:new Date()}).where(eq(appSettings.settingKey,settingKey));
-      } else {
-        await tx.insert(appSettings).values({settingKey,settingValue,updatedBy});
-      }
+  const [packageRows,versions]=await Promise.all([
+    db.select({packageId:packages.id,packageName:packages.name}).from(packages).orderBy(packages.id),
+    db.select().from(tradingPackageFeePolicyVersions).orderBy(desc(tradingPackageFeePolicyVersions.version)),
+  ]);
+  const byPackage=new Map<number,any[]>();
+  for(const row of versions) {
+    const packageId=Number(row.packageId);
+    const packageVersions=byPackage.get(packageId)??[];
+    packageVersions.push(row);
+    byPackage.set(packageId,packageVersions);
+  }
+  const asOf=new Date();
+  return packageRows.map(pkg=>{
+    const packageVersions=byPackage.get(pkg.packageId)??[];
+    const latest=packageVersions.reduce<any>((selected,row)=>!selected||Number(row.version)>Number(selected.version)?row:selected,null);
+    const active=selectLatestEffectivePackageFeePolicy(packageVersions,asOf);
+    const activePolicy=active?normalizePackageFeePolicy(active):null;
+    const latestPolicy=latest?normalizePackageFeePolicy(latest):null;
+    return {
+      packageId:pkg.packageId,
+      packageName:pkg.packageName,
+      // Preserve the original flat read-model fields as the currently effective policy.
+      feeRateBps:activePolicy?.feeRateBps??null,
+      roundingMode:activePolicy?.roundingMode??null,
+      version:activePolicy?.version??null,
+      effectiveAt:activePolicy?.effectiveAt??null,
+      changedBy:activePolicy?.changedBy??null,
+      changedAt:activePolicy?.changedAt??null,
+      reason:activePolicy?.reason??null,
+      source:activePolicy?.source??null,
+      configured:Boolean(activePolicy),
+      activePolicy,
+      activeVersion:activePolicy?.version??null,
+      latestPolicy,
+      latestVersion:latestPolicy?.version??null,
+      scheduled:!!latestPolicy&&latestPolicy.version!==activePolicy?.version,
     };
-    await updateSetting("trade.platformFeeBps",String(next.feeRateBps));
-    await updateSetting("trade.feeRoundingMode",next.roundingMode);
-    await updateSetting("trade.feePolicyVersion",String(next.policyVersion));
-    await tx.insert(v5AuditEvents).values({
-      actorUserId:updatedBy,
-      action:"trade_fee_policy_updated",
-      entityType:"trade_fee_policy",
-      entityId:String(next.policyVersion),
-      reason:"Administrator updated realized-profit fee settings.",
-      reference:`trade-fee-policy:${next.policyVersion}`,
-      metadataJson:JSON.stringify({old:{...current,feePercent:current.feeRateBps/100},new:{...next,feePercent:next.feeRateBps/100}}),
-    });
-    return {...next,feePercent:next.feeRateBps/100};
   });
 }
-
-export async function getTradeSettlementPolicy() {
-  const delaySeconds = Number(await getAppSetting("trade.settlementDelaySeconds", "900"));
-  const creditDelaySeconds = Number(await getAppSetting("trade.creditDelaySeconds", "0"));
-  const cooldownSeconds = Number(await getAppSetting("trade.interTradeCooldownSeconds", "30"));
-  const nextPopupFormulaDelaySeconds = Number(await getAppSetting("opportunity.nextPopupFormulaDelaySeconds", "30"));
-  const popupCooldownSeconds = Number(await getAppSetting("opportunity.popup.minGapSeconds", "45"));
-  const popupDisplaySeconds = Number(await getAppSetting("opportunity.popup.displaySeconds", "8"));
-  const popupPreAlertSeconds = Number(await getAppSetting("opportunity.popup.preAlertSeconds", "4"));
-  const popupJitterSeconds = Number(await getAppSetting("opportunity.popup.jitterSeconds", "90"));
-  const popupMaxPerHour = Number(await getAppSetting("opportunity.popup.maxPerHour", "12"));
-  const marketRefreshIntervalMinutes = Number(await getAppSetting("market.refreshIntervalMinutes", "120"));
-  const blockUntilSettled = (await getAppSetting("trade.blockOpportunitiesUntilSettled", "true")) === "true";
-  const values = { delaySeconds, creditDelaySeconds, cooldownSeconds, nextPopupFormulaDelaySeconds, popupCooldownSeconds, popupDisplaySeconds, popupPreAlertSeconds, popupJitterSeconds, popupMaxPerHour, marketRefreshIntervalMinutes };
-  if (!Number.isInteger(delaySeconds) || delaySeconds < 1) throw new Error("Settlement time must be a positive integer");
-  if (!Number.isInteger(creditDelaySeconds) || creditDelaySeconds < 0) throw new Error("Credit delay must be a non-negative integer");
-  if (!Number.isInteger(cooldownSeconds) || cooldownSeconds < 0) throw new Error("Inter-trade cooldown must be a non-negative integer");
-  const invalid = Object.entries(values).find(([, value]) => !Number.isInteger(value) || value < 0);
-  if (invalid) throw new Error(`Invalid timing setting: ${invalid[0]}`);
-  return { ...values, settlementDelaySeconds: delaySeconds, blockUntilSettled };
+export async function getPackageFeeHistory(packageId:number) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const pkg=(await db.select({packageId:packages.id,packageName:packages.name}).from(packages).where(eq(packages.id,packageId)).limit(1))[0];
+  if(!pkg) throw new Error("Package not found");
+  const rows=await db.select().from(tradingPackageFeePolicyVersions).where(eq(tradingPackageFeePolicyVersions.packageId,packageId)).orderBy(desc(tradingPackageFeePolicyVersions.version));
+  return rows.map(row=>({packageId:pkg.packageId,packageName:pkg.packageName,...normalizePackageFeePolicy(row)}));
 }
-export async function setTradeSettlementPolicy(input:{delaySeconds:number;creditDelaySeconds:number;cooldownSeconds:number;nextPopupFormulaDelaySeconds:number;popupCooldownSeconds:number;popupDisplaySeconds:number;popupPreAlertSeconds:number;popupJitterSeconds:number;popupMaxPerHour:number;marketRefreshIntervalMinutes:number;blockUntilSettled:boolean}, updatedBy:number) {
-  const bounded = [["settlement",input.delaySeconds,1,604800],["credit",input.creditDelaySeconds,0,604800],["cooldown",input.cooldownSeconds,0,604800],["formula",input.nextPopupFormulaDelaySeconds,0,604800],["popup cooldown",input.popupCooldownSeconds,0,604800],["popup display",input.popupDisplaySeconds,1,3600],["popup pre-alert",input.popupPreAlertSeconds,0,3600],["popup jitter",input.popupJitterSeconds,0,604800],["popup hourly cap",input.popupMaxPerHour,1,10000],["market refresh",input.marketRefreshIntervalMinutes,1,10080]] as const;
-  for (const [label,value,min,max] of bounded) if (!Number.isInteger(value) || value < min || value > max) throw new Error(`${label} timing is outside its allowed range`);
-  await setAppSetting("trade.settlementDelaySeconds", String(input.delaySeconds), updatedBy);
-  await setAppSetting("trade.creditDelaySeconds", String(input.creditDelaySeconds), updatedBy);
-  await setAppSetting("trade.interTradeCooldownSeconds", String(input.cooldownSeconds), updatedBy);
-  await setAppSetting("trade.blockOpportunitiesUntilSettled", String(input.blockUntilSettled), updatedBy);
-  await setAppSetting("opportunity.nextPopupFormulaDelaySeconds", String(input.nextPopupFormulaDelaySeconds), updatedBy);
-  await setAppSetting("opportunity.popup.minGapSeconds", String(input.popupCooldownSeconds), updatedBy);
-  await setAppSetting("opportunity.popup.displaySeconds", String(input.popupDisplaySeconds), updatedBy);
-  await setAppSetting("opportunity.popup.preAlertSeconds", String(input.popupPreAlertSeconds), updatedBy);
-  await setAppSetting("opportunity.popup.jitterSeconds", String(input.popupJitterSeconds), updatedBy);
-  await setAppSetting("opportunity.popup.maxPerHour", String(input.popupMaxPerHour), updatedBy);
-  await setAppSetting("market.refreshIntervalMinutes", String(input.marketRefreshIntervalMinutes), updatedBy);
-  return getTradeSettlementPolicy();
+export async function updatePackageFeePolicy(input:{packageId:number;expectedVersion:number;feeRateBps:number;roundingMode:FeeRoundingMode;effectiveAt:string;reason:string},actorId:number) {
+  if(!Number.isSafeInteger(input.packageId)||input.packageId<1||!Number.isSafeInteger(input.expectedVersion)||input.expectedVersion<0) throw new Error("Package and expected version must be valid");
+  if(!Number.isInteger(input.feeRateBps)||input.feeRateBps<0||input.feeRateBps>10000||!["half_up","down","up","half_even"].includes(input.roundingMode)) throw new Error("Package fee policy is invalid");
+  const reason=input.reason.trim(); if(reason.length<3||reason.length>2000) throw new Error("A reason of 3 to 2000 characters is required");
+  const effectiveAt=new Date(input.effectiveAt); if(!Number.isFinite(effectiveAt.getTime())||effectiveAt.toISOString()!==input.effectiveAt) throw new Error("Effective time must be a valid UTC ISO timestamp");
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const changedAt=new Date();
+  await db.transaction(async tx=>{
+    const pkg=(await tx.select({id:packages.id,name:packages.name}).from(packages).where(eq(packages.id,input.packageId)).limit(1).for("update"))[0];
+    if(!pkg) throw new Error("Package not found");
+    const current=(await tx.select().from(tradingPackageFeePolicyVersions).where(eq(tradingPackageFeePolicyVersions.packageId,input.packageId)).orderBy(desc(tradingPackageFeePolicyVersions.version)).limit(1).for("update"))[0];
+    const write=resolvePackageFeePolicyWrite(current?Number(current.version):null,input.expectedVersion);
+    if(effectiveAt.getTime()<changedAt.getTime()||(current&&effectiveAt.getTime()<=new Date(current.effectiveAt).getTime())) throw new Error("Package fee policy effective time must not be retroactive or stale");
+    const version=write.version;
+    const source=write.initial?"admin_initial":"admin_update";
+    const values={packageId:input.packageId,version,feeRateBps:input.feeRateBps,roundingMode:input.roundingMode,effectiveAt,changedBy:String(actorId),changedAt,reason,source};
+    await tx.insert(tradingPackageFeePolicyVersions).values(values);
+    await tx.insert(v5AuditEvents).values({actorUserId:actorId,action:write.initial?"trading_package_fee_policy_initialized":"trading_package_fee_policy_updated",entityType:"trading_package_fee_policy",entityId:String(input.packageId),reason,reference:`trading-package-fee-policy:${input.packageId}:${version}`,metadataJson:JSON.stringify({packageId:input.packageId,packageName:pkg.name,old:current?{version:Number(current.version),feeRateBps:Number(current.feeRateBps),roundingMode:current.roundingMode,effectiveAt:new Date(current.effectiveAt).toISOString()}:null,new:{version,feeRateBps:input.feeRateBps,roundingMode:input.roundingMode,effectiveAt:effectiveAt.toISOString()},source})});
+  });
+  const history=await getPackageFeeHistory(input.packageId);
+  const saved=history[0];
+  const expected=resolvePackageFeePolicyWrite(input.expectedVersion===0?null:input.expectedVersion,input.expectedVersion);
+  const expectedSource=expected.initial?"admin_initial":"admin_update";
+  if(!saved||saved.version!==expected.version||saved.feeRateBps!==input.feeRateBps||saved.roundingMode!==input.roundingMode||saved.effectiveAt!==effectiveAt.toISOString()||saved.reason!==reason||saved.source!==expectedSource) throw new Error("Package fee policy save could not be verified by fresh read-back");
+  return saved;
+}
+export async function getTradeSettlementPolicy() {
+  const db = await getDb();
+  const keys = [...TRADE_SETTLEMENT_POLICY_SETTING_KEYS, TRADE_SETTLEMENT_POLICY_VERSION_KEY];
+  const rows = db ? await db.select().from(appSettings).where(inArray(appSettings.settingKey, keys)) : [];
+  const settings = new Map(rows.map(row => [row.settingKey, row.settingValue]));
+  const policy = normalizeTradeSettlementPolicy({
+    delaySeconds: settings.get("trade.settlementDelaySeconds") ?? "900",
+    creditDelaySeconds: settings.get("trade.creditDelaySeconds") ?? "0",
+    cooldownSeconds: settings.get("trade.interTradeCooldownSeconds") ?? "30",
+    nextPopupFormulaDelaySeconds: settings.get("opportunity.nextPopupFormulaDelaySeconds") ?? "30",
+    popupCooldownSeconds: settings.get("opportunity.popup.minGapSeconds") ?? "45",
+    popupDisplaySeconds: settings.get("opportunity.popup.displaySeconds") ?? "8",
+    popupPreAlertSeconds: settings.get("opportunity.popup.preAlertSeconds") ?? "4",
+    popupJitterSeconds: settings.get("opportunity.popup.jitterSeconds") ?? "90",
+    popupMaxPerHour: settings.get("opportunity.popup.maxPerHour") ?? "12",
+    marketRefreshIntervalMinutes: settings.get("market.refreshIntervalMinutes") ?? "120",
+    blockUntilSettled: settings.get("trade.blockOpportunitiesUntilSettled") ?? "true",
+    policyVersion: settings.get(TRADE_SETTLEMENT_POLICY_VERSION_KEY) ?? "1",
+  });
+  return { ...policy, settlementDelaySeconds: policy.delaySeconds };
+}
+const TRADE_SETTLEMENT_POLICY_VERSION_KEY = "trade.timingPolicyVersion";
+const TRADE_SETTLEMENT_POLICY_SETTING_KEYS = [
+  "trade.settlementDelaySeconds", "trade.creditDelaySeconds", "trade.interTradeCooldownSeconds",
+  "trade.blockOpportunitiesUntilSettled", "opportunity.nextPopupFormulaDelaySeconds",
+  "opportunity.popup.minGapSeconds", "opportunity.popup.displaySeconds", "opportunity.popup.preAlertSeconds",
+  "opportunity.popup.jitterSeconds", "opportunity.popup.maxPerHour", "market.refreshIntervalMinutes",
+] as const;
+type TradeSettlementPolicyInput = {
+  delaySeconds: number; creditDelaySeconds: number; cooldownSeconds: number; nextPopupFormulaDelaySeconds: number;
+  popupCooldownSeconds: number; popupDisplaySeconds: number; popupPreAlertSeconds: number; popupJitterSeconds: number;
+  popupMaxPerHour: number; marketRefreshIntervalMinutes: number; blockUntilSettled: boolean;
+};
+function normalizeTradeSettlementPolicy(values: Record<string, unknown> & { policyVersion?: unknown }) {
+  const numeric = {
+    delaySeconds: Number(values.delaySeconds), creditDelaySeconds: Number(values.creditDelaySeconds),
+    cooldownSeconds: Number(values.cooldownSeconds), nextPopupFormulaDelaySeconds: Number(values.nextPopupFormulaDelaySeconds),
+    popupCooldownSeconds: Number(values.popupCooldownSeconds), popupDisplaySeconds: Number(values.popupDisplaySeconds),
+    popupPreAlertSeconds: Number(values.popupPreAlertSeconds), popupJitterSeconds: Number(values.popupJitterSeconds),
+    popupMaxPerHour: Number(values.popupMaxPerHour), marketRefreshIntervalMinutes: Number(values.marketRefreshIntervalMinutes),
+  };
+  const bounds = [
+    ["settlement review delay", numeric.delaySeconds, 900, 604800], ["credit delay", numeric.creditDelaySeconds, 0, 604800],
+    ["inter-trade cooldown", numeric.cooldownSeconds, 0, 604800], ["formula delay", numeric.nextPopupFormulaDelaySeconds, 0, 604800],
+    ["popup cooldown", numeric.popupCooldownSeconds, 0, 604800], ["popup display", numeric.popupDisplaySeconds, 1, 3600],
+    ["popup pre-alert", numeric.popupPreAlertSeconds, 0, 3600], ["popup jitter", numeric.popupJitterSeconds, 0, 604800],
+    ["popup hourly cap", numeric.popupMaxPerHour, 1, 10000], ["market refresh", numeric.marketRefreshIntervalMinutes, 1, 10080],
+  ] as const;
+  for (const [label, value, min, max] of bounds) if (!Number.isInteger(value) || value < min || value > max) throw new Error(`${label} timing is outside its allowed range`);
+  const rawBlock = values.blockUntilSettled;
+  const blockUntilSettled = rawBlock === undefined || rawBlock === null || rawBlock === "true" || rawBlock === true
+    ? true : rawBlock === "false" || rawBlock === false ? false : (() => { throw new Error("Malformed settlement safety setting; new opportunities must remain blocked until administrator review"); })();
+  const policyVersion = Number(values.policyVersion ?? 1);
+  if (!Number.isSafeInteger(policyVersion) || policyVersion < 1) throw new Error("Trade timing policy version is invalid");
+  return { ...numeric, blockUntilSettled, policyVersion };
+}
+export class TradeTimingPolicyVersionConflictError extends Error {
+  constructor() { super("Trade timing settings changed in another session. Refresh the saved settings before retrying."); this.name = "TradeTimingPolicyVersionConflictError"; }
+}
+export async function setTradeSettlementPolicy(input:TradeSettlementPolicyInput, updatedBy:number, reason:string, expectedPolicyVersion:number) {
+  const auditReason = reason.trim();
+  if (auditReason.length < 5 || auditReason.length > 500) throw new Error("A 5–500 character administrator reason is required for Trade timing changes");
+  if (!Number.isSafeInteger(expectedPolicyVersion) || expectedPolicyVersion < 1) throw new Error("A valid saved Trade timing policy version is required");
+  const db = await getDb(); if (!db) throw new Error("Database is not available");
+  const next = await db.transaction(async tx => {
+    await tx.insert(appSettings).values({ settingKey: TRADE_SETTLEMENT_POLICY_VERSION_KEY, settingValue: "1", updatedBy: null })
+      .onDuplicateKeyUpdate({ set: { settingKey: TRADE_SETTLEMENT_POLICY_VERSION_KEY } });
+    const keys = [...TRADE_SETTLEMENT_POLICY_SETTING_KEYS, TRADE_SETTLEMENT_POLICY_VERSION_KEY];
+    const rows = await tx.select().from(appSettings).where(inArray(appSettings.settingKey, keys)).for("update");
+    const settings = new Map(rows.map(row => [row.settingKey, row.settingValue]));
+    const current = normalizeTradeSettlementPolicy({
+      delaySeconds: settings.get("trade.settlementDelaySeconds") ?? "900", creditDelaySeconds: settings.get("trade.creditDelaySeconds") ?? "0",
+      cooldownSeconds: settings.get("trade.interTradeCooldownSeconds") ?? "30", nextPopupFormulaDelaySeconds: settings.get("opportunity.nextPopupFormulaDelaySeconds") ?? "30",
+      popupCooldownSeconds: settings.get("opportunity.popup.minGapSeconds") ?? "45", popupDisplaySeconds: settings.get("opportunity.popup.displaySeconds") ?? "8",
+      popupPreAlertSeconds: settings.get("opportunity.popup.preAlertSeconds") ?? "4", popupJitterSeconds: settings.get("opportunity.popup.jitterSeconds") ?? "90",
+      popupMaxPerHour: settings.get("opportunity.popup.maxPerHour") ?? "12", marketRefreshIntervalMinutes: settings.get("market.refreshIntervalMinutes") ?? "120",
+      blockUntilSettled: settings.get("trade.blockOpportunitiesUntilSettled") ?? "true", policyVersion: settings.get(TRADE_SETTLEMENT_POLICY_VERSION_KEY) ?? "1",
+    });
+    if (current.policyVersion !== expectedPolicyVersion) throw new TradeTimingPolicyVersionConflictError();
+    const saved = normalizeTradeSettlementPolicy({ ...input, policyVersion: current.policyVersion + 1 });
+    const updates: Array<[string, string]> = [
+      ["trade.settlementDelaySeconds", String(saved.delaySeconds)], ["trade.creditDelaySeconds", String(saved.creditDelaySeconds)],
+      ["trade.interTradeCooldownSeconds", String(saved.cooldownSeconds)], ["trade.blockOpportunitiesUntilSettled", String(saved.blockUntilSettled)],
+      ["opportunity.nextPopupFormulaDelaySeconds", String(saved.nextPopupFormulaDelaySeconds)], ["opportunity.popup.minGapSeconds", String(saved.popupCooldownSeconds)],
+      ["opportunity.popup.displaySeconds", String(saved.popupDisplaySeconds)], ["opportunity.popup.preAlertSeconds", String(saved.popupPreAlertSeconds)],
+      ["opportunity.popup.jitterSeconds", String(saved.popupJitterSeconds)], ["opportunity.popup.maxPerHour", String(saved.popupMaxPerHour)],
+      ["market.refreshIntervalMinutes", String(saved.marketRefreshIntervalMinutes)], [TRADE_SETTLEMENT_POLICY_VERSION_KEY, String(saved.policyVersion)],
+    ];
+    for (const [settingKey, settingValue] of updates) {
+      await tx.insert(appSettings).values({ settingKey, settingValue, updatedBy })
+        .onDuplicateKeyUpdate({ set: { settingValue, updatedBy, updatedAt: new Date() } });
+    }
+    await tx.insert(v5AuditEvents).values({
+      actorUserId: updatedBy, action: "trade_global_timing_policy_updated", entityType: "trade_global_timing_policy",
+      entityId: String(saved.policyVersion), reason: auditReason, reference: `trade-global-timing:${saved.policyVersion}`,
+      metadataJson: JSON.stringify({ old: current, new: saved }),
+    });
+    return saved;
+  });
+  const persisted = await getTradeSettlementPolicy();
+  const expected = { ...next, settlementDelaySeconds: next.delaySeconds };
+  if (JSON.stringify(persisted) !== JSON.stringify(expected)) throw new Error("Trade timing save committed, but a fresh database read did not confirm every value and the new policy version");
+  return persisted;
+}
+function parseTradeGlobalControlDiagnostic(raw:unknown):Record<string,unknown>|null {
+  if(typeof raw!=="string") return null;
+  try { const value=JSON.parse(raw); return value&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:null; }
+  catch { return null; }
+}
+export async function getTradeGlobalControls():Promise<TradeGlobalControlStatus> {
+  const unavailable={...FAIL_CLOSED_TRADE_GLOBAL_CONTROLS,policyVersion:1,updatedBy:null,updatedAt:null,available:false,migrationDiagnostic:null};
+  const db=await getDb();
+  if(!db) return unavailable;
+  const rows=await db.select().from(appSettings).where(inArray(appSettings.settingKey,[TRADE_GLOBAL_CONTROL_SETTINGS_KEY,TRADE_GLOBAL_CONTROL_MIGRATION_DIAGNOSTIC_KEY]));
+  const policyRow=rows.find(row=>row.settingKey===TRADE_GLOBAL_CONTROL_SETTINGS_KEY);
+  const diagnostic=parseTradeGlobalControlDiagnostic(rows.find(row=>row.settingKey===TRADE_GLOBAL_CONTROL_MIGRATION_DIAGNOSTIC_KEY)?.settingValue);
+  if(!policyRow) return {...unavailable,migrationDiagnostic:diagnostic};
+  const policy=parseTradeGlobalControlPolicy(policyRow.settingValue);
+  if(!policy) return {...unavailable,migrationDiagnostic:diagnostic};
+  return {...policy,available:true,migrationDiagnostic:diagnostic};
+}
+export class TradeGlobalControlVersionConflictError extends Error {
+  constructor() { super("Global Trade controls changed in another session. Refresh the saved settings before retrying."); this.name="TradeGlobalControlVersionConflictError"; }
+}
+export async function setTradeGlobalControl(input:{key:TradeGlobalMasterKey;enabled:boolean;reason:string;expectedPolicyVersion:number},updatedBy:number) {
+  const auditReason=String(input.reason??"").trim();
+  if(auditReason.length<5||auditReason.length>500) throw new Error("A 5–500 character administrator reason is required for global Trade control changes");
+  if(!Number.isSafeInteger(input.expectedPolicyVersion)||input.expectedPolicyVersion<1) throw new Error("A valid saved global Trade policy version is required");
+  if(!TRADE_GLOBAL_MASTER_KEYS.includes(input.key)) throw new Error("Unknown global Trade control key");
+  if(input.key==="requirePreviousSettlement"&&input.enabled===false) throw new Error("The global settlement prerequisite remains ON until a separately approved safety workflow is available.");
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const saved=await db.transaction(async tx=>{
+    const currentRow=(await tx.select().from(appSettings).where(eq(appSettings.settingKey,TRADE_GLOBAL_CONTROL_SETTINGS_KEY)).limit(1).for("update"))[0];
+    if(!currentRow) throw new Error("Global Trade control migration is not installed; no settings were changed.");
+    const current=parseTradeGlobalControlPolicy(currentRow.settingValue);
+    if(!current) throw new Error("Saved global Trade controls are malformed; no settings were changed.");
+    if(current.policyVersion!==input.expectedPolicyVersion) throw new TradeGlobalControlVersionConflictError();
+    const policyVersion=current.policyVersion+1;
+    if(!Number.isSafeInteger(policyVersion)) throw new Error("Global Trade policy version has reached its limit");
+    const next={...current,[input.key]:input.enabled,policyVersion,updatedBy,updatedAt:new Date().toISOString()};
+    await tx.update(appSettings).set({settingValue:JSON.stringify(next),updatedBy,updatedAt:new Date()}).where(eq(appSettings.settingKey,TRADE_GLOBAL_CONTROL_SETTINGS_KEY));
+    await tx.insert(v5AuditEvents).values({
+      actorUserId:updatedBy,action:"trade_global_control_updated",entityType:"trade_global_control_policy",entityId:String(policyVersion),
+      reason:auditReason,reference:`trade-global-controls:${policyVersion}`,
+      metadataJson:JSON.stringify({changedKey:input.key,old:current,new:next}),
+    });
+    return next;
+  });
+  const persisted=await getTradeGlobalControls();
+  if(!persisted.available||persisted.policyVersion!==saved.policyVersion||TRADE_GLOBAL_MASTER_KEYS.some(key=>persisted[key]!==saved[key])) {
+    throw new Error("Global Trade control save committed, but a fresh database read did not confirm every value and the new policy version");
+  }
+  return persisted;
+}
+export class DeliveryRetryPolicyVersionConflictError extends Error {
+  constructor() { super("Global delivery retry policy changed in another session. Refresh the saved settings before retrying."); this.name="DeliveryRetryPolicyVersionConflictError"; }
+}
+export async function getDeliveryRetryPolicy():Promise<PersistedDeliveryRetryPolicy> {
+  const db=await getDb();
+  if(!db) return FAIL_CLOSED_DELIVERY_RETRY_POLICY;
+  const row=(await db.select().from(appSettings).where(eq(appSettings.settingKey,DELIVERY_RETRY_POLICY_SETTING_KEY)).limit(1))[0];
+  if(!row) return FAIL_CLOSED_DELIVERY_RETRY_POLICY;
+  return parseDeliveryRetryPolicy(row.settingValue) || { ...FAIL_CLOSED_DELIVERY_RETRY_POLICY, configured:false };
+}
+export async function updateDeliveryRetryPolicy(input:{expectedVersion:number;policy:"none"|"temporary";maxAttempts:number;intervalsSeconds:number[];effectiveAt:string;reason:string},updatedBy:number) {
+  const validated=validateDeliveryRetryPolicyInput(input);
+  if(!Number.isSafeInteger(input.expectedVersion)||input.expectedVersion<1) throw new Error("A valid saved delivery retry policy version is required.");
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const saved=await db.transaction(async tx=>{
+    const currentRow=(await tx.select().from(appSettings).where(eq(appSettings.settingKey,DELIVERY_RETRY_POLICY_SETTING_KEY)).limit(1).for("update"))[0];
+    if(!currentRow) throw new Error("Delivery retry policy migration is not installed; no settings were changed.");
+    const current=parseDeliveryRetryPolicy(currentRow.settingValue);
+    if(!current) throw new Error("Saved global delivery retry policy is malformed; no settings were changed.");
+    if(current.version!==input.expectedVersion) throw new DeliveryRetryPolicyVersionConflictError();
+    if(!canReplaceDeliveryRetryPolicy(current,validated.effectiveAt,new Date())) {
+      throw new Error("A future-effective delivery policy cannot replace an active policy; activate it in a later save after the current policy expires or choose an immediate effective time.");
+    }
+    const changedAt=new Date();
+    const effectiveAt=normalizeDeliveryRetryEffectiveAt(validated.effectiveAt,changedAt);
+    const next:PersistedDeliveryRetryPolicy={policy:validated.policy,maxAttempts:validated.maxAttempts,intervalsSeconds:[...validated.intervalsSeconds],version:current.version+1,effectiveAt,updatedBy,updatedAt:changedAt.toISOString(),reason:validated.reason,configured:true};
+    await tx.update(appSettings).set({settingValue:JSON.stringify(next),updatedBy,updatedAt:changedAt}).where(eq(appSettings.settingKey,DELIVERY_RETRY_POLICY_SETTING_KEY));
+    await tx.insert(v5AuditEvents).values({actorUserId:updatedBy,action:"trade_delivery_retry_policy_updated",entityType:"trade_delivery_retry_policy",entityId:String(next.version),reason:validated.reason,reference:`trade-delivery-retry-policy:${next.version}`,metadataJson:JSON.stringify({old:current,new:next})});
+    return next;
+  });
+  const persisted=await getDeliveryRetryPolicy();
+  if(persisted.version!==saved.version||persisted.policy!==saved.policy||persisted.maxAttempts!==saved.maxAttempts||JSON.stringify(persisted.intervalsSeconds)!==JSON.stringify(saved.intervalsSeconds)||persisted.effectiveAt!==saved.effectiveAt||persisted.updatedBy!==updatedBy||persisted.configured!==true) throw new Error("Delivery retry policy save committed, but a fresh database read did not confirm every value and the new policy version.");
+  return persisted;
 }
 export async function countOutstandingTrades(userId?: number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const rows=await db.select({id:tradePositions.id}).from(tradePositions).where(userId===undefined?eq(tradePositions.status,"confirmed"):and(eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed"))); return rows.length; }
 export async function getTicketUploadPolicy() {
@@ -1365,7 +1665,7 @@ type PayoutResolutionInput = {
   requestId: number;
   action: "paid" | "rejected";
   externalReference?: string;
-  note?: string;
+  note: string;
 };
 
 function normalizePayoutDestinationDetails(value: string) {
@@ -1496,51 +1796,66 @@ async function notifyPayoutRequest(userId: number, title: string, body: string, 
   }
 }
 
-export async function listCustomerPayoutRequests(userId: number) {
+type PayoutHistoryCursor = { createdAt: string; id: number };
+export function decodePayoutHistoryCursor(value?: string): PayoutHistoryCursor | null {
+  if (value === undefined) return null;
+  try {
+    if (!/^[A-Za-z0-9_-]{1,200}$/.test(value)) throw new Error("invalid encoding");
+    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Partial<PayoutHistoryCursor>;
+    const date = new Date(String(parsed.createdAt ?? ""));
+    if (!Number.isSafeInteger(parsed.id) || Number(parsed.id) < 1 || !Number.isFinite(date.getTime()) || date.toISOString() !== parsed.createdAt) throw new Error("invalid values");
+    return { createdAt: date.toISOString(), id: Number(parsed.id) };
+  } catch { throw new Error("Payout history cursor is invalid."); }
+}
+export function encodePayoutHistoryCursor(createdAt: Date, id: number) {
+  return Buffer.from(JSON.stringify({ createdAt: createdAt.toISOString(), id }), "utf8").toString("base64url");
+}
+function payoutHistoryPageSize(value?: number) {
+  const pageSize = value ?? 50;
+  if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) throw new Error("Payout history page size must be from 1 to 100.");
+  return pageSize;
+}
+function payoutHistoryCursorPredicate(cursor: PayoutHistoryCursor) {
+  const date = new Date(cursor.createdAt);
+  return or(lt(payoutRequests.createdAt, date), and(eq(payoutRequests.createdAt, date), lt(payoutRequests.id, cursor.id)))!;
+}
+async function listPayoutHistoryPage<T extends { createdAt: Date; id: number }>(
+  selectPage: (cursorPredicate: ReturnType<typeof payoutHistoryCursorPredicate> | null, limit: number) => Promise<T[]>,
+  input: { cursor?: string; pageSize?: number } = {},
+) {
+  const pageSize = payoutHistoryPageSize(input.pageSize);
+  const cursor = decodePayoutHistoryCursor(input.cursor);
+  const rows = await selectPage(cursor ? payoutHistoryCursorPredicate(cursor) : null, pageSize + 1);
+  const hasMore = rows.length > pageSize;
+  const items = rows.slice(0, pageSize);
+  return { items, hasMore, nextCursor: hasMore && items.length ? encodePayoutHistoryCursor(items[items.length - 1].createdAt, Number(items[items.length - 1].id)) : null };
+}
+export async function listCustomerPayoutRequests(userId: number, input: { cursor?: string; pageSize?: number } = {}) {
   if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("A valid customer account is required.");
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  return db.select({
-    id: payoutRequests.id,
-    requestReference: payoutRequests.requestReference,
-    currency: payoutRequests.currency,
-    amountMinor: payoutRequests.amountMinor,
-    destinationType: payoutRequests.destinationType,
-    destinationDetails: payoutRequests.destinationDetails,
-    status: payoutRequests.status,
-    externalReference: payoutRequests.externalReference,
-    resolutionNote: payoutRequests.resolutionNote,
-    resolvedAt: payoutRequests.resolvedAt,
-    createdAt: payoutRequests.createdAt,
-    updatedAt: payoutRequests.updatedAt,
-  }).from(payoutRequests).where(eq(payoutRequests.userId, userId))
-    .orderBy(desc(payoutRequests.createdAt), desc(payoutRequests.id)).limit(50);
+  return listPayoutHistoryPage((cursorPredicate, limit) => db.select({
+    id: payoutRequests.id, requestReference: payoutRequests.requestReference, currency: payoutRequests.currency,
+    amountMinor: payoutRequests.amountMinor, destinationType: payoutRequests.destinationType, destinationDetails: payoutRequests.destinationDetails,
+    status: payoutRequests.status, externalReference: payoutRequests.externalReference, resolutionNote: payoutRequests.resolutionNote,
+    resolvedAt: payoutRequests.resolvedAt, createdAt: payoutRequests.createdAt, updatedAt: payoutRequests.updatedAt,
+  }).from(payoutRequests).where(cursorPredicate
+    ? and(eq(payoutRequests.userId, userId), cursorPredicate)
+    : eq(payoutRequests.userId, userId))
+    .orderBy(desc(payoutRequests.createdAt), desc(payoutRequests.id)).limit(limit), input);
 }
-
-export async function listAdminPayoutRequests() {
+export async function listAdminPayoutRequests(input: { cursor?: string; pageSize?: number } = {}) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  return db.select({
-    id: payoutRequests.id,
-    userId: payoutRequests.userId,
-    customerName: users.name,
-    customerEmail: users.email,
-    requestReference: payoutRequests.requestReference,
-    currency: payoutRequests.currency,
-    amountMinor: payoutRequests.amountMinor,
-    destinationType: payoutRequests.destinationType,
-    destinationDetails: payoutRequests.destinationDetails,
-    status: payoutRequests.status,
-    externalReference: payoutRequests.externalReference,
-    resolutionNote: payoutRequests.resolutionNote,
-    resolvedBy: payoutRequests.resolvedBy,
-    resolvedAt: payoutRequests.resolvedAt,
-    createdAt: payoutRequests.createdAt,
-    updatedAt: payoutRequests.updatedAt,
+  return listPayoutHistoryPage((cursorPredicate, limit) => db.select({
+    id: payoutRequests.id, userId: payoutRequests.userId, customerName: users.name, customerEmail: users.email,
+    requestReference: payoutRequests.requestReference, currency: payoutRequests.currency, amountMinor: payoutRequests.amountMinor,
+    destinationType: payoutRequests.destinationType, destinationDetails: payoutRequests.destinationDetails, status: payoutRequests.status,
+    externalReference: payoutRequests.externalReference, resolutionNote: payoutRequests.resolutionNote, resolvedBy: payoutRequests.resolvedBy,
+    resolvedAt: payoutRequests.resolvedAt, createdAt: payoutRequests.createdAt, updatedAt: payoutRequests.updatedAt,
   }).from(payoutRequests).leftJoin(users, eq(users.id, payoutRequests.userId))
-    .orderBy(desc(payoutRequests.createdAt), desc(payoutRequests.id)).limit(100);
+    .where(cursorPredicate || undefined).orderBy(desc(payoutRequests.createdAt), desc(payoutRequests.id)).limit(limit), input);
 }
-
 export async function createCustomerPayoutRequest(userId: number, input: CustomerPayoutInput) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
@@ -1717,10 +2032,10 @@ export async function resolveCustomerPayoutRequest(adminId: number, input: Payou
   if (input.action !== "paid" && input.action !== "rejected") throw new Error("Choose whether to mark the request paid or reject it.");
   const externalReference = String(input.externalReference || "").trim();
   const note = String(input.note || "").replace(/\0/g, "").trim();
+  if (note.length < 3) throw new Error("An operator reason of at least 3 characters is required to resolve a payout request.");
   if (input.action === "paid" && (externalReference.length < 3 || externalReference.length > 160)) {
     throw new Error("Enter the external transfer reference before marking a payout paid.");
   }
-  if (input.action === "rejected" && !note) throw new Error("A rejection reason is required so the customer can understand the decision.");
   if (note.length > 1000) throw new Error("Payout resolution note must be 1,000 characters or fewer.");
   const now = new Date();
 
@@ -2452,12 +2767,12 @@ const DEFAULT_NEW_TIER_POLICY = {
   badgeLabel:null,badgeStyle:"neutral",
   minimumPayoutRateBps:200,maximumPayoutRateBps:300,
   minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900,
-  companyRotationEnabled:true,companyRotationCountryNames:null,
+  companyRotationEnabled:false,companyRotationCountryNames:null,
   companyRotationRepeatPolicy:"avoid_until_exhausted" as const,
   maxPopupsPerDay:10,maxVisibleOffers:3,minimumTradeUnits:1000,maximumTradeUnits:100000,
-  minHourlyTarget:0,normalHourlyTarget:0,marketInfluenceBps:0,burstEnabled:true,maxBurstSize:3,
-  enabled:true,automaticDelivery:true,dailyPopupTarget:0,schedulingPeriod:"rolling_24h" as const,
-  minIntervalSeconds:45,maxIntervalSeconds:3600,randomizationEnabled:true,popupDisplayTargetSeconds:120,
+  minHourlyTarget:0,normalHourlyTarget:0,marketInfluenceBps:0,burstEnabled:false,maxBurstSize:3,
+  enabled:false,automaticDelivery:false,dailyPopupTarget:0,schedulingPeriod:"rolling_24h" as const,
+  minIntervalSeconds:45,maxIntervalSeconds:3600,randomizationEnabled:false,popupDisplayTargetSeconds:120,
   completionDisplaySeconds:8,postCompletionIntervalSeconds:30,maxPendingDeliveries:3,
   deliveryRetryPolicy:"temporary" as const,maxDeliveryAttempts:3,expiryHandling:"expire" as const,
   duplicatePrevention:true,audioEnabled:true,audioSound:"soft-chime",automaticTradingEnabled:false,
@@ -2511,14 +2826,18 @@ export async function createAdminTradingPackage(createdBy:number,input:{
   });
 }
 
+export class TradingPackageTermsVersionConflictError extends Error {
+  constructor() { super("This package changed in another session. Refresh the saved terms before retrying."); this.name="TradingPackageTermsVersionConflictError"; }
+}
 export async function updateAdminTradingPackage(updatedBy:number,input:{
-  id:number; name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
+  id:number; expectedTermsVersion:number; name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
   opportunitiesPerDay:number; maxPopupsPerDay:number; maxActiveInvestments:number;
   startsAt:Date|null; expiresAt:Date|null; enabled:boolean; reason:string;
 }) {
   const auditReason=String(input.reason??"").trim();
   if(auditReason.length<5||auditReason.length>500) throw new Error("Provide an audit reason of 5–500 characters");
   if(!Number.isSafeInteger(input.id)||input.id<=0) throw new Error("Package ID is invalid");
+  if(!Number.isSafeInteger(input.expectedTermsVersion)||input.expectedTermsVersion<1) throw new Error("A valid saved package terms version is required.");
   if(!input.name.trim()||input.name.trim().length>80) throw new Error("Package name must contain 1–80 characters");
   if(!Number.isSafeInteger(input.minimumQualifyingBalanceUsdMinor)||input.minimumQualifyingBalanceUsdMinor<=0) throw new Error("Minimum qualifying balance must be a positive USD minor-unit integer");
   if(!Number.isSafeInteger(input.durationMonths)||input.durationMonths<1||input.durationMonths>1200) throw new Error("Package duration must be 1–1200 calendar months");
@@ -2532,6 +2851,7 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
   return db.transaction(async tx=>{
     const current=(await tx.select().from(packages).where(eq(packages.id,input.id)).limit(1).for("update"))[0];
     if(!current) throw new Error("Trading package not found");
+    if(Number(current.termsVersion||1)!==input.expectedTermsVersion) throw new TradingPackageTermsVersionConflictError();
     const nextName=input.name.trim();
     const conflicting=(await tx.select({id:packages.id}).from(packages).where(eq(packages.name,nextName)).limit(1))[0];
     if(conflicting&&conflicting.id!==input.id) throw new Error("A tier with this name already exists");
@@ -2548,8 +2868,6 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
     if(isTradingTierEnablingTransition(Boolean(current.enabled),input.enabled)&&(
       !activationPolicy||
       Number(activationPolicy.policyVersion)<1||
-      !activationPolicy.enabled||
-      !activationPolicy.automaticDelivery||
       !Number.isSafeInteger(Number(activationPolicy.minimumPayoutRateBps))||
       !Number.isSafeInteger(Number(activationPolicy.maximumPayoutRateBps))||
       Number(activationPolicy.minimumPayoutRateBps)<0||
@@ -2598,13 +2916,17 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
  * attribution. Called by the scheduled worker so tier start dates and admin
  * configuration changes do not depend on a customer visit or another deposit.
  */
-export async function ensureAutomaticTradingTierEntitlements(userId:number) {
+export async function ensureAutomaticTradingTierEntitlements(userId:number):Promise<boolean> {
   const db=await getDb();
   if(!db) throw new Error("Trading eligibility is temporarily unavailable.");
-  await db.transaction(async tx=>{
+  return db.transaction(async tx=>{
+    const globalSetting=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
+      .where(eq(appSettings.settingKey,TRADE_GLOBAL_CONTROL_SETTINGS_KEY)).limit(1).for("update"))[0];
+    const globalPolicy=parseTradeGlobalControlPolicy(globalSetting?.settingValue);
+    if(!globalPolicy?.tierPolicyMasterEnabled) return false;
     const user=(await tx.select({id:users.id,role:users.role,loginMethod:users.loginMethod})
       .from(users).where(eq(users.id,userId)).limit(1).for("update"))[0];
-    if(!user||user.role!=="user"||user.loginMethod==="closed") return;
+    if(!user||user.role!=="user"||user.loginMethod==="closed") return true;
     const creditedRows=await tx.select({amount:balanceLedger.qualifyingDepositUsdMinor})
       .from(balanceLedger).where(and(
         eq(balanceLedger.userId,userId),
@@ -2677,6 +2999,7 @@ export async function ensureAutomaticTradingTierEntitlements(userId:number) {
       });
       history.unshift({id:subscriptionId,userId,packageId:Number(tier.id),startsAt:now,expiresAt,status:"active",activationKey,termsSnapshotJson:JSON.stringify(snapshot),qualifyingBalanceUsdMinor:qualifyingTotal,packageTermsVersion:Number(tier.termsVersion),activatedAt:now,createdAt:now} as typeof history[number]);
     }
+    return true;
   });
 }
 
@@ -2688,6 +3011,8 @@ export async function ensureAutomaticTradingTierEntitlements(userId:number) {
 export async function runTradingTierQualificationWorkerCycle(options?: { batchSize?: number }) {
   const db=await getDb();
   if(!db) throw new Error("Trading qualification worker database is unavailable.");
+  const globalPolicy=await getTradeGlobalControls();
+  if(!globalPolicy.available||!globalPolicy.tierPolicyMasterEnabled) return {claimed:0,completed:0,retrying:0,dead:0,pausedByGlobalPolicy:true};
   const batchSize=Math.max(1,Math.min(50,Math.floor(options?.batchSize??20)));
   // MySQL TIMESTAMP has second precision here; use a stable persisted lease token.
   // Eligibility keeps full precision; a just-requeued TIMESTAMP may round into the next second.
@@ -2715,7 +3040,13 @@ export async function runTradingTierQualificationWorkerCycle(options?: { batchSi
   let completed=0,retrying=0,dead=0;
   for(const job of jobs){
     try{
-      await ensureAutomaticTradingTierEntitlements(Number(job.userId));
+      const reconciled=await ensureAutomaticTradingTierEntitlements(Number(job.userId));
+      if(!reconciled){
+        await db.update(tradingTierQualificationJobs).set({status:"pending",availableAt:new Date(Date.now()+30_000),lockedAt:null,lastError:"Global tier policy is OFF; the qualification job was retained for later review.",updatedAt:new Date()})
+          .where(and(eq(tradingTierQualificationJobs.id,job.id),eq(tradingTierQualificationJobs.status,"processing"),eq(tradingTierQualificationJobs.lockedAt,job.lockedAt)));
+        retrying++;
+        continue;
+      }
       await db.update(tradingTierQualificationJobs).set({
         status:"completed",lockedAt:null,lastError:null,updatedAt:new Date(),
       }).where(and(
@@ -2750,6 +3081,8 @@ export async function runTradingTierQualificationWorkerCycle(options?: { batchSi
 export async function getCustomerTradingEligibility(userId:number) {
   const db=await getDb();
   if(!db) throw new Error("Trading eligibility is temporarily unavailable.");
+  const globalPolicy=await getTradeGlobalControls();
+  const tierMasterEnabled=globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled;
   const now=new Date();
   const rows=await db.select({
     activationKey:customerPackageSubscriptions.activationKey,
@@ -2772,10 +3105,10 @@ export async function getCustomerTradingEligibility(userId:number) {
   const snapshotFor=(row:typeof rows[number])=>{
     try { return JSON.parse(String(row.termsSnapshotJson||"{}")); } catch { return {}; }
   };
-  const dailyOpportunityAllowance=eligibleRows.reduce((total,row)=>{
+  const dailyOpportunityAllowance=tierMasterEnabled?eligibleRows.reduce((total,row)=>{
     const quota=Number(snapshotFor(row).opportunitiesPerDay??row.dailyQuota);
     return total+(Number.isSafeInteger(quota)&&quota>=0?quota:0);
-  },0);
+  },0):0;
   if(!Number.isSafeInteger(dailyOpportunityAllowance)||dailyOpportunityAllowance<0) throw new Error("Trading eligibility quota is invalid.");
 
   // The customer receives only their highest active tier and the single next threshold,
@@ -2815,7 +3148,7 @@ export async function getCustomerTradingEligibility(userId:number) {
   tiers.sort((a,b)=>Number(a.minimumQualifyingBalanceUsdMinor)-Number(b.minimumQualifyingBalanceUsdMinor));
   const nextTier=tiers.find(tier=>Number(tier.minimumQualifyingBalanceUsdMinor)>qualifyingDepositUsdMinor);
   const currentPackage=activePackages[0]||null;
-  const nextPackage=nextTier?{
+  const nextPackage=tierMasterEnabled&&nextTier?{
     name:nextTier.name,
     minimumQualifyingBalanceUsdMinor:Number(nextTier.minimumQualifyingBalanceUsdMinor),
     amountNeededUsdMinor:Math.max(0,Number(nextTier.minimumQualifyingBalanceUsdMinor)-qualifyingDepositUsdMinor),
@@ -2823,9 +3156,10 @@ export async function getCustomerTradingEligibility(userId:number) {
     additionalDailyOpportunities:Number(nextTier.opportunitiesPerDay),
   }:null;
   return {
-    eligible:eligibleRows.length>0,
+    eligible:tierMasterEnabled&&eligibleRows.length>0,
     dailyOpportunityAllowance,
-    status:eligibleRows.length>0?"eligible":"not_eligible",
+    status:tierMasterEnabled&&eligibleRows.length>0?"eligible":"not_eligible",
+    globalTierPolicyEnabled:tierMasterEnabled,
     qualifyingDepositUsdMinor,
     currentPackage,
     nextPackage,
@@ -2834,13 +3168,14 @@ export async function getCustomerTradingEligibility(userId:number) {
 
 
 export async function previewNextCustomerCompanySpotlight(userId:number) {
+  const globalPolicy=await getTradeGlobalControls();
+  if(!globalPolicy.available||!globalPolicy.tierPolicyMasterEnabled||!globalPolicy.companyRotationEnabled) return null;
   const eligibility=await getCustomerTradingEligibility(userId);
   const packageName=String(eligibility.currentPackage?.name||"").trim();
   if(!eligibility.eligible||!packageName) throw new Error("An active automatically assigned Trading tier is required for company spotlight preview.");
   const policies=await listPersistedOpportunityPackagePolicies();
   const policy=policies.find(row=>row.packageName===packageName);
   if(!policy) throw new Error("The active Trading tier has no saved company rotation policy.");
-  if(!policy.companyRotationEnabled) return null;
   const db=await getDb();
   if(!db) throw new Error("Company spotlight preview is temporarily unavailable.");
   const catalogueRow=(await db.select({settingValue:appSettings.settingValue})
@@ -2899,6 +3234,19 @@ export async function listPersistedOpportunityPackagePolicies() {
   if(missing.length) throw new Error("Trading tier opportunity policy is missing for: "+missing.join(", "));
   return matchingRows;
 }
+const TRADING_TIER_POLICY_PATCH_KEYS = new Set([
+  "maxPopupsPerDay", "maxVisibleOffers", "minimumTradeUnits", "maximumTradeUnits",
+  "minHourlyTarget", "normalHourlyTarget", "marketInfluenceBps", "maxBurstSize",
+  "dailyPopupTarget", "schedulingPeriod", "minIntervalSeconds", "maxIntervalSeconds",
+  "popupDisplayTargetSeconds", "completionDisplaySeconds", "postCompletionIntervalSeconds",
+  "maxPendingDeliveries", "maxTradeAttemptsPerDay",
+  "tradeRetryDelaySeconds", "maxSuccessfulTradesPerDay", "maxConcurrentActiveTrades",
+  "minSettlementDelaySeconds", "maxSettlementDelaySeconds", "minimumRewardBps",
+  "maxDailyRewardMinor", "maxRewardPerTradeMinor", "badgeLabel", "badgeStyle",
+  "minimumPayoutRateBps", "maximumPayoutRateBps", "minimumTradeDurationSeconds",
+  "maximumTradeDurationSeconds", "companyRotationCountryNames", "companyRotationRepeatPolicy",
+  "closePolicy",
+]);
 export async function updateOpportunityPackagePolicies(updatedBy:number, policies:any[], reason:string) {
   const auditReason=String(reason??"").trim();
   if(auditReason.length<5||auditReason.length>500) throw new Error("Provide an audit reason of 5–500 characters");
@@ -2910,6 +3258,8 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
     if(typeof policy.packageName!=="string"||!tierNames.has(policy.packageName)) throw new Error("Opportunity policy references an unknown Trading tier");
     if(seenTierNames.has(policy.packageName)) throw new Error("Each Trading tier may appear only once in a policy update.");
     seenTierNames.add(policy.packageName);
+    const unsupported=Object.keys(policy).filter(key=>key!=="packageName"&&!TRADING_TIER_POLICY_PATCH_KEYS.has(key));
+    if(unsupported.length) throw new Error(`Per-tier Trading policy cannot update global or unknown fields: ${unsupported.join(", ")}`);
     return policy;
   });
   if(requested.some(policy=>policy.automaticTradingEnabled===true)) {
@@ -3186,6 +3536,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
 }
 export async function listCustomerOpportunities(userId:number, options:{consumeDelivery?:boolean;workerCycle?:boolean;allowAutomaticExecution?:boolean}={}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const globalPolicy=await getTradeGlobalControls();
   const now=new Date();
   const quotaDay=now.toISOString().slice(0,10);
   const settled:Array<{tradeId:number;rewardMinor:number;currency:string;totalMinor:number}>=[];
@@ -3208,12 +3559,12 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const packagePolicies=await listOpportunityPackagePolicies();
   const policyByName=new Map<string,typeof packagePolicies[number]>();
   for(const policyRow of packagePolicies) policyByName.set(policyRow.packageName,policyRow);
-  // Package-level delivery controls apply before any new popup or quota is
-  // assigned. Automatic trading can be disabled independently while delivery
-  // remains available for an administrator-configured review workflow.
+  // Package lifecycle remains tier-scoped. Global delivery masters are loaded
+  // once above; legacy per-tier copies are migration inputs only, not a second
+  // editable or runtime owner.
   const eligibleSubscriptions=subscriptions.filter(subscription=>{
     const configured=policyByName.get(subscription.packageName);
-    return Boolean(configured && configured.enabled && configured.automaticDelivery && hasConfiguredTradingOfferPolicy(configured));
+    return Boolean(configured && hasConfiguredTradingOfferPolicy(configured));
   });
   if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packagePolicyPaused:true,popupPolicy:{}});
   const quotaFor=(subscription:any)=>{
@@ -3245,7 +3596,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     popupDisplaySeconds:Math.max(1,Number(policy?.popupDisplayTargetSeconds||120)),
     popupMaxPerHour:maxPopupsPerDay,
     popupPreAlertProbabilityBps:0,popupPreAlertSeconds:0,popupWithdrawalProbabilityBps:0,
-    popupJitterSeconds:policy?.randomizationEnabled?Math.max(0,Number(policy?.maxIntervalSeconds||0)-Number(policy?.minIntervalSeconds||0)):0,
+    popupJitterSeconds:globalPolicy.randomizedTimingEnabled?Math.max(0,Number(policy?.maxIntervalSeconds||0)-Number(policy?.minIntervalSeconds||0)):0,
   };
   const offerRows=await db.select().from(opportunityOffers).where(and(eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt).limit(5000);
   const tradeHistory=await listTrades(userId);
@@ -3274,7 +3625,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     return dailyQuota>0&&(usedBySubscription.get(Number(subscription.subscriptionId))||0)<dailyQuota;
   };
   const activePopupRows=await db.select({
-    eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
+    eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageId:opportunityPopupEvents.packageId,packageName:opportunityPopupEvents.packageName,
     policyVersion:opportunityPopupEvents.policyVersion,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
     expectedRewardBps:opportunityPopupEvents.expectedRewardBps,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
@@ -3287,7 +3638,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   }).from(opportunityPopupEvents).leftJoin(opportunityOffers,eq(opportunityPopupEvents.offerId,opportunityOffers.id))
     .where(and(eq(opportunityPopupEvents.userId,userId),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN"])))
     .orderBy(desc(opportunityPopupEvents.deliveredAt));
-  const activePopupOfferIds=new Set(activePopupRows.map(row=>Number(row.offerId)));
+  const durableDeliveryKeys=await db.select({offerId:opportunityDeliveryIdempotency.offerId}).from(opportunityDeliveryIdempotency).where(eq(opportunityDeliveryIdempotency.userId,userId));
+  const activePopupOfferIds=new Set([...activePopupRows.map(row=>Number(row.offerId)),...durableDeliveryKeys.map(row=>Number(row.offerId))]);
   // Repair interrupted writes before calculating quota: some older workers wrote
   // the quota row before persisting its visible popup, while a crash in the new
   // order can leave a popup row without its quota ledger entry.
@@ -3346,7 +3698,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     policyVersion:Number(lastDelivery?.policyVersion||0),
     minIntervalSeconds:Math.max(0,Number(policy?.minIntervalSeconds||0)),
     maxIntervalSeconds:Math.max(0,Number(policy?.maxIntervalSeconds||0)),
-    randomizationEnabled:Boolean(policy?.randomizationEnabled),
+    randomizationEnabled:globalPolicy.randomizedTimingEnabled,
   });
   const postCompletionIntervalSeconds=Math.max(0,Number(policy?.postCompletionIntervalSeconds||0));
   const lastCompletedTrade=postCompletionIntervalSeconds>0?(await db.select({completionAt:tradePositions.completionAt})
@@ -3361,11 +3713,11 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const deliveryCapacity=calculateTradingDeliveryCapacity({dailyCap,deliveredOfferCount,maxVisibleOffers,activeVisibleCount});
   let remainingQuota=deliveryCapacity.remainingQuota;
   const balancesSnapshot=await listBalances(userId);
-  const newlyEligible:any[]=[];
+  let newlyEligible:any[]=[];
   // Preserve the entitlement selected for newly created popups during this cycle,
   // so the later automatic-trade pass does not count that same quota slot twice.
   const assignedSubscriptionByOffer=new Map<number,any>();
-  if(options.workerCycle===true&&!formulaCooling&&remainingQuota>0){
+  if(options.workerCycle===true&&globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&!formulaCooling&&remainingQuota>0){
     for(const offer of offerRows){
       if(remainingQuota<=0) break;
       const offerId=Number(offer.id);
@@ -3394,21 +3746,21 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const subscription=selected.subscription;
       const configured=selected.configured;
       if(!configured||!hasConfiguredTradingOfferPolicy(configured)) continue;
-      if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:Boolean(configured.burstEnabled),maxBurstSize:Number(configured.maxBurstSize||0)})) break;
+      if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(configured.maxBurstSize||0)})) break;
       // Select one administrator-configured rate and duration exactly once. The
       // selection is persisted with the popup and reused by retries/trade allocation.
       const configuredProfitRateBps=chooseInclusiveInteger(Number(configured.minimumPayoutRateBps),Number(configured.maximumPayoutRateBps));
       const configuredDurationSeconds=chooseInclusiveInteger(Number(configured.minimumTradeDurationSeconds),Number(configured.maximumTradeDurationSeconds));
       const configuredPopupDisplaySeconds=Number(configured.popupDisplayTargetSeconds);
       if(!Number.isSafeInteger(configuredPopupDisplaySeconds)||configuredPopupDisplaySeconds<1||configuredPopupDisplaySeconds>86400) continue;
-      newlyEligible.push({...offer,packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
+      newlyEligible.push({...offer,packageId:Number(subscription.packageId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
         minimumMinor:selected.minimumMinor,packageMinimumTradeMinor:selected.configuredMinimum,packageMaximumTradeMinor:selected.configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
         expectedRewardBps:configuredProfitRateBps,configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds,
         durationSeconds:configuredDurationSeconds,policyVersion:Number(configured.policyVersion||1),packagePolicyVersionSnapshot:Number(configured.policyVersion||1),
         badgeLabel:configured.badgeLabel==null?null:String(configured.badgeLabel),packageBadgeLabel:configured.badgeLabel==null?null:String(configured.badgeLabel),
         badgeStyle:["neutral","blue","purple","gold","green"].includes(String(configured.badgeStyle))?String(configured.badgeStyle):"neutral",
-        companyRotationEnabled:Boolean(configured.companyRotationEnabled),
+        companyRotationEnabled:globalPolicy.companyRotationEnabled,
         companyRotationCountryNames:String(configured.companyRotationCountryNames||""),
         companyRotationRepeatPolicy:configured.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted"});
       assignedSubscriptionByOffer.set(Number(offer.id),subscription);
@@ -3421,7 +3773,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     // every popup row is confirmed; an insert failure must not consume a quota slot.
     const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map(offer=>{
       const available=Math.max(0,Number(balancesSnapshot.find((row:any)=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())?.availableMinor||0));
-      return {userId,offerId:offer.id,quotaDay,packageName:offer.packageName,symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
+      return {userId,offerId:offer.id,quotaDay,packageId:Number(offer.packageId),packageName:offer.packageName,maxPendingDeliveries:Math.max(0,Number(policyByName.get(offer.packageName)?.maxPendingDeliveries??0)),symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
         expectedRewardBps:Number(offer.expectedRewardBps),configuredProfitRateBps:Number(offer.configuredProfitRateBps),
         configuredDurationSeconds:Number(offer.configuredDurationSeconds),configuredPopupDisplaySeconds:Number(offer.configuredPopupDisplaySeconds),
         policyVersion:Number(offer.policyVersion||1),packagePolicyVersionSnapshot:Number(offer.packagePolicyVersionSnapshot||offer.policyVersion||1),
@@ -3431,18 +3783,19 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
         marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt,publishedExpectedRewardBps:Number(offer.expectedRewardBps),publishedDurationSeconds:Number(offer.durationSeconds),configuredProfitRateBps:Number(offer.configuredProfitRateBps),configuredDurationSeconds:Number(offer.configuredDurationSeconds)})};
     }));
-    const missingLifecycleIds=newlyEligible.filter(offer=>!lifecycleIds.has(userId+":"+offer.id+":"+quotaDay));
+    newlyEligible=newlyEligible.filter(offer=>lifecycleIds.has(userId+":"+offer.id));
+    const missingLifecycleIds=newlyEligible.filter(offer=>!lifecycleIds.has(userId+":"+offer.id));
     if(missingLifecycleIds.length) throw new Error("Popup persistence did not return delivery IDs for every eligible opportunity");
     await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({
-      userId,offerId:offer.id,quotaDay,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion||1),
+      userId,offerId:offer.id,quotaDay,status:"pending" as const,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion||1),
     }))).onDuplicateKeyUpdate({set:{deliveredAt:new Date(),status:"delivered",lastErrorCode:null}});
     for(const offer of newlyEligible){
-      offer.deliveryEventId=lifecycleIds.get(userId+":"+offer.id+":"+quotaDay)||null;
+      offer.deliveryEventId=lifecycleIds.get(userId+":"+offer.id)||null;
       deliveredOfferIds.add(Number(offer.id));
     }
   }
   const popupRows=await db.select({
-    eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
+    eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageId:opportunityPopupEvents.packageId,packageName:opportunityPopupEvents.packageName,
     executionStatus:opportunityPopupEvents.executionStatus,executionAttemptCount:opportunityPopupEvents.executionAttemptCount,executionRetryAfter:opportunityPopupEvents.executionRetryAfter,executionRetryDay:opportunityPopupEvents.executionRetryDay,executionLastErrorCode:opportunityPopupEvents.executionLastErrorCode,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
     expectedRewardBps:opportunityPopupEvents.expectedRewardBps,policyVersion:opportunityPopupEvents.policyVersion,
@@ -3453,7 +3806,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     companyReferenceMetadataJson:opportunityPopupEvents.companyReferenceMetadataJson,companyReferenceOnly:opportunityPopupEvents.companyReferenceOnly,
     popupDurationSeconds:opportunityPopupEvents.durationSeconds,badgeLabel:opportunityPopupEvents.badgeLabel,badgeStyle:opportunityPopupEvents.badgeStyle,
     balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
-    balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,deliveryStatus:opportunityPopupEvents.deliveryStatus,quotaDay:opportunityPopupEvents.quotaDay,
+    balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,deliveryStatus:opportunityPopupEvents.deliveryStatus,deliveryAttemptCount:opportunityPopupEvents.deliveryAttemptCount,deliveryRetryAfter:opportunityPopupEvents.deliveryRetryAfter,deliveryLeaseToken:opportunityPopupEvents.deliveryLeaseToken,quotaDay:opportunityPopupEvents.quotaDay,
     deliveredAt:opportunityPopupEvents.deliveredAt,venueFrom:opportunityOffers.venueFrom,venueTo:opportunityOffers.venueTo,
     offerStatus:opportunityOffers.status,offerMinimumMinor:opportunityOffers.minimumMinor,opensAt:opportunityOffers.opensAt,
     closesAt:opportunityOffers.closesAt,rewardAt:opportunityOffers.rewardAt,durationSeconds:opportunityOffers.durationSeconds,
@@ -3474,9 +3827,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     // Existing popups keep their package identity, while the actual entitlement
     // is selected from same-package copies that still have their own daily quota.
     const assignedSubscription=assignedSubscriptionByOffer.get(Number(row.offerId));
-    const subscription=assignedSubscription&&assignedSubscription.packageName===row.packageName
+    const subscription=assignedSubscription&&Number(assignedSubscription.packageId)===Number(row.packageId)
       ?assignedSubscription
-      :eligibleSubscriptions.find(item=>item.packageName===row.packageName&&subscriptionHasQuota(item));
+      :eligibleSubscriptions.find(item=>Number(item.packageId)===Number(row.packageId)&&subscriptionHasQuota(item));
     if(!subscription) return null;
     if(!assignedSubscriptionByOffer.has(Number(row.offerId))) {
       usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
@@ -3498,9 +3851,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       // A failed browser status write is retryable delivery state, not proof that
       // the opportunity itself expired or became ineligible. Keep it available so
       // a refreshed customer portal can retry rendering and status recording.
-      popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus)&&["delivered","received","rendered","failed"].includes(String(row.deliveryStatus)),
+      popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus)&&["queued","in_progress","retry_wait","delivered","received","rendered"].includes(String(row.deliveryStatus)),
       executionEligible:isPopupExecutionEligible({eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus,executionStatus:row.executionStatus}),
-      eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus};
+      eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus,deliveryAttemptCount:Number(row.deliveryAttemptCount||0),deliveryRetryAfter:row.deliveryRetryAfter,deliveryLeaseToken:row.deliveryLeaseToken};
   }).filter((offer) => offer !== null);
   const allocationControls=await getTradeAllocationControls();
   const autoTradeCandidates=tradeCandidates.filter((offer:any)=>{
@@ -3510,17 +3863,17 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const packagePolicy=policyByName.get(String(offer.packageName));
     // Disabled package policies or automatic execution must stop new allocations
     // without turning a merely visible/pending popup into a trade request.
-    return Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy));
+    return Boolean(packagePolicy && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy));
   });
   const effectiveControls=controls;
   const auto=AUTOMATIC_FINANCIAL_EXECUTION_ENABLED && options.workerCycle===true && options.allowAutomaticExecution!==false
     ?await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls)
     :{executed:[],missed:await listMissedOpportunities(userId)};
   const executedByOffer=new Map(auto.executed.map((trade:any)=>[Number(trade.offerId),trade]));
-  const enrichedOffers=popupRows.map(row=>{
+  let enrichedOffers=popupRows.map(row=>{
     const base:any=tradeCandidates.find(offer=>Number(offer.offerId)===Number(row.offerId))||{};
     const executed=executedByOffer.get(Number(row.offerId))||null;
-    return {...base,id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageName:row.packageName,
+    return {...base,id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageId:Number(row.packageId||0),packageName:row.packageName,
       symbol:row.symbol,currency:row.currency,minimumMinor:Number(row.popupMinimumMinor),balanceAvailableMinor:Number(row.balanceAvailableMinor),
       balanceStatus:row.balanceStatus,expectedRewardBps:Number(row.expectedRewardBps),eventStatus:row.eventStatus,deliveredAt:row.deliveredAt,
       venueFrom:row.venueFrom||base.venueFrom||"",venueTo:row.venueTo||base.venueTo||"",opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,
@@ -3535,14 +3888,24 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       currencyScale:Number(currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase())?.scale??2),
       currencySymbol:String(currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase())?.symbol||row.currency),
       popupEligible:row.offerStatus==="open"&&Boolean(row.closesAt&&new Date(row.closesAt).getTime()>now.getTime())&&
-        ["DELIVERED","NOTICED"].includes(row.eventStatus)&&["delivered","received","rendered","failed"].includes(String(row.deliveryStatus)),
+        ["DELIVERED","NOTICED"].includes(row.eventStatus)&&["queued","in_progress","retry_wait","delivered","received","rendered"].includes(String(row.deliveryStatus)),
+      deliveryStatus:row.deliveryStatus,deliveryAttemptCount:Number(row.deliveryAttemptCount||0),deliveryRetryAfter:row.deliveryRetryAfter,deliveryLeaseToken:row.deliveryLeaseToken,
       automaticTrade:executed};
   });
-  return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{enabled:true,packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,
+  if(options.workerCycle!==true){
+    const dispatches=await claimPopupDeliveryDispatches(userId);
+    const byEvent=new Map(dispatches.map(item=>[item.eventId,item]));
+    enrichedOffers=enrichedOffers.map((offer:any)=>{
+      const dispatch=byEvent.get(Number(offer.deliveryEventId));
+      return dispatch?{...offer,deliveryStatus:dispatch.deliveryStatus,deliveryAttemptCount:dispatch.attemptNumber,deliveryLeaseToken:dispatch.leaseToken,popupEligible:offer.popupEligible===true}:offer;
+    });
+  }
+  const globalDeliveryEnabled=globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled;
+  return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{enabled:globalDeliveryEnabled,globalPolicyPaused:!globalDeliveryEnabled,packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,
     remainingDailyQuota:Math.max(0,deliveryCapacity.dailyRemaining-newlyEligible.length),
     remainingVisibleSlots:Math.max(0,deliveryCapacity.visibleRemaining-newlyEligible.length),
     remainingQuota,activeVisibleCount:activeVisibleCount+newlyEligible.length,schedulingPeriod:effectiveSchedulingPeriod,
-    formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:Boolean(policy?.burstEnabled),maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
+    formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
 }
 export async function claimAutoTradeCycleCustomers(input:{batchSize?:number}={}){
   const db=await getDb();
@@ -3594,9 +3957,10 @@ export async function claimAutoTradeCycleCustomers(input:{batchSize?:number}={})
 
 export async function runAutoTradeCycle(input:{batchSize?:number}={}){
   const settlementPolicy=await getTradeSettlementPolicy();
+  const globalControls=await getTradeGlobalControls();
   let outstandingTrades=0;
   let pausedUntilSettled=false;
-  if(settlementPolicy.blockUntilSettled){
+  if(!globalControls.available||globalControls.requirePreviousSettlement||settlementPolicy.blockUntilSettled){
     outstandingTrades=await countOutstandingTrades();
     pausedUntilSettled=outstandingTrades>0;
   }
@@ -3629,6 +3993,7 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
   };
 }
 export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number;packageId?:number;executionLeaseToken?:string}){
+ if(!AUTOMATIC_FINANCIAL_EXECUTION_ENABLED) throw new Error("Automatic trade allocation is hard-disabled");
  const db=await getDb();if(!db)throw new Error("Database is not available");
  // Fetch FX quotes before opening the financial transaction. The transaction below
  // locks every affected wallet in stable order and rechecks all spendable balances.
@@ -3717,6 +4082,10 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   }
 
   const settlementPolicy=await getTradeSettlementPolicy();
+  const globalControlRow=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
+    .where(eq(appSettings.settingKey,TRADE_GLOBAL_CONTROL_SETTINGS_KEY)).limit(1).for("update"))[0];
+  const globalControls=parseTradeGlobalControlPolicy(globalControlRow?.settingValue);
+  const requirePreviousSettlement=!globalControls||globalControls.requirePreviousSettlement||settlementPolicy.blockUntilSettled;
 
   const totalWalletFunds=(await tx.select({availableMinor:sql`COALESCE(SUM(${customerBalances.availableMinor}),0)`}).from(customerBalances).where(eq(customerBalances.userId,userId)))[0]; if(Number(totalWalletFunds?.availableMinor||0)<=0) throw new Error("Trading is unavailable until at least one wallet has available funds");
   const offer=(await tx.select().from(opportunityOffers).where(and(eq(opportunityOffers.id,input.offerId),eq(opportunityOffers.status,"open"))).limit(1))[0];
@@ -3754,7 +4123,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   for(const row of packagePolicies) policyByName.set(row.packageName,row);
   const eligibleSubscriptions=activePackageSubscriptions.filter(subscription=>{
     const configured=policyByName.get(subscription.packageName);
-    return Boolean(configured && configured.enabled && configured.automaticDelivery && configured.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(configured));
+    return Boolean(configured && configured.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(configured));
   });
   if(!eligibleSubscriptions.length) throw new Error("New allocations are paused for all eligible Trading tier policies");
   const quotaRows=await tx.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL AND confirmedAt>=${todayStartUtc} AND confirmedAt<${tomorrowStartUtc} AND status<>'cancelled' GROUP BY packageSubscriptionId`) as any;
@@ -3780,6 +4149,16 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const activePackageSubscription=requestedSubscription||samePackageSubscription||(!input.packageSubscriptionId&&!input.packageId?subscriptionsWithQuota[0]:undefined);
   if(!activePackageSubscription) throw new Error("No eligible package subscription remains for this allocation");
   const selectedSubscriptionId=Number(activePackageSubscription.subscriptionId);
+  const feePackageId=Number(activePackageSubscription.packageId);
+  const feePackage=(await tx.select({id:packages.id}).from(packages).where(eq(packages.id,feePackageId)).limit(1).for("update"))[0];
+  if(!feePackage) throw new Error("The selected package fee identity is unavailable");
+  const allocationAt=new Date();
+  const feeRows=await tx.select().from(tradingPackageFeePolicyVersions)
+    .where(and(eq(tradingPackageFeePolicyVersions.packageId,feePackageId),lte(tradingPackageFeePolicyVersions.effectiveAt,allocationAt)))
+    .orderBy(desc(tradingPackageFeePolicyVersions.effectiveAt),desc(tradingPackageFeePolicyVersions.version)).limit(1).for("update");
+  const effectiveFeeRow=selectLatestEffectivePackageFeePolicy(feeRows,allocationAt);
+  const packageFeePolicy=effectiveFeeRow ? normalizePackageFeePolicy(effectiveFeeRow) : null;
+  if(!packageFeePolicy) throw new Error("The selected package has no saved fee policy; allocation is blocked until an administrator configures one");
   const packagePolicy=policyByName.get(activePackageSubscription.packageName);
   let activeTermsSnapshot:any={};try{activeTermsSnapshot=JSON.parse(String(activePackageSubscription.termsSnapshotJson||"{}"))}catch{activeTermsSnapshot={}}
   const tierActiveLimit=Number(activeTermsSnapshot.maxActiveInvestments??activePackageSubscription.maxActiveInvestments??0);
@@ -3793,7 +4172,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     // This is a customer-wide gate, not a same-package check. A previous trade
     // remains unsettled until the administrator-confirmed result is posted to
     // the wallet and the lifecycle reaches its completed state.
-    if(packagePolicy.requirePreviousSettlement !== false) {
+    if(requirePreviousSettlement) {
       const unsettledRows=await tx.execute(sql`SELECT id FROM trade_positions
         WHERE userId=${userId}
           AND status<>'cancelled'
@@ -3934,7 +4313,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const settlementReviewAt=new Date(settlesAt.getTime()+settlementDelaySeconds*1000);
   const creditAt=new Date(settlementReviewAt.getTime()+settlementPolicy.creditDelaySeconds*1000);
   const snapshotVersion=Number(popupSnapshot?.packagePolicyVersionSnapshot||packagePolicy.policyVersion||activePackageSubscription.termsVersion||1);
-  const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null,companyLogoUrl:popupSnapshot?.companyLogoUrl||null,companyReferenceMetadataJson:popupSnapshot?.companyReferenceMetadataJson||null,companyReferenceOnly:Boolean(popupSnapshot?.companyReferenceOnly??false),walletFundingPlanJson,transactionReference:ref,rewardReservedMinor:reward,settlesAt,settlementReviewAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:snapshotVersion} as any);
+  const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null,companyLogoUrl:popupSnapshot?.companyLogoUrl||null,companyReferenceMetadataJson:popupSnapshot?.companyReferenceMetadataJson||null,companyReferenceOnly:Boolean(popupSnapshot?.companyReferenceOnly??false),walletFundingPlanJson,packageIdSnapshot:feePackageId,packageFeeRateBpsSnapshot:packageFeePolicy.feeRateBps,packageFeeRoundingModeSnapshot:packageFeePolicy.roundingMode,packageFeePolicyVersionSnapshot:packageFeePolicy.version,packageFeeEffectiveAtSnapshot:new Date(packageFeePolicy.effectiveAt),feePolicyVersion:packageFeePolicy.version,platformFeeRateBps:packageFeePolicy.feeRateBps,platformFeeRoundingMode:packageFeePolicy.roundingMode,transactionReference:ref,rewardReservedMinor:reward,settlesAt,settlementReviewAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:snapshotVersion} as any);
   const tradeId=Number(result[0].insertId);
   await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,packageSubscriptionId:selectedSubscriptionId,packageId:Number(activePackageSubscription.packageId),termsVersion:Number(activePackageSubscription.termsVersion||1),policyVersion:snapshotVersion,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null})});
   if(input.deliveryEventId!==undefined) await tx.update(opportunityPopupEvents).set({tradeId,eventStatus:"TRADED",executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,tradedAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offer.id)));
@@ -4008,6 +4387,95 @@ export async function listTrades(userId:number){
       hasActualBreakdown,
     };
   });
+}
+export type AdminTradingHistoryFilters = {
+  beforeTradeId?: number;
+  userId?: number;
+  status?: "pending" | "confirmed" | "settled" | "cancelled";
+  settlementStatus?: "pending" | "confirmed_awaiting_credit" | "completed";
+  fromDate?: string;
+  toDate?: string;
+  scanLimit: number;
+};
+export function projectAdminTradingHistoryResult<T extends {
+  settlementConfirmedAt: Date | null;
+  settlementConfirmedBy: number | null;
+  settlementReference: string | null;
+  settlementOutcome: string;
+  realizedGrossProfitMinor: number;
+  platformFeeMinor: number;
+  netProfitMinor: number;
+}>(row: T) {
+  const { settlementConfirmedBy, ...publicRow } = row;
+  const actualResultAvailable = Boolean(
+    row.settlementConfirmedAt && settlementConfirmedBy && row.settlementReference?.trim() &&
+    ["profit", "zero_profit", "loss"].includes(row.settlementOutcome),
+  );
+  return {
+    ...publicRow,
+    actualResultAvailable,
+    settlementConfirmedAt: actualResultAvailable ? row.settlementConfirmedAt : null,
+    settlementReference: actualResultAvailable ? row.settlementReference : null,
+    settlementOutcome: actualResultAvailable ? row.settlementOutcome : null,
+    realizedGrossProfitMinor: actualResultAvailable ? row.realizedGrossProfitMinor : null,
+    platformFeeMinor: actualResultAvailable ? row.platformFeeMinor : null,
+    netProfitMinor: actualResultAvailable ? row.netProfitMinor : null,
+  };
+}
+/**
+ * Read-only bounded history scan over the existing trade primary key. Filters
+ * are applied only to the bounded ID window so sparse filters cannot force an
+ * unbounded database scan or imply that one window covers all matching rows.
+ */
+export async function listAdminTradingHistory(filters: AdminTradingHistoryFilters) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const scanLimit = Math.max(25, Math.min(250, Number.isSafeInteger(filters.scanLimit) ? filters.scanLimit : 100));
+  const candidates = await db.select({
+    id: tradePositions.id,
+    userId: tradePositions.userId,
+    currency: tradePositions.currency,
+    principalMinor: tradePositions.principalMinor,
+    status: tradePositions.status,
+    settlementStatus: tradePositions.settlementStatus,
+    lifecycleStage: tradePositions.lifecycleStage,
+    confirmedAt: tradePositions.confirmedAt,
+    completionAt: tradePositions.completionAt,
+    settledAt: tradePositions.settledAt,
+    settlementConfirmedAt: tradePositions.settlementConfirmedAt,
+    settlementConfirmedBy: tradePositions.settlementConfirmedBy,
+    settlementReference: tradePositions.settlementReference,
+    settlementOutcome: tradePositions.settlementOutcome,
+    realizedGrossProfitMinor: tradePositions.realizedGrossProfitMinor,
+    platformFeeMinor: tradePositions.platformFeeMinor,
+    netProfitMinor: tradePositions.netProfitMinor,
+    walletUpdatedAt: tradePositions.walletUpdatedAt,
+  }).from(tradePositions)
+    .where(filters.beforeTradeId === undefined ? undefined : lt(tradePositions.id, filters.beforeTradeId))
+    .orderBy(desc(tradePositions.id))
+    .limit(scanLimit + 1);
+  const hasMore = candidates.length > scanLimit;
+  const scanned = candidates.slice(0, scanLimit);
+  const fromInclusive = filters.fromDate ? Date.parse(`${filters.fromDate}T00:00:00.000Z`) : undefined;
+  const toExclusive = filters.toDate ? Date.parse(`${filters.toDate}T00:00:00.000Z`) + 86_400_000 : undefined;
+  const rows = scanned.filter((row) => {
+    if (filters.userId !== undefined && row.userId !== filters.userId) return false;
+    if (filters.status !== undefined && row.status !== filters.status) return false;
+    if (filters.settlementStatus !== undefined && row.settlementStatus !== filters.settlementStatus) return false;
+    if (fromInclusive !== undefined || toExclusive !== undefined) {
+      const confirmedAt = row.confirmedAt instanceof Date ? row.confirmedAt.getTime() : new Date(row.confirmedAt).getTime();
+      if (!Number.isFinite(confirmedAt) || (fromInclusive !== undefined && confirmedAt < fromInclusive) || (toExclusive !== undefined && confirmedAt >= toExclusive)) return false;
+    }
+    return true;
+  });
+  const projectedRows = rows.map(projectAdminTradingHistoryResult);
+  return {
+    rows: projectedRows,
+    scannedCount: scanned.length,
+    hasMore,
+    nextBeforeTradeId: hasMore ? scanned[scanned.length - 1]?.id ?? null : null,
+    scanLimit,
+  };
 }
 export async function markDueTradesAwaitingConfirmation(userId:number){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
@@ -4091,6 +4559,8 @@ export async function listPendingSettlements(){
     settlementReference:tradePositions.settlementReference, walletUpdatedAt:tradePositions.walletUpdatedAt,
     settlementOutcome:tradePositions.settlementOutcome, realizedGrossProfitMinor:tradePositions.realizedGrossProfitMinor,
     platformFeeMinor:tradePositions.platformFeeMinor, netProfitMinor:tradePositions.netProfitMinor,
+    platformFeeRateBps:tradePositions.platformFeeRateBps, platformFeeRoundingMode:tradePositions.platformFeeRoundingMode,
+    feePolicyVersion:tradePositions.feePolicyVersion, packageIdSnapshot:tradePositions.packageIdSnapshot,
     reservationStatus:tradeRewardReservations.status,
     reservationPackageName:tradeRewardReservations.packageName,
     reservationAmountMinor:tradeRewardReservations.reservedMinor,
@@ -4099,7 +4569,12 @@ export async function listPendingSettlements(){
     .leftJoin(opportunityOffers,eq(opportunityOffers.id,tradePositions.offerId))
     .leftJoin(users,eq(users.id,tradePositions.userId))
     .leftJoin(tradeRewardReservations,eq(tradeRewardReservations.tradeId,tradePositions.id))
-    .where(and(eq(tradePositions.status,"confirmed"),or(eq(tradePositions.settlementStatus,"pending"),eq(tradePositions.settlementStatus,"confirmed_awaiting_credit")))).orderBy(desc(tradePositions.confirmedAt));
+    .where(and(eq(tradePositions.status,"confirmed"),or(eq(tradePositions.settlementStatus,"pending"),eq(tradePositions.settlementStatus,"confirmed_awaiting_credit")))).orderBy(desc(tradePositions.confirmedAt)).then((rows) => rows.map((row) => ({
+      ...row,
+      feeSnapshotStatus: row.packageIdSnapshot !== null
+        ? "snapshotted" as const
+        : classifyTradeFeeSnapshot({ feeRateBps: row.platformFeeRateBps, roundingMode: row.platformFeeRoundingMode, policyVersion: row.feePolicyVersion }),
+    })));
 }
 /**
  * Read-only reconciliation queue for settlement records whose persisted state
@@ -4423,15 +4898,25 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
       packageName=packageRow.name;
     }
 
-    // Lock the active fee policy so this result uses one auditable, stable version.
-    const feeSettings=await tx.select().from(appSettings).where(inArray(appSettings.settingKey,[...TRADE_FEE_SETTING_KEYS])).for("update");
-    const feeByKey=new Map<string,string>();
-    for(const row of feeSettings) feeByKey.set(row.settingKey,row.settingValue);
-    const feePolicy=normalizeTradeFeePolicy({
-      feeRateBps:feeByKey.get("trade.platformFeeBps")??String(DEFAULT_TRADE_FEE_POLICY.feeRateBps),
-      roundingMode:feeByKey.get("trade.feeRoundingMode")??DEFAULT_TRADE_FEE_POLICY.roundingMode,
-      policyVersion:feeByKey.get("trade.feePolicyVersion")??String(DEFAULT_TRADE_FEE_POLICY.policyVersion),
-    });
+    // New trades use the package snapshot; pre-migration trades may use only fee
+    // fields already saved on that trade. Never reprice an existing trade from a
+    // mutable global setting or infer missing historical evidence.
+    let feePolicy:{feeRateBps:number;roundingMode:FeeRoundingMode;policyVersion:number};
+    if(trade.packageIdSnapshot!==null) {
+      if(trade.packageFeeRateBpsSnapshot===null||trade.packageFeeRoundingModeSnapshot===null||trade.packageFeePolicyVersionSnapshot===null||trade.packageFeeEffectiveAtSnapshot===null) throw new Error("Trade package fee snapshot is incomplete");
+      if(trade.packageSubscriptionId!==null) {
+        const subscription=(await tx.select({packageId:customerPackageSubscriptions.packageId}).from(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.id,trade.packageSubscriptionId)).limit(1).for("update"))[0];
+        if(!subscription||Number(subscription.packageId)!==Number(trade.packageIdSnapshot)) throw new Error("Trade package fee snapshot does not match its allocated package");
+      }
+      const saved=normalizePackageFeePolicy({packageId:trade.packageIdSnapshot,version:trade.packageFeePolicyVersionSnapshot,feeRateBps:trade.packageFeeRateBpsSnapshot,roundingMode:trade.packageFeeRoundingModeSnapshot,effectiveAt:trade.packageFeeEffectiveAtSnapshot,changedAt:trade.packageFeeEffectiveAtSnapshot});
+      feePolicy={feeRateBps:saved.feeRateBps,roundingMode:saved.roundingMode,policyVersion:saved.version};
+    } else {
+      feePolicy=normalizeImmutableTradeFeeSnapshot({
+        feeRateBps:trade.platformFeeRateBps,
+        roundingMode:trade.platformFeeRoundingMode,
+        policyVersion:trade.feePolicyVersion,
+      });
+    }
     const principal=Number(trade.principalMinor);
     const accounting=calculateRealizedProfitSettlement({
       principalMinor:principal,
@@ -4637,16 +5122,261 @@ export async function processConfirmedTradeCredits(input?: { limit?: number }) {
   return {scanned:due.length,credited,skipped,limit,asOf:now.toISOString()};
 }
 
-export async function createOpportunityOffer(input:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number}){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();const closesAt=new Date(now.getTime()+input.durationSeconds*1000);const result=await db.insert(opportunityOffers).values({...input,opensAt:now,closesAt,rewardAt:closesAt,status:"open"});return {id:Number(result[0].insertId),...input,opensAt:now,closesAt,rewardAt:closesAt};}
+type PersistedOpportunityPublication = {
+  id: number;
+  publication: ReturnType<typeof validateOpportunityOfferPublication>;
+  opensAt: Date;
+  closesAt: Date;
+  rewardAt: Date;
+  compatibility: OpportunityPackageCompatibility;
+};
+function validateOpportunityPublisher(adminId: number) {
+  if (!Number.isSafeInteger(adminId) || adminId <= 0) throw new Error("Authenticated administrator identity is required to publish opportunities.");
+}
 
-export async function bulkCreateOpportunityOffers(inputs:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number;opensAt?:Date;closesAt?:Date;rewardAt?:Date}[]) { const db=await getDb(); if(!db) throw new Error("Database is not available"); if(!inputs.length) return {created:0}; const rows=inputs.map(input=>{const opensAt=input.opensAt||new Date(); const closesAt=input.closesAt||new Date(opensAt.getTime()+input.durationSeconds*1000); return {...input,opensAt,closesAt,rewardAt:input.rewardAt||closesAt,status:"open" as const};}); await db.insert(opportunityOffers).values(rows); return {created:rows.length}; }
+function opportunityPublicationAuditEvent(adminId: number, offer: PersistedOpportunityPublication) {
+  const acceptedTerms = {
+    symbol: offer.publication.symbol,
+    venueFrom: offer.publication.venueFrom,
+    venueTo: offer.publication.venueTo,
+    currency: offer.publication.currency,
+    minimumMinor: offer.publication.minimumMinor,
+    expectedRewardBps: offer.publication.expectedRewardBps,
+    durationSeconds: offer.publication.durationSeconds,
+    opensAt: offer.opensAt.toISOString(),
+    closesAt: offer.closesAt.toISOString(),
+    rewardAt: offer.rewardAt.toISOString(),
+    status: "open",
+    packageCompatibility: offer.compatibility,
+  };
+  return {
+    actorUserId: adminId,
+    action: "trading_opportunity_published",
+    entityType: "opportunity_offer",
+    entityId: String(offer.id),
+    reason: offer.publication.reviewNotes,
+    reference: offer.publication.sourceReference,
+    metadataJson: JSON.stringify({
+      source: offer.publication.sourceReference,
+      reviewNotes: offer.publication.reviewNotes,
+      packageCompatibility: offer.compatibility,
+      new: acceptedTerms,
+      acceptedTerms,
+    }),
+  };
+}
 
+async function assessPublishedOfferPackageCompatibility(tx: any, publication: ReturnType<typeof validateOpportunityOfferPublication>) {
+  const [policyRows, currencyRows] = await Promise.all([
+    tx.select({
+      packageId: packages.id, packageName: packages.name, policyVersion: opportunityPackagePolicies.policyVersion,
+      minimumTradeUnits: opportunityPackagePolicies.minimumTradeUnits, maximumTradeUnits: opportunityPackagePolicies.maximumTradeUnits,
+      minimumPayoutRateBps: opportunityPackagePolicies.minimumPayoutRateBps, maximumPayoutRateBps: opportunityPackagePolicies.maximumPayoutRateBps,
+      minimumTradeDurationSeconds: opportunityPackagePolicies.minimumTradeDurationSeconds, maximumTradeDurationSeconds: opportunityPackagePolicies.maximumTradeDurationSeconds,
+    }).from(packages).innerJoin(opportunityPackagePolicies, eq(opportunityPackagePolicies.packageName, packages.name))
+      .where(and(eq(packages.enabled, true), eq(opportunityPackagePolicies.enabled, true))),
+    tx.select({ code: currencyRegistry.code, scale: currencyRegistry.scale, usdRate: currencyRegistry.usdRate }).from(currencyRegistry),
+  ]);
+  const rules = policyRows.map((row: any) => {
+    const minimumTradeMinor = packageUsdUnitsToNativeMinor(Number(row.minimumTradeUnits), publication.currency, currencyRows);
+    const maximumTradeMinor = packageUsdUnitsToNativeMinor(Number(row.maximumTradeUnits), publication.currency, currencyRows);
+    return { packageId: Number(row.packageId), packageName: String(row.packageName), policyVersion: Number(row.policyVersion), minimumTradeMinor, maximumTradeMinor,
+      minimumPayoutRateBps: row.minimumPayoutRateBps == null ? null : Number(row.minimumPayoutRateBps),
+      maximumPayoutRateBps: row.maximumPayoutRateBps == null ? null : Number(row.maximumPayoutRateBps),
+      minimumTradeDurationSeconds: row.minimumTradeDurationSeconds == null ? null : Number(row.minimumTradeDurationSeconds),
+      maximumTradeDurationSeconds: row.maximumTradeDurationSeconds == null ? null : Number(row.maximumTradeDurationSeconds) };
+  });
+  const compatibility = assessOpportunityPackageCompatibility(publication, rules);
+  if (compatibility.checkedPackages > 0 && compatibility.compatiblePackages.length === 0) {
+    const details = compatibility.incompatiblePackages.map(row => `${row.packageName}: ${row.reasons.join(" ")}`).join(" ");
+    throw new Error(`Published opportunity terms are incompatible with every enabled package policy. ${details}`);
+  }
+  return compatibility;
+}
+async function insertReviewedOpportunityOffer(tx: any, adminId: number, publication: ReturnType<typeof validateOpportunityOfferPublication>): Promise<PersistedOpportunityPublication> {
+  const compatibility = await assessPublishedOfferPackageCompatibility(tx, publication);
+  const now = new Date();
+  const opensAt = publication.opensAt ?? now;
+  const closesAt = publication.closesAt ?? new Date(opensAt.getTime() + publication.durationSeconds * 1000);
+  const rewardAt = publication.rewardAt ?? closesAt;
+  const validated = validateOpportunityOfferPublication({ ...publication, opensAt, closesAt, rewardAt });
+  if (closesAt.getTime() <= now.getTime()) throw new Error("Opportunity expiry must be later than the publication time.");
+  const result = await tx.insert(opportunityOffers).values({
+    symbol: validated.symbol,
+    venueFrom: validated.venueFrom,
+    venueTo: validated.venueTo,
+    currency: validated.currency,
+    minimumMinor: validated.minimumMinor,
+    expectedRewardBps: validated.expectedRewardBps,
+    durationSeconds: validated.durationSeconds,
+    opensAt,
+    closesAt,
+    rewardAt,
+    status: "open",
+  });
+  const id = Number(result[0].insertId);
+  if (!Number.isSafeInteger(id) || id <= 0) throw new Error("Published opportunity ID could not be verified.");
+  const persisted: PersistedOpportunityPublication = { id, publication: validated, opensAt, closesAt, rewardAt, compatibility };
+  await tx.insert(v5AuditEvents).values(opportunityPublicationAuditEvent(adminId, persisted));
+  return persisted;
+}
 
-export async function listAdminRecentLedgerActivity(limit = 150) {
+export async function createOpportunityOffer(adminId: number, input: OpportunityOfferPublicationInput) {
+  validateOpportunityPublisher(adminId);
+  const publication = validateOpportunityOfferPublication(input);
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const safeLimit = Math.max(1, Math.min(500, Math.floor(limit)));
-  return db.select({
+  return db.transaction(async tx => {
+    const persisted = await insertReviewedOpportunityOffer(tx, adminId, publication);
+    return {
+      id: persisted.id,
+      symbol: publication.symbol,
+      venueFrom: publication.venueFrom,
+      venueTo: publication.venueTo,
+      currency: publication.currency,
+      minimumMinor: publication.minimumMinor,
+      expectedRewardBps: publication.expectedRewardBps,
+      durationSeconds: publication.durationSeconds,
+      opensAt: persisted.opensAt,
+      closesAt: persisted.closesAt,
+      rewardAt: persisted.rewardAt,
+      compatibility: persisted.compatibility,
+    };
+  });
+}
+
+export async function bulkCreateOpportunityOffers(adminId: number, inputs: OpportunityOfferPublicationInput[]) {
+  validateOpportunityPublisher(adminId);
+  if (!inputs.length) return { created: 0 };
+  const publications = inputs.map(validateOpportunityOfferPublication);
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const persisted = [];
+    for (const publication of publications) persisted.push(await insertReviewedOpportunityOffer(tx, adminId, publication));
+    return { created: persisted.length, compatibility: persisted.map(offer => ({ offerId: offer.id, ...offer.compatibility })) };
+  });
+}
+
+function opportunityClosureAuditEvent(adminId: number, offerId: number, reason: string) {
+  return {
+    actorUserId: adminId,
+    action: "trading_opportunity_closed",
+    entityType: "opportunity_offer",
+    entityId: String(offerId),
+    reason,
+    reference: `opportunity-offer:${offerId}:manual-close`,
+    metadataJson: JSON.stringify({ old: { status: "open" }, new: { status: "closed" }, reason }),
+  };
+}
+
+function isAuditedManualOpportunityClosure(row: typeof v5AuditEvents.$inferSelect | undefined) {
+  if (!row || row.action !== "trading_opportunity_closed" || row.entityType !== "opportunity_offer") return false;
+  const metadata = parseTradeAuditMetadata(row.metadataJson);
+  const oldState = auditRecord(metadata?.old);
+  const newState = auditRecord(metadata?.new);
+  return oldState?.status === "open" && newState?.status === "closed" && typeof row.reason === "string" && row.reason.trim().length > 0;
+}
+
+export async function closeOpportunityOffer(adminId: number, input: OpportunityOfferClosureInput) {
+  validateOpportunityPublisher(adminId);
+  const closure = validateOpportunityOfferClosure(input);
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const transactionResult = await db.transaction(async tx => {
+    const offer = (await tx.select().from(opportunityOffers)
+      .where(eq(opportunityOffers.id, closure.offerId)).limit(1).for("update"))[0];
+    if (!offer) throw new Error("Published opportunity was not found.");
+
+    if (offer.status === "closed") {
+      const priorAudit = (await tx.select().from(v5AuditEvents).where(and(
+        eq(v5AuditEvents.action, "trading_opportunity_closed"),
+        eq(v5AuditEvents.entityType, "opportunity_offer"),
+        eq(v5AuditEvents.entityId, String(closure.offerId)),
+      )).orderBy(desc(v5AuditEvents.id)).limit(1))[0];
+      if (!isAuditedManualOpportunityClosure(priorAudit)) {
+        throw new Error("This opportunity is no longer open and has no verified manual-close audit record.");
+      }
+      return { auditId: priorAudit.id, auditReason: priorAudit.reason!, idempotent: true };
+    }
+
+    if (offer.status !== "open" || offer.closesAt.getTime() <= Date.now()) {
+      throw new Error("Only a currently open, unexpired published opportunity can be manually closed.");
+    }
+
+    const changed = await tx.update(opportunityOffers).set({ status: "closed" })
+      .where(and(eq(opportunityOffers.id, closure.offerId), eq(opportunityOffers.status, "open")));
+    assertExactlyOneAffectedRow(changed, "Published opportunity manual close");
+
+    const insertedAudit = await tx.insert(v5AuditEvents).values(opportunityClosureAuditEvent(adminId, closure.offerId, closure.reason));
+    const auditId = Number(insertedAudit[0]?.insertId);
+    if (!Number.isSafeInteger(auditId) || auditId <= 0) throw new Error("Opportunity closure audit record could not be verified.");
+    return { auditId, auditReason: closure.reason, idempotent: false };
+  });
+
+  // Read both durable records after commit; a mutation response is not a success until this read-back agrees.
+  const savedOffer = (await db.select().from(opportunityOffers).where(eq(opportunityOffers.id, closure.offerId)).limit(1))[0];
+  const savedAudit = (await db.select().from(v5AuditEvents).where(eq(v5AuditEvents.id, transactionResult.auditId)).limit(1))[0];
+  if (savedOffer?.status !== "closed"
+    || !isAuditedManualOpportunityClosure(savedAudit)
+    || savedAudit?.reason !== transactionResult.auditReason
+    || savedAudit?.entityId !== String(closure.offerId)) {
+    throw new Error("Opportunity closure was not confirmed by a fresh persisted read-back.");
+  }
+  return {
+    success: true as const,
+    offerId: savedOffer.id,
+    status: savedOffer.status,
+    auditEventId: savedAudit.id,
+    idempotent: transactionResult.idempotent,
+    verified: true as const,
+  };
+}
+
+export const ADMIN_LEDGER_ACTIVITY_PAGE_SIZE = 50;
+export type AdminLedgerActivityCursor = { createdAt: Date; id: number };
+
+export function getAdminLedgerUtcDayBounds(utcDay: string) {
+  const start = new Date(`${utcDay}T00:00:00.000Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(utcDay) || !Number.isFinite(start.getTime()) || start.toISOString().slice(0, 10) !== utcDay) {
+    throw new Error("UTC day must be a valid YYYY-MM-DD calendar date");
+  }
+  return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
+}
+
+export function encodeAdminLedgerActivityCursor(cursor: AdminLedgerActivityCursor) {
+  return Buffer.from(JSON.stringify({ createdAt: cursor.createdAt.toISOString(), id: cursor.id }), "utf8").toString("base64url");
+}
+
+export function decodeAdminLedgerActivityCursor(value: string | undefined): AdminLedgerActivityCursor | undefined {
+  if (value === undefined) return undefined;
+  try {
+    const decoded: unknown = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+    if (!decoded || typeof decoded !== "object") throw new Error();
+    const candidate = decoded as { createdAt?: unknown; id?: unknown };
+    if (typeof candidate.createdAt !== "string" || !Number.isSafeInteger(candidate.id) || Number(candidate.id) < 1) throw new Error();
+    const createdAt = new Date(candidate.createdAt);
+    if (!Number.isFinite(createdAt.getTime()) || createdAt.toISOString() !== candidate.createdAt) throw new Error();
+    return { createdAt, id: Number(candidate.id) };
+  } catch {
+    throw new Error("Ledger activity cursor is invalid");
+  }
+}
+
+export function isAdminLedgerEntryBeforeCursor(row: { createdAt: Date | string; id: number }, cursor: AdminLedgerActivityCursor) {
+  const rowTime = new Date(row.createdAt).getTime();
+  const cursorTime = cursor.createdAt.getTime();
+  return rowTime < cursorTime || (rowTime === cursorTime && row.id < cursor.id);
+}
+
+export async function listAdminRecentLedgerActivity(input: { userId: number; utcDay: string; cursor?: string }) {
+  if (!Number.isSafeInteger(input.userId) || input.userId < 1) throw new Error("Customer ID must be a positive integer");
+  const { start: dayStart, end: dayEnd } = getAdminLedgerUtcDayBounds(input.utcDay);
+  const cursor = decodeAdminLedgerActivityCursor(input.cursor);
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const rows = await db.select({
     id: balanceLedger.id,
     userId: balanceLedger.userId,
     customerName: users.name,
@@ -4658,6 +5388,23 @@ export async function listAdminRecentLedgerActivity(limit = 150) {
     createdAt: balanceLedger.createdAt,
   }).from(balanceLedger)
     .leftJoin(users, eq(users.id, balanceLedger.userId))
-    .orderBy(desc(balanceLedger.createdAt))
-    .limit(safeLimit);
+    .where(and(
+      eq(balanceLedger.userId, input.userId),
+      gte(balanceLedger.createdAt, dayStart),
+      lt(balanceLedger.createdAt, dayEnd),
+      cursor ? or(
+        lt(balanceLedger.createdAt, cursor.createdAt),
+        and(eq(balanceLedger.createdAt, cursor.createdAt), lt(balanceLedger.id, cursor.id)),
+      ) : undefined,
+    ))
+    .orderBy(desc(balanceLedger.createdAt), desc(balanceLedger.id))
+    .limit(ADMIN_LEDGER_ACTIVITY_PAGE_SIZE + 1);
+  const hasMore = rows.length > ADMIN_LEDGER_ACTIVITY_PAGE_SIZE;
+  const entries = hasMore ? rows.slice(0, ADMIN_LEDGER_ACTIVITY_PAGE_SIZE) : rows;
+  const last = entries.at(-1);
+  return {
+    entries,
+    hasMore,
+    nextCursor: hasMore && last ? encodeAdminLedgerActivityCursor({ createdAt: new Date(last.createdAt), id: last.id }) : null,
+  };
 }

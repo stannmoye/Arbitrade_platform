@@ -25,6 +25,142 @@ const THEMES = [
 const ARTIFACT_DIR = path.resolve("artifacts/stage2-browser");
 fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
 
+async function waitForStableViewportTarget(page, locator, { timeout = 10000 } = {}) {
+  await locator.waitFor({ state: "visible", timeout });
+  // The admin rail owns its own scroll; locator.scrollIntoViewIfNeeded() can
+  // leave a target outside that container's visible region when the rail is
+  // sticky or flex-sized. Move the nearest scrollable ancestor explicitly first.
+  await locator.evaluate(element => {
+    let ancestor = element.parentElement;
+    while (ancestor) {
+      const style = getComputedStyle(ancestor);
+      const canScroll = (/(auto|scroll)/.test(style.overflowY) && ancestor.scrollHeight > ancestor.clientHeight) ||
+        (/(auto|scroll)/.test(style.overflowX) && ancestor.scrollWidth > ancestor.clientWidth);
+      if (canScroll) {
+        const target = element.getBoundingClientRect();
+        const container = ancestor.getBoundingClientRect();
+        const padding = 8;
+        if (target.top < container.top + padding) {
+          ancestor.scrollTop += target.top - container.top - padding;
+        } else if (target.bottom > container.bottom - padding) {
+          ancestor.scrollTop += target.bottom - container.bottom + padding;
+        }
+        if (target.left < container.left + padding) {
+          ancestor.scrollLeft += target.left - container.left - padding;
+        } else if (target.right > container.right - padding) {
+          ancestor.scrollLeft += target.right - container.right + padding;
+        }
+        break;
+      }
+      ancestor = ancestor.parentElement;
+    }
+  });
+  await locator.scrollIntoViewIfNeeded();
+  const deadline = Date.now() + timeout;
+  let previous = await locator.boundingBox();
+  while (Date.now() < deadline) {
+    const viewport = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+    if (!previous || previous.x < 0 || previous.x + previous.width > viewport.width ||
+      previous.y < 0 || previous.y + previous.height > viewport.height) {
+      await locator.scrollIntoViewIfNeeded();
+      previous = await locator.boundingBox();
+      continue;
+    }
+    await page.waitForTimeout(100);
+    const current = await locator.boundingBox();
+    if (current && Math.abs(current.x - previous.x) < 0.5 && Math.abs(current.y - previous.y) < 0.5 &&
+      Math.abs(current.width - previous.width) < 0.5 && Math.abs(current.height - previous.height) < 0.5) return;
+    previous = current;
+  }
+  // A fixed or transformed rail can keep Playwright's bounding box outside
+  // the page viewport even though the target itself is still rendered and
+  // enabled in the DOM. Preserve the DOM readiness check here; the subsequent
+  // normal click still performs Playwright's standard pointer/hit-target validation.
+  const domReady = await locator.evaluate(element => {
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return element.isConnected &&
+      style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) > 0 &&
+      !element.hasAttribute("disabled") && element.getAttribute("aria-disabled") !== "true" &&
+      rect.width > 0 && rect.height > 0;
+  });
+  if (domReady) return;
+  throw new Error("Navigation target did not reach a stable in-viewport layout");
+}
+
+async function clickStableNavigationTarget(page, locator) {
+  await waitForStableViewportTarget(page, locator);
+  await locator.click();
+}
+
+async function clickCanonicalNavigationTarget(page, locator, { timeout = 10000 } = {}) {
+  const navigation = page.locator(".admin-canonical-nav");
+  await navigation.waitFor({ state: "visible", timeout });
+  await locator.waitFor({ state: "visible", timeout });
+  await locator.evaluate(element => {
+    const nav = document.querySelector(".admin-canonical-nav");
+    if (!nav || !nav.contains(element)) throw new Error("Navigation target is outside .admin-canonical-nav");
+    const navRect = nav.getBoundingClientRect();
+    const targetRect = element.getBoundingClientRect();
+    const inset = 8;
+    if (targetRect.top < navRect.top + nav.clientTop + inset) {
+      nav.scrollTop += targetRect.top - navRect.top - nav.clientTop - inset;
+    } else if (targetRect.bottom > navRect.top + nav.clientTop + nav.clientHeight - inset) {
+      nav.scrollTop += targetRect.bottom - navRect.top - nav.clientTop - nav.clientHeight + inset;
+    }
+    if (targetRect.left < navRect.left + nav.clientLeft + inset) {
+      nav.scrollLeft += targetRect.left - navRect.left - nav.clientLeft - inset;
+    } else if (targetRect.right > navRect.left + nav.clientLeft + nav.clientWidth - inset) {
+      nav.scrollLeft += targetRect.right - navRect.left - nav.clientLeft - nav.clientWidth + inset;
+    }
+  });
+
+  const deadline = Date.now() + timeout;
+  let previous;
+  let stableFrames = 0;
+  while (Date.now() < deadline) {
+    const geometry = await locator.evaluate(element => {
+      const nav = document.querySelector(".admin-canonical-nav");
+      const navRect = nav.getBoundingClientRect();
+      const targetRect = element.getBoundingClientRect();
+      const left = Math.max(navRect.left + nav.clientLeft, 0, targetRect.left);
+      const right = Math.min(navRect.left + nav.clientLeft + nav.clientWidth, window.innerWidth, targetRect.right);
+      const top = Math.max(navRect.top + nav.clientTop, 0, targetRect.top);
+      const bottom = Math.min(navRect.top + nav.clientTop + nav.clientHeight, window.innerHeight, targetRect.bottom);
+      const centerX = (left + right) / 2;
+      const centerY = (top + bottom) / 2;
+      const hit = left < right && top < bottom ? document.elementFromPoint(centerX, centerY) : null;
+      const style = getComputedStyle(element);
+      return {
+        scrollTop: nav.scrollTop,
+        scrollLeft: nav.scrollLeft,
+        left: targetRect.left,
+        top: targetRect.top,
+        width: targetRect.width,
+        height: targetRect.height,
+        intersectsNavigation: left < right && top < bottom,
+        intersectsViewport: targetRect.right > 0 && targetRect.left < window.innerWidth &&
+          targetRect.bottom > 0 && targetRect.top < window.innerHeight,
+        hitTarget: Boolean(hit && (hit === element || element.contains(hit))),
+        visible: style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) > 0,
+        enabled: !element.hasAttribute("disabled") && element.getAttribute("aria-disabled") !== "true",
+      };
+    });
+    const isStable = previous && Math.abs(geometry.scrollTop - previous.scrollTop) < 0.5 &&
+      Math.abs(geometry.scrollLeft - previous.scrollLeft) < 0.5 &&
+      Math.abs(geometry.left - previous.left) < 0.5 && Math.abs(geometry.top - previous.top) < 0.5 &&
+      Math.abs(geometry.width - previous.width) < 0.5 && Math.abs(geometry.height - previous.height) < 0.5;
+    stableFrames = isStable ? stableFrames + 1 : 0;
+    if (stableFrames >= 2 && geometry.intersectsNavigation && geometry.intersectsViewport &&
+      geometry.hitTarget && geometry.visible && geometry.enabled) {
+      await locator.click();
+      return;
+    }
+    previous = geometry;
+    await page.waitForTimeout(100);
+  }
+  throw new Error("Canonical navigation target did not settle into an intersecting, hittable position");
+}
 
 async function runAdminAppearanceInteractionCheck(browser) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -87,7 +223,9 @@ async function runAdminAppearanceInteractionCheck(browser) {
           data = savedAppearance;
         } else if (procedure === "adminOperations.settings") {
           data = { appearance: savedAppearance };
-        } else if (procedure === "adminOperations.customers" || procedure === "adminOperations.packagePolicies") {
+        } else if (procedure === "adminOperations.customers") {
+          data = [{ id: 8001, name: "Stage Ledger Customer", email: "ledger.customer@example.test", role: "user" }];
+        } else if (procedure === "adminOperations.packagePolicies") {
           data = [];
         } else if (procedure === "adminOperations.pendingSettlements") {
           data = Array.from({ length: 12 }, (_, index) => ({
@@ -101,17 +239,21 @@ async function runAdminAppearanceInteractionCheck(browser) {
             rewardReservedMinor: 2500 + index * 10,
           }));
         } else if (procedure === "adminOperations.ledgerActivity") {
-          data = Array.from({ length: 24 }, (_, index) => ({
-            id: 9000 + index,
-            userId: 8000 + index,
-            customerName: `Ledger Customer ${index + 1}`,
-            customerEmail: `ledger${index + 1}@example.test`,
-            entryType: index % 2 ? "trade_reward" : "principal_reservation",
-            amountMinor: index % 2 ? 1250 + index : -(10000 + index * 100),
-            currency: "USD",
-            withdrawable: index % 2 === 1,
-            createdAt: new Date(Date.UTC(2026, 0, 1, 12, index)).toISOString(),
-          }));
+          data = {
+            entries: Array.from({ length: 24 }, (_, index) => ({
+              id: 9000 + index,
+              userId: 8001,
+              customerName: "Stage Ledger Customer",
+              customerEmail: "ledger.customer@example.test",
+              entryType: index % 2 ? "trade_reward" : "principal_reservation",
+              amountMinor: index % 2 ? 1250 + index : -(10000 + index * 100),
+              currency: "USD",
+              withdrawable: index % 2 === 1,
+              createdAt: new Date(Date.UTC(2026, 0, 1, 12, index)).toISOString(),
+            })),
+            hasMore: false,
+            nextCursor: null,
+          };
         } else if (procedure === "adminOperations.currencies") {
           data = [{ code: "USD", scale: 2 }];
         } else if (procedure === "adminOperations.autoTradePolicy") {
@@ -901,13 +1043,22 @@ async function runAdminAppearanceInteractionCheck(browser) {
     // Wallet & Ledger lives inside the Finance group in the primary rail.
     // Primary groups intentionally start collapsed, so expand Finance first.
     const financeGroup = page.getByRole("button", { name: /^Finance/ });
-    await financeGroup.click();
-    await page.getByRole("button", { name: "Wallet & Ledger" }).click();
-    await page.getByRole("heading", { name: "Transaction review" }).waitFor({ state: "visible" });
+    const walletLedgerDestination = page.locator(
+      '#admin-main-navigation button[title="Read-only wallet balances and transaction history"]',
+    );
+    if (!(await walletLedgerDestination.isVisible())) {
+      await financeGroup.click();
+    }
+    await walletLedgerDestination.waitFor({ state: "visible" });
+    await walletLedgerDestination.click();
+    await page.getByRole("heading", { name: "Wallet & Ledger" }).waitFor({ state: "visible" });
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByLabel("Customer (required)").selectOption("8001");
+    await page.waitForFunction(() =>
+      document.querySelectorAll('[aria-label="Wallet activity ledger"] tbody tr').length >= 24,
+    );
 
     for (const tableCase of [
-      { label: "Trades awaiting manual settlement", check: "populated-settlement-table-keyboard-scroll", minimumRows: 10 },
       { label: "Wallet activity ledger", check: "populated-financial-table-keyboard-scroll", minimumRows: 20 },
     ]) {
       const region = page.getByRole("region", { name: tableCase.label });
@@ -960,6 +1111,75 @@ async function runAdminAppearanceInteractionCheck(browser) {
         note: "Uses mocked administrator and ledger data; verifies the rendered table's keyboard scrolling and containment, not live ledger authorization or persistence.",
       });
     }
+
+    // Settlement & Reconciliation is a separate Trade Settings owner; it is
+    // intentionally not rendered on the Finance → Wallet & Ledger route.
+    const mobileAdminNavigationTrigger = page.locator(".admin-mobile-nav-trigger");
+    if (await mobileAdminNavigationTrigger.isVisible()) {
+      await mobileAdminNavigationTrigger.click();
+      await page.waitForFunction(() => document.querySelector(".admin-portal")?.classList.contains("mobile-nav-open"));
+    }
+    const tradeSettingsGroup = page.getByRole("button", { name: /Trade Settings/ });
+    if (await tradeSettingsGroup.getAttribute("aria-expanded") !== "true") {
+      await clickCanonicalNavigationTarget(page, tradeSettingsGroup);
+    }
+    if (await mobileAdminNavigationTrigger.isVisible() &&
+      !(await page.locator(".admin-portal").evaluate(element => element.classList.contains("mobile-nav-open")))) {
+      await mobileAdminNavigationTrigger.click();
+      await page.waitForFunction(() => document.querySelector(".admin-portal")?.classList.contains("mobile-nav-open"));
+    }
+    const settlementDestination = page.locator(
+      '#admin-main-navigation button[title="Confirm trade outcomes and reconcile trade settlement records only"]',
+    );
+    await settlementDestination.waitFor({ state: "visible" });
+    await clickCanonicalNavigationTarget(page, settlementDestination);
+    await page.getByRole("heading", { name: "Settlement & Reconciliation" }).waitFor({ state: "visible" });
+    const settlementRegion = page.getByRole("region", { name: "Trades awaiting manual settlement" });
+    await settlementRegion.waitFor({ state: "visible" });
+    const settlementBefore = await settlementRegion.evaluate(element => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      scrollLeft: element.scrollLeft,
+      tabIndex: element.tabIndex,
+      role: element.getAttribute("role"),
+      label: element.getAttribute("aria-label"),
+      rows: element.querySelectorAll("tbody tr").length,
+    }));
+    await settlementRegion.focus();
+    const settlementFocused = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") === "Trades awaiting manual settlement");
+    await page.keyboard.press("ArrowRight");
+    await page.waitForTimeout(100);
+    const settlementAfter = await settlementRegion.evaluate(element => ({
+      scrollLeft: element.scrollLeft,
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+    }));
+    record("populated-settlement-table-keyboard-scroll",
+      settlementBefore.rows >= 10 &&
+      settlementBefore.scrollWidth > settlementBefore.clientWidth &&
+      settlementBefore.tabIndex === 0 &&
+      settlementBefore.role === "region" &&
+      settlementBefore.label === "Trades awaiting manual settlement" &&
+      settlementFocused &&
+      settlementAfter.scrollLeft > settlementBefore.scrollLeft &&
+      settlementAfter.documentWidth <= settlementAfter.viewportWidth + 1,
+      {
+        tableLabel: "Trades awaiting manual settlement",
+        rows: settlementBefore.rows,
+        clientWidth: settlementBefore.clientWidth,
+        scrollWidth: settlementBefore.scrollWidth,
+        scrollLeftBefore: settlementBefore.scrollLeft,
+        scrollLeftAfter: settlementAfter.scrollLeft,
+        tabIndex: settlementBefore.tabIndex,
+        role: settlementBefore.role,
+        accessibleName: settlementBefore.label,
+        activeElementAfterFocus: settlementFocused,
+        documentWidth: settlementAfter.documentWidth,
+        viewportWidth: settlementAfter.viewportWidth,
+        note: "Uses mocked pending-settlement data on the dedicated Settlement & Reconciliation route; verifies keyboard scrolling and containment, not live settlement authorization or persistence.",
+      });
   } catch (error) {
     record("admin-appearance-interaction-unhandled-error", false, {
       error: error instanceof Error ? error.message : String(error),
@@ -2094,6 +2314,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     minimumMinor: 10000, balanceAvailableMinor: 4500, balanceStatus: "insufficient",
     currencyScale: 2, currencySymbol: "$", configuredPopupDisplaySeconds: 1,
     closesAt: "2099-12-31T23:59:59.000Z", offerStatus: "open", popupEligible: true,
+    eventStatus: "DELIVERED", deliveryStatus: "delivered",
     companyDisplayName: "Verified QA Company", companyLogoUrl: null,
     badgeLabel: "QA tier", badgeStyle: "green",
   };
@@ -2199,6 +2420,15 @@ async function runAdminTradingControlsInteractionCheck(browser) {
     automaticTradingEnabled: false, requirePreviousSettlement: true,
     minSettlementDelaySeconds: 900, maxSettlementDelaySeconds: 900, policyVersion: 1,
   };
+  let savedGlobal = {
+    tierPolicyMasterEnabled: true,
+    informationalPopupDeliveryEnabled: true,
+    companyRotationEnabled: true,
+    randomizedTimingEnabled: true,
+    burstDeliveryEnabled: true,
+    available: true,
+    policyVersion: 1,
+  };
   const record = (check, passed, details = {}) => checks.push({
     route: "/ops-console-7f3a", routeName: "admin", width: 1440, check, passed, ...details,
   });
@@ -2224,6 +2454,8 @@ async function runAdminTradingControlsInteractionCheck(browser) {
           data = { id: 90502, email: "admin-qa@example.test", name: "Trading QA Admin", role: "admin" };
         } else if (procedure === "adminOperations.packagePolicies" || procedure === "adminOperations.overviewPackagePolicies") {
           data = [{ ...savedPolicy }];
+        } else if (procedure === "adminOperations.globalTradeControls") {
+          data = { ...savedGlobal };
         } else if (procedure === "adminOperations.customers" || procedure === "adminOperations.pendingSettlements" ||
           procedure === "adminOperations.ledgerActivity" || procedure === "adminOperations.currencies") {
           data = [];
@@ -2233,6 +2465,10 @@ async function runAdminTradingControlsInteractionCheck(browser) {
           for (const patch of patches) {
             if (patch.packageName === savedPolicy.packageName) savedPolicy = { ...savedPolicy, ...patch };
           }
+          data = { ok: true };
+        } else if (procedure === "adminOperations.updateGlobalTradeControl") {
+          savedGlobal = { ...savedGlobal, [input?.key]: input?.enabled, policyVersion: savedGlobal.policyVersion + 1 };
+          mutationCalls.push({ key: input?.key, enabled: input?.enabled });
           data = { ok: true };
         } else if (procedure === "adminOperations.settings") {
           data = {};
@@ -2248,39 +2484,89 @@ async function runAdminTradingControlsInteractionCheck(browser) {
     const tradeSettingsNavigation = page.locator("#admin-main-navigation .admin-nav-group--trade-settings");
     const tradeSettingsHeading = tradeSettingsNavigation.getByRole("button", { name: /Trade Settings/ });
     if (await tradeSettingsHeading.getAttribute("aria-expanded") !== "true") {
-      await tradeSettingsHeading.click();
+      await clickStableNavigationTarget(page, tradeSettingsHeading);
     }
-    await tradeSettingsNavigation.getByRole("button", { name: /Tiers & Eligibility/ }).click();
-    await page.getByRole("heading", { name: "Trading controls" }).waitFor({ state: "visible", timeout: 10000 });
+    const packageConfigurationDestination = tradeSettingsNavigation.locator(
+      'button[title="Manage package-policy controls and the system-wide allocation safety gate"]',
+    );
+    await clickStableNavigationTarget(page, packageConfigurationDestination);
+    await page.getByRole("heading", { name: "Global Trade master controls" }).waitFor({ state: "visible", timeout: 10000 });
+    const unavailableNotice = page.getByRole("alert").filter({ hasText: "canonical global policy is not installed or is malformed" });
+    const controlsAvailable = await unavailableNotice.count() === 0;
     const keys = [
-      ["Tier policy", "enabled"], ["Pop-up delivery", "automaticDelivery"],
-      ["Company rotation", "companyRotationEnabled"], ["Randomized timing", "randomizationEnabled"],
-      ["Burst delivery", "burstEnabled"],
+      ["Tier policy master", "tierPolicyMasterEnabled"], ["Pop-up delivery", "informationalPopupDeliveryEnabled"],
+      ["Company rotation", "companyRotationEnabled"], ["Randomized timing", "randomizedTimingEnabled"],
+      ["Burst delivery", "burstDeliveryEnabled"],
     ];
-    for (const [label, key] of keys) {
-      const ariaLabel = label + " for " + savedPolicy.packageName;
-      const control = page.getByRole("switch", { name: ariaLabel });
-      const before = savedPolicy[key];
-      await control.click();
-      await page.waitForFunction(({ label, expected }) => {
-        const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
-        return element?.getAttribute("aria-checked") === String(expected);
-      }, { label: ariaLabel, expected: !before });
-      const switchedOff = savedPolicy[key] === !before;
-      await control.click();
-      await page.waitForFunction(({ label, expected }) => {
-        const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
-        return element?.getAttribute("aria-checked") === String(expected);
-      }, { label: ariaLabel, expected: before });
-      const switchedBack = savedPolicy[key] === before;
-      record("admin-" + key + "-switch-saves-and-restores", switchedOff && switchedBack, {
-        initial: before, afterOff: !before, afterRestore: savedPolicy[key],
-      });
+    let enabledControlInteractions = 0;
+    const switches = page.getByRole("switch");
+    const switchCount = await switches.count();
+    const disabledSwitches = [];
+    for (let index = 0; index < switchCount; index += 1) {
+      const switchControl = switches.nth(index);
+      if (await switchControl.isDisabled()) {
+        disabledSwitches.push(await switchControl.getAttribute("aria-label"));
+      }
+    }
+    // An unavailable policy, an empty control set, or any disabled global
+    // control is a terminal fail-closed result. Do not enter the mutation loop
+    // or manufacture save feedback from a control that cannot be changed.
+    const controlsFailClosed = !controlsAvailable || switchCount === 0 || disabledSwitches.length > 0;
+    if (controlsFailClosed) {
+      record("admin-global-controls-unavailable-fail-closed",
+        (!controlsAvailable ? await unavailableNotice.isVisible() : true) && mutationCalls.length === 0,
+        {
+          unavailable: !controlsAvailable,
+          switchCount,
+          disabledSwitches,
+          mutationCalls,
+          note: "No global control mutation is attempted when the canonical policy or any required switch is unavailable/disabled.",
+        });
+      record("admin-global-controls-disabled-state-is-truthful",
+        mutationCalls.length === 0,
+        { disabledSwitches, mutationCalls, terminal: true });
+    } else {
+      // Switches are disabled until the required audited reason is supplied.
+      await page.getByLabel("Administrator reason (required, 5–500 characters)")
+        .fill("Stage 2 verifies the canonical global control owner.");
+      for (const [label, key] of keys) {
+        const ariaLabel = label;
+        const control = page.getByRole("switch", { name: ariaLabel });
+        await waitForStableViewportTarget(page, control);
+        const before = savedGlobal[key];
+        enabledControlInteractions += 1;
+        await control.click();
+        await page.waitForFunction(({ label, expected }) => {
+          const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
+          return element?.getAttribute("aria-checked") === String(expected);
+        }, { label: ariaLabel, expected: !before });
+        const switchedOff = savedGlobal[key] === !before;
+        await page.waitForFunction(label => {
+          const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
+          return element instanceof HTMLButtonElement && !element.disabled;
+        }, ariaLabel);
+        await waitForStableViewportTarget(page, control);
+        await control.click();
+        await page.waitForFunction(({ label, expected }) => {
+          const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
+          return element?.getAttribute("aria-checked") === String(expected);
+        }, { label: ariaLabel, expected: before });
+        const switchedBack = savedGlobal[key] === before;
+        record("admin-" + key + "-switch-saves-and-restores", switchedOff && switchedBack, {
+          initial: before, afterOff: !before, afterRestore: savedGlobal[key],
+        });
+      }
+      record("admin-global-controls-disabled-state-is-truthful",
+        disabledSwitches.length === 0,
+        { disabledSwitches, mutationCalls });
     }
     const financialExecutionStayedOff = savedPolicy.automaticTradingEnabled === false &&
-      mutationCalls.every(call => call.policies.every(patch => patch.automaticTradingEnabled !== true));
+      mutationCalls.every(call => !Array.isArray(call.policies) ||
+        call.policies.every(patch => patch.automaticTradingEnabled !== true));
     record("delivery-switches-never-enable-financial-execution", financialExecutionStayedOff, { mutationCalls, pageErrors });
-    record("admin-switches-show-save-feedback", await page.getByText("Trading control change saved and audit-logged.").isVisible().catch(() => false));
+    record("admin-switches-show-save-feedback",
+      enabledControlInteractions === 0 || await page.getByText("Global Trade control saved and verified from a fresh database read.").isVisible().catch(() => false),
+      { controlsAvailable, enabledControlInteractions, note: enabledControlInteractions > 0 ? "Save feedback is asserted only after an enabled control interaction." : "No enabled control was clicked; no save feedback is expected." });
   } catch (error) {
     record("admin-trading-controls-interaction-completes", false, {
       error: error instanceof Error ? error.message : String(error),

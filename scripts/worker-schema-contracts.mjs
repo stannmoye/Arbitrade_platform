@@ -55,20 +55,41 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
     // Delivery diagnostics, execution fencing, and immutable customer/trade
     // snapshots are one contract for this table; duplicate object keys silently
     // discarded the lease checks in the prior merged source.
-    columns: ["id", "eventKey", "deliveryStatus", "deliveryAttemptCount", "lastErrorCode", "receivedAt", "renderedAt", "expiredAt", "tradeId", "policyVersion", "executionLeaseToken", "durationSeconds", "badgeLabel", "badgeStyle", "configuredProfitRateBps", "configuredDurationSeconds", "configuredPopupDisplaySeconds", "packagePolicyVersionSnapshot", "packageBadgeLabel", "companyReferenceId", "companyDisplayName", "companyLogoUrl", "companyReferenceMetadataJson", "companyReferenceOnly", "executionDailyAttemptCount", "executionDailyAttemptDay"],
+    columns: ["id", "eventKey", "userId", "offerId", "packageId", "deliveryStatus", "deliveryAttemptCount", "deliveryRetryAfter", "deliveryLeaseToken", "deliveryLeaseExpiresAt", "deliveryPolicyVersionSnapshot", "lastErrorCode", "receivedAt", "renderedAt", "expiredAt", "tradeId", "policyVersion", "executionLeaseToken", "durationSeconds", "badgeLabel", "badgeStyle", "configuredProfitRateBps", "configuredDurationSeconds", "configuredPopupDisplaySeconds", "packagePolicyVersionSnapshot", "packageBadgeLabel", "companyReferenceId", "companyDisplayName", "companyLogoUrl", "companyReferenceMetadataJson", "companyReferenceOnly", "executionDailyAttemptCount", "executionDailyAttemptDay"],
     dataTypes: { id: "int", eventKey: "varchar", deliveryStatus: "enum", deliveryAttemptCount: "int", lastErrorCode: "varchar", receivedAt: "timestamp", renderedAt: "timestamp", expiredAt: "timestamp", tradeId: "int", policyVersion: "int", executionLeaseToken: "varchar", durationSeconds: "int", badgeLabel: "varchar", badgeStyle: "varchar", configuredProfitRateBps: "int", configuredDurationSeconds: "int", configuredPopupDisplaySeconds: "int", packagePolicyVersionSnapshot: "int", packageBadgeLabel: "varchar", companyReferenceId: "varchar", companyDisplayName: "varchar", companyLogoUrl: "varchar", companyReferenceMetadataJson: "text", companyReferenceOnly: "tinyint", executionDailyAttemptCount: "int", executionDailyAttemptDay: "varchar" },
-    nullable: { lastErrorCode: true, receivedAt: true, renderedAt: true, expiredAt: true, tradeId: true, executionLeaseToken: true, durationSeconds: true, badgeLabel: true, packageBadgeLabel: true, companyReferenceId: true, companyDisplayName: true, companyLogoUrl: true, companyReferenceMetadataJson: true, executionDailyAttemptDay: true },
+    nullable: { packageId: true, deliveryRetryAfter: true, deliveryLeaseToken: true, deliveryLeaseExpiresAt: true, lastErrorCode: true, receivedAt: true, renderedAt: true, expiredAt: true, tradeId: true, executionLeaseToken: true, durationSeconds: true, badgeLabel: true, packageBadgeLabel: true, companyReferenceId: true, companyDisplayName: true, companyLogoUrl: true, companyReferenceMetadataJson: true, executionDailyAttemptDay: true },
     indexes: {
       PRIMARY: { unique: true, columns: ["id"] },
       opportunity_popup_event_key_unique: { unique: true, columns: ["eventKey"] },
       opportunity_popup_user_daily_attempt_day_idx: { unique: false, columns: ["userId", "executionDailyAttemptDay"] },
+      opportunity_popup_pending_package_id_idx: { unique: false, columns: ["userId", "packageId", "deliveryStatus"] },
+      opportunity_popup_retry_due_idx: { unique: false, columns: ["deliveryStatus", "deliveryRetryAfter"] },
+    },
+  },
+  opportunity_delivery_idempotency: {
+    columns: ["id", "userId", "offerId", "popupEventId", "packageId", "packageName", "createdAt"],
+    dataTypes: { id: "int", userId: "int", offerId: "int", popupEventId: "int", packageId: "int", packageName: "varchar", createdAt: "timestamp" },
+    nullable: { popupEventId: true },
+    indexes: {
+      PRIMARY: { unique: true, columns: ["id"] },
+      opportunity_delivery_idempotency_user_offer_uq: { unique: true, columns: ["userId", "offerId"] },
+      opportunity_delivery_idempotency_popup_idx: { unique: false, columns: ["popupEventId"] },
     },
   },
   trade_positions: {
-    columns: ["walletFundingPlanJson", "settlementReviewAt"],
-    dataTypes: { walletFundingPlanJson: "text", settlementReviewAt: "timestamp" },
-    nullable: { walletFundingPlanJson: true, settlementReviewAt: true },
+    columns: ["walletFundingPlanJson", "settlementReviewAt", "packageIdSnapshot", "packageFeeRateBpsSnapshot", "packageFeeRoundingModeSnapshot", "packageFeePolicyVersionSnapshot", "packageFeeEffectiveAtSnapshot"],
+    dataTypes: { walletFundingPlanJson: "text", settlementReviewAt: "timestamp", packageIdSnapshot: "int", packageFeeRateBpsSnapshot: "int", packageFeeRoundingModeSnapshot: "varchar", packageFeePolicyVersionSnapshot: "int", packageFeeEffectiveAtSnapshot: "datetime" },
+    nullable: { walletFundingPlanJson: true, settlementReviewAt: true, packageIdSnapshot: true, packageFeeRateBpsSnapshot: true, packageFeeRoundingModeSnapshot: true, packageFeePolicyVersionSnapshot: true, packageFeeEffectiveAtSnapshot: true },
     indexes: {},
+  },
+  trading_package_fee_policy_versions: {
+    columns: ["packageId", "version", "feeRateBps", "roundingMode", "effectiveAt", "changedBy", "changedAt", "reason", "source"],
+    dataTypes: { packageId: "int", version: "int", feeRateBps: "int", roundingMode: "varchar", effectiveAt: "datetime", changedBy: "varchar", changedAt: "datetime", reason: "text", source: "varchar" },
+    nullable: {},
+    indexes: {
+      PRIMARY: { unique: true, columns: ["packageId", "version"] },
+      trading_package_fee_policy_effective_idx: { unique: false, columns: ["packageId", "effectiveAt", "version"] },
+    },
   },
   admin_wallet_adjustment_idempotency: {
     columns: ["id", "adminId", "idempotencyKey", "requestHash", "responseJson", "createdAt", "updatedAt"],

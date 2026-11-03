@@ -7,6 +7,7 @@ import { closeDbPool, getDb, updateCompanyCatalogueAdminState } from "../server/
 import { ensurePopupDeliveries } from "../server/opportunityLifecycle";
 import { COMPANY_REFERENCE_CATALOGUE } from "../server/modules/company-catalogue-reference";
 import { buildCompanySpotlightPool, type CompanySpotlightRepeatPolicy } from "../server/modules/company-spotlight-rotation";
+import { deliveryIdempotencyKey } from "../server/modules/opportunity-delivery-lifecycle";
 import { appSettings, opportunityOffers, opportunityPopupEvents, users, v5AuditEvents } from "../drizzle/schema";
 
 type PopupDelivery = Parameters<typeof ensurePopupDeliveries>[0][number];
@@ -28,13 +29,18 @@ const poolPackage = "RotationPool-" + token;
 const verificationPackage = "VerificationFilter-" + token;
 const emptyPackage = "EmptyVerified-" + token;
 const disabledPackage = "DisabledCompany-" + token;
+const packageIdByName: Record<string, number> = {
+  [mainPackage]: 910001,
+  [poolPackage]: 910002,
+  [verificationPackage]: 910003,
+  [emptyPackage]: 910004,
+  [disabledPackage]: 910005,
+};
+const maxPendingDeliveries = 10;
 const catalogueAdminStateKey = "trade.companyCatalogue.adminState";
 let originalCatalogueAdminState: { settingValue: string; updatedBy: number | null } | null | undefined;
 const quotaDay = new Date().toISOString().slice(0, 10);
-const stateKeys = [
-  "trading.companyRotation.pending." + token,
-  "trading.companyRotation.pool." + token,
-];
+const stateKeys: string[] = [];
 let userId: number | undefined;
 const offerIds: number[] = [];
 let triggerName: string | undefined;
@@ -46,11 +52,15 @@ function makeDelivery(
   countryNames = "",
   repeatPolicy: CompanySpotlightRepeatPolicy = "avoid_until_exhausted",
 ): PopupDelivery {
+  const packageId = packageIdByName[packageName];
+  assert.ok(packageId, `test fixture package must have a unique numeric identity: ${packageName}`);
   return {
     userId: userId!,
     offerId,
     quotaDay,
+    packageId,
     packageName,
+    maxPendingDeliveries,
     symbol: "ROT-" + String(offerId),
     currency: "USD",
     minimumMinor: 1000,
@@ -103,7 +113,9 @@ async function readEvent(offerId: number) {
 }
 
 async function readState(packageName: string) {
-  const key = "trading.companyRotation." + userId + "." + packageName;
+  const packageId = packageIdByName[packageName];
+  assert.ok(packageId, `test fixture package must have a unique numeric identity: ${packageName}`);
+  const key = "trading.companyRotation." + userId + "." + packageId;
   const rows = await db!.select({ settingValue: appSettings.settingValue })
     .from(appSettings).where(eq(appSettings.settingKey, key)).limit(1);
   assert.ok(rows[0], "durable package-scoped rotation cursor must exist");
@@ -155,13 +167,7 @@ try {
     packageName: "Starter",
   });
   userId = Number(userInsert[0].insertId);
-  stateKeys[0] = "trading.companyRotation." + userId + "." + mainPackage;
-  stateKeys[1] = "trading.companyRotation." + userId + "." + poolPackage;
-  stateKeys.push(
-    "trading.companyRotation." + userId + "." + verificationPackage,
-    "trading.companyRotation." + userId + "." + emptyPackage,
-    "trading.companyRotation." + userId + "." + disabledPackage,
-  );
+  stateKeys.push(...Object.values(packageIdByName).map(packageId => "trading.companyRotation." + userId + "." + packageId));
 
   const priorCatalogueRows = await db.select({
     settingValue: appSettings.settingValue,
@@ -199,7 +205,7 @@ try {
   savedAdminState = JSON.parse(String((await db.select({ settingValue: appSettings.settingValue }).from(appSettings).where(eq(appSettings.settingKey, catalogueAdminStateKey)).limit(1))[0]?.settingValue || "{}"));
   assert.ok(savedAdminState.archivedIds.includes(adminStatusTestId), "archive action must persist archived status");
   assert.ok(!savedAdminState.verifiedIds.includes(adminStatusTestId), "archive must revoke customer approval");
-  await updateCompanyCatalogueAdminState({ ids: [adminStatusTestId], status: "unverified", reason: "Integration test: restore company", updatedBy: userId! });
+  await updateCompanyCatalogueAdminState({ ids: [adminStatusTestId], status: "restored", reason: "Integration test: restore company" });
   savedAdminState = JSON.parse(String((await db.select({ settingValue: appSettings.settingValue }).from(appSettings).where(eq(appSettings.settingKey, catalogueAdminStateKey)).limit(1))[0]?.settingValue || "{}"));
   assert.ok(!savedAdminState.archivedIds.includes(adminStatusTestId), "restore must remove archived status");
   assert.ok(!savedAdminState.verifiedIds.includes(adminStatusTestId), "restored companies must return as unverified");
@@ -229,10 +235,10 @@ try {
   const requiredOffers = 11 + exhaustionPool.length + 1;
   for (let index = 0; index < requiredOffers; index++) await addOffer(index);
 
-  // Two independent worker invocations race on the exact same user:offer:quotaDay.
+  // Two independent worker invocations race on the exact same user:offer.
   // Only one may claim the durable cursor and persist the company snapshot.
   const duplicateDelivery = makeDelivery(offerIds[0]!, mainPackage);
-  const duplicateKey = `${userId}:${offerIds[0]}:${quotaDay}`;
+  const duplicateKey = deliveryIdempotencyKey(userId!, offerIds[0]!);
   const [duplicateA, duplicateB] = await Promise.all([
     ensurePopupDeliveries([duplicateDelivery]),
     ensurePopupDeliveries([duplicateDelivery]),
@@ -297,7 +303,7 @@ try {
 
   // A distinct Node process models a worker restart: only the database cursor survives.
   const restartResult = assignInFreshProcess(makeDelivery(offerIds[6]!, mainPackage, selectedCountry, "allow_repeats"));
-  assert.equal(restartResult.eventKey, `${userId}:${offerIds[6]}:${quotaDay}`);
+  assert.equal(restartResult.eventKey, deliveryIdempotencyKey(userId!, offerIds[6]!));
   const afterRestart = await readEvent(offerIds[6]!);
   assert.ok(afterRestart);
   assert.equal(metadataOf(afterRestart).rotationSequence, 2, "a fresh worker process must resume from the persisted cursor");
@@ -336,7 +342,7 @@ try {
   assert.equal(noCompanyEvent.companyLogoUrl, null);
   assert.equal(Boolean(noCompanyEvent.companyReferenceOnly), false);
   const emptyCursorRows = await db.select({ settingKey: appSettings.settingKey }).from(appSettings)
-    .where(eq(appSettings.settingKey, "trading.companyRotation." + userId + "." + emptyPackage)).limit(1);
+    .where(eq(appSettings.settingKey, "trading.companyRotation." + userId + "." + packageIdByName[emptyPackage])).limit(1);
   assert.equal(emptyCursorRows.length, 0, "an empty approved pool must not create or advance a rotation cursor");
   await setCatalogueAdminState([...allVerifiedState.verifiedIds]);
 

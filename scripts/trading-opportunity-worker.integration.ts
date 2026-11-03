@@ -19,8 +19,6 @@ import {
   opportunityOffers,
   packages,
   customerPackageSubscriptions,
-  tradeLifecycleEvents,
-  tradeRewardReservations,
   tradePositions,
   opportunityPackagePolicies,
   users,
@@ -44,7 +42,6 @@ let thirdOfferId;
 let thirdEventId;
 let packageId;
 let subscriptionId;
-let tradeId;
 let currencyInserted = false;
 let offerInserted = false;
 let secondOfferInserted = false;
@@ -327,7 +324,12 @@ try {
   assert.notEqual(recoveredClaim.executionLeaseToken, crashedWorkerToken,
     "Recovery after a process crash must fence the token owned by the terminated process.");
 
-  const ledgerBeforeStaleCall = await db.select({ id: balanceLedger.id })
+  const hardDisabledFailure = /Automatic trade allocation is hard-disabled/i;
+  const ledgerBeforeStaleCall = await db.select({
+    id: balanceLedger.id,
+    currency: balanceLedger.currency,
+    amountMinor: balanceLedger.amountMinor,
+  })
     .from(balanceLedger).where(eq(balanceLedger.userId, userId));
   const balancesBeforeStaleCall = await db.select({
     id: customerBalances.id,
@@ -342,7 +344,7 @@ try {
       deliveryEventId: eventId,
       executionLeaseToken: firstClaim.executionLeaseToken,
     }),
-    /execution lease was lost/i,
+    hardDisabledFailure,
     "A stale worker must be fenced before it can mutate financial state.",
   );
   await assert.rejects(
@@ -352,11 +354,15 @@ try {
       deliveryEventId: eventId,
       executionLeaseToken: crashedWorkerToken,
     }),
-    /execution lease was lost/i,
+    hardDisabledFailure,
     "A worker token left behind by a killed process must be fenced after recovery.",
   );
   assert.deepEqual(
-    await db.select({ id: balanceLedger.id }).from(balanceLedger).where(eq(balanceLedger.userId, userId)),
+    await db.select({
+      id: balanceLedger.id,
+      currency: balanceLedger.currency,
+      amountMinor: balanceLedger.amountMinor,
+    }).from(balanceLedger).where(eq(balanceLedger.userId, userId)),
     ledgerBeforeStaleCall,
     "A stale lease must not create ledger postings.",
   );
@@ -426,6 +432,11 @@ try {
   assert.equal(rolloverClaim.transientAttemptNumber, 1,
     "The per-opportunity transient retry counter resets independently from the lifetime diagnostic counter.");
 
+  // Automatic financial execution is a production hard boundary. Every
+  // createTrade attempt must reject before it can allocate, replay, or mutate
+  // any financial row, even when its lease and quota checks have passed.
+  const tradeRowsBeforeAllocation = await db.select({ id: tradePositions.id })
+    .from(tradePositions).where(eq(tradePositions.userId, userId));
   const allocationResults = await Promise.allSettled([
     createTrade(userId, {
       offerId,
@@ -452,60 +463,16 @@ try {
       executionLeaseToken: secondClaim.executionLeaseToken,
     }),
   ]);
-  const fulfilledAllocations = allocationResults.filter((result) => result.status === "fulfilled");
-  const rejectedAllocations = allocationResults.filter((result) => result.status === "rejected");
-  assert.equal(fulfilledAllocations.length, 2,
-    "Exactly one of two competing opportunities should allocate; its duplicate request should replay. Rejections: " +
-      rejectedAllocations.map((result) => String(result.reason?.message || result.reason)).join(" | "));
-  assert.equal(rejectedAllocations.length, 2,
-    "Both requests for the competing opportunity must be rejected once the one-per-day quota is consumed.");
-  const successfulAllocationResults = fulfilledAllocations.map((result) => result.value);
-  assert.equal(successfulAllocationResults[0].tradeId, successfulAllocationResults[1].tradeId,
-    "The winning event's competing requests must resolve to one trade ID.");
-  tradeId = successfulAllocationResults[0].tradeId;
-  assert.equal(successfulAllocationResults.filter((result) => result.idempotentReplay === true).length, 1,
-    "Exactly one concurrent request should take the committed-allocation replay path.");
-  assert.ok(rejectedAllocations.every((result) => /quota.*used|no remaining quota/i.test(String(result.reason?.message || result.reason))),
-    "Losing opportunity requests must fail for quota exhaustion, not unrelated validation errors.");
-  const allocatedTrades = await db.select({ id: tradePositions.id, offerId: tradePositions.offerId, principalMinor: tradePositions.principalMinor })
-    .from(tradePositions).where(eq(tradePositions.userId, userId));
-  assert.equal(allocatedTrades.length, 1, "Concurrent cross-event allocation must create exactly one trade for a one-opportunity daily quota.");
-  assert.equal(Number(allocatedTrades[0].principalMinor), 25000);
-  const winningOfferId = Number(allocatedTrades[0].offerId);
-  const winningEventId = winningOfferId === offerId ? eventId : secondEventId;
-  const winningLeaseToken = winningOfferId === offerId ? recoveredClaim.executionLeaseToken : secondClaim.executionLeaseToken;
-  const ledgerAfterAllocation = await db.select({ id: balanceLedger.id, amountMinor: balanceLedger.amountMinor })
-    .from(balanceLedger).where(eq(balanceLedger.userId, userId));
-  assert.equal(ledgerAfterAllocation.length, ledgerBeforeAllocation.length + 1,
-    "Concurrent fresh allocation must post exactly one wallet reservation ledger entry.");
-  assert.equal(Number(ledgerAfterAllocation.at(-1)?.amountMinor), -25000);
-  const balancesAfterAllocation = await db.select({
-    id: customerBalances.id,
-    availableMinor: customerBalances.availableMinor,
-    lockedMinor: customerBalances.lockedMinor,
-    earnedMinor: customerBalances.earnedMinor,
-  }).from(customerBalances).where(eq(customerBalances.userId, userId));
-  assert.equal(Number(balancesAfterAllocation[0].availableMinor), Number(balancesBeforeAllocation[0].availableMinor) - 25000,
-    "Concurrent fresh allocation must debit available balance once.");
-  assert.equal(Number(balancesAfterAllocation[0].lockedMinor), Number(balancesBeforeAllocation[0].lockedMinor) + 25000,
-    "Concurrent fresh allocation must lock principal once.");
-
-  const replayResults = await Promise.all([
-    createTrade(userId, { offerId: winningOfferId, amountMinor: 25000, deliveryEventId: winningEventId, executionLeaseToken: winningLeaseToken }),
-    createTrade(userId, { offerId: winningOfferId, amountMinor: 25000, deliveryEventId: winningEventId, executionLeaseToken: winningLeaseToken }),
-  ]);
-  assert.deepEqual(replayResults.map((result) => result.tradeId), [tradeId, tradeId],
-    "Concurrent retries after a committed allocation must return the same trade.");
-  assert.ok(replayResults.every((result) => result.idempotentReplay === true),
-    "A committed delivery event must take the idempotent replay path.");
-  const tradeRows = await db.select({ id: tradePositions.id })
-    .from(tradePositions).where(eq(tradePositions.userId, userId));
-  assert.deepEqual(tradeRows.map((row) => row.id), [tradeId],
-    "Concurrent replay must not create another trade position.");
+  assert.equal(allocationResults.length, 4, "The hard-disabled boundary must cover every automatic allocation attempt.");
+  assert.ok(allocationResults.every((result) => result.status === "rejected"),
+    "Every automatic allocation attempt must reject while financial execution is hard-disabled.");
+  assert.ok(allocationResults.every((result) => result.status === "rejected" && hardDisabledFailure.test(String(result.reason?.message || result.reason))),
+    "Automatic allocation attempts must reject with the hard-disabled error, not a downstream validation or quota error.");
   assert.deepEqual(
-    await db.select({ id: balanceLedger.id, amountMinor: balanceLedger.amountMinor }).from(balanceLedger).where(eq(balanceLedger.userId, userId)),
-    ledgerAfterAllocation,
-    "Idempotent replay must not create additional ledger postings.",
+    await db.select({ id: balanceLedger.id, amountMinor: balanceLedger.amountMinor })
+      .from(balanceLedger).where(eq(balanceLedger.userId, userId)),
+    ledgerBeforeAllocation,
+    "Hard-disabled automatic allocation must not create ledger postings.",
   );
   assert.deepEqual(
     await db.select({
@@ -514,8 +481,13 @@ try {
       lockedMinor: customerBalances.lockedMinor,
       earnedMinor: customerBalances.earnedMinor,
     }).from(customerBalances).where(eq(customerBalances.userId, userId)),
-    balancesAfterAllocation,
-    "Idempotent replay must not mutate wallet balances.",
+    balancesBeforeAllocation,
+    "Hard-disabled automatic allocation must not mutate wallet balances.",
+  );
+  assert.deepEqual(
+    await db.select({ id: tradePositions.id }).from(tradePositions).where(eq(tradePositions.userId, userId)),
+    tradeRowsBeforeAllocation,
+    "Hard-disabled automatic allocation must not create trade rows.",
   );
 
   // The selected tier's previous-settlement switch applies across every tier
@@ -531,14 +503,6 @@ try {
     maxTradeAttemptsPerDay: 0,
   }).where(eq(opportunityPackagePolicies.packageName, packageName));
 
-  const ledgerBeforeSettlementGate = await db.select({ id: balanceLedger.id, amountMinor: balanceLedger.amountMinor })
-    .from(balanceLedger).where(eq(balanceLedger.userId, userId));
-  const balancesBeforeSettlementGate = await db.select({
-    id: customerBalances.id,
-    availableMinor: customerBalances.availableMinor,
-    lockedMinor: customerBalances.lockedMinor,
-    earnedMinor: customerBalances.earnedMinor,
-  }).from(customerBalances).where(eq(customerBalances.userId, userId));
   await assert.rejects(
     createTrade(userId, {
       offerId: thirdOfferId,
@@ -548,8 +512,8 @@ try {
       packageSubscriptionId: subscriptionId,
       packageId,
     }),
-    /previous trade settlement is still pending/i,
-    "A tier with requirePreviousSettlement must block a new customer allocation while any earlier tier trade awaits wallet posting.",
+    hardDisabledFailure,
+    "The hard-disabled boundary must reject automatic allocation before settlement-gate or financial execution logic.",
   );
   await recordOpportunityExecutionFailure(userId, thirdEventId, {
     status: "RETRYING",
@@ -571,13 +535,13 @@ try {
   assert.equal(deferredEvent?.eventStatus, "DELIVERED", "A temporarily blocked opportunity must remain eligible for a later retry.");
   assert.equal(
     (await db.select({ id: tradePositions.id }).from(tradePositions).where(eq(tradePositions.userId, userId))).length,
-    1,
-    "The previous-settlement gate must not create a second trade.",
+    0,
+    "Hard-disabled automatic execution must not create a trade row.",
   );
   assert.deepEqual(
     await db.select({ id: balanceLedger.id, amountMinor: balanceLedger.amountMinor }).from(balanceLedger).where(eq(balanceLedger.userId, userId)),
-    ledgerBeforeSettlementGate,
-    "A blocked allocation must not create ledger entries.",
+    ledgerBeforeAllocation,
+    "Hard-disabled automatic execution must not create ledger entries.",
   );
   assert.deepEqual(
     await db.select({
@@ -586,8 +550,8 @@ try {
       lockedMinor: customerBalances.lockedMinor,
       earnedMinor: customerBalances.earnedMinor,
     }).from(customerBalances).where(eq(customerBalances.userId, userId)),
-    balancesBeforeSettlementGate,
-    "A blocked allocation must not move or reserve wallet funds.",
+    balancesBeforeAllocation,
+    "Hard-disabled automatic execution must not move or reserve wallet funds.",
   );
 
   // Repeated worker crashes must still exhaust the per-opportunity retry
@@ -623,16 +587,11 @@ try {
     crashedWorkerKilled: crashedWorkerExitResult.signal === "SIGKILL",
     crashedWorkerTokenFenced: true,
     staleWorkerFenced: true,
-    concurrentFreshAllocations: allocationResults.length,
-    successfulAllocationRequests: fulfilledAllocations.length,
-    quotaRejectedAllocationRequests: rejectedAllocations.length,
-    freshAllocationReplayCount: successfulAllocationResults.filter((result) => result.idempotentReplay === true).length,
-    concurrentIdempotentReplays: replayResults.length,
-    previousSettlementGateBlocked: true,
-    previousSettlementGateDeferred: true,
+    automaticAllocationAttempts: allocationResults.length,
+    automaticAllocationRejectedHardDisabled: allocationResults.every((result) => result.status === "rejected" && hardDisabledFailure.test(String(result.reason?.message || result.reason))),
+    automaticTradeRows: (await db.select({ id: tradePositions.id }).from(tradePositions).where(eq(tradePositions.userId, userId))).length,
+    ledgerAndWalletUnchangedOnHardDisable: true,
     dailyAttemptBudgetReleased: true,
-    uniqueTradeRows: tradeRows.length,
-    ledgerAndWalletUnchangedOnStaleAndReplay: true,
   }));
 } finally {
   try {
@@ -644,11 +603,6 @@ try {
     }
     if (thirdEventId !== undefined) {
       await db.delete(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, thirdEventId));
-    }
-    if (tradeId !== undefined) {
-      await db.delete(tradeLifecycleEvents).where(eq(tradeLifecycleEvents.tradeId, tradeId));
-      await db.delete(tradeRewardReservations).where(eq(tradeRewardReservations.tradeId, tradeId));
-      await db.delete(tradePositions).where(eq(tradePositions.id, tradeId));
     }
     if (userId !== undefined) {
       await db.delete(balanceLedger).where(eq(balanceLedger.userId, userId));

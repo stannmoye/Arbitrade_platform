@@ -185,7 +185,7 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
     expect(await ledgerCount(userId, "payout_reserve")).toBe(1);
     expect(await ledgerCount(userId, "payout_release")).toBe(1);
     const history = await listCustomerPayoutRequests(userId);
-    expect(history.map((item: any) => Number(item.id))).toContain(Number(created.id));
+    expect(history.items.map((item: any) => Number(item.id))).toContain(Number(created.id));
   });
 
   it("requires an enrolled authenticator under the default 2FA policy and rejects replayed codes", async () => {
@@ -333,9 +333,11 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
       requestId: Number(paidRequest.id),
       action: "paid",
       externalReference,
+      note: "Administrator verified the manual transfer receipt.",
     });
     expect(paid.status).toBe("paid");
     expect(paid.externalReference).toBe(externalReference);
+    expect(paid.resolutionNote).toBe("Administrator verified the manual transfer receipt.");
     expect(await balance(userId)).toEqual({ availableMinor: 7500, lockedMinor: 0, promotionalMinor: 2000 });
     expect(await ledgerCount(userId, "payout_reserve")).toBe(1);
     expect(await ledgerCount(userId, "payout_paid")).toBe(1);
@@ -347,6 +349,7 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
       note: "CI fixture rejection; no external transfer was sent.",
     });
     expect(rejected.status).toBe("rejected");
+    expect(rejected.resolutionNote).toBe("CI fixture rejection; no external transfer was sent.");
     expect(await balance(userId)).toEqual({ availableMinor: 7500, lockedMinor: 0, promotionalMinor: 2000 });
     expect(await ledgerCount(userId, "payout_release")).toBe(1);
 
@@ -355,6 +358,7 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
       requestId: Number(duplicateReferenceRequest.id),
       action: "paid",
       externalReference,
+      note: "Duplicate reference must be rejected.",
     })).rejects.toThrow("already assigned to another payout");
     expect((await balance(userId)).lockedMinor).toBe(1000);
     await resolveCustomerPayoutRequest(adminId, {
@@ -373,6 +377,7 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
         requestId: Number(request.id),
         action: "paid",
         externalReference: unique("external-race"),
+        note: "Competing paid resolution reason.",
       }),
       resolveCustomerPayoutRequest(adminId, {
         requestId: Number(request.id),

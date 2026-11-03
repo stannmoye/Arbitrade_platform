@@ -7,6 +7,8 @@ const operationsUi = readFileSync(new URL("../client/src/components/AdminOperati
 const serverDb = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const serverRouters = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const policyEditor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
+const packageFeeEditor = readFileSync(new URL("../client/src/components/AdminPackageFeeEditor.tsx", import.meta.url), "utf8");
+const retryEditor = readFileSync(new URL("../client/src/components/AdminDeliveryRetryPolicy.tsx", import.meta.url), "utf8");
 
 
 describe("Administrator company catalogue navigation and pagination", () => {
@@ -111,6 +113,10 @@ describe("Trading tier audit reasons", () => {
     expect(dbFunctions).toContain('Provide an audit reason of 5–500 characters');
     expect(dbFunctions).toContain('reason:auditReason');
     expect(dbFunctions).toContain('metadataJson:JSON.stringify({old:');
+    expect(dbFunctions).toContain('current.termsVersion||1)!==input.expectedTermsVersion');
+    expect(dbFunctions).toContain('TradingPackageTermsVersionConflictError');
+    expect(serverRouters).toContain('expectedTermsVersion: z.number().int().positive().max(2_147_483_647)');
+    expect(serverRouters).toContain('code: "CONFLICT"');
     expect(serverRouters).toContain('reason: z.string().trim().min(5).max(500)');
   });
 });
@@ -182,16 +188,46 @@ describe("Trading tier policy audit and versioning", () => {
     expect(adminApp).toContain("existing customer and trade snapshots were preserved.");
     expect(adminApp).toContain("reason:policyReason.trim()})");
     expect(adminApp).toContain("policies.data.map(x=>({...x,packageName:x.packageName");
-    expect(adminApp).toContain("buildChangedPolicyPatches(policyBaseline,policyRows)");
+    expect(adminApp).toContain("buildChangedPolicyPatches(policyBaseline,policyRows,TRADING_TIER_POLICY_PATCH_KEYS)");
   });
 });
 
 describe("Trading fee-policy navigation", () => {
-  it("opens the administrator screen that actually edits realized-profit fees", () => {
+  it("opens the read-only legacy fee view and schedule-aware package fee model", () => {
     const item = navigation.match(/id: "trade-fees-earnings", target: "([^"]+)"/);
     expect(item?.[1]).toBe("transactionReview");
-    expect(adminApp).toContain("{section===\"transactionReview\"&&<AdminTransactionReview focus={focus as \"capital\"|\"fees\"|\"reconciliation\"|undefined}/>}");
-    expect(operationsUi).toContain("trpc.adminOperations.updateTradeFeePolicy.useMutation");
+    expect(adminApp).toContain("{section===\"transactionReview\"&&<AdminTransactionReview focus={focus as \"ledger\"|\"capital\"|\"fees\"|\"reconciliation\"|undefined}/>}");
+    expect(adminApp).toContain("feeApi.packageFeePolicies.useQuery");
+    expect(adminApp).toContain("<AdminPackageFeeEditor");
+    expect(packageFeeEditor).toContain("policy.activePolicy.feeRateBps");
+    expect(packageFeeEditor).toContain("latest?.feeRateBps");
+    expect(packageFeeEditor).toContain("policy.latestPolicyVersion");
+    expect(operationsUi).not.toContain("packageFeePolicies.useQuery");
+    expect(operationsUi).not.toContain("updateTradeFeePolicy.useMutation");
+  });
+});
+
+describe("Manual payout navigation ownership", () => {
+  it("exposes payout review once under Trade Settings, separate from read-only finance and trade settlement", () => {
+    expect(navigation).toContain('id: "trade-manual-payouts", target: "manualPayouts", label: "Manual Payouts"');
+    expect(navigation.match(/target: "manualPayouts"/g)).toHaveLength(1);
+    expect(navigation).toContain('id: "wallet-ledger", target: "transactionReview", focus: "ledger"');
+    expect(navigation).toContain('id: "trade-settlement", target: "transactionReview", focus: "reconciliation"');
+    expect(navigation).toContain("Funding queue unavailable; read-only status, no payout or settlement actions");
+    expect(adminApp).toContain('section==="manualPayouts"');
+    expect(adminApp).toContain("AdminManualPayouts");
+
+    const payoutStart = operationsUi.indexOf("export function AdminManualPayouts()");
+    const nextComponent = operationsUi.indexOf("function csvCell(value: unknown)", payoutStart);
+    const transactionReviewStart = operationsUi.indexOf("export function AdminTransactionReview");
+    expect(payoutStart).toBeGreaterThanOrEqual(0);
+    expect(nextComponent).toBeGreaterThan(payoutStart);
+    const payoutOwner = operationsUi.slice(payoutStart, nextComponent);
+    const transactionReview = operationsUi.slice(transactionReviewStart, payoutStart);
+    expect(payoutOwner).toContain("trpc.adminOperations.payoutRequests.useQuery");
+    expect(payoutOwner).toContain("trpc.adminOperations.resolvePayoutRequest.useMutation");
+    expect(transactionReview).not.toContain("adminOperations.payoutRequests");
+    expect(transactionReview).not.toContain("adminOperations.resolvePayoutRequest");
   });
 });
 
@@ -211,11 +247,15 @@ describe("Trading retry-policy navigation", () => {
   it("opens retry controls in the shared policy editor and states the current retry-window boundary", () => {
     const item = navigation.match(/id: "trade-retries", target: "([^"]+)"/);
     expect(item?.[1]).toBe("tradeRetryPolicy");
-    expect(adminApp).toContain('{section==="tradeRetryPolicy"&&<AdminPackages focus="retries"/>}');
+    expect(adminApp).toContain('{section==="tradeRetryPolicy"&&<Suspense');
+    expect(adminApp).toContain("<AdminDeliveryRetryPolicy/>");
+    expect(retryEditor).toContain("one shared delivery-retry owner");
+    expect(retryEditor).toContain("Maximum delivery attempts");
+    expect(retryEditor).toContain("Delivery-specific retry intervals (seconds)");
+    expect(retryEditor).toContain("Carry-forward remains disabled unless the backend explicitly reports");
     expect(policyEditor).toContain("value={row.maxTradeAttemptsPerDay}");
     expect(policyEditor).toContain("value={row.tradeRetryDelaySeconds}");
-    expect(policyEditor).toContain("Carry-forward across daily windows is not enabled. A retry window that expires is marked failed for review.");
-    expect(policyEditor).toContain('show("quotas")');
+    expect(policyEditor).not.toContain("maxDeliveryAttempts");
   });
 });
 
@@ -227,7 +267,8 @@ describe("Trading navigation focus and plain-language controls", () => {
     expect(navigation).not.toContain('id: "trade-offers"');
     expect(navigation).not.toContain('id: "trade-results"');
     expect(navigation).not.toContain('id: "trade-monitoring"');
-    expect(navigation).not.toContain('id: "trade-history"');
+    expect(navigation).toContain('id: "trade-history", target: "tradeHistory", label: "Trading History"');
+    expect(navigation.match(/id: "trade-history"/g)).toHaveLength(1);
     expect(navigation).toContain('label: "Tiers & Eligibility"');
     expect(navigation).toContain('label: "Per-tier Daily Delivery Caps"');
     expect(navigation).toContain('label: "Publish & Manage Opportunities"');
@@ -250,7 +291,35 @@ describe("Trading navigation focus and plain-language controls", () => {
     expect(adminApp).toContain('className="admin-nav-item-detail"');
     expect(navigation).toContain('label: "Publish & Manage Opportunities"');
     expect(navigation).toContain('label: "Retries & Carry-Forward"');
-    expect(navigation).toContain('label: "System Pause & Safety"');
+    expect(navigation).toContain('label: "Package Configuration"');
+    expect(navigation).not.toContain('label: "System Pause & Safety"');
+  });
+});
+
+describe("Trade Settings owner route isolation", () => {
+  it("renders global controls and allocation pause only from Package Configuration", () => {
+    expect(adminApp).toContain('section==="tradePackageConfiguration"&&<AdminPackageConfiguration/>');
+    expect(adminApp).not.toContain('{section!=="overview"&&<AdminPackagePolicyControls/>}');
+    expect(adminApp).not.toContain('{section!=="overview"&&<AdminTradingGlobalControls/>}');
+    const ownerStart = adminApp.indexOf("function AdminPackageConfiguration()");
+    const ownerEnd = adminApp.indexOf("function AdminPackages({focus}", ownerStart);
+    const owner = adminApp.slice(ownerStart, ownerEnd);
+    expect(owner).toContain("<AdminGlobalTradeControls />");
+    expect(owner).toContain("<AdminTradeAllocationControl />");
+    const apiStart = adminApp.indexOf("function AdminApis()");
+    const apiEnd = adminApp.indexOf("function AdminBranding()", apiStart);
+    expect(adminApp.slice(apiStart, apiEnd)).not.toContain("AdminTradeAllocationControl");
+  });
+
+  it("keeps the owner guide navigation-only and describes financial and storage limits", () => {
+    const guide = readFileSync(new URL("../client/src/components/TradeSettingsAdminGuide.tsx", import.meta.url), "utf8");
+    expect(adminApp).toContain('section==="tradeAdminGuide"&&<TradeSettingsAdminGuide');
+    expect(guide).toContain("onNavigate");
+    expect(guide).toContain("does not save settings or perform operational actions");
+    expect(guide).toContain("single persisted <code>trade.globalControls</code> record");
+    expect(guide).toContain("Legacy per-package master columns are inert compatibility fields");
+    expect(guide).toContain("Automatic financial execution remains hard-disabled");
+    expect(guide).not.toMatch(/<form\b|<input\b|<textarea\b|useMutation\(|\.mutate\(/);
   });
 });
 
@@ -262,7 +331,8 @@ describe("Trading menu ownership and quota save feedback", () => {
     expect(navigation).not.toContain('id: "trade-offers"');
     expect(navigation).not.toContain('id: "trade-results"');
     expect(navigation).not.toContain('id: "trade-monitoring"');
-    expect(navigation).not.toContain('id: "trade-history"');
+    expect(navigation).toContain('id: "trade-history", target: "tradeHistory", label: "Trading History"');
+    expect(navigation.match(/id: "trade-history"/g)).toHaveLength(1);
     expect(navigation).toContain('id: "trade-opportunity-publishing", target: "opportunity"');
     expect(navigation).toContain('id: "trade-company-rotation", target: "packages", focus: "rotation"');
     expect(navigation).not.toContain('id: "admin-audit-log"');
@@ -334,14 +404,18 @@ describe("Trading overview and duration navigation", () => {
     expect(focusedSettings).toContain('{tab==="ticket"&&!focus&&<div className="settings-card">');
     expect(focusedSettings).not.toContain('{tab==="email"&&!focus');
     expect(focusedSettings).toContain('{tab==="password"&&!focus&&<div className="settings-card">');
-    expect(focusedSettings).toContain('await save.mutateAsync({trade});');
+    expect(focusedSettings).toContain('await save.mutateAsync({trade:{...trade,reason:tradeReason.trim(),expectedPolicyVersion}});');
+    expect(focusedSettings).toContain('Number(stored?.policyVersion)===expectedPolicyVersion+1');
+    expect(focusedSettings).toContain('Reason for this global policy change (required)');
     expect(focusedSettings).toContain('await save.mutateAsync({ticket});');
     expect(focusedSettings).toContain('Only the section shown on this page is submitted; other saved settings are left unchanged.');
     expect(focusedSettings).toContain('fresh server read did not confirm every saved value');
     expect(focusedSettings).not.toContain('email:{');
     expect(focusedSettings).toContain('{tab==="trade"&&focus==="tradeDuration"&&<div className="settings-card">');
     expect(focusedSettings).not.toContain('>Trade settlement</button>');
-    expect(focusedSettings).toContain('await save.mutateAsync({trade});');
+    expect(focusedSettings).toContain('await save.mutateAsync({trade:{...trade,reason:tradeReason.trim(),expectedPolicyVersion}});');
+    expect(focusedSettings).toContain('Number(stored?.policyVersion)===expectedPolicyVersion+1');
+    expect(focusedSettings).toContain('Reason for this global policy change (required)');
     expect(focusedSettings).toContain('await save.mutateAsync({ticket});');
     expect(focusedSettings).toContain('Other settings sections were not changed.');
     expect(focusedSettings).toContain('fresh server read did not confirm every saved value');

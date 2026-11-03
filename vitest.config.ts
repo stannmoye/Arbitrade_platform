@@ -14,6 +14,18 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["server/**/*.test.ts", "server/**/*.spec.ts", "client/src/contexts/theme-policy.test.ts", "client/src/notification-sound-*.test.ts", "client/src/lib/**/*.test.ts"],
+    include: [
+      "server/**/*.test.ts",
+      "server/**/*.spec.ts",
+      "client/src/contexts/theme-policy.test.ts",
+      "client/src/notification-sound-*.test.ts",
+      "client/src/lib/**/*.test.ts",
+      "client/src/admin-navigation.test.ts",
+      "client/src/opportunity-*.test.ts",
+      "client/src/trading-policy-patches.test.ts",
+      "client/src/trade-settings-*.test.ts",
+      "client/src/trade-admin-guide.contract.test.ts",
+      "client/src/trading-delivery-policy-*.test.ts",
+    ],
   },
 });

@@ -23,7 +23,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
   <div class="hero-meta">
     <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 12h18"/></svg> Admin guide</span>
     <span class="pill">Based on the current portal source</span>
-    <span class="pill">Last reviewed: 30 October 2026</span>
+    <span class="pill">Policy field notes updated: 3 November 2026</span>
     <span class="pill">Simple HTML · no external libraries</span>
   </div>
 </header>
@@ -70,9 +70,10 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 
 <section class="section anchor" id="menu">
 <div class="eyebrow">02 · Find your way around</div><h2>Trade Settings menu map</h2>
-<p>All Trading configuration and monitoring now lives under one top-level <strong>Trade Settings</strong> group. Each setting has one primary page. The persistent Trading controls panel above page content (except Home) is the only place for the per-tier ON/OFF switches.</p>
+<p>All Trading configuration and monitoring now lives under one top-level <strong>Trade Settings</strong> group. Each setting has one primary page. <strong>Package Configuration</strong> is the single UI owner for global eligibility, informational pop-up delivery, company rotation, randomized timing, burst delivery and the new-allocation safety gate. Tier lifecycle status is managed separately in Tiers &amp; Eligibility; legacy per-tier master columns are inert OFF compatibility placeholders, not copies of global state.</p>
 <div class="table-wrap"><table><thead><tr><th>Trade Settings submenu</th><th>What it is for</th><th>What you do there</th></tr></thead><tbody>
 <tr><td><strong>Trading Overview</strong></td><td>Operations summary</td><td>Review delivery totals, pending work, open opportunities, settlement status and global pause state.</td></tr>
+<tr><td><strong>Package Configuration</strong></td><td>Global policy owner</td><td>Manage global eligibility, informational pop-up delivery, company rotation, randomized timing, burst delivery and the allocation safety gate.</td></tr>
 <tr><td><strong>Tiers &amp; Eligibility</strong></td><td>Package entitlement rules</td><td>Edit tier names, qualifying thresholds, duration, daily opportunity entitlement and effective dates.</td></tr>
 <tr><td><strong>Per-tier Daily Delivery Caps</strong></td><td>Operational delivery ceilings</td><td>Set the hard daily pop-up ceiling, concurrent visible-offer limit, optional target cap and counting window.</td></tr>
 <tr><td><strong>Per-tier Offer Rules &amp; Capital Limits</strong></td><td>Published offer constraints</td><td>Set required capital bounds and configured reward-rate/duration eligibility bounds. Switches are not repeated here.</td></tr>
@@ -80,24 +81,25 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <tr><td><strong>Per-tier Delivery Schedule</strong></td><td>Per-tier cadence</td><td>Set minimum/maximum spacing and post-completion intervals for future pop-up delivery.</td></tr>
 <tr><td><strong>Global Trade Timing &amp; Settlement</strong></td><td>Closing and review timing</td><td>Review trade-duration estimates and global settlement/closing settings; time alone never confirms settlement.</td></tr>
 <tr><td><strong>Per-tier Pop-up Display</strong></td><td>Display-only settings</td><td>Adjust expanded pop-up and completion-card display durations.</td></tr>
-<tr><td><strong>Per-tier Company Rotation Rules</strong></td><td>Rotation configuration</td><td>Choose approved-company country filters and repeat-handling rules. ON/OFF is in the persistent controls panel.</td></tr>
+<tr><td><strong>Per-tier Company Rotation Rules</strong></td><td>Rotation configuration</td><td>Choose approved-company country filters and repeat-handling rules. The global rotation ON/OFF master is in Package Configuration.</td></tr>
 <tr><td><strong>Company Catalogue</strong></td><td>Reference records</td><td>Search and manage company reference records and their approval status. This page does not repeat rotation settings.</td></tr>
-<tr><td><strong>Capital &amp; Wallet Funding Rules</strong></td><td>Capital policy</td><td>Review required capital and permitted wallet funding rules.</td></tr>
+<tr><td><strong>Capital &amp; Wallet Funding Rules</strong></td><td>Read-only availability</td><td>The funding queue is not implemented. This route shows an explicit unavailable state and has no payout or settlement controls.</td></tr>
 <tr><td><strong>Fees &amp; Earnings Limits</strong></td><td>Fee policy</td><td>Configure Trading fees and review earnings ceilings.</td></tr>
-<tr><td><strong>Retries &amp; Carry-Forward</strong></td><td>Recovery policy</td><td>Set bounded retry limits and view carry-forward availability. Carry-forward is not currently enabled.</td></tr>
+<tr><td><strong>Retries &amp; Carry-Forward</strong></td><td>Recovery policy</td><td>Review retry settings and carry-forward availability. The stored per-tier delivery-attempt field is not currently consumed by the worker; carry-forward is not currently enabled.</td></tr>
 <tr><td><strong>Active &amp; Pending Opportunities</strong></td><td>Lifecycle monitoring</td><td>Review delivery events waiting for customer or system action.</td></tr>
-<tr><td><strong>Settlement &amp; Reconciliation</strong></td><td>Ledger review</td><td>Inspect confirmed outcomes and reconcile trade records against wallet/ledger entries.</td></tr>
-<tr><td><strong>System Pause &amp; Safety</strong></td><td>Global pause</td><td>Pause or resume new allocations with an audit reason while preserving pending work and reconciliation.</td></tr>
+<tr><td><strong>Manual Payouts</strong></td><td>Manual payout request owner</td><td>Review requests and record the existing paid/rejected administrative outcome. Any external bank or blockchain transfer occurs outside Arbitrade; this screen does not initiate one.</td></tr>
+<tr><td><strong>Settlement &amp; Reconciliation</strong></td><td>Trade settlement records</td><td>Confirm trade outcomes and review/reconcile trade settlement records only. Payout requests are handled on Manual Payouts.</td></tr>
 <tr><td><strong>Worker Health &amp; Recovery</strong></td><td>Background services</td><td>Check worker heartbeats, delayed work, queues and audited recovery actions.</td></tr>
 <tr><td><strong>Audit &amp; Policy History</strong></td><td>Administrator audit log</td><td>Review who changed Trading settings, why and which policy version was saved.</td></tr>
 <tr><td><strong>Trade Settings Guide</strong></td><td>This handbook</td><td>Read explanations without changing Trading data.</td></tr>
 </tbody></table></div>
-<div class="callout">The persistent Trading controls panel owns the per-tier Tier policy, Pop-up delivery, Company rotation, Randomized timing and Burst delivery switches. They are not repeated on the detailed settings pages. Customer package browsing and activation controls are not available.</div>
+<div class="callout">Package Configuration owns the canonical global master switches; legacy per-tier master columns are inert OFF compatibility placeholders, not duplicate controls. Tier lifecycle status is separate. Customer package browsing and activation controls are not available.</div>
+<div class="callout warn"><strong>Keep finance work separate:</strong> Finance → Wallet &amp; Ledger is read-only wallet/ledger activity and balance reconciliation; it does not resolve payout requests or settle trades. Trade Settings → Manual Payouts is the only payout-review route. Capital &amp; Wallet Funding Rules is explicitly unavailable/read-only until a funding queue is implemented.</div>
 </section>
 
 <section class="section anchor" id="tiers">
 <div class="eyebrow">03 · Packages & eligibility</div><h2>Tiers &amp; Eligibility: every input</h2>
-<p>This screen defines the milestones used by the automatic qualification system. A new tier package is enabled by default for future automatic eligibility. Its pop-up policy is initialized with valid display defaults (2%–3% configured rate, 300–900 second duration, policy and pop-up delivery, company rotation, randomized timing and bounded burst delivery enabled); automatic financial execution remains OFF. Administrators can disable the package or individual delivery controls at any time.</p>
+<p>This screen defines the milestones used by the automatic qualification system. Package lifecycle status is separate from the global eligibility and informational-delivery masters. Legacy per-tier master columns are inert OFF compatibility placeholders, not copies of global settings. Set global masters only through Package Configuration; qualification and informational delivery require those canonical settings to be present, valid and ON. Save reviewed, valid offer-rate and duration bounds before enabling a tier. Automatic financial execution remains hard-disabled.</p>
 <div class="field-list">
 <div class="field"><b>Tier name</b><span>The name administrators and the eligible customer may see, such as Starter or Growth. Use a clear unique name.</span></div>
 <div class="field"><b>Qualifying deposit threshold (USD)</b><span>The cumulative qualifying admin-credit amount needed for this tier. The server compares saved USD-minor attribution, not a customer's ordinary wallet balance.</span></div>
@@ -160,19 +162,19 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 </div>
 <h3>Buttons and import</h3>
 <ul>
-<li><strong>Publish to database:</strong> submits the manual opportunity form. All offer fields start blank; enter only reviewed, source-backed terms. The form does not invent symbols, venues, payout rates or execution results.</li>
-<li><strong>Choose CSV file:</strong> imports a CSV with columns <code>symbol, venueFrom, venueTo, currency, minimumMinor, expectedRewardBps, durationSeconds</code>. The current import accepts valid rows in one batch (up to 5,000 rows).</li>
-<li><strong>Open database opportunities:</strong> read-only list of open records; the page shows up to the first 100.</li>
+<li><strong>Publish to database:</strong> submits the manual opportunity form. All offer fields start blank; enter reviewed terms with a required source reference and operator review note. Both are saved with the administrator identity and accepted terms in Trade Audit History; the platform does not independently verify the external evidence or the substance of the note. The form does not invent symbols, venues, payout rates or execution results.</li>
+<li><strong>Choose CSV file:</strong> imports a CSV with columns <code>symbol, venueFrom, venueTo, currency, minimumMinor, expectedRewardBps, durationSeconds, sourceReference, reviewNotes</code>. Every row requires its own source reference and review note; valid rows are published in one batch (up to 5,000 rows). The platform does not independently verify the external evidence or the substance of the note.</li>
+<li><strong>Open database opportunities:</strong> list of currently open records; the page shows up to the first 100.</li>
 </ul>
 <div class="callout stop"><strong>Financial safety:</strong> A published opportunity, a countdown, a company logo or a configured reward estimate is not proof of external-market execution or realized profit. Actual results must be supported by auditable evidence and settlement records. Do not treat the manual form or CSV as permission to invent a result.</div>
 </section>
 
 <section class="section anchor" id="policy">
 <div class="eyebrow">06 · The most detailed editor</div><h2>Offer Rules &amp; Capital Limits</h2>
-<p>This editor holds offer eligibility and capital bounds for each tier. Delivery policy and pop-up delivery ON/OFF switches are available only in the persistent Trading controls panel. Changes are validated, audited and versioned by the server.</p>
-<div class="callout warn"><strong>Before enabling:</strong> save both a minimum and maximum configured return rate, and both a minimum and maximum trade duration. The two bounds in each pair must be present and valid. A newly created tier starts enabled for eligible customer pop-up delivery. Administrators can disable it at any time; financial execution remains separately controlled.</div>
+<p>This editor holds offer eligibility and capital bounds for each tier. Global eligibility and pop-up delivery masters are available only in Package Configuration. Tier lifecycle status is separate; legacy per-tier master columns are inert OFF compatibility placeholders. Changes are validated, audited and versioned by the server.</p>
+<div class="callout warn"><strong>Before enabling:</strong> save both a minimum and maximum configured return rate, and both a minimum and maximum trade duration. The two bounds in each pair must be present and valid. Confirm the saved tier lifecycle status and the canonical global masters in Package Configuration; financial execution remains separately hard-disabled.</div>
 <h3>Delivery switches</h3>
-<p>Use the persistent Trading controls panel above the admin page to change Tier policy and Pop-up delivery. Company rotation, randomized timing and burst delivery switches are also owned there. This detail page does not repeat those controls. Automatic financial execution remains protected OFF.</p>
+<p>Use Package Configuration to change the global Tier policy, Pop-up delivery, Company rotation, randomized timing and Burst delivery masters. This detail page does not repeat those controls. Automatic financial execution remains protected OFF.</p>
 <h3>Capital bounds</h3>
 <div class="field-list">
 <div class="field"><b>Minimum required capital (USD units)</b><span>Lowest configured capital amount. This legacy field uses whole USD units.</span></div>
@@ -181,20 +183,24 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <h3>Delivery cadence and display</h3>
 <div class="field-list">
 <div class="field"><b>Minimum / maximum interval (seconds)</b><span>Lower and upper spacing between deliveries. The lower bound must not exceed the upper bound.</span></div>
-<div class="field"><b>Expanded pop-up display duration</b><span>How long the expanded presentation stays visible. It must not cancel an active trade.</span></div>
+<div class="field"><b>Expanded pop-up display duration</b><span>Supported range: 1–86,400 seconds (1 second–24 hours). Older saved values above one day are not silently migrated; lower and save them before publishing further tier-policy changes. This is presentation-only and must not cancel an active trade.</span></div>
 <div class="field"><b>Completed card display duration</b><span>How long a completed result card remains visible.</span></div>
 <div class="field"><b>Interval after completion</b><span>Extra waiting time after completion before another delivery is considered.</span></div>
-<div class="field"><b>Maximum pending deliveries</b><span>Upper limit for pending delivery records in this tier's policy.</span></div>
+<div class="field"><b>Maximum pending deliveries</b><span>The per-customer/per-package pending-delivery cap is enforced by runtime admission (0–1,000). It counts queued, in-progress and retry-wait informational deliveries; zero blocks new pending deliveries. Delivered, dismissed, failed and expired rows do not count.</span></div>
+</div>
+<h3>Shared delivery retry policy</h3>
+<div class="field-list">
+<div class="field"><b>Retries &amp; Carry-Forward</b><span>One shared admin-owned policy controls delivery retry attempts and delivery-specific intervals. No per-tier delivery-attempt override or interval is prefilled. Temporary retry remains unavailable until a valid shared policy is explicitly saved.</span></div>
 </div>
 <h3>Trade retry and concurrency limits</h3>
 <div class="field-list">
-<div class="field"><b>Maximum delivery attempts</b><span>How many attempts the delivery process may make before it stops retrying.</span></div>
 <div class="field"><b>Maximum trade attempts per day</b><span>Daily cap on automatic trade attempts.</span></div>
 <div class="field"><b>Trade retry delay (seconds)</b><span>Wait between eligible technical retry attempts. Current input accepts 5–3,600 seconds.</span></div>
 <div class="field"><b>Maximum successful trades per day</b><span>Daily cap on successful trades for the tier.</span></div>
 <div class="field"><b>Maximum concurrent active trades</b><span>How many active trades may overlap under the policy.</span></div>
 <div class="field"><b>Require previous trade settlement</b><span>If Yes, wait for the previous trade to settle before allowing another one. If No, use the configured concurrency cap.</span></div>
 <div class="field"><b>Minimum / maximum settlement delay</b><span>Lower and upper settlement timing bounds, in seconds.</span></div>
+<div class="field"><b>Financial safety boundary</b><span>Automatic trading, automatic result determination and automatic fund allocation are hard-disabled. Ledger posting is permitted only after administrator confirmation.</span></div>
 </div>
 <h3>Package badge</h3>
 <div class="field-list">
@@ -209,7 +215,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 </div>
 <h3>Company spotlight rotation</h3>
 <div class="field-list">
-<div class="field"><b>Company rotation status</b><span>Turn rotation ON/OFF in the persistent Trading controls panel. The settings on this page only choose the approved company pool and repeat-handling rules.</span></div>
+<div class="field"><b>Company rotation status</b><span>Set the global rotation master in Package Configuration. The settings on this page only choose the approved company pool and repeat-handling rules.</span></div>
 <div class="field"><b>Repeat policy</b><span><strong>Avoid repeats until the pool is traversed</strong> is the no-repeat preference. <strong>Allow repeats</strong> permits reuse sooner.</span></div>
 <div class="field"><b>Country-folder filters</b><span>Comma-separated exact catalogue folder labels. Blank includes the full catalogue. Folder labels are not proof of headquarters or exchange listing.</span></div>
 </div>
@@ -343,14 +349,14 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <div class="eyebrow">13 · A sensible setup order</div><h2>How to choose settings safely</h2>
 <p>There is no single magic number that is best for every business. Start with small, controlled settings, confirm that the records and customer screens behave correctly, and only then increase capacity.</p>
 <ol>
-<li><strong>Build the tiers first.</strong> Give each tier a clear name, threshold, duration and daily opportunity contribution. New tiers are enabled by default; use the administrator controls to pause a tier or its delivery when required.</li>
+<li><strong>Build the tiers first.</strong> Give each tier a clear name, threshold, duration and daily opportunity contribution. Review and set each tier’s lifecycle status and valid policy values explicitly; configure global eligibility and delivery only in Package Configuration.</li>
 <li><strong>Check qualifying-credit rules.</strong> Make sure administrators understand that only the explicitly qualifying Credit Customer flow counts. Do not use signup credit or ordinary deposits to reach thresholds.</li>
 <li><strong>Start with a modest daily quota.</strong> Keep the daily target and maximum pop-ups aligned. Choose a rolling 24-hour or UTC calendar-day window deliberately.</li>
 <li><strong>Keep delivery intervals sensible.</strong> The minimum interval must be no greater than the maximum. Avoid bursts and high concurrency until the complete lifecycle has been tested.</li>
 <li><strong>Set capital limits that customers can actually meet.</strong> Keep the minimum and maximum coherent. Remember that the current tier policy editor expresses these capital bounds in whole USD units.</li>
 <li><strong>Set complete rate and duration bounds.</strong> Both ends of each range must be present. Keep configured rates and durations within the approved terms and system limits.</li>
 <li><strong>Make customer display clear.</strong> Use a short badge label and a matching built-in style. Keep popup display time separate from package duration and trade duration.</li>
-<li><strong>Set conservative retry limits.</strong> Allow only bounded technical retries with a clear delay. Carry-forward is not currently available in the menu.</li>
+<li><strong>Review retry settings carefully.</strong> Configure delivery attempts and intervals only through the single shared Retries &amp; Carry-Forward page; do not confuse them with per-tier trade retry timing. No retry schedule is prefilled. Carry-forward remains disabled unless the backend explicitly reports a supported policy.</li>
 <li><strong>Check settlement and fee rules.</strong> Confirm the fee basis and rounding method. Require evidence before confirming actual settlement.</li>
 <li><strong>Test the global pause.</strong> Confirm that pausing blocks new allocations but does not stop existing settlement or reconciliation.</li>
 <li><strong>Check Worker Health and delivery reports.</strong> Make sure the server records heartbeats and successful cycles. Investigate stale, degraded or dead-lettered items before enabling more volume.</li>

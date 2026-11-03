@@ -35,8 +35,6 @@ export function AdminTierPolicyFields({ mode, x, i, set }: {
   return <>
     <div className="package-policy-section">
       <strong>Delivery safeguards &amp; notification settings</strong>
-      <label>Retry policy<select value={x.deliveryRetryPolicy ?? "temporary"} onChange={e => set(i, "deliveryRetryPolicy", e.target.value)}><option value="none">No retry</option><option value="temporary">Retry temporary failures</option></select></label>
-      <label>Expiry handling<select value={x.expiryHandling ?? "expire"} onChange={e => set(i, "expiryHandling", e.target.value)}><option value="expire">Expire overdue deliveries</option><option value="retry">Retry expired deliveries</option></select></label>
       <label>Prevent duplicate deliveries <input type="checkbox" checked={Boolean(x.duplicatePrevention ?? true)} onChange={e => set(i, "duplicatePrevention", e.target.checked)} /></label>
       <label>Enable pop-up sound <input type="checkbox" checked={Boolean(x.audioEnabled ?? true)} onChange={e => set(i, "audioEnabled", e.target.checked)} /></label>
       <label>Sound theme<input maxLength={80} value={x.audioSound ?? "soft-chime"} onChange={e => set(i, "audioSound", e.target.value)} /></label>

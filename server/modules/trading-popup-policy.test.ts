@@ -36,6 +36,7 @@ describe("Trading pop-up policy", () => {
     expect(() => validateTradingPopupPolicy({ ...policy, minimumDurationSeconds: 301 })).toThrow(/duration/);
     expect(() => validateTradingPopupPolicy({ ...policy, minimumCapitalMinor: 100_001 })).toThrow(/capital/i);
     expect(() => validateTradingPopupPolicy({ ...policy, popupDisplaySeconds: 0 })).toThrow(/popupDisplaySeconds/);
+    expect(() => validateTradingPopupPolicy({ ...policy, popupDisplaySeconds: 86_401 })).toThrow(/cannot exceed one day/);
   });
 
   it("chooses inclusively and rejects a sampler that violates the configured bounds", () => {

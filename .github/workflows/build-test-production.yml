@@ -53,6 +53,8 @@ jobs:
         run: pnpm check
       - name: Automated tests
         run: pnpm test
+      - name: Installer and migration contract tests
+        run: pnpm exec vitest run --config vitest.installer.config.ts
       - name: Production build
         run: pnpm build
 

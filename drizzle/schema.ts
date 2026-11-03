@@ -223,12 +223,25 @@ export const opportunityDeliveryEvents = mysqlTable("opportunity_delivery_events
   expiresAt: timestamp("expiresAt"),
   policyVersion: int("policyVersion").default(1).notNull(),
 });
+export const opportunityDeliveryIdempotency = mysqlTable("opportunity_delivery_idempotency", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  offerId: int("offerId").notNull(),
+  popupEventId: int("popupEventId"),
+  packageId: int("packageId").notNull().default(0),
+  packageName: varchar("packageName", { length: 80 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  customerOfferUnique: uniqueIndex("opportunity_delivery_idempotency_user_offer_uq").on(table.userId, table.offerId),
+  popupEventIdx: index("opportunity_delivery_idempotency_popup_idx").on(table.popupEventId),
+}));
 export const opportunityPopupEvents = mysqlTable("opportunity_popup_events", {
   id: int("id").autoincrement().primaryKey(),
   eventKey: varchar("eventKey", { length: 180 }).notNull().unique(),
   userId: int("userId").notNull(),
   offerId: int("offerId").notNull(),
   quotaDay: varchar("quotaDay", { length: 10 }).notNull(),
+  packageId: int("packageId"),
   packageName: varchar("packageName", { length: 80 }).notNull(),
   symbol: varchar("symbol", { length: 40 }).notNull(),
   currency: varchar("currency", { length: 32 }).notNull(),
@@ -253,8 +266,12 @@ export const opportunityPopupEvents = mysqlTable("opportunity_popup_events", {
   marketSnapshotJson: text("marketSnapshotJson"),
   eventStatus: mysqlEnum("eventStatus", ["DELIVERED", "NOTICED", "OPENED", "DISMISSED", "WITHDRAWN", "TRADED", "SETTLED"]).default("DELIVERED").notNull(),
   deliveredAt: timestamp("deliveredAt").defaultNow().notNull(),
-  deliveryStatus: mysqlEnum("deliveryStatus", ["pending", "delivered", "received", "rendered", "failed", "expired"]).default("delivered").notNull(),
-  deliveryAttemptCount: int("deliveryAttemptCount").default(1).notNull(),
+  deliveryStatus: mysqlEnum("deliveryStatus", ["queued", "in_progress", "retry_wait", "delivered", "received", "rendered", "failed", "dismissed", "expired"]).default("delivered").notNull(),
+  deliveryAttemptCount: int("deliveryAttemptCount").default(0).notNull(),
+  deliveryRetryAfter: timestamp("deliveryRetryAfter"),
+  deliveryLeaseToken: varchar("deliveryLeaseToken", { length: 64 }),
+  deliveryLeaseExpiresAt: timestamp("deliveryLeaseExpiresAt"),
+  deliveryPolicyVersionSnapshot: int("deliveryPolicyVersionSnapshot").default(1).notNull(),
   lastErrorCode: varchar("lastErrorCode", { length: 80 }),
   executionStatus: mysqlEnum("executionStatus", ["READY", "RUNNING", "RETRYING", "SUCCEEDED", "FAILED"]).default("READY").notNull(),
   executionAttemptCount: int("executionAttemptCount").default(0).notNull(),
@@ -279,6 +296,8 @@ export const opportunityPopupEvents = mysqlTable("opportunity_popup_events", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
   dailyAttemptUserDayIdx: index("opportunity_popup_user_daily_attempt_day_idx").on(table.userId, table.executionDailyAttemptDay),
+  pendingPackageIdIdx: index("opportunity_popup_pending_package_id_idx").on(table.userId, table.packageId, table.deliveryStatus),
+  retryDueIdx: index("opportunity_popup_retry_due_idx").on(table.deliveryStatus, table.deliveryRetryAfter),
 }));
 export const opportunityPopupDaily = mysqlTable("opportunity_popup_daily", {
   id: int("id").autoincrement().primaryKey(),
@@ -560,6 +579,11 @@ export const tradePositions = mysqlTable("trade_positions", {
   feePolicyVersion: int("feePolicyVersion").default(1).notNull(),
   platformFeeRateBps: int("platformFeeRateBps").default(1500).notNull(),
   platformFeeRoundingMode: varchar("platformFeeRoundingMode", { length: 20 }).default("half_up").notNull(),
+  packageIdSnapshot: int("packageIdSnapshot"),
+  packageFeeRateBpsSnapshot: int("packageFeeRateBpsSnapshot"),
+  packageFeeRoundingModeSnapshot: varchar("packageFeeRoundingModeSnapshot", { length: 20 }),
+  packageFeePolicyVersionSnapshot: int("packageFeePolicyVersionSnapshot"),
+  packageFeeEffectiveAtSnapshot: timestamp("packageFeeEffectiveAtSnapshot"),
   settlementOutcome: varchar("settlementOutcome", { length: 32 }).default("legacy_unrecorded").notNull(),
   walletUpdatedAt: timestamp("walletUpdatedAt"),
   completionAt: timestamp("completionAt"),
@@ -627,6 +651,21 @@ export const packages = mysqlTable("packages", {
   enabled: boolean("enabled").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
+
+export const tradingPackageFeePolicyVersions = mysqlTable("trading_package_fee_policy_versions", {
+  packageId: int("packageId").notNull(),
+  version: int("version").notNull(),
+  feeRateBps: int("feeRateBps").notNull(),
+  roundingMode: varchar("roundingMode", { length: 20 }).notNull(),
+  effectiveAt: timestamp("effectiveAt").notNull(),
+  changedBy: varchar("changedBy", { length: 80 }).notNull(),
+  changedAt: timestamp("changedAt").defaultNow().notNull(),
+  reason: text("reason").notNull(),
+  source: varchar("source", { length: 80 }).notNull(),
+}, (table) => ({
+  packageVersionPrimary: uniqueIndex("trading_package_fee_policy_version_pk").on(table.packageId, table.version),
+  packageEffectiveIndex: index("trading_package_fee_policy_effective_idx").on(table.packageId, table.effectiveAt, table.version),
+}));
 
 export const packageEntitlements = mysqlTable("package_entitlements", {
   id: int("id").autoincrement().primaryKey(),

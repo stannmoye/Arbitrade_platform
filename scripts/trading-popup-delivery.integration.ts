@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import { closeDbPool, getDb, listCustomerOpportunities } from "../server/db";
+import { closeDbPool, ensureAutomaticTradingTierEntitlements, getDb, getTradeGlobalControls, listCustomerOpportunities, runTradingTierQualificationWorkerCycle } from "../server/db";
 import {
+  appSettings,
   customerBalances,
   customerPackageSubscriptions,
   currencyRegistry,
   opportunityDeliveryEvents,
+  opportunityDeliveryIdempotency,
   opportunityOffers,
   opportunityPackagePolicies,
   opportunityPopupEvents,
@@ -15,6 +17,8 @@ import {
   balanceLedger,
   users,
 } from "../drizzle/schema";
+import { parseTradeGlobalControlPolicy, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, type TradeGlobalControlPolicy } from "../server/trading-global-policy";
+import { updatePopupDeliveryStatus } from "../server/opportunityLifecycle";
 
 const db = await getDb();
 if (!db) {
@@ -40,9 +44,69 @@ let userId: number | undefined;
 let packageId: number | undefined;
 let subscriptionId: number | undefined;
 let offerId: number | undefined;
+let blockedOfferId: number | undefined;
 let currencyInserted = false;
+let originalGlobalControlRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
+let currentTestGlobalPolicy: TradeGlobalControlPolicy | null = null;
+
+async function persistGlobalPolicy(policy: TradeGlobalControlPolicy) {
+  const settingValue = JSON.stringify(policy);
+  await db.insert(appSettings).values({
+    settingKey: TRADE_GLOBAL_CONTROL_SETTINGS_KEY,
+    settingValue,
+    updatedBy: policy.updatedBy,
+  }).onDuplicateKeyUpdate({
+    set: { settingValue, updatedBy: policy.updatedBy, updatedAt: new Date() },
+  });
+}
+
+async function setGlobalPolicy(overrides: Partial<TradeGlobalControlPolicy>) {
+  if (!currentTestGlobalPolicy) throw new Error("Global-control integration fixture is not initialized.");
+  currentTestGlobalPolicy = {
+    ...currentTestGlobalPolicy,
+    ...overrides,
+    policyVersion: currentTestGlobalPolicy.policyVersion + 1,
+    updatedBy: null,
+    updatedAt: new Date().toISOString(),
+  };
+  await persistGlobalPolicy(currentTestGlobalPolicy);
+}
+
+async function restoreOriginalGlobalPolicy() {
+  if (!originalGlobalControlRow) return;
+  const existing = await db.select({ id: appSettings.id }).from(appSettings)
+    .where(eq(appSettings.settingKey, TRADE_GLOBAL_CONTROL_SETTINGS_KEY)).limit(1);
+  if (existing.length) {
+    await db.update(appSettings).set(originalGlobalControlRow)
+      .where(eq(appSettings.settingKey, TRADE_GLOBAL_CONTROL_SETTINGS_KEY));
+  } else {
+    await db.insert(appSettings).values({
+      settingKey: TRADE_GLOBAL_CONTROL_SETTINGS_KEY,
+      ...originalGlobalControlRow,
+    });
+  }
+}
 
 try {
+  const [globalControlRow] = await db.select({
+    settingValue: appSettings.settingValue,
+    updatedBy: appSettings.updatedBy,
+    updatedAt: appSettings.updatedAt,
+  }).from(appSettings).where(eq(appSettings.settingKey, TRADE_GLOBAL_CONTROL_SETTINGS_KEY)).limit(1);
+  if (!globalControlRow) throw new Error("Migration 0100 must install canonical global Trade controls before the popup integration.");
+  originalGlobalControlRow = globalControlRow;
+  const parsedGlobalPolicy = parseTradeGlobalControlPolicy(globalControlRow.settingValue);
+  if (!parsedGlobalPolicy) throw new Error("The disposable database must begin with a valid global Trade policy.");
+  currentTestGlobalPolicy = {
+    ...parsedGlobalPolicy,
+    tierPolicyMasterEnabled: true,
+    informationalPopupDeliveryEnabled: true,
+    policyVersion: parsedGlobalPolicy.policyVersion + 1,
+    updatedBy: null,
+    updatedAt: new Date().toISOString(),
+  };
+  await persistGlobalPolicy(currentTestGlobalPolicy);
+
   const [userResult] = await db.insert(users).values({
     openId: `popup-delivery-${token}`,
     name: "Popup Delivery Integration Customer",
@@ -172,14 +236,27 @@ try {
     id: opportunityPopupEvents.id,
     eventStatus: opportunityPopupEvents.eventStatus,
     deliveryStatus: opportunityPopupEvents.deliveryStatus,
+    packageId: opportunityPopupEvents.packageId,
     offerId: opportunityPopupEvents.offerId,
   }).from(opportunityPopupEvents).where(and(
     eq(opportunityPopupEvents.userId, userId),
     eq(opportunityPopupEvents.offerId, offerId),
   ));
   assert.equal(popupRows.length, 1, "The durable popup lifecycle row must be persisted exactly once.");
+  assert.equal(Number(popupRows[0]?.packageId), packageId,
+    "The immutable package primary key, not its mutable display name, is persisted on the event.");
+  const fenceRows = await db.select({ packageId: opportunityDeliveryIdempotency.packageId, popupEventId: opportunityDeliveryIdempotency.popupEventId })
+    .from(opportunityDeliveryIdempotency).where(and(
+      eq(opportunityDeliveryIdempotency.userId, userId), eq(opportunityDeliveryIdempotency.offerId, offerId),
+    ));
+  assert.equal(fenceRows.length, 1, "The durable user-offer idempotency fence must exist exactly once.");
+  assert.equal(Number(fenceRows[0]?.packageId), packageId);
+  assert.equal(Number(fenceRows[0]?.popupEventId), Number(popupRows[0]?.id));
   assert.equal(popupRows[0]?.eventStatus, "DELIVERED");
-  assert.equal(popupRows[0]?.deliveryStatus, "delivered");
+  assert.equal(popupRows[0]?.deliveryStatus, "queued",
+    "Worker admission queues the durable informational delivery; the customer poll owns the dispatch claim.");
+  assert.equal(Number((await db.select({ deliveryAttemptCount: opportunityPopupEvents.deliveryAttemptCount }).from(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, popupRows[0]!.id)))[0]?.deliveryAttemptCount), 0,
+    "Queue admission is not an actual dispatch attempt.");
 
   const deliveryRows = await db.select({
     offerId: opportunityDeliveryEvents.offerId,
@@ -191,7 +268,7 @@ try {
   ));
   assert.equal(deliveryRows.length, 1, "The delivery quota ledger must be persisted exactly once.");
   assert.equal(deliveryRows[0]?.quotaDay, quotaDay);
-  assert.equal(deliveryRows[0]?.status, "delivered");
+  assert.equal(deliveryRows[0]?.status, "pending");
 
   const customerRead = await listCustomerOpportunities(userId);
   assert.equal(customerRead.delivery.enabled, true);
@@ -199,7 +276,24 @@ try {
     "The normal customer read path must return the worker-created popup.");
   assert.equal(customerRead.offers[0]?.offerId, offerId);
   assert.equal(customerRead.offers[0]?.popupEligible, true);
+  assert.equal(customerRead.offers[0]?.deliveryStatus, "in_progress");
+  assert.equal(customerRead.offers[0]?.deliveryAttemptCount, 1,
+    "The first actual customer dispatch claim is attempt one.");
+  assert.ok(customerRead.offers[0]?.deliveryLeaseToken,
+    "A customer poll receives the dispatch fencing token used for acknowledgements.");
 
+  const activeLeaseToken = customerRead.offers[0]?.deliveryLeaseToken;
+  assert.ok(activeLeaseToken, "The claimed delivery must retain a fencing token until acknowledgement.");
+  await updatePopupDeliveryStatus(userId, Number(popupRows[0]?.id), "rendered", undefined, activeLeaseToken);
+  const acknowledged = await db.select({ deliveryStatus: opportunityPopupEvents.deliveryStatus, eventStatus: opportunityPopupEvents.eventStatus })
+    .from(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id)));
+  assert.equal(acknowledged[0]?.deliveryStatus, "rendered");
+  assert.equal(acknowledged[0]?.eventStatus, "DELIVERED",
+    "A rendered acknowledgement must not determine offer/trade result state.");
+  await updatePopupDeliveryStatus(userId, Number(popupRows[0]?.id), "failed", "STALE_ACK", "stale-lease-token");
+  assert.equal((await db.select({ deliveryStatus: opportunityPopupEvents.deliveryStatus }).from(opportunityPopupEvents)
+    .where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id))))[0]?.deliveryStatus, "rendered",
+    "A stale acknowledgement must not overwrite current informational delivery state.");
   const secondCycle = await listCustomerOpportunities(userId, {
     workerCycle: true,
     consumeDelivery: false,
@@ -234,6 +328,82 @@ try {
     .where(eq(tradePositions.userId, userId))).length, 0,
     "Informational popup delivery must not create financial trade records.");
 
+  // Remove unrelated delivery cooldown as a competing gate so the next open
+  // opportunity is eligible unless the global policy under test blocks it.
+  await db.update(opportunityPackagePolicies).set({
+    minIntervalSeconds: 0,
+    maxIntervalSeconds: 0,
+    postCompletionIntervalSeconds: 0,
+  }).where(eq(opportunityPackagePolicies.packageName, packageName));
+  const [blockedOfferResult] = await db.insert(opportunityOffers).values({
+    symbol: `BLOCKED-${token.slice(0, 5)}`,
+    venueFrom: "reviewed-integration-source",
+    venueTo: "reviewed-integration-destination",
+    currency,
+    minimumMinor: 10_000,
+    expectedRewardBps: 250,
+    durationSeconds: 600,
+    opensAt: new Date(Date.now() - 1_000),
+    closesAt: new Date(Date.now() + 10 * 60_000),
+    rewardAt: new Date(Date.now() + 10 * 60_000),
+    status: "open",
+  });
+  blockedOfferId = Number(blockedOfferResult.insertId);
+
+  const assertNoNewPopup = async (state: string) => {
+    const cycle = await listCustomerOpportunities(userId!, { workerCycle: true, consumeDelivery: false, allowAutomaticExecution: false });
+    assert.equal(cycle.delivery.enabled, false, `${state} must disable new customer popup delivery.`);
+    assert.equal(cycle.delivery.globalPolicyPaused, true, `${state} must report the global gate as paused.`);
+    assert.equal(cycle.offers.some(offer => Number(offer.offerId) === blockedOfferId), false,
+      `${state} must not expose the newly published opportunity as a customer popup.`);
+    assert.equal((await db.select({ id: opportunityPopupEvents.id }).from(opportunityPopupEvents).where(and(
+      eq(opportunityPopupEvents.userId, userId!),
+      eq(opportunityPopupEvents.offerId, blockedOfferId!),
+    ))).length, 0, `${state} must not persist a popup lifecycle event.`);
+    assert.equal((await db.select({ id: opportunityDeliveryEvents.id }).from(opportunityDeliveryEvents).where(and(
+      eq(opportunityDeliveryEvents.userId, userId!),
+      eq(opportunityDeliveryEvents.offerId, blockedOfferId!),
+    ))).length, 0, `${state} must not consume delivery quota.`);
+  };
+  const assertQualificationPaused = async (state: string) => {
+    const worker = await runTradingTierQualificationWorkerCycle();
+    assert.equal(worker.pausedByGlobalPolicy, true, `${state} must pause the qualification worker.`);
+    assert.equal(worker.claimed, 0, `${state} must not claim qualification jobs.`);
+    assert.equal(await ensureAutomaticTradingTierEntitlements(userId!), false,
+      `${state} must not create or reconcile an entitlement.`);
+  };
+
+  await setGlobalPolicy({ informationalPopupDeliveryEnabled: false, tierPolicyMasterEnabled: true });
+  const deliveryOffPolicy = await getTradeGlobalControls();
+  assert.equal(deliveryOffPolicy.available, true);
+  assert.equal(deliveryOffPolicy.tierPolicyMasterEnabled, true);
+  assert.equal(deliveryOffPolicy.informationalPopupDeliveryEnabled, false);
+  await assertNoNewPopup("global pop-up delivery OFF");
+
+  await setGlobalPolicy({ informationalPopupDeliveryEnabled: true, tierPolicyMasterEnabled: false });
+  const tierOffPolicy = await getTradeGlobalControls();
+  assert.equal(tierOffPolicy.available, true);
+  assert.equal(tierOffPolicy.tierPolicyMasterEnabled, false);
+  await assertQualificationPaused("global tier policy OFF");
+  await assertNoNewPopup("global tier policy OFF");
+
+  await db.update(appSettings).set({ settingValue: "not-json", updatedAt: new Date() })
+    .where(eq(appSettings.settingKey, TRADE_GLOBAL_CONTROL_SETTINGS_KEY));
+  const malformedPolicy = await getTradeGlobalControls();
+  assert.equal(malformedPolicy.available, false);
+  assert.equal(malformedPolicy.tierPolicyMasterEnabled, false);
+  assert.equal(malformedPolicy.informationalPopupDeliveryEnabled, false);
+  await assertQualificationPaused("malformed global policy");
+  await assertNoNewPopup("malformed global policy");
+
+  await db.delete(appSettings).where(eq(appSettings.settingKey, TRADE_GLOBAL_CONTROL_SETTINGS_KEY));
+  const missingPolicy = await getTradeGlobalControls();
+  assert.equal(missingPolicy.available, false);
+  assert.equal(missingPolicy.tierPolicyMasterEnabled, false);
+  assert.equal(missingPolicy.informationalPopupDeliveryEnabled, false);
+  await assertQualificationPaused("missing global policy");
+  await assertNoNewPopup("missing global policy");
+
   console.log(JSON.stringify({
     ok: true,
     journey: "qualified customer popup delivery",
@@ -241,32 +411,43 @@ try {
     persistedQuotaEvents: deliveryRows.length,
     customerReadReturnsPopup: true,
     repeatedWorkerCycleIsIdempotent: true,
+    globalOffAndFailClosedStates: ["popup-delivery-off", "tier-policy-off", "malformed-policy", "missing-policy"],
     automaticFinancialExecution: "disabled",
     walletAndLedgerMutations: 0,
     tradeRowsCreated: 0,
   }));
 } finally {
   try {
-    if (userId !== undefined && offerId !== undefined) {
-      await db.delete(opportunityPopupEvents).where(and(
-        eq(opportunityPopupEvents.userId, userId),
-        eq(opportunityPopupEvents.offerId, offerId),
-      ));
-      await db.delete(opportunityDeliveryEvents).where(and(
-        eq(opportunityDeliveryEvents.userId, userId),
-        eq(opportunityDeliveryEvents.offerId, offerId),
-      ));
-    }
-    if (offerId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, offerId));
-    if (userId !== undefined) {
-      await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.userId, userId));
-      await db.delete(customerBalances).where(eq(customerBalances.userId, userId));
-      await db.delete(users).where(eq(users.id, userId));
-    }
-    await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName));
-    if (packageId !== undefined) await db.delete(packages).where(eq(packages.id, packageId));
-    if (currencyInserted) await db.delete(currencyRegistry).where(eq(currencyRegistry.code, currency));
+    await restoreOriginalGlobalPolicy();
   } finally {
-    await closeDbPool();
+    try {
+      for (const fixtureOfferId of [offerId, blockedOfferId]) {
+        if (userId !== undefined && fixtureOfferId !== undefined) {
+          await db.delete(opportunityDeliveryIdempotency).where(and(
+            eq(opportunityDeliveryIdempotency.userId, userId),
+            eq(opportunityDeliveryIdempotency.offerId, fixtureOfferId),
+          ));
+          await db.delete(opportunityPopupEvents).where(and(
+            eq(opportunityPopupEvents.userId, userId),
+            eq(opportunityPopupEvents.offerId, fixtureOfferId),
+          ));
+          await db.delete(opportunityDeliveryEvents).where(and(
+            eq(opportunityDeliveryEvents.userId, userId),
+            eq(opportunityDeliveryEvents.offerId, fixtureOfferId),
+          ));
+        }
+        if (fixtureOfferId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, fixtureOfferId));
+      }
+      if (userId !== undefined) {
+        await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.userId, userId));
+        await db.delete(customerBalances).where(eq(customerBalances.userId, userId));
+        await db.delete(users).where(eq(users.id, userId));
+      }
+      await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName));
+      if (packageId !== undefined) await db.delete(packages).where(eq(packages.id, packageId));
+      if (currencyInserted) await db.delete(currencyRegistry).where(eq(currencyRegistry.code, currency));
+    } finally {
+      await closeDbPool();
+    }
   }
 }

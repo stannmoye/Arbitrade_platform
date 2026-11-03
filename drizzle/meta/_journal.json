@@ -477,6 +477,34 @@
       "when": 1793404800014,
       "tag": "0098_disable_automatic_financial_execution",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1793404800015,
+      "tag": "0099_trading_global_timing_policy_version",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1793404800016,
+      "tag": "0100_global_trade_master_controls",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1793404800017,
+      "tag": "0101_package_fee_policy_versions",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1793404800018,
+      "tag": "0102_opportunity_delivery_retry_lifecycle",
+      "breakpoints": true
     }
   ]
 }

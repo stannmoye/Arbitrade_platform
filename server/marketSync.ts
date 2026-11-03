@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, lt } from "drizzle-orm";
+import { and, desc, eq, gt, lte } from "drizzle-orm";
 import { countOutstandingTrades, getDb, getTradeSettlementPolicy } from "./db";
 import { currencyRegistry, fxRateSnapshots, marketInstruments, marketSnapshots, opportunityOffers } from "../drizzle/schema";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marketProviders";
@@ -58,7 +58,7 @@ export async function ensureMarketDrivenOpportunities(_refreshedAt = new Date())
   // Never invent trade economics from market snapshots; offers require published terms.
   await db.update(opportunityOffers)
     .set({ status: "closed" })
-    .where(and(eq(opportunityOffers.status, "open"), lt(opportunityOffers.closesAt, now)));
+    .where(and(eq(opportunityOffers.status, "open"), lte(opportunityOffers.closesAt, now)));
 
   const availableOffers = await db.select({ id: opportunityOffers.id })
     .from(opportunityOffers)

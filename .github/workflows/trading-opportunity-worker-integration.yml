@@ -40,6 +40,8 @@ jobs:
     steps:
       - name: Check out exact commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -55,6 +57,20 @@ jobs:
         run: node scripts/guarded-main-migrate.mjs
         env:
           DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_opportunity_worker_test
+      - name: Verify package-specific fee version migration and immutable history
+        run: pnpm exec tsx scripts/trading-package-fee-policy.integration.ts
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_opportunity_worker_test
+          RUN_DISPOSABLE_PACKAGE_FEE_INTEGRATION: "1"
+      - name: Verify global Trade controls migration precedence and idempotency
+        run: pnpm exec vitest run server/trading-global-policy-migration.integration.test.ts
+        env:
+          TEST_DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_opportunity_worker_test
+      - name: Verify global Trade controls authorization, audit, and rollback
+        run: pnpm exec vitest run server/trading-global-controls-api.integration.test.ts
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_opportunity_worker_test
+          RUN_TRADE_GLOBAL_CONTROLS_DB_INTEGRATION: "1"
       - name: Bridge and verify worker runtime schema contracts
         run: node scripts/ensure-worker-runtime-schema.mjs
         env:

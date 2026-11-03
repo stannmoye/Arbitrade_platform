@@ -65,6 +65,10 @@ const migrationFiles = [
   "0096_trade_settlement_review_timestamp.sql",
   "0097_trading_daily_execution_attempt_accounting.sql",
   "0098_disable_automatic_financial_execution.sql",
+  "0099_trading_global_timing_policy_version.sql",
+  "0100_global_trade_master_controls.sql",
+  // 0101/0102 are canonical Drizzle-journal migrations. They must not be
+  // replayed by this legacy portal tracker after guarded-main-migrate.
 ];
 // These tables are schema-baseline indicators for first-time portal migration tracking.
 // Some also belong to the main Drizzle chain; none of them alone proves that a

@@ -8,7 +8,9 @@ import {
   getCompanyReferenceCatalogueSize,
   getCompanyReferenceSummary,
   getRandomCompanyReference,
+  normalizeCompanyCatalogueActionReason,
   searchCompanyReferences,
+  transitionCompanyCatalogueAdminState,
 } from "./company-catalogue-reference";
 
 describe("Logo.dev brand-only static reference catalogue", () => {
@@ -52,8 +54,34 @@ describe("Logo.dev brand-only static reference catalogue", () => {
     expect(getCompanyReferenceById(sample.id)?.id).toBe(sample.id);
     expect(searchCompanyReferences({ search: sample.name, limit: 5 }).some((company) => company.id === sample.id)).toBe(true);
     expect(searchCompanyReferences({ search: sample.domain, limit: 5 }).length).toBeGreaterThan(0);
+    expect(searchCompanyReferences({ search: sample.id })).toEqual([expect.objectContaining({ id: sample.id })]);
+    expect(searchCompanyReferences({ search: sample.id.slice(0, -1) })).toHaveLength(0);
     expect(searchCompanyReferences({ limit: 1000 })).toHaveLength(1000);
     expect(COMPANY_REFERENCE_CATALOGUE.every((company) => company.countryName.length > 0)).toBe(true);
+  });
+
+  it("requires an operator-entered case-specific reason and trims its boundary whitespace", () => {
+    expect(normalizeCompanyCatalogueActionReason("  Duplicate source record: review  ")).toBe("Duplicate source record: review");
+    expect(normalizeCompanyCatalogueActionReason("12345678")).toBe("12345678");
+    for (const invalid of ["", "   ", "x", "1234567", null, 42, "x".repeat(501)]) {
+      expect(() => normalizeCompanyCatalogueActionReason(invalid)).toThrow(/reason/i);
+    }
+    expect(normalizeCompanyCatalogueActionReason("x".repeat(500))).toHaveLength(500);
+  });
+
+  it("revokes approval on archive and never re-approves on restore", () => {
+    const id = "logo-brand-0001";
+    const initial = { verifiedIds: [id], archivedIds: [], disabledIds: [] };
+    expect(transitionCompanyCatalogueAdminState(initial, [id], "disabled")).toEqual({ verifiedIds: [id], archivedIds: [], disabledIds: [id] });
+    expect(transitionCompanyCatalogueAdminState(initial, [id], "archived")).toEqual({ verifiedIds: [], archivedIds: [id], disabledIds: [] });
+    const conflicted = { verifiedIds: [id], archivedIds: [id], disabledIds: [id] };
+    expect(transitionCompanyCatalogueAdminState(conflicted, [id], "unverified")).toEqual({ verifiedIds: [], archivedIds: [id], disabledIds: [id] });
+    expect(transitionCompanyCatalogueAdminState(conflicted, [id], "enabled")).toEqual({ verifiedIds: [id], archivedIds: [id], disabledIds: [] });
+    expect(transitionCompanyCatalogueAdminState(conflicted, [id], "restored")).toEqual({ verifiedIds: [], archivedIds: [], disabledIds: [id] });
+    expect(transitionCompanyCatalogueAdminState({ verifiedIds: [], archivedIds: [id], disabledIds: [] }, [id], "verified"))
+      .toEqual({ verifiedIds: [id], archivedIds: [id], disabledIds: [] });
+    expect(transitionCompanyCatalogueAdminState({ verifiedIds: [], archivedIds: [id], disabledIds: [] }, [id], "restored"))
+      .toEqual({ verifiedIds: [], archivedIds: [], disabledIds: [] });
   });
 
   it("filters by the catalogue country-folder label and reports accurate country counts", () => {
