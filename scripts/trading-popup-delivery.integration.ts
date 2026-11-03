@@ -219,7 +219,7 @@ try {
     earnedMinor: 0,
   });
 
-remove manually published offer fixture  const balanceBefore = await db.select({
+const balanceBefore = await db.select({
     availableMinor: customerBalances.availableMinor,
     lockedMinor: customerBalances.lockedMinor,
   }).from(customerBalances).where(eq(customerBalances.userId, userId));
