@@ -72,7 +72,7 @@ UPDATE `app_settings`
 SET `settingValue` = JSON_SET(`settingValue`, '$.settlementGuardDisabledPackages', JSON_EXTRACT(COALESCE((SELECT JSON_ARRAYAGG(`packageName`) FROM (SELECT `packageName` FROM `opportunity_package_policies` WHERE `requirePreviousSettlement` = 0 ORDER BY `packageName`) AS p), JSON_ARRAY()), '$'))
 WHERE `settingKey`='trade.globalControls.migrationDiagnostic';
 --> statement-breakpoint
-INSERT INTO `v5_audit_events`
+INSERT IGNORE INTO `v5_audit_events`
   (`actorUserId`,`action`,`entityType`,`entityId`,`reason`,`reference`,`metadataJson`)
 SELECT
   NULL,
@@ -81,7 +81,4 @@ SELECT
   'global',
   'Forward migration 0100 initializes missing global controls only; existing values are preserved. Review the migration diagnostic for legacy values and conflicts.',
   'trade-global-controls-migration-0100',
-  (SELECT `settingValue` FROM `app_settings` WHERE `settingKey`='trade.globalControls.migrationDiagnostic' LIMIT 1)
-WHERE NOT EXISTS (
-  SELECT 1 FROM `v5_audit_events` WHERE `reference`='trade-global-controls-migration-0100'
-);
+  (SELECT `settingValue` FROM `app_settings` WHERE `settingKey`='trade.globalControls.migrationDiagnostic' LIMIT 1);
