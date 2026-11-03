@@ -4,7 +4,7 @@
 **Repository:** `stannmoye/Arbitrade_platform`.
 **Base:** `main` at `59c425414b981bc2fd8720119f2d4b650b97ab15`.
 **Branch:** `feat/trade-settings-admin-blueprint`.
-**Implementation checkpoint:** `91d1174e6405fb7639d203a2e15052a2478facee`.
+**Implementation checkpoint:** `72a4b372` — canonical global master controls, migration 0100, strict admin API and owner UI.
 **PR:** Not opened; no PR number assigned.
 
 ## Checkpoint 0 — decisions
