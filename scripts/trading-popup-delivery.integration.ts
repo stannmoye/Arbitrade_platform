@@ -465,37 +465,41 @@ const balanceBefore = await db.select({
     } finally {
       try {
         for (const fixtureOfferId of [offerId, blockedOfferId]) {
-        if (userId !== undefined && fixtureOfferId !== undefined) {
-          await db.delete(opportunityGenerationAssignments).where(eq(opportunityGenerationAssignments.offerId, fixtureOfferId));
-          await db.delete(opportunityDeliveryIdempotency).where(and(
-            eq(opportunityDeliveryIdempotency.userId, userId),
-            eq(opportunityDeliveryIdempotency.offerId, fixtureOfferId),
-          ));
-          await db.delete(opportunityPopupEvents).where(and(
-            eq(opportunityPopupEvents.userId, userId),
-            eq(opportunityPopupEvents.offerId, fixtureOfferId),
-          ));
-          await db.delete(opportunityDeliveryEvents).where(and(
-            eq(opportunityDeliveryEvents.userId, userId),
-            eq(opportunityDeliveryEvents.offerId, fixtureOfferId),
-          ));
+          if (userId !== undefined && fixtureOfferId !== undefined) {
+            await db.delete(opportunityGenerationAssignments).where(eq(opportunityGenerationAssignments.offerId, fixtureOfferId));
+            await db.delete(opportunityDeliveryIdempotency).where(and(
+              eq(opportunityDeliveryIdempotency.userId, userId),
+              eq(opportunityDeliveryIdempotency.offerId, fixtureOfferId),
+            ));
+            await db.delete(opportunityPopupEvents).where(and(
+              eq(opportunityPopupEvents.userId, userId),
+              eq(opportunityPopupEvents.offerId, fixtureOfferId),
+            ));
+            await db.delete(opportunityDeliveryEvents).where(and(
+              eq(opportunityDeliveryEvents.userId, userId),
+              eq(opportunityDeliveryEvents.offerId, fixtureOfferId),
+            ));
+          }
+          if (fixtureOfferId !== undefined) {
+            await db.delete(opportunityOffers).where(eq(opportunityOffers.id, fixtureOfferId));
+          }
         }
-        if (fixtureOfferId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, fixtureOfferId));
-      }
-      if (userId !== undefined) {
-        await db.delete(appSettings).where(eq(appSettings.settingKey, `trading.opportunityGenerator.${userId}`));
+        if (userId !== undefined) {
+          await db.delete(appSettings).where(eq(appSettings.settingKey, `trading.opportunityGenerator.${userId}`));
+          if (packageId !== undefined) {
+            await db.delete(appSettings).where(eq(appSettings.settingKey, `trading.companyRotation.${userId}.${packageId}`));
+          }
+          await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.userId, userId));
+          await db.delete(customerBalances).where(eq(customerBalances.userId, userId));
+          await db.delete(users).where(eq(users.id, userId));
+        }
+        await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName));
         if (packageId !== undefined) {
-          await db.delete(appSettings).where(eq(appSettings.settingKey, `trading.companyRotation.${userId}.${packageId}`));
+          await db.delete(packages).where(eq(packages.id, packageId));
         }
-        await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.userId, userId));
-        await db.delete(customerBalances).where(eq(customerBalances.userId, userId));
-        await db.delete(users).where(eq(users.id, userId));
+      } finally {
+        await closeDbPool();
       }
-      await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName));
-      if (packageId !== undefined) await db.delete(packages).where(eq(packages.id, packageId));
-    } finally {
-      await closeDbPool();
     }
   }
 }
-
