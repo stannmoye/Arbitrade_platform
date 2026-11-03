@@ -239,6 +239,14 @@ const balanceBefore = await db.select({
     "The worker must generate an opportunity directly from the approved brand catalogue without a template.");
   offerId = generatedOfferId;
 
+  const generationDiagnostics = {
+    delivery: firstCycle.delivery,
+    offers: firstCycle.offers,
+    persistedOffer: await db.select().from(opportunityOffers).where(eq(opportunityOffers.id, generatedOfferId)),
+    persistedAssignment: await db.select().from(opportunityGenerationAssignments).where(eq(opportunityGenerationAssignments.offerId, generatedOfferId)),
+    persistedPopup: await db.select().from(opportunityPopupEvents).where(eq(opportunityPopupEvents.offerId, generatedOfferId)),
+  };
+  console.log("CATALOGUE_GENERATION_DIAGNOSTICS " + JSON.stringify(generationDiagnostics));
   assert.equal(firstCycle.delivery.enabled, true,
     "An active eligible tier with a valid enabled delivery policy must expose delivery as enabled.");
   assert.equal(firstCycle.offers.length, 1,
