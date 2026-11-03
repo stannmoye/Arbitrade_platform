@@ -3286,8 +3286,6 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     const catalogueState=parseCompanyCatalogueAdminState(String(catalogueSetting?.settingValue||"{}"));
     // The existing brand catalogue is the generation source. Templates are optional
     // display-term overrides and must never shrink or gate the company rotation pool.
-    const templateRows=await tx.select().from(opportunityGenerationTemplates)
-      .where(eq(opportunityGenerationTemplates.status,"approved")).orderBy(opportunityGenerationTemplates.id).for("update");
     const approvedPool=buildCompanySpotlightPool(String(selectedPolicy.companyRotationCountryNames||""),catalogueState);
     if(!approvedPool.length)return null;
 
@@ -3310,7 +3308,11 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     }else{
       company=approvedPool[crypto.randomInt(0,approvedPool.length)];
     }
-    const template=templateRows.filter(row=>row.companyReferenceId===company.id).sort((a,b)=>a.id-b.id)[0]||null;
+    // Load at most one override for the already-selected company. Do not lock or scan
+    // every approved template for every customer in a large generation batch.
+    const template=(await tx.select().from(opportunityGenerationTemplates)
+      .where(and(eq(opportunityGenerationTemplates.status,"approved"),eq(opportunityGenerationTemplates.companyReferenceId,company.id)))
+      .orderBy(opportunityGenerationTemplates.id).limit(1).for("update"))[0]||null;
     // Approved templates are optional display-term overrides. Without one, build
     // terms directly from the catalogue name/logo identity; no ticker or exchange is needed.
     const currencyCode=template?String(template.currency):"USD";
