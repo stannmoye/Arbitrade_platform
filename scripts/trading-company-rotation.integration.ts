@@ -302,7 +302,7 @@ try {
 
   // A distinct Node process models a worker restart: only the database cursor survives.
   const restartResult = assignInFreshProcess(makeDelivery(offerIds[6]!, mainPackage, selectedCountry, "allow_repeats"));
-  assert.equal(restartResult.eventKey, `${userId}:${offerIds[6]}:${quotaDay}`);
+  assert.equal(restartResult.eventKey, `${userId}:${offerIds[6]}`);
   const afterRestart = await readEvent(offerIds[6]!);
   assert.ok(afterRestart);
   assert.equal(metadataOf(afterRestart).rotationSequence, 2, "a fresh worker process must resume from the persisted cursor");

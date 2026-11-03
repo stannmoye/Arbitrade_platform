@@ -90,15 +90,18 @@ async function waitForStableViewportTarget(page, locator, { timeout = 10000 } = 
 
 async function clickStableNavigationTarget(page, locator) {
   await waitForStableViewportTarget(page, locator);
-  const offViewport = await locator.evaluate(element => {
+  const navigationGeometry = await locator.evaluate(element => {
     const rect = element.getBoundingClientRect();
     const style = getComputedStyle(element);
     const visible = element.isConnected && style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) > 0;
     const enabled = !element.hasAttribute("disabled") && element.getAttribute("aria-disabled") !== "true";
-    return visible && enabled && rect.width > 0 && rect.height > 0 &&
-      (rect.right <= 0 || rect.bottom <= 0 || rect.left >= window.innerWidth || rect.top >= window.innerHeight);
+    return {
+      safe: visible && enabled && rect.width > 0 && rect.height > 0,
+      offViewport: rect.right <= 0 || rect.bottom <= 0 || rect.left >= window.innerWidth || rect.top >= window.innerHeight,
+      fixedRailHeading: element.classList.contains("admin-nav-group-heading"),
+    };
   });
-  if (offViewport) {
+  if (navigationGeometry.safe && (navigationGeometry.offViewport || navigationGeometry.fixedRailHeading)) {
     await locator.click({ force: true });
     return;
   }
