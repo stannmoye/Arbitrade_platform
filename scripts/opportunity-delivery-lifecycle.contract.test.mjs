@@ -24,10 +24,10 @@ describe("opportunity delivery lifecycle migration and state boundaries", () => 
     expect(migration).not.toMatch(/SET e\.`(?:tradeId|executionStatus|eventStatus|wallet|ledger)/i);
   });
   it("keeps migration 0102 aligned across journal, portal runner, recovery diagnostics and worker bridge", async () => {
-    const [journalText, portal, recovery, bridge, contracts] = await Promise.all([
+    const [journalText, portal, recovery, bridge, contracts, migration] = await Promise.all([
       read("../drizzle/meta/_journal.json"), read("../scripts/apply-portal-migrations.mjs"),
       read("../installer/migration-recovery-status.mjs"), read("../scripts/ensure-worker-runtime-schema.mjs"),
-      read("../scripts/worker-schema-contracts.mjs"),
+      read("../scripts/worker-schema-contracts.mjs"), read("../drizzle/0102_opportunity_delivery_retry_lifecycle.sql"),
     ]);
     const journal = JSON.parse(journalText);
     expect(journal.entries.at(-2)).toMatchObject({ idx: 70, tag: "0101_package_fee_policy_versions" });
@@ -35,6 +35,8 @@ describe("opportunity delivery lifecycle migration and state boundaries", () => 
     expect(portal).toContain('"0102_opportunity_delivery_retry_lifecycle.sql"');
     expect(recovery).toContain('"0102_opportunity_delivery_retry_lifecycle.sql"');
     expect(bridge).toContain("async function ensureDeliveryLifecycle(db)");
+    expect(migration).toContain("p.`name` COLLATE utf8mb4_unicode_ci=e.`packageName` COLLATE utf8mb4_unicode_ci");
+    expect(bridge).toContain("p.name COLLATE utf8mb4_unicode_ci=e.packageName COLLATE utf8mb4_unicode_ci");
     expect(bridge).toContain("DELIVERY_DUPLICATE_LEGACY");
     expect(bridge).toContain("opportunity_popup_pending_package_id_idx");
     expect(contracts).toContain("opportunity_delivery_idempotency");

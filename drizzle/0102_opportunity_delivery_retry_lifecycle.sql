@@ -12,7 +12,7 @@ ALTER TABLE `opportunity_popup_events`
   ADD KEY `opportunity_popup_retry_due_idx` (`deliveryStatus`,`deliveryRetryAfter`);
 --> statement-breakpoint
 UPDATE `opportunity_popup_events` e
-JOIN `packages` p ON p.`name`=e.`packageName`
+JOIN `packages` p ON p.`name` COLLATE utf8mb4_unicode_ci=e.`packageName` COLLATE utf8mb4_unicode_ci
 SET e.`packageId`=p.`id`
 WHERE e.`packageId` IS NULL;
 --> statement-breakpoint
