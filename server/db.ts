@@ -3033,6 +3033,19 @@ export async function listPersistedOpportunityPackagePolicies() {
   if(missing.length) throw new Error("Trading tier opportunity policy is missing for: "+missing.join(", "));
   return matchingRows;
 }
+const TRADING_TIER_POLICY_PATCH_KEYS = new Set([
+  "maxPopupsPerDay", "maxVisibleOffers", "minimumTradeUnits", "maximumTradeUnits",
+  "minHourlyTarget", "normalHourlyTarget", "marketInfluenceBps", "maxBurstSize",
+  "dailyPopupTarget", "schedulingPeriod", "minIntervalSeconds", "maxIntervalSeconds",
+  "popupDisplayTargetSeconds", "completionDisplaySeconds", "postCompletionIntervalSeconds",
+  "maxPendingDeliveries", "maxDeliveryAttempts", "maxTradeAttemptsPerDay",
+  "tradeRetryDelaySeconds", "maxSuccessfulTradesPerDay", "maxConcurrentActiveTrades",
+  "minSettlementDelaySeconds", "maxSettlementDelaySeconds", "minimumRewardBps",
+  "maxDailyRewardMinor", "maxRewardPerTradeMinor", "badgeLabel", "badgeStyle",
+  "minimumPayoutRateBps", "maximumPayoutRateBps", "minimumTradeDurationSeconds",
+  "maximumTradeDurationSeconds", "companyRotationCountryNames", "companyRotationRepeatPolicy",
+  "closePolicy",
+]);
 export async function updateOpportunityPackagePolicies(updatedBy:number, policies:any[], reason:string) {
   const auditReason=String(reason??"").trim();
   if(auditReason.length<5||auditReason.length>500) throw new Error("Provide an audit reason of 5–500 characters");
@@ -3044,6 +3057,8 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
     if(typeof policy.packageName!=="string"||!tierNames.has(policy.packageName)) throw new Error("Opportunity policy references an unknown Trading tier");
     if(seenTierNames.has(policy.packageName)) throw new Error("Each Trading tier may appear only once in a policy update.");
     seenTierNames.add(policy.packageName);
+    const unsupported=Object.keys(policy).filter(key=>key!=="packageName"&&!TRADING_TIER_POLICY_PATCH_KEYS.has(key));
+    if(unsupported.length) throw new Error(`Per-tier Trading policy cannot update global or unknown fields: ${unsupported.join(", ")}`);
     return policy;
   });
   if(requested.some(policy=>policy.automaticTradingEnabled===true)) {

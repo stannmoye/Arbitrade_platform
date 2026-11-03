@@ -30,33 +30,33 @@ export type PackageAutomationPolicy = {
 
 export function validatePackageAutomationPolicy(policy: PackageAutomationPolicy) {
   const errors: string[] = [];
-  const nonNegative = [
-    ["daily popup target", policy.dailyPopupTarget],
-    ["minimum interval", policy.minIntervalSeconds],
-    ["maximum interval", policy.maxIntervalSeconds],
-    ["popup display target", policy.popupDisplayTargetSeconds],
-    ["completion display duration", policy.completionDisplaySeconds],
-    ["post-completion interval", policy.postCompletionIntervalSeconds],
-    ["maximum pending deliveries", policy.maxPendingDeliveries],
-    ["maximum delivery attempts", policy.maxDeliveryAttempts],
-    ["maximum trade attempts", policy.maxTradeAttemptsPerDay],
-    ["trade retry delay", policy.tradeRetryDelaySeconds],
-    ["maximum successful trades", policy.maxSuccessfulTradesPerDay],
-    ["maximum concurrent trades", policy.maxConcurrentActiveTrades],
-    ["minimum reward rate", policy.minimumRewardBps],
-    ["daily reward cap", policy.maxDailyRewardMinor],
-    ["maximum reward per trade", policy.maxRewardPerTradeMinor],
+  const bounded = [
+    ["daily popup target", policy.dailyPopupTarget, 0, 10000],
+    ["minimum interval", policy.minIntervalSeconds, 0, 604800],
+    ["maximum interval", policy.maxIntervalSeconds, 0, 604800],
+    ["popup display target", policy.popupDisplayTargetSeconds, 1, 604800],
+    ["completion display duration", policy.completionDisplaySeconds, 1, 3600],
+    ["post-completion interval", policy.postCompletionIntervalSeconds, 0, 604800],
+    ["maximum pending deliveries", policy.maxPendingDeliveries, 0, 1000],
+    ["maximum delivery attempts", policy.maxDeliveryAttempts, 1, 20],
+    ["maximum trade attempts", policy.maxTradeAttemptsPerDay, 0, 10000],
+    ["trade retry delay", policy.tradeRetryDelaySeconds, 5, 3600],
+    ["maximum successful trades", policy.maxSuccessfulTradesPerDay, 0, 10000],
+    ["maximum concurrent trades", policy.maxConcurrentActiveTrades, 1, 1000],
+    ["minimum reward rate", policy.minimumRewardBps, 0, 10000],
+    ["daily reward cap", policy.maxDailyRewardMinor, 0, 2147483647],
+    ["maximum reward per trade", policy.maxRewardPerTradeMinor, 0, 2147483647],
+    ["minimum settlement delay", policy.minSettlementDelaySeconds, 900, 604800],
+    ["maximum settlement delay", policy.maxSettlementDelaySeconds, 900, 604800],
   ] as const;
-  for (const [label, value] of nonNegative) if (!Number.isSafeInteger(value) || value < 0) errors.push(`${label} must be a non-negative safe integer`);
+  for (const [label, value, min, max] of bounded) {
+    if (!Number.isSafeInteger(value) || value < min || value > max) errors.push(`${label} must be an integer between ${min} and ${max}`);
+  }
   if (!policy.packageName.trim()) errors.push("package name is required");
   if (policy.schedulingPeriod !== "rolling_24h" && policy.schedulingPeriod !== "calendar_day") errors.push("scheduling period is invalid");
   if (policy.closePolicy !== "after_completion" && policy.closePolicy !== "after_final_display") errors.push("close policy is invalid");
-  if (!Number.isSafeInteger(policy.minSettlementDelaySeconds) || !Number.isSafeInteger(policy.maxSettlementDelaySeconds) ||
-      policy.minSettlementDelaySeconds < 0 || policy.maxSettlementDelaySeconds < policy.minSettlementDelaySeconds) {
-    errors.push("settlement delay range must use non-negative safe integer seconds and be ordered");
-  }
+  if (policy.minSettlementDelaySeconds > policy.maxSettlementDelaySeconds) errors.push("minimum settlement delay cannot exceed maximum settlement delay");
   if (policy.minIntervalSeconds > policy.maxIntervalSeconds) errors.push("minimum interval cannot exceed maximum interval");
-  if (policy.tradeRetryDelaySeconds < 5 || policy.tradeRetryDelaySeconds > 3600) errors.push("trade retry delay must be between 5 and 3600 seconds");
   if (policy.maxTradeAttemptsPerDay > 0 && policy.maxSuccessfulTradesPerDay > policy.maxTradeAttemptsPerDay) errors.push("successful trades cannot exceed trade attempts");
   if (policy.dailyPopupTarget > 0 && policy.maxPendingDeliveries === 0) errors.push("daily popup target requires at least one pending delivery slot");
   if (policy.maxRewardPerTradeMinor > 0 && policy.maxDailyRewardMinor > 0 && policy.maxRewardPerTradeMinor > policy.maxDailyRewardMinor) errors.push("maximum reward per trade cannot exceed daily reward cap");

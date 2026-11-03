@@ -182,7 +182,7 @@ describe("Trading tier policy audit and versioning", () => {
     expect(adminApp).toContain("existing customer and trade snapshots were preserved.");
     expect(adminApp).toContain("reason:policyReason.trim()})");
     expect(adminApp).toContain("policies.data.map(x=>({...x,packageName:x.packageName");
-    expect(adminApp).toContain("buildChangedPolicyPatches(policyBaseline,policyRows)");
+    expect(adminApp).toContain("buildChangedPolicyPatches(policyBaseline,policyRows,TRADING_TIER_POLICY_PATCH_KEYS)");
   });
 });
 

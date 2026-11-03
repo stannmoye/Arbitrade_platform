@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildChangedPolicyPatches } from "./trading-policy-patches";
+import { buildChangedPolicyPatches, TRADING_TIER_POLICY_PATCH_KEYS } from "./trading-policy-patches";
 
 type Policy = {
   packageName: string;
@@ -45,5 +45,12 @@ describe("field-scoped Trading policy patches", () => {
       ...baseline,
       { packageName: "Unknown", maxPopupsPerDay: 1, maxVisibleOffers: 1, enabled: false, badgeLabel: null, minimumRewardBps: 0 },
     ])).toThrow(/without a loaded baseline/);
+  });
+
+  it("rejects changes to global or lifecycle fields when the editor uses its allowlist", () => {
+    const current = baseline.map((row) => ({ ...row, enabled: true }));
+    current[0].enabled = false;
+    expect(() => buildChangedPolicyPatches(baseline, current, TRADING_TIER_POLICY_PATCH_KEYS))
+      .toThrow(/not owned by the per-tier Trading policy editor/);
   });
 });

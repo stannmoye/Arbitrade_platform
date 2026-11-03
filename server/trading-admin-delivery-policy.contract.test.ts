@@ -42,7 +42,7 @@ describe("administrator Trading delivery policy controls", () => {
 
   it("submits only changed tier policy fields and rejects global master fields at the tier API", () => {
     expect(app).toContain("function AdminTradingPolicySettings(");
-    expect(app).toContain("buildChangedPolicyPatches(policyBaseline,policyRows)");
+    expect(app).toContain("buildChangedPolicyPatches(policyBaseline,policyRows,TRADING_TIER_POLICY_PATCH_KEYS)");
     expect(router).toContain("maxPopupsPerDay: z.number().int().min(1).max(1000).optional()");
     expect(router).toContain("maxVisibleOffers: z.number().int().min(1).max(10000).optional()");
     expect(router).toContain("minimumTradeUnits: z.number().int().min(1).max(2147483647).optional()");
@@ -53,6 +53,8 @@ describe("administrator Trading delivery policy controls", () => {
       expect(tierMutation).not.toContain(`${field}: z.boolean().optional()`);
     }
     expect(tierMutation).toContain("}).strict()).min(1).max(1000)");
+    expect(database).toContain("const TRADING_TIER_POLICY_PATCH_KEYS = new Set([");
+    expect(database).toContain("Per-tier Trading policy cannot update global or unknown fields");
     expect(database).toContain("...supplied,packageName:policy.packageName,updatedBy");
   });
 
@@ -68,6 +70,7 @@ describe("administrator Trading delivery policy controls", () => {
     expect(database).toContain("const nextVersion=current?currentVersion+1:1");
     expect(database).toContain('action:"trading_delivery_policy_updated"');
     expect(database).toContain("validatePackageAutomationPolicy(automation)");
+    expect(router).toContain("minSettlementDelaySeconds: z.number().int().min(900).max(604800).optional()");
     expect(router).toContain("updatePackagePolicies: adminProcedure.input");
     expect(app).toContain('onError:error=>{setPolicyMessageKind("error");setPolicyMessage(error.message)}');
     expect(app).toContain('setPolicyMessage("Enter at least 5 characters explaining this policy change.");');
