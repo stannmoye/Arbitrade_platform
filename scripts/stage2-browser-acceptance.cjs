@@ -97,7 +97,8 @@ async function clickStableNavigationTarget(page, locator) {
     // viewport to Playwright's hit-target check after the rail reflows. Keep
     // normal pointer validation first; only this navigation helper may use a
     // forced pointer click, and only after an independent DOM geometry check.
-    if (!(error instanceof Error) || !/outside(?: of)? the viewport/i.test(error.message)) throw error;
+    const errorMessage = String(error?.message || error);
+    if (!/outside(?: of)? the viewport/i.test(errorMessage)) throw error;
     const safelyClickable = await locator.evaluate(element => {
       const rect = element.getBoundingClientRect();
       const style = getComputedStyle(element);
@@ -186,7 +187,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
             rewardReservedMinor: 2500 + index * 10,
           }));
         } else if (procedure === "adminOperations.ledgerActivity") {
-          data = Array.from({ length: 24 }, (_, index) => ({
+          data = { entries: Array.from({ length: 24 }, (_, index) => ({
             id: 9000 + index,
             userId: 8000 + index,
             customerName: `Ledger Customer ${index + 1}`,
@@ -196,7 +197,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
             currency: "USD",
             withdrawable: index % 2 === 1,
             createdAt: new Date(Date.UTC(2026, 0, 1, 12, index)).toISOString(),
-          }));
+          })) };
         } else if (procedure === "adminOperations.currencies") {
           data = [{ code: "USD", scale: 2 }];
         } else if (procedure === "adminOperations.autoTradePolicy") {
