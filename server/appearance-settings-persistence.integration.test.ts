@@ -551,14 +551,14 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       });
 
       await expect(customer.adminOperations.updateTradingPackage({
-        id: createdPackage.id, name, minimumQualifyingBalanceUsdMinor: 22345,
+        id: createdPackage.id, expectedTermsVersion: 1, name, minimumQualifyingBalanceUsdMinor: 22345,
         durationMonths: 4, opportunitiesPerDay: 9, maxPopupsPerDay: 10,
         maxActiveInvestments: 3, startsAt: startsAt.toISOString(),
         expiresAt: expiresAt.toISOString(), enabled: true, reason: reasonUpdate,
       })).rejects.toMatchObject({ code: "FORBIDDEN" });
 
       await expect(admin.adminOperations.updateTradingPackage({
-        id: createdPackage.id, name, minimumQualifyingBalanceUsdMinor: 22345,
+        id: createdPackage.id, expectedTermsVersion: 1, name, minimumQualifyingBalanceUsdMinor: 22345,
         durationMonths: 4, opportunitiesPerDay: 9, maxPopupsPerDay: 10,
         maxActiveInvestments: 3, startsAt: expiresAt.toISOString(),
         expiresAt: startsAt.toISOString(), enabled: true,
@@ -585,22 +585,31 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       }).where(eq(opportunityPackagePolicies.packageName, name));
 
       const updatedPackage = await admin.adminOperations.updateTradingPackage({
-        id: createdPackage.id, name, minimumQualifyingBalanceUsdMinor: 22345,
+        id: createdPackage.id, expectedTermsVersion: 1, name, minimumQualifyingBalanceUsdMinor: 22345,
         durationMonths: 4, opportunitiesPerDay: 9, maxPopupsPerDay: 10,
         maxActiveInvestments: 3, startsAt: startsAt.toISOString(),
         expiresAt: expiresAt.toISOString(), enabled: true, reason: reasonUpdate,
       });
       expect(updatedPackage).toMatchObject({
-        id: createdPackage.id, name, minimumQualifyingBalanceUsdMinor: 22345,
+        id: createdPackage.id, expectedTermsVersion: 1, name, minimumQualifyingBalanceUsdMinor: 22345,
         durationMonths: 4, opportunitiesPerDay: 9, maxPopupsPerDay: 10,
         maxActiveInvestments: 3, enabled: true, termsVersion: 2,
       });
       expect(new Date(updatedPackage.startsAt as unknown as string).getTime()).toBe(startsAt.getTime());
       expect(new Date(updatedPackage.expiresAt as unknown as string).getTime()).toBe(expiresAt.getTime());
+      await expect(admin.adminOperations.updateTradingPackage({
+        id: createdPackage.id, expectedTermsVersion: 1, name, minimumQualifyingBalanceUsdMinor: 99999,
+        durationMonths: 7, opportunitiesPerDay: 11, maxPopupsPerDay: 12, maxActiveInvestments: 4,
+        startsAt: startsAt.toISOString(), expiresAt: expiresAt.toISOString(), enabled: true,
+        reason: "Reject stale package terms draft " + suffix,
+      })).rejects.toMatchObject({ code: "CONFLICT" });
+      expect((await admin.adminOperations.tradingPackages()).find((row: any) => row.id === createdPackage.id)).toMatchObject({
+        minimumQualifyingBalanceUsdMinor: 22345, durationMonths: 4, opportunitiesPerDay: 9, termsVersion: 2,
+      });
 
       const reloaded = (await admin.adminOperations.tradingPackages()).find((row: any) => row.id === createdPackage.id) as any;
       expect(reloaded).toMatchObject({
-        id: createdPackage.id, name, minimumQualifyingBalanceUsdMinor: 22345,
+        id: createdPackage.id, expectedTermsVersion: 1, name, minimumQualifyingBalanceUsdMinor: 22345,
         durationMonths: 4, opportunitiesPerDay: 9, maxPopupsPerDay: 10,
         maxActiveInvestments: 3, enabled: true, termsVersion: 2,
       });

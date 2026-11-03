@@ -307,9 +307,9 @@ const registryEntries: readonly RegistryEntry[] = [
   }),
   tierPolicyField({
     field: "maxPendingDeliveries", key: "trade.policy.maximumPendingDeliveries", section: "delivery", label: "Maximum pending deliveries",
-    explanation: "Stores a configured pending-delivery slot count; the current worker does not enforce it.", units: "deliveries",
-    validation: "Non-negative integer; a positive daily target cannot be saved when this value is zero.", runtimeConsumer: "No current delivery-worker consumer: the policy is validated/persisted, but the worker does not enforce this slot count.",
-    customerImpact: "No proven current queue-cap effect; do not treat this value as limiting deliveries until a runtime consumer is implemented.",
+    explanation: "Per-customer, per-tier cap on queued, in-progress and retry-wait informational deliveries; delivered, failed, dismissed and expired records do not occupy pending slots.", units: "deliveries",
+    validation: "Non-negative integer; a positive daily target cannot be saved when this value is zero.", runtimeConsumer: "server/opportunityLifecycle.ts ensurePopupDeliveries counts that customer's queued, in-progress and retry-wait records for the tier before inserting a new delivery; insertion is skipped when the count reaches maxPendingDeliveries.",
+    customerImpact: "Limits the number of that customer's simultaneously pending informational deliveries for the tier; it does not increase daily entitlement or affect trade execution.",
   }),
   tierPolicyField({
     field: "maxTradeAttemptsPerDay", key: "trade.policy.maximumTradeAttemptsPerDay", section: "retries", label: "Maximum trade attempts per day",

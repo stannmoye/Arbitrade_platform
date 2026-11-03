@@ -113,6 +113,10 @@ describe("Trading tier audit reasons", () => {
     expect(dbFunctions).toContain('Provide an audit reason of 5–500 characters');
     expect(dbFunctions).toContain('reason:auditReason');
     expect(dbFunctions).toContain('metadataJson:JSON.stringify({old:');
+    expect(dbFunctions).toContain('current.termsVersion||1)!==input.expectedTermsVersion');
+    expect(dbFunctions).toContain('TradingPackageTermsVersionConflictError');
+    expect(serverRouters).toContain('expectedTermsVersion: z.number().int().positive().max(2_147_483_647)');
+    expect(serverRouters).toContain('code: "CONFLICT"');
     expect(serverRouters).toContain('reason: z.string().trim().min(5).max(500)');
   });
 });

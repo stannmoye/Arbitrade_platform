@@ -3,7 +3,8 @@ import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, or, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import { assertExactlyOneAffectedRow } from "../db-mutation-guards";
-import { balanceLedger, tradingTierQualificationJobs, v5AuditEvents, workerHealthRegistry } from "../../drizzle/schema";
+import { balanceLedger, appSettings, opportunityPopupEvents, tradingTierQualificationJobs, v5AuditEvents, workerHealthRegistry } from "../../drizzle/schema";
+import { parseTradeGlobalControlPolicy } from "../trading-global-policy";
 
 export const WORKER_HEALTH_REGISTRY = [
   { key: "trading-tier-qualification", label: "Trading tier qualification", description: "Assigns or upgrades tiers from committed qualifying admin-credit jobs.", expectedIntervalMs: 5_000, staleAfterMs: 60_000 },
@@ -25,6 +26,8 @@ type PersistedStatus = "running" | "healthy" | "degraded";
 export type DerivedWorkerStatus = PersistedStatus | "stale" | "not_started";
 export type SafeWorkerErrorCode = "POLICY_DISABLED" | "INVALID_SOURCE" | "TIMEOUT" | "DATABASE_CONFLICT" | "DATABASE_UNAVAILABLE" | "PERMISSION_DENIED" | "WORKER_ERROR";
 const qualificationLeaseTtlMs = 5 * 60_000;
+export const OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT = 500;
+const opportunityDeliverySettingKey = "trade.globalControls";
 
 const instanceId = randomUUID();
 let persistenceWarningLogged = false;
@@ -171,6 +174,75 @@ export type QualificationQueueDiagnostics = {
   } | null;
 };
 
+export type OpportunityDeliveryConfiguration = "enabled" | "disabled" | "unavailable";
+type OpportunityDeliverySampleRow = { createdAt: Date | string | null; deliveryRetryAfter: Date | string | null };
+type OpportunityDeliveryQueueSample = {
+  queued: OpportunityDeliverySampleRow[];
+  inProgress: OpportunityDeliverySampleRow[];
+  retryWait: OpportunityDeliverySampleRow[];
+  deadLetter: OpportunityDeliverySampleRow[];
+};
+export type OpportunityDeliveryQueueDiagnostics = {
+  sampleLimit: number;
+  sampledCounts: { queued: number; inProgress: number; retryWait: number; deadLetter: number };
+  truncated: { queued: boolean; inProgress: boolean; retryWait: boolean; deadLetter: boolean };
+  sampledPendingCount: number;
+  pendingCountIsLowerBound: boolean;
+  dueSampled: { queued: number; retryWait: number; total: number };
+  oldestObservedPendingCreatedAt: string | null;
+  oldestObservedPendingAgeMs: number | null;
+  oldestDueRetryAt: string | null;
+  oldestDueRetryLagMs: number | null;
+};
+
+/** A missing/malformed canonical setting is unavailable, not evidence that delivery is disabled. */
+export function deriveOpportunityDeliveryConfiguration(raw: unknown): OpportunityDeliveryConfiguration {
+  const policy = parseTradeGlobalControlPolicy(raw);
+  if (!policy) return "unavailable";
+  return policy.tierPolicyMasterEnabled && policy.informationalPopupDeliveryEnabled ? "enabled" : "disabled";
+}
+
+/** Summarize only a bounded sample; truncation makes counts and ages explicit lower-bound observations. */
+export function deriveOpportunityDeliveryQueueDiagnostics(
+  input: OpportunityDeliveryQueueSample | null,
+  nowMs = Date.now(),
+): OpportunityDeliveryQueueDiagnostics | null {
+  if (!input) return null;
+  const statusRows = { queued: input.queued, inProgress: input.inProgress, retryWait: input.retryWait, deadLetter: input.deadLetter };
+  const sampledCounts = Object.fromEntries(Object.entries(statusRows).map(([key, rows]) => [
+    key, Math.min(rows.length, OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT),
+  ])) as OpportunityDeliveryQueueDiagnostics["sampledCounts"];
+  const truncated = Object.fromEntries(Object.entries(statusRows).map(([key, rows]) => [
+    key, rows.length > OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT,
+  ])) as OpportunityDeliveryQueueDiagnostics["truncated"];
+  const pendingRows = [
+    ...input.queued.slice(0, OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT),
+    ...input.inProgress.slice(0, OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT),
+    ...input.retryWait.slice(0, OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT),
+  ];
+  const pendingTimes = pendingRows.map((row) => iso(row.createdAt)).filter((value): value is string => value !== null)
+    .map((value) => Date.parse(value)).filter((value) => Number.isFinite(value) && value <= nowMs);
+  const oldestObservedPendingMs = pendingTimes.length ? Math.min(...pendingTimes) : null;
+  const dueRetryTimes = input.retryWait.slice(0, OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT)
+    .map((row) => iso(row.deliveryRetryAfter)).filter((value): value is string => value !== null)
+    .map((value) => Date.parse(value)).filter((value) => Number.isFinite(value) && value <= nowMs);
+  const dueQueued = sampledCounts.queued;
+  const dueRetryWait = dueRetryTimes.length;
+  const oldestDueRetryMs = dueRetryTimes.length ? Math.min(...dueRetryTimes) : null;
+  return {
+    sampleLimit: OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT,
+    sampledCounts,
+    truncated,
+    sampledPendingCount: sampledCounts.queued + sampledCounts.inProgress + sampledCounts.retryWait,
+    pendingCountIsLowerBound: truncated.queued || truncated.inProgress || truncated.retryWait,
+    dueSampled: { queued: dueQueued, retryWait: dueRetryWait, total: dueQueued + dueRetryWait },
+    oldestObservedPendingCreatedAt: oldestObservedPendingMs === null ? null : new Date(oldestObservedPendingMs).toISOString(),
+    oldestObservedPendingAgeMs: oldestObservedPendingMs === null ? null : nowMs - oldestObservedPendingMs,
+    oldestDueRetryAt: oldestDueRetryMs === null ? null : new Date(oldestDueRetryMs).toISOString(),
+    oldestDueRetryLagMs: oldestDueRetryMs === null ? null : nowMs - oldestDueRetryMs,
+  };
+}
+
 export type WorkerHealthSummary = {
   generatedAt: string;
   workers: Array<{
@@ -194,6 +266,13 @@ export type WorkerHealthSummary = {
   qualificationQueue: { pending: number; processing: number; completed: number; dead: number; total: number } | null;
   qualificationQueueDiagnostics: QualificationQueueDiagnostics | null;
   deadQualificationJobs: DeadQualificationJob[] | null;
+  opportunityDelivery: {
+    configuration: OpportunityDeliveryConfiguration;
+    dispatchMode: "user_scoped_customer_request";
+    dedicatedDispatcherHeartbeatAvailable: false;
+    opportunityCycle: { status: DerivedWorkerStatus; healthRecordAvailable: boolean; heartbeatAt: string | null };
+    queue: OpportunityDeliveryQueueDiagnostics | null;
+  };
 };
 
 function iso(value: Date | string | null | undefined): string | null {
@@ -333,7 +412,53 @@ export async function getWorkerHealthSummary(): Promise<WorkerHealthSummary> {
     deadQualificationJobs = null;
   }
 
-  return { generatedAt: new Date(now).toISOString(), workers, qualificationQueue, qualificationQueueDiagnostics, deadQualificationJobs };
+  let opportunityDeliveryConfiguration: OpportunityDeliveryConfiguration = "unavailable";
+  try {
+    const [setting] = await db.select({ settingValue: appSettings.settingValue }).from(appSettings)
+      .where(eq(appSettings.settingKey, opportunityDeliverySettingKey)).limit(1);
+    if (setting) opportunityDeliveryConfiguration = deriveOpportunityDeliveryConfiguration(setting.settingValue);
+  } catch {
+    // Preserve queue and heartbeat visibility if the global setting cannot be read.
+  }
+
+  let opportunityDeliveryQueue: OpportunityDeliveryQueueDiagnostics | null = null;
+  try {
+    const statuses = ["queued", "in_progress", "retry_wait", "failed"] as const;
+    const samples = await Promise.all(statuses.map((status) => db.select({
+      createdAt: opportunityPopupEvents.createdAt,
+      deliveryRetryAfter: opportunityPopupEvents.deliveryRetryAfter,
+    }).from(opportunityPopupEvents).where(eq(opportunityPopupEvents.deliveryStatus, status))
+      .limit(OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT + 1)));
+    opportunityDeliveryQueue = deriveOpportunityDeliveryQueueDiagnostics({
+      queued: samples[0],
+      inProgress: samples[1],
+      retryWait: samples[2],
+      deadLetter: samples[3],
+    }, now);
+  } catch {
+    // A missing delivery schema or failed query is unavailable, never an empty queue.
+    opportunityDeliveryQueue = null;
+  }
+  const opportunityCycle = workers.find((worker) => worker.workerKey === "trading-opportunities" && worker.instanceId === instanceId.slice(0, 8));
+
+  return {
+    generatedAt: new Date(now).toISOString(),
+    workers,
+    qualificationQueue,
+    qualificationQueueDiagnostics,
+    deadQualificationJobs,
+    opportunityDelivery: {
+      configuration: opportunityDeliveryConfiguration,
+      dispatchMode: "user_scoped_customer_request",
+      dedicatedDispatcherHeartbeatAvailable: false,
+      opportunityCycle: {
+        status: opportunityCycle?.status ?? "not_started",
+        healthRecordAvailable: opportunityCycle?.healthRecordAvailable ?? false,
+        heartbeatAt: opportunityCycle?.heartbeatAt ?? null,
+      },
+      queue: opportunityDeliveryQueue,
+    },
+  };
 }
 
 export async function requeueDeadQualificationJob(input: { jobId: number; adminId: number; reason: string }) {

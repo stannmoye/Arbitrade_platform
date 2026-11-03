@@ -30,7 +30,13 @@ describe("reviewed opportunity publication contracts", () => {
     expect(publication).toContain("reference: offer.publication.sourceReference");
     expect(publication).toContain("reason: offer.publication.reviewNotes");
     expect(publication).toContain("acceptedTerms");
+    expect(publication).toContain("assessPublishedOfferPackageCompatibility");
+    expect(publication).toContain("assessOpportunityPackageCompatibility(publication, rules)");
+    expect(publication).toContain("packageCompatibility: offer.compatibility");
+    expect(publication).toContain("source: offer.publication.sourceReference");
+    expect(publication).toContain("reviewNotes: offer.publication.reviewNotes");
     expect(publication).toContain("new: acceptedTerms");
+    expect(publication).toContain("compatibility: persisted.compatibility");
     expect(publication).toContain("actorUserId: adminId");
     expect(publication.match(/db\.transaction\(async tx =>/g)).toHaveLength(3);
   });

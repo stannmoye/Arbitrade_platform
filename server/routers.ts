@@ -9,7 +9,7 @@ import { createCompanySpotlightDisplayGuard, parseCompanyCatalogueAdminState } f
 import { z } from "zod";
 import { communicationSettingsInput, getAdminCommunicationSettings, getCustomerCommunicationOptions, saveAdminCommunicationSettings, validateCommunicationSettingsInput } from "./communicationSettings";
 import { TRPCError } from "@trpc/server";
-import { ACCOUNT_CLOSURE_TICKET_SUBJECT, AccountClosureDecisionError, applyAccountClosureDecision, assignSupportTicket, createAccountClosureTicket, listSupportAssignees, addTicketAttachment, addTicketMessage, adjustCustomerBalance, createAdminTradingPackage, broadcastCustomerNotification, listAdminNotificationCampaigns, retryNotificationCampaign, withdrawNotificationCampaign, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, deleteAdminCustomer, getCustomerTicket, getSupportTicketById, getAppSetting, getTradeSettlementPolicy, TradeTimingPolicyVersionConflictError, getTradeFeePolicy, getTradeAllocationControls, setTradeAllocationControls, listAdminTradingPackages, updateAdminTradingPackage, getCustomerTradingEligibility, previewNextCustomerCompanySpotlight, getCustomerBalanceSummary, listCustomerWalletLedger, getCustomerWalletPreferences, getCustomerPayoutEligibility, getCustomerAuthenticatorStatus, startCustomerAuthenticatorEnrollment, confirmCustomerAuthenticatorEnrollment, generateCustomerAuthenticatorRecoveryCodes, startCustomerAuthenticatorRecoveryReplacement, startCustomerAuthenticatorReplacement, confirmCustomerAuthenticatorReplacement, createCustomerPayoutRequest, listCustomerPayoutRequests, cancelCustomerPayoutRequest, listAdminPayoutRequests, resolveCustomerPayoutRequest, manuallySettleTrade, listPendingSettlements, listTradeSettlementIntegrityIssues, listWalletLedgerReconciliation, markCustomerNotificationsRead, updateCustomerWalletPreferences, getTicketUploadPolicy, setTradeSettlementPolicy, getNotificationCategoryVisibility, getCustomerNotificationUnreadCount, listCustomerNotificationPage, setNotificationCategoryVisibility, getUserById, getUserForSessionRevocation, listAdminCustomers, listAdminAuditEvents, listAdminRecentLedgerActivity, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listCustomerNotifications, listNotifications, listNotificationEventCursor, listOpenOffers, listOpportunityPackagePolicies, listPersistedOpportunityPackagePolicies, listRiskReports, listTicketAttachments, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, reopenSupportTicket, setAppSetting, updateCompanyCatalogueAdminState, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
+import { ACCOUNT_CLOSURE_TICKET_SUBJECT, AccountClosureDecisionError, applyAccountClosureDecision, assignSupportTicket, createAccountClosureTicket, listSupportAssignees, addTicketAttachment, addTicketMessage, adjustCustomerBalance, createAdminTradingPackage, broadcastCustomerNotification, listAdminNotificationCampaigns, retryNotificationCampaign, withdrawNotificationCampaign, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, deleteAdminCustomer, getCustomerTicket, getSupportTicketById, getAppSetting, getTradeSettlementPolicy, TradeTimingPolicyVersionConflictError, getTradeFeePolicy, getTradeAllocationControls, setTradeAllocationControls, listAdminTradingPackages, updateAdminTradingPackage, TradingPackageTermsVersionConflictError, getCustomerTradingEligibility, previewNextCustomerCompanySpotlight, getCustomerBalanceSummary, listCustomerWalletLedger, getCustomerWalletPreferences, getCustomerPayoutEligibility, getCustomerAuthenticatorStatus, startCustomerAuthenticatorEnrollment, confirmCustomerAuthenticatorEnrollment, generateCustomerAuthenticatorRecoveryCodes, startCustomerAuthenticatorRecoveryReplacement, startCustomerAuthenticatorReplacement, confirmCustomerAuthenticatorReplacement, createCustomerPayoutRequest, listCustomerPayoutRequests, cancelCustomerPayoutRequest, listAdminPayoutRequests, resolveCustomerPayoutRequest, manuallySettleTrade, listPendingSettlements, listTradeSettlementIntegrityIssues, listWalletLedgerReconciliation, markCustomerNotificationsRead, updateCustomerWalletPreferences, getTicketUploadPolicy, setTradeSettlementPolicy, getNotificationCategoryVisibility, getCustomerNotificationUnreadCount, listCustomerNotificationPage, setNotificationCategoryVisibility, getUserById, getUserForSessionRevocation, listAdminCustomers, listAdminAuditEvents, listAdminRecentLedgerActivity, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listCustomerNotifications, listNotifications, listNotificationEventCursor, listOpenOffers, listOpportunityPackagePolicies, listPersistedOpportunityPackagePolicies, listRiskReports, listTicketAttachments, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, reopenSupportTicket, setAppSetting, updateCompanyCatalogueAdminState, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
 import { allocateStake, cancelStake, getStakeDashboard, projectStake } from "./stakeEarn";
 import { closeTransactionConsoleSession, listTransactionConsoleEvents, recordTransactionConsoleEvent, recordTransactionConsolePulse } from "./transactionConsole";
 import { getOpportunityLifecycleSummary, runOpportunityRetention, updatePopupLifecycle, updatePopupDeliveryStatus } from "./opportunityLifecycle";
@@ -334,7 +334,7 @@ export const appRouter = router({
       return listCustomerWalletLedger(ctx.user.id);
     }),
     payoutEligibility: protectedProcedure.query(({ ctx }) => getCustomerPayoutEligibility(ctx.user.id)),
-    payoutRequests: protectedProcedure.query(({ ctx }) => listCustomerPayoutRequests(ctx.user.id)),
+    payoutRequests: protectedProcedure.input(z.object({ cursor: z.string().regex(/^[A-Za-z0-9_-]{1,200}$/).optional(), pageSize: z.number().int().min(1).max(100).optional() }).strict().optional()).query(({ ctx, input }) => listCustomerPayoutRequests(ctx.user.id, input ?? {})),
     requestPayout: protectedProcedure.input(z.object({
       currency: z.enum(["USD", "EUR", "GBP", "BTC", "ETH", "USDT"]),
       amountMinor: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
@@ -490,6 +490,7 @@ export const appRouter = router({
     })),
     updateTradingPackage: adminProcedure.input(z.object({
       id: z.number().int().positive(),
+      expectedTermsVersion: z.number().int().positive().max(2_147_483_647),
       reason: z.string().trim().min(5).max(500),
       name: z.string().trim().min(1).max(80),
       minimumQualifyingBalanceUsdMinor: z.number().int().positive().max(9007199254740991),
@@ -503,9 +504,16 @@ export const appRouter = router({
     }).refine(input => !input.startsAt || !input.expiresAt || Date.parse(input.expiresAt) > Date.parse(input.startsAt), {
       message: "Package expiry must be later than its start time",
       path: ["expiresAt"],
-    })).mutation(({ ctx, input }) => updateAdminTradingPackage(ctx.user.id, {
-      ...input, startsAt:input.startsAt?new Date(input.startsAt):null, expiresAt:input.expiresAt?new Date(input.expiresAt):null,
-    })),
+    })).mutation(async ({ ctx, input }) => {
+      try {
+        return await updateAdminTradingPackage(ctx.user.id, {
+          ...input, startsAt:input.startsAt?new Date(input.startsAt):null, expiresAt:input.expiresAt?new Date(input.expiresAt):null,
+        });
+      } catch (error) {
+        if (error instanceof TradingPackageTermsVersionConflictError) throw new TRPCError({ code: "CONFLICT", message: error.message });
+        throw error;
+      }
+    }),
     communicationSettings: adminProcedure.query(() => getAdminCommunicationSettings()),
     updateCommunicationSettings: adminProcedure.input(communicationSettingsInput).mutation(async ({ ctx, input }) => {
       const errors = validateCommunicationSettingsInput(input);
@@ -558,12 +566,12 @@ export const appRouter = router({
       }
       return result;
     }),
-    payoutRequests: adminProcedure.query(() => listAdminPayoutRequests()),
+    payoutRequests: adminProcedure.input(z.object({ cursor: z.string().regex(/^[A-Za-z0-9_-]{1,200}$/).optional(), pageSize: z.number().int().min(1).max(100).optional() }).strict().optional()).query(({ input }) => listAdminPayoutRequests(input ?? {})),
     resolvePayoutRequest: adminProcedure.input(z.object({
       requestId: z.number().int().positive(),
       action: z.enum(["paid", "rejected"]),
       externalReference: z.string().trim().max(160).optional(),
-      note: z.string().trim().max(1000).optional(),
+      note: z.string().trim().min(3).max(1000),
     })).mutation(({ ctx, input }) => resolveCustomerPayoutRequest(ctx.user.id, input)),
     notifications: adminProcedure.query(({ctx})=>listNotifications(ctx.user.id)),
     markNotificationsRead: adminProcedure.input(z.object({id:z.number().int().positive().optional()}).optional()).mutation(({ctx,input})=>markCustomerNotificationsRead(ctx.user.id,input?.id)),

@@ -56,6 +56,16 @@ describe("manual payout request lifecycle contract", () => {
     expect(requestService).toContain('status: "pending"');
   });
 
+  it("uses stable bounded continuation pages for customer and admin history instead of truncating", () => {
+    expect(db).toContain("function payoutHistoryPageSize(value?: number)");
+    expect(db).toContain("pageSize > 100");
+    expect(db).toContain("rows.length > pageSize");
+    expect(db).toContain("nextCursor: hasMore");
+    expect(db).toContain("orderBy(desc(payoutRequests.createdAt), desc(payoutRequests.id))");
+    expect(db).toContain("payoutHistoryCursorPredicate(cursor)");
+    const payoutRoutes = router.slice(router.indexOf("payoutRequests: protectedProcedure"), router.indexOf("requestPayout:", router.indexOf("payoutRequests: protectedProcedure"))) + router.slice(router.indexOf("payoutRequests: adminProcedure"), router.indexOf("resolvePayoutRequest:", router.indexOf("payoutRequests: adminProcedure")));
+    expect(payoutRoutes.match(/pageSize: z.number\(\).int\(\).min\(1\).max\(100\)/g)).toHaveLength(2);
+  });
   it("releases reserved funds on customer cancellation or admin rejection", () => {
     expect(cancelService).toContain('eq(payoutRequests.userId, userId)');
     expect(cancelService).toContain('request.status !== "pending"');
@@ -67,6 +77,9 @@ describe("manual payout request lifecycle contract", () => {
 
   it("requires a unique external reference for payout completion and never triggers an automatic transfer", () => {
     expect(resolveService).toContain("externalReference.length < 3");
+    expect(resolveService).toContain("note.length < 3");
+    expect(resolveService).toContain("resolutionNote: note || null");
+    expect(router).toContain('note: z.string().trim().min(3).max(1000)');
     expect(resolveService).toContain("duplicateReference");
     expect(resolveService).toContain("Payout paid wallet settlement");
     expect(resolveService).toContain('entryType: "payout_paid"');
@@ -84,9 +97,9 @@ describe("manual payout request lifecycle contract", () => {
 
   it("exposes only customer-owned requests and admin-only resolution in the router", () => {
     expect(router).toContain("payoutEligibility: protectedProcedure.query(({ ctx }) => getCustomerPayoutEligibility(ctx.user.id))");
-    expect(router).toContain("payoutRequests: protectedProcedure.query(({ ctx }) => listCustomerPayoutRequests(ctx.user.id))");
+    expect(router).toContain("listCustomerPayoutRequests(ctx.user.id, input ?? {})");
     expect(router).toContain("cancelCustomerPayoutRequest(ctx.user.id, input.requestId)");
-    expect(router).toContain("payoutRequests: adminProcedure.query(() => listAdminPayoutRequests())");
+    expect(router).toContain("listAdminPayoutRequests(input ?? {})");
     expect(router).toContain("resolveCustomerPayoutRequest(ctx.user.id, input)");
     expect(customerUi).toContain("trpc.customer.payoutEligibility.useQuery");
     expect(customerUi).toContain("eligibility.data?.allowed === true && !eligibility.isError");

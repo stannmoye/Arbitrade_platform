@@ -44,8 +44,13 @@ function payoutStatusLabel(status: string) {
 }
 
 export function CustomerPayoutRequests() {
+  const [cursorStack, setCursorStack] = useState<Array<string | undefined>>([undefined]);
+  const currentCursor = cursorStack[cursorStack.length - 1];
   const balances = trpc.customer.balances.useQuery(undefined, { refetchInterval: 10_000 });
-  const requests = trpc.customer.payoutRequests.useQuery(undefined, { refetchInterval: 10_000 });
+  const requests = trpc.customer.payoutRequests.useQuery(
+    { cursor: currentCursor, pageSize: 50 },
+    { refetchInterval: 10_000 },
+  );
   const eligibility = trpc.customer.payoutEligibility.useQuery(undefined, { refetchInterval: 30_000 });
   const authenticatorStatus = trpc.customer.authenticatorStatus.useQuery(undefined, { refetchInterval: 30_000 });
   const [currency, setCurrency] = useState<PayoutAsset>("USD");
@@ -70,6 +75,7 @@ export function CustomerPayoutRequests() {
       setDestinationDetails("");
       setTotpCode("");
       setIdempotencyKey(newIdempotencyKey());
+      setCursorStack([undefined]);
       void requests.refetch();
       void balances.refetch();
       void eligibility.refetch();
@@ -79,6 +85,7 @@ export function CustomerPayoutRequests() {
   const cancelMutation = trpc.customer.cancelPayoutRequest.useMutation({
     onSuccess: (request) => {
       setFeedback(`Payout request ${request.requestReference} was cancelled and its reserved funds were returned.`);
+      setCursorStack([undefined]);
       void requests.refetch();
       void balances.refetch();
     },
@@ -101,6 +108,9 @@ export function CustomerPayoutRequests() {
   const amountValid = amountMinor !== null && amountMinor > 0 && amountMinor <= eligibleMinor;
   const isBusy = requestMutation.isPending || cancelMutation.isPending;
   const formDisabled = isBusy || !payoutAllowed;
+  const pageNumber = cursorStack.length;
+  const payoutItems = requests.data?.items ?? [];
+  const hasNextPage = requests.data?.hasMore === true && Boolean(requests.data.nextCursor);
 
   const changeFormValue = (change: () => void) => {
     if (isBusy) return;
@@ -195,11 +205,11 @@ export function CustomerPayoutRequests() {
 
       <div className="payout-history-heading">
         <h3>Your requests</h3>
-        <span>{requests.data?.length ?? 0} recent</span>
+        <span aria-live="polite">Page {pageNumber}</span>
       </div>
-      {requests.isLoading ? <p className="payout-empty">Loading payout requests…</p> : requests.isError ? <p className="payout-form-error">Payout requests could not be loaded. Try refreshing.</p> : !(requests.data || []).length ? <p className="payout-empty">No payout requests have been recorded.</p> : (
+      {requests.isLoading ? <p className="payout-empty" role="status">Loading payout requests…</p> : requests.isError ? <div className="payout-form-error" role="alert"><span>Payout requests could not be loaded. Try refreshing.</span><button className="payout-refresh" type="button" onClick={() => void requests.refetch()} disabled={requests.isFetching}>Retry</button></div> : !payoutItems.length ? <p className="payout-empty">{pageNumber === 1 ? "No payout requests have been recorded." : "No payout requests are available on this page."}</p> : (
         <div className="payout-request-list">
-          {(requests.data as any[]).map((request) => {
+          {payoutItems.map((request) => {
             const requestScale = Math.max(0, Math.min(8, Number((balances.data?.currencies || []).find((item: any) => item.code === request.currency)?.scale ?? 2)));
             return <article className="payout-request-item" key={request.id}>
               <div className="payout-request-item-top">
@@ -217,6 +227,25 @@ export function CustomerPayoutRequests() {
           })}
         </div>
       )}
+      <nav className="payout-history-pagination" aria-label="Payout history pagination">
+        <button
+          className="payout-refresh"
+          type="button"
+          aria-label="Go to previous payout history page"
+          onClick={() => setCursorStack((stack) => stack.length > 1 ? stack.slice(0, -1) : stack)}
+          disabled={pageNumber === 1 || requests.isFetching || isBusy}
+        >Previous</button>
+        <button
+          className="payout-refresh"
+          type="button"
+          aria-label="Go to next payout history page"
+          onClick={() => {
+            const nextCursor = requests.data?.nextCursor;
+            if (requests.data?.hasMore && nextCursor) setCursorStack((stack) => [...stack, nextCursor]);
+          }}
+          disabled={!hasNextPage || requests.isFetching || isBusy}
+        >Next</button>
+      </nav>
     </section>
   );
 }

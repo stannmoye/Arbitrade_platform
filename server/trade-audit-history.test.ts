@@ -40,6 +40,9 @@ describe("Trade Settings audit history query", () => {
     expect(deriveTradeAuditScope("trade_fee_policy_updated", "trade_fee_policy")).toBe("global");
     expect(deriveTradeAuditScope("trading_package_terms_updated", "trading_package")).toBe("package");
     expect(deriveTradeAuditScope("trading_delivery_policy_updated", "opportunity_package_policy")).toBe("package");
+    expect(deriveTradeAuditScope("trading_package_fee_policy_initialized", "trading_package_fee_policy")).toBe("package");
+    expect(deriveTradeAuditScope("trading_package_fee_policy_updated", "trading_package_fee_policy")).toBe("package");
+    expect(deriveTradeAuditScope("trade_delivery_retry_policy_updated", "trade_delivery_retry_policy")).toBe("global");
     expect(deriveTradeAuditScope("company_catalogue.bulk_status_updated", "company_catalogue")).toBe("record");
     expect(deriveTradeAuditScope("trading_opportunity_published", "opportunity_offer")).toBe("record");
     expect(deriveTradeAuditScope("unrelated_event", "unknown_entity")).toBeNull();
@@ -49,6 +52,9 @@ describe("Trade Settings audit history query", () => {
     const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
     const allowlist = source.match(/const TRADE_SETTINGS_AUDIT_ACTIONS = \[([\s\S]*?)\] as const;/)?.[1] ?? "";
     expect(allowlist).toContain('"trade_global_controls_migrated"');
+    expect(allowlist).toContain('"trading_package_fee_policy_initialized"');
+    expect(allowlist).toContain('"trading_package_fee_policy_updated"');
+    expect(allowlist).toContain('"trade_delivery_retry_policy_updated"');
     expect(deriveTradeAuditScope("trade_global_controls_migrated", "trade_global_control_policy")).toBe("global");
   });
 

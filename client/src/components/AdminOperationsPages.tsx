@@ -236,7 +236,25 @@ export function AdminTradeSettingsOverview() {
   };
   const lifecycleUpdated = lifecycle.isLoading ? "Loading" : lifecycle.isError || !sourceAvailable ? "Unavailable" : timestamp(data.generatedAt);
   const allocationState = allocation.isLoading ? "Loading" : allocation.isError ? "Unavailable" : allocation.data?.allocationsPaused === undefined ? "Unavailable" : allocation.data.allocationsPaused ? "Paused" : "Open";
+  const clientCheckedAt = (query: { isLoading: boolean; isError: boolean; dataUpdatedAt: number; data?: unknown }) => {
+    if (query.isError) return query.dataUpdatedAt > 0 ? `Error · cached client read ${new Date(query.dataUpdatedAt).toLocaleString()}` : "Error · no successful client read";
+    if (query.isLoading || query.dataUpdatedAt <= 0) return query.isLoading ? "Checking" : "Unavailable";
+    return new Date(query.dataUpdatedAt).toLocaleString();
+  };
+  const openOwnerRoute = (menuLabel: string) => {
+    const navigation = document.querySelector("#admin-main-navigation nav.admin-canonical-nav");
+    const routeButton = Array.from(navigation?.querySelectorAll<HTMLButtonElement>(".admin-nav-item-wrap > button") ?? [])
+      .find((button) => button.querySelector("span")?.textContent?.trim() === menuLabel);
+    routeButton?.click();
+  };
   const refresh = () => { void Promise.all([lifecycle.refetch(), offers.refetch(), policies.refetch(), pending.refetch(), allocation.refetch()]); };
+  const ownerRoutes = [
+    { label: "Allocation & package configuration", menuLabel: "Package Configuration", source: "Allocation controls", checkedAt: clientCheckedAt(allocation) },
+    { label: "Tiers & packages", menuLabel: "Tiers & Eligibility", source: "Package policies", checkedAt: clientCheckedAt(policies) },
+    { label: "Opportunity publishing", menuLabel: "Publish & Manage Opportunities", source: "Open opportunities", checkedAt: clientCheckedAt(offers) },
+    { label: "Trade history", menuLabel: "Trading History", source: "Lifecycle events", checkedAt: clientCheckedAt(lifecycle) },
+    { label: "Settlement & reconciliation", menuLabel: "Settlement & Reconciliation", source: "Settlement queue", checkedAt: clientCheckedAt(pending) },
+  ];
 
   return (
     <ToolPage
@@ -246,7 +264,16 @@ export function AdminTradeSettingsOverview() {
       icon={Activity}
       action={<button className="admin-ops-button" type="button" onClick={refresh} disabled={lifecycle.isFetching || offers.isFetching || policies.isFetching || pending.isFetching || allocation.isFetching}><RefreshCw size={14} /> Refresh</button>}
     >
-      <div className="admin-ops-meta-line"><span><CalendarClock size={14} /> Rolling 24-hour lifecycle window</span><span>Updated {lifecycleUpdated}</span></div>
+      <div className="admin-ops-meta-line"><span><CalendarClock size={14} /> Rolling 24-hour lifecycle window</span><span>Lifecycle snapshot generated {lifecycleUpdated}</span></div>
+      <section className="admin-ops-panel" aria-label="Metric owners and source freshness">
+        <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Read-only source map</span><h2>Metric owners &amp; client check times</h2></div></div>
+        <div className="admin-payout-actions">{ownerRoutes.map((route) => <button key={route.menuLabel} className="admin-ops-button" type="button" onClick={() => openOwnerRoute(route.menuLabel)}>{route.label} →</button>)}</div>
+        <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Trade overview data source check times"><table className="admin-ops-table"><thead><tr><th>Metric group owner</th><th>Source</th><th>Client check/read time</th></tr></thead><tbody>
+          {ownerRoutes.map((route) => <tr key={route.menuLabel}><td>{route.label}</td><td>{route.source}</td><td>{route.checkedAt}</td></tr>)}
+          <tr><td>Settlement &amp; reconciliation</td><td>Lifecycle settlement events</td><td>{clientCheckedAt(lifecycle)}</td></tr>
+        </tbody></table></div>
+        <div className="admin-ops-note"><Clock3 size={16} /><span>Times above are client-side query read/check times from this browser, not server-side source update times. A recent check does not prove that source data is fresh, correct, or healthy; errors and unavailable times are shown explicitly.</span></div>
+      </section>
       <section className="admin-ops-metrics">
         <Metric label="Global allocation gate" value={allocationState} detail="Open means new allocations are not paused" icon={Activity} />
         <Metric label="Enabled package policies" value={count(policies.isLoading, policies.isError, (policies.data ?? []).filter((policy) => policy.enabled).length)} icon={BadgeCheck} />
@@ -513,12 +540,27 @@ export function AdminTransactionReview({ focus }: { focus?: "ledger" | "capital"
 
 
 export function AdminManualPayouts() {
-  const payoutQuery = trpc.adminOperations.payoutRequests.useQuery(undefined, { refetchInterval: 5_000 });
+  const [payoutCursors, setPayoutCursors] = useState<Array<string | undefined>>([undefined]);
+  const [payoutPageIndex, setPayoutPageIndex] = useState(0);
+  const payoutQuery = trpc.adminOperations.payoutRequests.useQuery({ cursor: payoutCursors[payoutPageIndex], pageSize: 50 }, { refetchInterval: 5_000 });
   const resolvePayout = trpc.adminOperations.resolvePayoutRequest.useMutation({ onSuccess: () => { payoutQuery.refetch(); } });
   const [payoutDrafts, setPayoutDrafts] = useState<Record<number, { externalReference: string; note: string }>>({});
   const currencyQuery = trpc.adminOperations.currencies.useQuery(undefined, { staleTime: 60_000 });
   const currencies = (currencyQuery.data ?? []) as unknown as Array<{ code: string; scale: number }>;
   const scales = new Map(currencies.map((currency) => [currency.code.toUpperCase(), Math.max(0, Math.min(8, Number(currency.scale) || 0))]));
+  const payoutItems = payoutQuery.data?.items ?? [];
+  const pendingItems = payoutItems.filter((request) => request.status === "pending");
+  const canGoNext = payoutQuery.data?.hasMore === true && Boolean(payoutQuery.data.nextCursor);
+  const goToNextPayoutPage = () => {
+    const nextCursor = payoutQuery.data?.nextCursor;
+    if (!nextCursor || payoutQuery.isFetching) return;
+    setPayoutCursors((current) => [...current.slice(0, payoutPageIndex + 1), nextCursor]);
+    setPayoutPageIndex((current) => current + 1);
+  };
+  const goToPreviousPayoutPage = () => {
+    if (payoutPageIndex === 0 || payoutQuery.isFetching) return;
+    setPayoutPageIndex((current) => current - 1);
+  };
   const formatAmount = (amountMinor: number, currency: string) => {
     const code = currency.toUpperCase();
     const scale = scales.get(code) ?? 2;
@@ -531,26 +573,26 @@ export function AdminManualPayouts() {
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head">
             <div><span className="admin-ops-kicker">Manual payout processing</span><h2>Customer payout requests</h2></div>
-            <span className="admin-ops-subtle">{((payoutQuery.data || []) as any[]).filter((request) => request.status === "pending").length} pending</span>
+            <span className="admin-ops-subtle">{payoutQuery.isLoading || payoutQuery.isError ? "Unavailable" : pendingItems.length} pending on this page</span>
           </div>
           <div className="admin-ops-note"><ShieldCheck size={16} /><span>Funds were reserved when the request was created. Mark a request paid only after independently confirming the external transfer and entering its reference. Arbitrade does not send transfers from this screen.</span></div>
           {resolvePayout.error && <div className="admin-ops-empty error">{resolvePayout.error.message}</div>}
           {payoutQuery.isLoading ? <LoadingState /> : payoutQuery.isError ? <div className="admin-ops-empty error">Payout requests could not be loaded.</div> : <>
-            {!(payoutQuery.data || []).some((request: any) => request.status === "pending") ? <div className="admin-ops-empty compact">No payout requests are awaiting review.</div> : <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Customer payout requests">
+            {!pendingItems.length ? <div className="admin-ops-empty compact">No pending payout requests on this page.</div> : <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Customer payout requests">
               <table className="admin-ops-table"><thead><tr><th>Customer / reference</th><th>Requested amount</th><th>Destination details</th><th>External reference / note</th><th>Resolution</th></tr></thead>
-                <tbody>{((payoutQuery.data || []) as any[]).filter((request) => request.status === "pending").map((request) => {
+                <tbody>{pendingItems.map((request) => {
                   const draft = payoutDrafts[request.id] || { externalReference: "", note: "" };
                   return <tr key={request.id}>
                     <td><strong>{request.customerName || request.customerEmail || `Account ${request.userId}`}</strong><small>{request.requestReference}</small><small>{request.destinationType === "bank_transfer" ? "Bank transfer" : "Crypto wallet transfer"}</small></td>
                     <td>{formatAmount(Number(request.amountMinor), request.currency)}</td>
                     <td><div className="admin-payout-destination">{request.destinationDetails}</div></td>
                     <td>
-                      <input aria-label={`External transfer reference for ${request.requestReference}`} value={draft.externalReference} onChange={(event) => setPayoutDrafts((current) => ({ ...current, [request.id]: { ...draft, externalReference: event.target.value } }))} placeholder="External reference (required)" />
-                      <textarea aria-label={`Resolution note for ${request.requestReference}`} rows={2} value={draft.note} onChange={(event) => setPayoutDrafts((current) => ({ ...current, [request.id]: { ...draft, note: event.target.value } }))} placeholder="Note; required for rejection" />
+                      <input aria-label={`External transfer reference for ${request.requestReference}`} maxLength={160} value={draft.externalReference} onChange={(event) => setPayoutDrafts((current) => ({ ...current, [request.id]: { ...draft, externalReference: event.target.value } }))} placeholder="External reference (required for paid)" />
+                      <textarea aria-label={`Required operator note for ${request.requestReference}`} rows={2} minLength={3} maxLength={1000} value={draft.note} onChange={(event) => setPayoutDrafts((current) => ({ ...current, [request.id]: { ...draft, note: event.target.value } }))} placeholder="Operator note (required, at least 3 characters)" />
                     </td>
                     <td><div className="admin-payout-actions">
-                      <button className="admin-ops-button" type="button" disabled={resolvePayout.isPending || draft.externalReference.trim().length < 3} onClick={() => resolvePayout.mutate({ requestId: Number(request.id), action: "paid", externalReference: draft.externalReference.trim(), note: draft.note.trim() || undefined })}><CheckCircle2 size={14} /> Mark paid</button>
-                      <button className="admin-ops-button" type="button" disabled={resolvePayout.isPending || !draft.note.trim()} onClick={() => resolvePayout.mutate({ requestId: Number(request.id), action: "rejected", note: draft.note.trim() })}><XCircle size={14} /> Reject and release</button>
+                      <button className="admin-ops-button" type="button" disabled={resolvePayout.isPending || draft.externalReference.trim().length < 3 || draft.externalReference.trim().length > 160 || draft.note.trim().length < 3 || draft.note.trim().length > 1000} onClick={() => resolvePayout.mutate({ requestId: Number(request.id), action: "paid", externalReference: draft.externalReference.trim(), note: draft.note.trim() })}><CheckCircle2 size={14} /> Mark paid</button>
+                      <button className="admin-ops-button" type="button" disabled={resolvePayout.isPending || draft.note.trim().length < 3 || draft.note.trim().length > 1000} onClick={() => resolvePayout.mutate({ requestId: Number(request.id), action: "rejected", note: draft.note.trim() })}><XCircle size={14} /> Reject and release</button>
                     </div></td>
                   </tr>;
                 })}</tbody>
@@ -559,15 +601,20 @@ export function AdminManualPayouts() {
             <div className="admin-ops-panel-head admin-payout-history-head"><div><span className="admin-ops-kicker">Recent outcomes</span><h2>Payout history</h2></div></div>
             <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Payout request history">
               <table className="admin-ops-table"><thead><tr><th>Created</th><th>Customer</th><th>Request</th><th>Amount</th><th>Status / external reference</th></tr></thead><tbody>
-                {((payoutQuery.data || []) as any[]).map((request) => <tr key={request.id}>
+                {payoutItems.map((request) => <tr key={request.id}>
                   <td>{timestamp(request.createdAt)}</td>
                   <td><strong>{request.customerName || "Customer"}</strong><small>{request.customerEmail || `Account ${request.userId}`}</small></td>
                   <td><small>{request.requestReference}</small><small>{request.destinationType === "bank_transfer" ? "Bank transfer" : "Crypto transfer"}</small></td>
                   <td>{formatAmount(Number(request.amountMinor), request.currency)}</td>
                   <td><span className="admin-ops-entry-type">{request.status}</span>{request.externalReference && <small>External: {request.externalReference}</small>}{request.resolutionNote && <small>{request.resolutionNote}</small>}</td>
                 </tr>)}
-                {!(payoutQuery.data || []).length && <tr><td colSpan={5} className="admin-ops-table-empty">No payout history is available.</td></tr>}
+                {!payoutItems.length && <tr><td colSpan={5} className="admin-ops-table-empty">{payoutPageIndex ? "No payout history on this page." : "No payout history is available."}</td></tr>}
               </tbody></table>
+            </div>
+            <div className="admin-payout-actions" aria-label="Payout history pagination">
+              <button className="admin-ops-button" type="button" disabled={payoutPageIndex === 0 || payoutQuery.isFetching} onClick={goToPreviousPayoutPage}>Previous page</button>
+              <span className="admin-ops-subtle">Page {payoutPageIndex + 1} · {payoutQuery.isLoading || payoutQuery.isError ? "Unavailable" : payoutItems.length} records on this page</span>
+              <button className="admin-ops-button" type="button" disabled={!canGoNext || payoutQuery.isFetching} onClick={goToNextPayoutPage}>Next page</button>
             </div>
           </>}
         </section>
@@ -673,12 +720,32 @@ type QualificationQueueDiagnostics = {
   oldestProcessingLease: { leaseOwner: null; lockedAt: string | null; expiresAt: string | null; stale: boolean | null } | null;
 };
 
+type OpportunityDeliveryQueueDiagnostics = {
+  sampleLimit: number;
+  sampledCounts: { queued: number; inProgress: number; retryWait: number; deadLetter: number };
+  truncated: { queued: boolean; inProgress: boolean; retryWait: boolean; deadLetter: boolean };
+  sampledPendingCount: number;
+  pendingCountIsLowerBound: boolean;
+  dueSampled: { queued: number; retryWait: number; total: number };
+  oldestObservedPendingCreatedAt: string | null;
+  oldestObservedPendingAgeMs: number | null;
+  oldestDueRetryAt: string | null;
+  oldestDueRetryLagMs: number | null;
+};
+
 type WorkerHealthData = {
   generatedAt: string;
   workers: WorkerHealthEntry[];
   qualificationQueue: { pending: number; processing: number; completed: number; dead: number; total: number } | null;
   qualificationQueueDiagnostics: QualificationQueueDiagnostics | null;
   deadQualificationJobs: DeadQualificationJob[] | null;
+  opportunityDelivery: {
+    configuration: "enabled" | "disabled" | "unavailable";
+    dispatchMode: "user_scoped_customer_request";
+    dedicatedDispatcherHeartbeatAvailable: false;
+    opportunityCycle: { status: WorkerHealthEntry["status"]; healthRecordAvailable: boolean; heartbeatAt: string | null };
+    queue: OpportunityDeliveryQueueDiagnostics | null;
+  };
 };
 
 function workerStatusTone(status: WorkerHealthEntry["status"]): "neutral" | "good" | "watch" | "high" {
@@ -894,6 +961,9 @@ export function AdminWorkerHealth() {
   const attention = recordedWorkers.filter((worker) => worker.status === "degraded" || worker.status === "stale").length;
   const queue = data.qualificationQueue;
   const queueDiagnostics = data.qualificationQueueDiagnostics;
+  const opportunityDelivery = data.opportunityDelivery;
+  const deliveryQueue = opportunityDelivery?.queue ?? null;
+  const deliverySampleCount = (count: number, truncated: boolean) => truncated ? `≥${count.toLocaleString()}` : count.toLocaleString();
   const [recoveryReasons, setRecoveryReasons] = useState<Record<number, string>>({});
   const [lastRequeuedJobId, setLastRequeuedJobId] = useState<number | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
@@ -994,6 +1064,29 @@ export function AdminWorkerHealth() {
             </tr>)}
             {!workers.length && <tr><td colSpan={9} className="admin-ops-table-empty">No worker records are available yet.</td></tr>}
           </tbody></table></div>
+        </section>
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Read-only delivery diagnostics</span><h2>Opportunity delivery status &amp; backlog</h2></div></div>
+          <div className="admin-ops-note"><Activity size={16} /><span><strong>Configuration is not runtime health.</strong> Saved delivery configuration is shown separately from the opportunity-cycle heartbeat. Delivery is requested through customer-scoped actions, not a dedicated dispatcher worker heartbeat.</span></div>
+          <section className="admin-ops-metrics compact-metrics">
+            <Metric label="Saved delivery configuration" value={!opportunityDelivery || opportunityDelivery.configuration === "unavailable" ? "Unavailable" : opportunityDelivery.configuration === "enabled" ? "Enabled" : "Disabled"} detail="Configuration only; not evidence of a live heartbeat" icon={ToggleRight} />
+            <Metric label="Opportunity-cycle runtime status" value={opportunityDelivery?.opportunityCycle.status ?? "Unavailable"} detail={opportunityDelivery?.opportunityCycle.healthRecordAvailable ? "Persisted runtime health record available" : "No persisted opportunity-cycle health record"} icon={Activity} />
+            <Metric label="Opportunity-cycle heartbeat" value={!opportunityDelivery || !opportunityDelivery.opportunityCycle.healthRecordAvailable || !opportunityDelivery.opportunityCycle.heartbeatAt ? "Unavailable" : timestamp(opportunityDelivery.opportunityCycle.heartbeatAt)} detail="No dedicated dispatcher heartbeat is provided" icon={Clock3} />
+            <Metric label="Dedicated dispatcher heartbeat" value={opportunityDelivery?.dedicatedDispatcherHeartbeatAvailable ? "Available" : opportunityDelivery ? "Not provided" : "Unavailable"} detail="Dispatch mode: customer-scoped request" icon={Activity} />
+          </section>
+          {deliveryQueue === null ? <div className="admin-ops-empty">Opportunity delivery queue diagnostics are unavailable; this is not a zero backlog.</div> : <>
+            <section className="admin-ops-metrics compact-metrics">
+              <Metric label="Queued (bounded sample)" value={deliverySampleCount(deliveryQueue.sampledCounts.queued, deliveryQueue.truncated.queued)} detail={`Sample limit ${deliveryQueue.sampleLimit}; ${deliveryQueue.truncated.queued ? "sample truncated; observed count is a lower bound" : "no truncation reported for this status sample"}`} icon={Clock3} />
+              <Metric label="In progress (bounded sample)" value={deliverySampleCount(deliveryQueue.sampledCounts.inProgress, deliveryQueue.truncated.inProgress)} detail={deliveryQueue.truncated.inProgress ? "Sample truncated; observed count is a lower bound" : "No truncation reported for this status sample"} icon={Activity} />
+              <Metric label="Retry-wait (bounded sample)" value={deliverySampleCount(deliveryQueue.sampledCounts.retryWait, deliveryQueue.truncated.retryWait)} detail={deliveryQueue.truncated.retryWait ? "Sample truncated; observed count is a lower bound" : "No truncation reported for this status sample"} icon={RefreshCw} />
+              <Metric label="Dead-letter (bounded sample)" value={deliverySampleCount(deliveryQueue.sampledCounts.deadLetter, deliveryQueue.truncated.deadLetter)} detail={deliveryQueue.truncated.deadLetter ? "Sample truncated; observed count is a lower bound" : "No truncation reported for this status sample"} icon={AlertTriangle} />
+              <Metric label="Pending observed in sample" value={deliverySampleCount(deliveryQueue.sampledPendingCount, deliveryQueue.pendingCountIsLowerBound)} detail="Queued + in progress + retry-wait; not a global total" icon={Activity} />
+              <Metric label="Due observed in sample" value={deliverySampleCount(deliveryQueue.dueSampled.total, deliveryQueue.truncated.queued || deliveryQueue.truncated.retryWait)} detail={`Queued: ${deliveryQueue.dueSampled.queued.toLocaleString()} · due retries: ${deliveryQueue.dueSampled.retryWait.toLocaleString()} · sampled only`} icon={CheckCircle2} />
+              <Metric label="Oldest observed pending age" value={deliveryQueue.oldestObservedPendingAgeMs === null ? deliveryQueue.sampledPendingCount === 0 && !deliveryQueue.pendingCountIsLowerBound ? "None observed" : "Unavailable" : durationLabel(deliveryQueue.oldestObservedPendingAgeMs)} detail={deliveryQueue.oldestObservedPendingCreatedAt ? `Created ${timestamp(deliveryQueue.oldestObservedPendingCreatedAt)}` : "Age is based on pending records in the bounded sample"} icon={CalendarClock} />
+              <Metric label="Oldest observed due retry lag" value={deliveryQueue.oldestDueRetryLagMs === null ? deliveryQueue.dueSampled.retryWait === 0 ? "None observed" : "Unavailable" : durationLabel(deliveryQueue.oldestDueRetryLagMs)} detail={deliveryQueue.oldestDueRetryAt ? `Retry due ${timestamp(deliveryQueue.oldestDueRetryAt)}` : "Lag is based on due retry records in the bounded sample"} icon={Clock3} />
+            </section>
+            <div className="admin-ops-note"><ShieldCheck size={16} /><span>Counts and age/lag values describe a bounded sample (limit {deliveryQueue.sampleLimit} per status), not an exact global total. A “≥” count indicates truncation; unavailable diagnostics are not zero.</span></div>
+          </>}
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Durable qualification queue</span><h2>Tier assignment jobs</h2></div></div>

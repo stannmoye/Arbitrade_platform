@@ -85,6 +85,23 @@ describe("Trade Settings ownership registry contract", () => {
     }
   });
 
+  it("records the enforced pending-delivery cap under its single delivery-schedule owner", () => {
+    const capEntries = tradeSettingsOwnershipRegistry.filter((entry) => entry.controlContract === "packagePolicies.maxPendingDeliveries");
+    expect(capEntries).toHaveLength(1);
+    expect(capEntries[0]).toMatchObject({
+      key: "trade.policy.maximumPendingDeliveries",
+      ownerRoute: "trade-delivery-schedule",
+      saveMutation: "adminOperations.updatePackagePolicies",
+      readQuery: "adminOperations.packagePolicies",
+    });
+    expect(capEntries[0]?.explanation).toContain("queued, in-progress and retry-wait informational deliveries");
+    expect(capEntries[0]?.runtimeConsumer).toContain("server/opportunityLifecycle.ts ensurePopupDeliveries");
+    expect(capEntries[0]?.runtimeConsumer).toContain("count reaches maxPendingDeliveries");
+    expect(capEntries[0]?.runtimeConsumer).not.toContain("does not enforce");
+    expect(expectedPolicyOwners.maxPendingDeliveries).toBe("trade-delivery-schedule");
+    expect(retryEditorSource).toContain("Per-tier maxPendingDeliveries remains under Per-tier Delivery Schedule");
+  });
+
   it("matches the existing per-tier policy patch allowlist and mutation/read contract", () => {
     const policyEntries = tradeSettingsOwnershipRegistry.filter((entry) => entry.controlContract?.startsWith("packagePolicies."));
     expect(policyEntries.length).toBeGreaterThan(0);

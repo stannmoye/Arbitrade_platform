@@ -1,6 +1,15 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { deriveQualificationQueueDiagnostics, deriveWorkerHealthStatus, safeWorkerErrorCode, sanitizeWorkerErrorMessage } from "./workerHealth";
+import {
+  deriveOpportunityDeliveryConfiguration,
+  deriveOpportunityDeliveryQueueDiagnostics,
+  deriveQualificationQueueDiagnostics,
+  deriveWorkerHealthStatus,
+  OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT,
+  safeWorkerErrorCode,
+  sanitizeWorkerErrorMessage,
+} from "./workerHealth";
+import { FAIL_CLOSED_TRADE_GLOBAL_CONTROLS } from "../trading-global-policy";
 
 const workerHealthSource = readFileSync(new URL("./workerHealth.ts", import.meta.url), "utf8");
 const workerAdminUiSource = readFileSync(new URL("../../client/src/components/AdminOperationsPages.tsx", import.meta.url), "utf8");
@@ -125,6 +134,72 @@ describe("deriveQualificationQueueDiagnostics", () => {
   });
 });
 
+describe("opportunity delivery configuration and queue diagnostics", () => {
+  const now = Date.parse("2026-10-29T12:00:00.000Z");
+  const policy = { ...FAIL_CLOSED_TRADE_GLOBAL_CONTROLS, policyVersion: 1, updatedBy: 7, updatedAt: null };
+  const queueRow = (minutesAgo: number, retryMinutesAgo: number | null = null) => ({
+    createdAt: new Date(now - minutesAgo * 60_000),
+    deliveryRetryAfter: retryMinutesAgo === null ? null : new Date(now + retryMinutesAgo * 60_000),
+  });
+
+  it("distinguishes configured delivery from stale or absent runtime evidence", () => {
+    expect(deriveOpportunityDeliveryConfiguration({ ...policy, tierPolicyMasterEnabled: true, informationalPopupDeliveryEnabled: true })).toBe("enabled");
+    expect(deriveOpportunityDeliveryConfiguration({ ...policy, tierPolicyMasterEnabled: false, informationalPopupDeliveryEnabled: true })).toBe("disabled");
+    expect(deriveOpportunityDeliveryConfiguration(null)).toBe("unavailable");
+    expect(deriveOpportunityDeliveryConfiguration("malformed")).toBe("unavailable");
+    expect(deriveWorkerHealthStatus({ status: "healthy", heartbeatAt: new Date(now - 181_000) }, 180_000, now)).toBe("stale");
+  });
+
+  it("returns unavailable rather than zero when delivery queue rows cannot be read", () => {
+    expect(deriveOpportunityDeliveryQueueDiagnostics(null, now)).toBeNull();
+  });
+
+  it("reports sampled queued, active, retry-wait, dead-letter, due and lag evidence", () => {
+    const diagnostics = deriveOpportunityDeliveryQueueDiagnostics({
+      queued: [queueRow(18), queueRow(7)],
+      inProgress: [queueRow(9)],
+      retryWait: [queueRow(24, -5), queueRow(4, -2), queueRow(3, 20)],
+      deadLetter: [queueRow(40)],
+    }, now);
+    expect(diagnostics).toMatchObject({
+      sampledCounts: { queued: 2, inProgress: 1, retryWait: 3, deadLetter: 1 },
+      truncated: { queued: false, inProgress: false, retryWait: false, deadLetter: false },
+      sampledPendingCount: 6,
+      pendingCountIsLowerBound: false,
+      dueSampled: { queued: 2, retryWait: 2, total: 4 },
+      oldestObservedPendingCreatedAt: new Date(now - 24 * 60_000).toISOString(),
+      oldestObservedPendingAgeMs: 24 * 60_000,
+      oldestDueRetryAt: new Date(now - 5 * 60_000).toISOString(),
+      oldestDueRetryLagMs: 5 * 60_000,
+    });
+  });
+
+  it("caps backlog observations and marks them as lower bounds when a status sample overflows", () => {
+    const queued = Array.from({ length: OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT + 1 }, (_, index) => queueRow(index + 1));
+    const diagnostics = deriveOpportunityDeliveryQueueDiagnostics({ queued, inProgress: [], retryWait: [], deadLetter: [] }, now);
+    expect(diagnostics?.sampledCounts.queued).toBe(OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT);
+    expect(diagnostics?.truncated.queued).toBe(true);
+    expect(diagnostics?.sampledPendingCount).toBe(OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT);
+    expect(diagnostics?.pendingCountIsLowerBound).toBe(true);
+  });
+
+  it("does not infer retry due time, age, or lag from missing and future timestamps", () => {
+    const diagnostics = deriveOpportunityDeliveryQueueDiagnostics({
+      queued: [{ createdAt: null, deliveryRetryAfter: null }],
+      inProgress: [],
+      retryWait: [{ createdAt: null, deliveryRetryAfter: null }, { createdAt: new Date(now + 60_000), deliveryRetryAfter: new Date(now + 60_000) }],
+      deadLetter: [],
+    }, now);
+    expect(diagnostics).toMatchObject({
+      dueSampled: { queued: 1, retryWait: 0, total: 1 },
+      oldestObservedPendingCreatedAt: null,
+      oldestObservedPendingAgeMs: null,
+      oldestDueRetryAt: null,
+      oldestDueRetryLagMs: null,
+    });
+  });
+});
+
 describe("safeWorkerErrorCode", () => {
   it("maps known operational failures to bounded codes instead of returning error text", () => {
     expect(safeWorkerErrorCode("Global tier policy is OFF; retained for review")).toBe("POLICY_DISABLED");
@@ -154,5 +229,16 @@ describe("worker health snapshot safety contract", () => {
     expect(workerAdminUiSource).toContain("const workers = workerRows.map");
     expect(workerAdminUiSource).toContain("<th>Safe error code</th>");
     expect(workerAdminUiSource).toContain("Oldest pending job age since creation");
+  });
+
+  it("keeps opportunity queue diagnostics read-only, capped, and explicit about request-scoped dispatch", () => {
+    const start = workerHealthSource.indexOf("export async function getWorkerHealthSummary()");
+    const end = workerHealthSource.indexOf("export async function requeueDeadQualificationJob", start);
+    const snapshot = workerHealthSource.slice(start, end);
+    expect(snapshot).toContain(".limit(OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT + 1)");
+    expect(snapshot).toContain('dispatchMode: "user_scoped_customer_request"');
+    expect(snapshot).toContain("dedicatedDispatcherHeartbeatAvailable: false");
+    expect(snapshot).not.toMatch(/\.(?:insert|update|delete|transaction)\s*\(/);
+    expect(snapshot).not.toMatch(/wallet|settlement|payout/i);
   });
 });

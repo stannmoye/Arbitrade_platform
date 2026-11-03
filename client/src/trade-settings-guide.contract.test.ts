@@ -89,25 +89,42 @@ describe("mounted Trade Settings Guide contract", () => {
     expect(guideSource).not.toMatch(/source baseline/i);
   });
 
-  it("distinguishes open offers, informational delivery, allocation, review, settlement and payout", () => {
+  it("documents persisted delivery, funding, settlement and payout lifecycle states distinctly", () => {
     const expectedTerms = [
       "Published / open offer",
+      "Queued delivery",
+      "Delivery in progress",
+      "Delivery retry wait",
       "Delivered",
-      "Received / rendered",
+      "Received",
+      "Rendered",
+      "Failed delivery",
+      "Dismissed delivery",
+      "Expired delivery",
       "Allocation",
       "Awaiting review",
-      "Confirmed / awaiting credit",
+      "Funding delayed",
       "Settled",
+      "Funding unavailable",
       "Payout requested",
     ];
     expect(statusDefinitions.map((status) => status.term)).toEqual(expectedTerms);
 
     expect(byTerm("Published / open offer")?.description).toContain("does not mean delivered");
     expect(byTerm("Delivered")?.description).toContain("not a synthetic offer");
-    expect(byTerm("Received / rendered")?.description).toContain("not allocation");
+    expect(byTerm("Queued delivery")?.description).toContain("deliveryStatus=queued");
+    expect(byTerm("Delivery in progress")?.description).toContain("deliveryStatus=in_progress");
+    expect(byTerm("Delivery retry wait")?.description).toContain("deliveryStatus=retry_wait");
+    expect(byTerm("Received")?.description).toContain("deliveryStatus=received");
+    expect(byTerm("Rendered")?.description).toContain("deliveryStatus=rendered");
+    expect(byTerm("Failed delivery")?.description).toContain("deliveryStatus=failed is terminal");
+    expect(byTerm("Dismissed delivery")?.description).toContain("deliveryStatus=dismissed is terminal");
+    expect(byTerm("Expired delivery")?.description).toContain("deliveryStatus=expired is terminal");
     expect(byTerm("Allocation")?.description).toContain("locked OFF");
     expect(byTerm("Awaiting review")?.description).toContain("evidence-based review");
-    expect(byTerm("Confirmed / awaiting credit")?.description).toContain("posting is not yet complete");
+    expect(byTerm("Funding delayed")?.description).toContain("settlementStatus=confirmed_awaiting_credit");
+    expect(byTerm("Funding unavailable")?.description).toContain("balanceStatus=insufficient");
+    expect(byTerm("Funding unavailable")?.description).toContain("no funding, top-up, acceptance or posting action");
     expect(byTerm("Settled")?.description).toContain("ledger posting are complete");
     expect(byTerm("Payout requested")?.description).toContain("distinct from trade review/settlement");
   });

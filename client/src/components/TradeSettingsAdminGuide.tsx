@@ -56,14 +56,22 @@ export const troubleshooting: readonly GuideTroubleshootingItem[] = [
 ];
 
 export const statusDefinitions = [
-  { term: "Published / open offer", description: "An administrator-published opportunity is within its saved validity window and may be considered for delivery. Its source reference and operator review note are saved in Trade Audit History; the platform does not independently verify the external evidence or the substance of the note. Open does not mean delivered." },
-  { term: "Delivered", description: "A durable server-side informational delivery event exists. It is not a synthetic offer, trade allocation, debit, profit or proof of execution." },
-  { term: "Received / rendered", description: "The customer client received or displayed an informational item, where that lifecycle detail is available. Display is still not allocation or financial evidence." },
+  { term: "Published / open offer", description: "The persisted opportunity offer status is open and its saved validity window has not ended, so it may be considered for delivery. Its source reference and operator review note are saved in Trade Audit History; the platform does not independently verify the external evidence or the substance of the note. Open does not mean delivered." },
+  { term: "Queued delivery", description: "Persisted deliveryStatus=queued: the informational delivery event is waiting for a worker attempt. It is not a customer receipt or a trade allocation." },
+  { term: "Delivery in progress", description: "Persisted deliveryStatus=in_progress: a worker attempt holds the event for processing. It does not prove that the customer received or rendered the item." },
+  { term: "Delivery retry wait", description: "Persisted deliveryStatus=retry_wait: a technical delivery retry is scheduled. It is not a trade-execution retry or carry-forward across daily windows." },
+  { term: "Delivered", description: "Persisted deliveryStatus=delivered: a durable server-side informational delivery event exists. It is not a synthetic offer, trade allocation, debit, profit or proof of execution." },
+  { term: "Received", description: "Persisted deliveryStatus=received: the customer client acknowledged receipt of an informational item. Receipt is not allocation or financial evidence." },
+  { term: "Rendered", description: "Persisted deliveryStatus=rendered: the customer client acknowledged rendering an informational item. Display is still not allocation or financial evidence." },
+  { term: "Failed delivery", description: "Persisted deliveryStatus=failed is terminal for delivery: the attempt failed permanently or the configured retry path was unavailable or exhausted. It is distinct from a trade-execution failure and does not imply a financial result." },
+  { term: "Dismissed delivery", description: "Persisted deliveryStatus=dismissed is terminal for delivery after dismissal. Dismissal changes presentation/lifecycle state only; it does not cancel a trade or settle funds." },
+  { term: "Expired delivery", description: "Persisted deliveryStatus=expired is terminal for delivery when the offer is no longer open or valid. It does not establish a trade result or settlement." },
   { term: "Allocation", description: "Automatic financial allocation/execution is locked OFF in the current source. An informational offer or delivery is not allocated and does not move funds." },
-  { term: "Awaiting review", description: "A persisted record is waiting for an authorized, evidence-based review. A due time or elapsed timer is not a result." },
-  { term: "Confirmed / awaiting credit", description: "A reviewed result and evidence reference are recorded, but the separate wallet-ledger posting is not yet complete; confirmation alone is not a credit." },
-  { term: "Settled", description: "The authoritative settlement and corresponding ledger posting are complete in persisted state. A display status or elapsed time alone is not enough." },
-  { term: "Payout requested", description: "A separate customer withdrawal request exists. It is distinct from trade review/settlement and does not by itself mean an external bank or blockchain transfer completed." },
+  { term: "Awaiting review", description: "Persisted trade settlementStatus=pending: the record is waiting for authorized, evidence-based review. A due time or elapsed timer is not a result." },
+  { term: "Funding delayed", description: "Persisted settlementStatus=confirmed_awaiting_credit: a reviewed result is confirmed, but its scheduled wallet-ledger credit has not posted yet. Confirmation is not a credit, and this is not a payout or external transfer." },
+  { term: "Settled", description: "Persisted trade status=settled and settlementStatus=completed: the authoritative settlement and corresponding ledger posting are complete. A display status or elapsed time alone is not enough." },
+  { term: "Funding unavailable", description: "An informational event may persist balanceStatus=insufficient when its saved available-balance snapshot is below the offer minimum. The separate capital and wallet-funding queue is unavailable in this source; this Guide offers no funding, top-up, acceptance or posting action." },
+  { term: "Payout requested", description: "A separate customer withdrawal request exists, distinct from trade review/settlement. A request status does not by itself mean an external bank or blockchain transfer completed." },
 ] as const;
 
 export function TradeSettingsAdminGuide({ onNavigate }: TradeSettingsAdminGuideProps) {
@@ -148,6 +156,7 @@ export function TradeSettingsAdminGuide({ onNavigate }: TradeSettingsAdminGuideP
 
       <section className="settings-card" aria-labelledby="guide-status-title">
         <h2 id="guide-status-title">Status terms</h2>
+        <p>Delivery entries name persisted <code>deliveryStatus</code> values; they are separate from opportunity event state, trade settlement state and wallet posting.</p>
         <dl className="trade-settings-guide__statuses">
           {statusDefinitions.map((status) => <div key={status.term}><dt>{status.term}</dt><dd>{status.description}</dd></div>)}
         </dl>

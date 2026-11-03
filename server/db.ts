@@ -10,6 +10,7 @@ import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modul
 import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostings, inspectWalletLedgerSnapshot } from "./modules/wallet-ledger-reconciliation";
 import { addCalendarMonths } from "./modules/calendar-months";
 import { validateOpportunityOfferClosure, validateOpportunityOfferPublication, type OpportunityOfferClosureInput, type OpportunityOfferPublicationInput } from "./modules/opportunity-publication";
+import { assessOpportunityPackageCompatibility, type OpportunityPackageCompatibility } from "./modules/opportunity-package-compatibility";
 import { claimPopupDeliveryDispatches, ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { calculateConfiguredProfitMinor, chooseInclusiveInteger } from "./modules/trading-popup-policy";
@@ -173,7 +174,7 @@ export async function updateCompanyCatalogueAdminState(input: {
 }
 
 export async function listAdminAuditEvents(){ const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(v5AuditEvents).orderBy(desc(v5AuditEvents.createdAt)).limit(200); }
-const TRADE_SETTINGS_AUDIT_ACTIONS = ["trade_fee_policy_updated", "trade_global_timing_policy_updated", "trade_global_control_updated", "trade_global_controls_migrated", "trading_new_allocations_paused", "trading_new_allocations_resumed", "trading_package_created", "trading_package_terms_updated", "trading_delivery_policy_updated", "company_catalogue.bulk_status_updated", "trading_opportunity_published", "trading_opportunity_closed"] as const;
+const TRADE_SETTINGS_AUDIT_ACTIONS = ["trade_fee_policy_updated", "trade_global_timing_policy_updated", "trade_global_control_updated", "trade_global_controls_migrated", "trade_delivery_retry_policy_updated", "trading_new_allocations_paused", "trading_new_allocations_resumed", "trading_package_created", "trading_package_terms_updated", "trading_package_fee_policy_initialized", "trading_package_fee_policy_updated", "trading_delivery_policy_updated", "company_catalogue.bulk_status_updated", "trading_opportunity_published", "trading_opportunity_closed"] as const;
 export type TradeAuditScope = "global" | "package" | "record";
 export type AdminTradeAuditHistoryFilters = { actorUserId?: number; fromDate?: string; toDate?: string; key?: string; entityType?: string; entityId?: string; package?: string; scope?: TradeAuditScope; cursor?: string; pageSize?: number };
 type TradeAuditCursor = { createdAt: string; id: number };
@@ -198,7 +199,7 @@ function auditString(record: Record<string, unknown> | null, ...keys: string[]):
 function parseTradeAuditMetadata(raw: string | null) { try { return raw ? auditRecord(JSON.parse(raw)) : null; } catch { return null; } }
 export function deriveTradeAuditScope(action: string, entityType: string): TradeAuditScope | null {
   if (action === "company_catalogue.bulk_status_updated" || entityType === "company_catalogue" || entityType === "opportunity_offer") return "record";
-  if (["trading_package_created", "trading_package_terms_updated", "trading_delivery_policy_updated"].includes(action)
+  if (["trading_package_created", "trading_package_terms_updated", "trading_package_fee_policy_initialized", "trading_package_fee_policy_updated", "trading_delivery_policy_updated"].includes(action)
     || entityType === "trading_package" || entityType === "opportunity_package_policy") return "package";
   return TRADE_SETTINGS_AUDIT_ACTIONS.includes(action as typeof TRADE_SETTINGS_AUDIT_ACTIONS[number]) ? "global" : null;
 }
@@ -1664,7 +1665,7 @@ type PayoutResolutionInput = {
   requestId: number;
   action: "paid" | "rejected";
   externalReference?: string;
-  note?: string;
+  note: string;
 };
 
 function normalizePayoutDestinationDetails(value: string) {
@@ -1795,51 +1796,66 @@ async function notifyPayoutRequest(userId: number, title: string, body: string, 
   }
 }
 
-export async function listCustomerPayoutRequests(userId: number) {
+type PayoutHistoryCursor = { createdAt: string; id: number };
+export function decodePayoutHistoryCursor(value?: string): PayoutHistoryCursor | null {
+  if (value === undefined) return null;
+  try {
+    if (!/^[A-Za-z0-9_-]{1,200}$/.test(value)) throw new Error("invalid encoding");
+    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Partial<PayoutHistoryCursor>;
+    const date = new Date(String(parsed.createdAt ?? ""));
+    if (!Number.isSafeInteger(parsed.id) || Number(parsed.id) < 1 || !Number.isFinite(date.getTime()) || date.toISOString() !== parsed.createdAt) throw new Error("invalid values");
+    return { createdAt: date.toISOString(), id: Number(parsed.id) };
+  } catch { throw new Error("Payout history cursor is invalid."); }
+}
+export function encodePayoutHistoryCursor(createdAt: Date, id: number) {
+  return Buffer.from(JSON.stringify({ createdAt: createdAt.toISOString(), id }), "utf8").toString("base64url");
+}
+function payoutHistoryPageSize(value?: number) {
+  const pageSize = value ?? 50;
+  if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) throw new Error("Payout history page size must be from 1 to 100.");
+  return pageSize;
+}
+function payoutHistoryCursorPredicate(cursor: PayoutHistoryCursor) {
+  const date = new Date(cursor.createdAt);
+  return or(lt(payoutRequests.createdAt, date), and(eq(payoutRequests.createdAt, date), lt(payoutRequests.id, cursor.id)))!;
+}
+async function listPayoutHistoryPage<T extends { createdAt: Date; id: number }>(
+  selectPage: (cursorPredicate: ReturnType<typeof payoutHistoryCursorPredicate> | null, limit: number) => Promise<T[]>,
+  input: { cursor?: string; pageSize?: number } = {},
+) {
+  const pageSize = payoutHistoryPageSize(input.pageSize);
+  const cursor = decodePayoutHistoryCursor(input.cursor);
+  const rows = await selectPage(cursor ? payoutHistoryCursorPredicate(cursor) : null, pageSize + 1);
+  const hasMore = rows.length > pageSize;
+  const items = rows.slice(0, pageSize);
+  return { items, hasMore, nextCursor: hasMore && items.length ? encodePayoutHistoryCursor(items[items.length - 1].createdAt, Number(items[items.length - 1].id)) : null };
+}
+export async function listCustomerPayoutRequests(userId: number, input: { cursor?: string; pageSize?: number } = {}) {
   if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("A valid customer account is required.");
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  return db.select({
-    id: payoutRequests.id,
-    requestReference: payoutRequests.requestReference,
-    currency: payoutRequests.currency,
-    amountMinor: payoutRequests.amountMinor,
-    destinationType: payoutRequests.destinationType,
-    destinationDetails: payoutRequests.destinationDetails,
-    status: payoutRequests.status,
-    externalReference: payoutRequests.externalReference,
-    resolutionNote: payoutRequests.resolutionNote,
-    resolvedAt: payoutRequests.resolvedAt,
-    createdAt: payoutRequests.createdAt,
-    updatedAt: payoutRequests.updatedAt,
-  }).from(payoutRequests).where(eq(payoutRequests.userId, userId))
-    .orderBy(desc(payoutRequests.createdAt), desc(payoutRequests.id)).limit(50);
+  return listPayoutHistoryPage((cursorPredicate, limit) => db.select({
+    id: payoutRequests.id, requestReference: payoutRequests.requestReference, currency: payoutRequests.currency,
+    amountMinor: payoutRequests.amountMinor, destinationType: payoutRequests.destinationType, destinationDetails: payoutRequests.destinationDetails,
+    status: payoutRequests.status, externalReference: payoutRequests.externalReference, resolutionNote: payoutRequests.resolutionNote,
+    resolvedAt: payoutRequests.resolvedAt, createdAt: payoutRequests.createdAt, updatedAt: payoutRequests.updatedAt,
+  }).from(payoutRequests).where(cursorPredicate
+    ? and(eq(payoutRequests.userId, userId), cursorPredicate)
+    : eq(payoutRequests.userId, userId))
+    .orderBy(desc(payoutRequests.createdAt), desc(payoutRequests.id)).limit(limit), input);
 }
-
-export async function listAdminPayoutRequests() {
+export async function listAdminPayoutRequests(input: { cursor?: string; pageSize?: number } = {}) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  return db.select({
-    id: payoutRequests.id,
-    userId: payoutRequests.userId,
-    customerName: users.name,
-    customerEmail: users.email,
-    requestReference: payoutRequests.requestReference,
-    currency: payoutRequests.currency,
-    amountMinor: payoutRequests.amountMinor,
-    destinationType: payoutRequests.destinationType,
-    destinationDetails: payoutRequests.destinationDetails,
-    status: payoutRequests.status,
-    externalReference: payoutRequests.externalReference,
-    resolutionNote: payoutRequests.resolutionNote,
-    resolvedBy: payoutRequests.resolvedBy,
-    resolvedAt: payoutRequests.resolvedAt,
-    createdAt: payoutRequests.createdAt,
-    updatedAt: payoutRequests.updatedAt,
+  return listPayoutHistoryPage((cursorPredicate, limit) => db.select({
+    id: payoutRequests.id, userId: payoutRequests.userId, customerName: users.name, customerEmail: users.email,
+    requestReference: payoutRequests.requestReference, currency: payoutRequests.currency, amountMinor: payoutRequests.amountMinor,
+    destinationType: payoutRequests.destinationType, destinationDetails: payoutRequests.destinationDetails, status: payoutRequests.status,
+    externalReference: payoutRequests.externalReference, resolutionNote: payoutRequests.resolutionNote, resolvedBy: payoutRequests.resolvedBy,
+    resolvedAt: payoutRequests.resolvedAt, createdAt: payoutRequests.createdAt, updatedAt: payoutRequests.updatedAt,
   }).from(payoutRequests).leftJoin(users, eq(users.id, payoutRequests.userId))
-    .orderBy(desc(payoutRequests.createdAt), desc(payoutRequests.id)).limit(100);
+    .where(cursorPredicate || undefined).orderBy(desc(payoutRequests.createdAt), desc(payoutRequests.id)).limit(limit), input);
 }
-
 export async function createCustomerPayoutRequest(userId: number, input: CustomerPayoutInput) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
@@ -2016,10 +2032,10 @@ export async function resolveCustomerPayoutRequest(adminId: number, input: Payou
   if (input.action !== "paid" && input.action !== "rejected") throw new Error("Choose whether to mark the request paid or reject it.");
   const externalReference = String(input.externalReference || "").trim();
   const note = String(input.note || "").replace(/\0/g, "").trim();
+  if (note.length < 3) throw new Error("An operator reason of at least 3 characters is required to resolve a payout request.");
   if (input.action === "paid" && (externalReference.length < 3 || externalReference.length > 160)) {
     throw new Error("Enter the external transfer reference before marking a payout paid.");
   }
-  if (input.action === "rejected" && !note) throw new Error("A rejection reason is required so the customer can understand the decision.");
   if (note.length > 1000) throw new Error("Payout resolution note must be 1,000 characters or fewer.");
   const now = new Date();
 
@@ -2810,14 +2826,18 @@ export async function createAdminTradingPackage(createdBy:number,input:{
   });
 }
 
+export class TradingPackageTermsVersionConflictError extends Error {
+  constructor() { super("This package changed in another session. Refresh the saved terms before retrying."); this.name="TradingPackageTermsVersionConflictError"; }
+}
 export async function updateAdminTradingPackage(updatedBy:number,input:{
-  id:number; name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
+  id:number; expectedTermsVersion:number; name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
   opportunitiesPerDay:number; maxPopupsPerDay:number; maxActiveInvestments:number;
   startsAt:Date|null; expiresAt:Date|null; enabled:boolean; reason:string;
 }) {
   const auditReason=String(input.reason??"").trim();
   if(auditReason.length<5||auditReason.length>500) throw new Error("Provide an audit reason of 5–500 characters");
   if(!Number.isSafeInteger(input.id)||input.id<=0) throw new Error("Package ID is invalid");
+  if(!Number.isSafeInteger(input.expectedTermsVersion)||input.expectedTermsVersion<1) throw new Error("A valid saved package terms version is required.");
   if(!input.name.trim()||input.name.trim().length>80) throw new Error("Package name must contain 1–80 characters");
   if(!Number.isSafeInteger(input.minimumQualifyingBalanceUsdMinor)||input.minimumQualifyingBalanceUsdMinor<=0) throw new Error("Minimum qualifying balance must be a positive USD minor-unit integer");
   if(!Number.isSafeInteger(input.durationMonths)||input.durationMonths<1||input.durationMonths>1200) throw new Error("Package duration must be 1–1200 calendar months");
@@ -2831,6 +2851,7 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
   return db.transaction(async tx=>{
     const current=(await tx.select().from(packages).where(eq(packages.id,input.id)).limit(1).for("update"))[0];
     if(!current) throw new Error("Trading package not found");
+    if(Number(current.termsVersion||1)!==input.expectedTermsVersion) throw new TradingPackageTermsVersionConflictError();
     const nextName=input.name.trim();
     const conflicting=(await tx.select({id:packages.id}).from(packages).where(eq(packages.name,nextName)).limit(1))[0];
     if(conflicting&&conflicting.id!==input.id) throw new Error("A tier with this name already exists");
@@ -5107,8 +5128,8 @@ type PersistedOpportunityPublication = {
   opensAt: Date;
   closesAt: Date;
   rewardAt: Date;
+  compatibility: OpportunityPackageCompatibility;
 };
-
 function validateOpportunityPublisher(adminId: number) {
   if (!Number.isSafeInteger(adminId) || adminId <= 0) throw new Error("Authenticated administrator identity is required to publish opportunities.");
 }
@@ -5126,6 +5147,7 @@ function opportunityPublicationAuditEvent(adminId: number, offer: PersistedOppor
     closesAt: offer.closesAt.toISOString(),
     rewardAt: offer.rewardAt.toISOString(),
     status: "open",
+    packageCompatibility: offer.compatibility,
   };
   return {
     actorUserId: adminId,
@@ -5137,13 +5159,42 @@ function opportunityPublicationAuditEvent(adminId: number, offer: PersistedOppor
     metadataJson: JSON.stringify({
       source: offer.publication.sourceReference,
       reviewNotes: offer.publication.reviewNotes,
+      packageCompatibility: offer.compatibility,
       new: acceptedTerms,
       acceptedTerms,
     }),
   };
 }
 
+async function assessPublishedOfferPackageCompatibility(tx: any, publication: ReturnType<typeof validateOpportunityOfferPublication>) {
+  const [policyRows, currencyRows] = await Promise.all([
+    tx.select({
+      packageId: packages.id, packageName: packages.name, policyVersion: opportunityPackagePolicies.policyVersion,
+      minimumTradeUnits: opportunityPackagePolicies.minimumTradeUnits, maximumTradeUnits: opportunityPackagePolicies.maximumTradeUnits,
+      minimumPayoutRateBps: opportunityPackagePolicies.minimumPayoutRateBps, maximumPayoutRateBps: opportunityPackagePolicies.maximumPayoutRateBps,
+      minimumTradeDurationSeconds: opportunityPackagePolicies.minimumTradeDurationSeconds, maximumTradeDurationSeconds: opportunityPackagePolicies.maximumTradeDurationSeconds,
+    }).from(packages).innerJoin(opportunityPackagePolicies, eq(opportunityPackagePolicies.packageName, packages.name))
+      .where(and(eq(packages.enabled, true), eq(opportunityPackagePolicies.enabled, true))),
+    tx.select({ code: currencyRegistry.code, scale: currencyRegistry.scale, usdRate: currencyRegistry.usdRate }).from(currencyRegistry),
+  ]);
+  const rules = policyRows.map((row: any) => {
+    const minimumTradeMinor = packageUsdUnitsToNativeMinor(Number(row.minimumTradeUnits), publication.currency, currencyRows);
+    const maximumTradeMinor = packageUsdUnitsToNativeMinor(Number(row.maximumTradeUnits), publication.currency, currencyRows);
+    return { packageId: Number(row.packageId), packageName: String(row.packageName), policyVersion: Number(row.policyVersion), minimumTradeMinor, maximumTradeMinor,
+      minimumPayoutRateBps: row.minimumPayoutRateBps == null ? null : Number(row.minimumPayoutRateBps),
+      maximumPayoutRateBps: row.maximumPayoutRateBps == null ? null : Number(row.maximumPayoutRateBps),
+      minimumTradeDurationSeconds: row.minimumTradeDurationSeconds == null ? null : Number(row.minimumTradeDurationSeconds),
+      maximumTradeDurationSeconds: row.maximumTradeDurationSeconds == null ? null : Number(row.maximumTradeDurationSeconds) };
+  });
+  const compatibility = assessOpportunityPackageCompatibility(publication, rules);
+  if (compatibility.checkedPackages > 0 && compatibility.compatiblePackages.length === 0) {
+    const details = compatibility.incompatiblePackages.map(row => `${row.packageName}: ${row.reasons.join(" ")}`).join(" ");
+    throw new Error(`Published opportunity terms are incompatible with every enabled package policy. ${details}`);
+  }
+  return compatibility;
+}
 async function insertReviewedOpportunityOffer(tx: any, adminId: number, publication: ReturnType<typeof validateOpportunityOfferPublication>): Promise<PersistedOpportunityPublication> {
+  const compatibility = await assessPublishedOfferPackageCompatibility(tx, publication);
   const now = new Date();
   const opensAt = publication.opensAt ?? now;
   const closesAt = publication.closesAt ?? new Date(opensAt.getTime() + publication.durationSeconds * 1000);
@@ -5165,7 +5216,7 @@ async function insertReviewedOpportunityOffer(tx: any, adminId: number, publicat
   });
   const id = Number(result[0].insertId);
   if (!Number.isSafeInteger(id) || id <= 0) throw new Error("Published opportunity ID could not be verified.");
-  const persisted: PersistedOpportunityPublication = { id, publication: validated, opensAt, closesAt, rewardAt };
+  const persisted: PersistedOpportunityPublication = { id, publication: validated, opensAt, closesAt, rewardAt, compatibility };
   await tx.insert(v5AuditEvents).values(opportunityPublicationAuditEvent(adminId, persisted));
   return persisted;
 }
@@ -5189,6 +5240,7 @@ export async function createOpportunityOffer(adminId: number, input: Opportunity
       opensAt: persisted.opensAt,
       closesAt: persisted.closesAt,
       rewardAt: persisted.rewardAt,
+      compatibility: persisted.compatibility,
     };
   });
 }
@@ -5200,10 +5252,9 @@ export async function bulkCreateOpportunityOffers(adminId: number, inputs: Oppor
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.transaction(async tx => {
-    for (const publication of publications) {
-      await insertReviewedOpportunityOffer(tx, adminId, publication);
-    }
-    return { created: publications.length };
+    const persisted = [];
+    for (const publication of publications) persisted.push(await insertReviewedOpportunityOffer(tx, adminId, publication));
+    return { created: persisted.length, compatibility: persisted.map(offer => ({ offerId: offer.id, ...offer.compatibility })) };
   });
 }
 
