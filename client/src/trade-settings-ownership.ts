@@ -169,17 +169,12 @@ const registryEntries: readonly RegistryEntry[] = [
     runtimeConsumer: "server/db.ts opportunity delivery worker.",
     customerImpact: "OFF limits a cycle to one item per customer; ON never bypasses quotas.", risk: "medium",
   }),
-  {
-    key: "trade.global.requirePreviousSettlement", scope: "global", ownerRoute: globalOwner,
-    section: "global-safety", label: "Require previous settlement",
-    explanation: "Safety prerequisite shown ON and locked; this control route cannot disable it.", units: "locked boolean",
-    validation: "No mutation is permitted through this control route.", saveMutation: null, readQuery: globalRead,
-    auditRequirement: "Read-only status; any future relaxation requires a separate approved safety workflow.",
-    effectiveTime: "Future allocation decisions; pending settlement records are never rewritten.",
-    runtimeConsumer: "server/db.ts allocation and settlement gates.",
-    customerImpact: "May defer financial allocation; informational pop-ups remain a separate lifecycle.",
-    risk: "locked", availability: "locked",
-  },
+  globalMaster({
+    key: "trade.global.requirePreviousSettlement", label: "Require previous settlement",
+    explanation: "Global gate for whether a customer must finish all earlier trade settlements before a future allocation.",
+    runtimeConsumer: "server/db.ts new-allocation previous-settlement guard.",
+    customerImpact: "ON blocks new allocations while an earlier trade is unsettled; OFF bypasses only this prerequisite for future allocations.", risk: "high",
+  }),
   {
     key: "trade.automaticFinancialExecution", scope: "global", ownerRoute: globalOwner,
     section: "execution-safety-status", label: "Automatic financial execution",

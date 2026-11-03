@@ -52,9 +52,9 @@ export type LegacyControlMigrationPreview = {
  * Mirrors migration 0100's restrictive precedence. An existing false on any
  * legacy copy keeps the corresponding global master OFF until an
  * administrator explicitly changes it. Package lifecycle `packages.enabled`
- * remains a separate per-tier gate. The settlement
- * prerequisite is safety-critical and therefore remains ON even if old package
- * values were weaker; the migration diagnostic records those legacy exceptions.
+ * remains a separate per-tier gate. The previous-settlement prerequisite is
+ * seeded ON globally; only an authorized, reasoned global-policy update may
+ * change it after migration.
  */
 export function previewLegacyTradeGlobalControls(rows: readonly LegacyPackageControlRow[]): LegacyControlMigrationPreview {
   const deliveryKeys = [
@@ -92,7 +92,6 @@ export function parseTradeGlobalControlPolicy(raw: unknown): TradeGlobalControlP
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
   if (TRADE_GLOBAL_MASTER_KEYS.some(key => typeof record[key] !== "boolean")) return null;
-  if (record.requirePreviousSettlement !== true) return null;
   const policyVersion = Number(record.policyVersion);
   if (!Number.isSafeInteger(policyVersion) || policyVersion < 1) return null;
   const updatedBy = record.updatedBy === null || record.updatedBy === undefined ? null : Number(record.updatedBy);
@@ -109,4 +108,14 @@ export function parseTradeGlobalControlPolicy(raw: unknown): TradeGlobalControlP
     updatedBy,
     updatedAt,
   };
+}
+
+/**
+ * Missing or malformed global policy fails closed. A valid saved OFF value
+ * bypasses only the prior-unsettled-trade prerequisite for future allocations.
+ */
+export function requiresPreviousSettlementForAllocation(
+  policy: Pick<TradeGlobalControlPolicy, "requirePreviousSettlement"> | null | undefined,
+): boolean {
+  return policy == null || policy.requirePreviousSettlement;
 }

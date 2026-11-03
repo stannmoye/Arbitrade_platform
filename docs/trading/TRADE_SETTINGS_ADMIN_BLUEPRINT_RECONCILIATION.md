@@ -21,7 +21,7 @@ The user chose to preserve the repository's canonical ownership boundaries rathe
 
 ## Non-goals and remaining gates
 
-This mapping does not change settlement or wallet behavior, fee calculation/versioning, funding, payouts, delivery retries, trade allocation, automatic execution, or migrations. The previous-settlement prerequisite remains locked ON until its separate product-policy decision is resolved. Staging/production acceptance, deployment and release approval remain separate from source merge and CI; the existence of this document does not certify a live service.
+The previous-settlement prerequisite is now an audited global ON/OFF control, defaulting ON, in Package Configuration. OFF bypasses only that prerequisite for future allocation checks; it does not change existing trades or settlement/wallet records, and the independent block-until-settled opportunity-delivery pause remains separate. Fee calculation/versioning, funding, payouts, delivery retries, and automatic financial execution are otherwise unchanged. Staging/production acceptance, deployment and release approval remain separate from source merge and CI; the existence of this document does not certify a live service.
 
 ## Implementation references
 

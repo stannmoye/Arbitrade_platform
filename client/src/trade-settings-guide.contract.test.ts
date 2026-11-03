@@ -49,7 +49,7 @@ describe("mounted Trade Settings Guide contract", () => {
     expect(handbookSource).toContain("trading/TRADE_SETTINGS_ADMIN_BLUEPRINT_RECONCILIATION.md");
     expect(reconciliationSource).toContain("The PDF is reconciled to the following map");
     expect(reconciliationSource).toContain("Remains the sole read-only wallet-activity view.");
-    expect(reconciliationSource).toContain("The previous-settlement prerequisite remains locked ON");
+    expect(reconciliationSource).toContain("The previous-settlement prerequisite is now an audited global ON/OFF control");
   });
 
   it("projects every ownership-registry entry into a complete glossary row with its registered owner link", () => {
