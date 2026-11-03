@@ -68,7 +68,7 @@ describe("Trading Overview lifecycle source availability", () => {
     expect(overview).toContain('if (!available || value == null) return "Unavailable";');
     expect(overview).toContain("Number.isFinite(parsed) ? parsed.toLocaleString() : \"Unavailable\"");
     expect(overview).toContain("const lifecycleUpdated = lifecycle.isLoading ? \"Loading\" : lifecycle.isError || !sourceAvailable ? \"Unavailable\" : timestamp(data.generatedAt);");
-    expect(overview).toContain("Updated {lifecycleUpdated}");
+    expect(overview).toContain("Lifecycle snapshot generated {lifecycleUpdated}");
     expect(overview).toContain("count(lifecycle.isLoading, lifecycle.isError, totals.delivered, sourceAvailable)");
     expect(overview).toContain("count(policies.isLoading, policies.isError, (policies.data ?? []).filter((policy) => policy.enabled).length)");
     expect(overview).not.toContain("Number(value ?? 0)");

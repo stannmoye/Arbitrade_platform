@@ -84,8 +84,10 @@ describe("Trading opportunity publication guidance", () => {
 
 
 describe("Admin opportunity publisher error handling", () => {
-  it("reports successful and failed manual publications through the admin UI", () => {
-    expect(adminApp).toContain("Opportunity published to the database.");
+  it("reports package-compatibility outcomes and failed manual publications through the admin UI", () => {
+    expect(adminApp).toContain("Opportunity #${result.id} was published.");
+    expect(adminApp).toContain("Compatibility was not assessed because no enabled package policies were available; no tier is confirmed compatible.");
+    expect(adminApp).toContain("enabled package policies are compatible.");
     expect(adminApp).toContain("onError:error=>setPublishMessage(error.message)");
     expect(adminApp).toContain('role={create.isError?"alert":"status"}');
     expect(adminApp).toContain('create.isPending?"Publishing…":"Publish to database"');
@@ -93,7 +95,8 @@ describe("Admin opportunity publisher error handling", () => {
 
   it("does not announce CSV success before the server confirms the import", () => {
     expect(adminApp).toContain("Publishing ");
-    expect(adminApp).toContain("validated opportunities published successfully.");
+    expect(adminApp).toContain("validated opportunities published.${compatibilityNote}");
+    expect(adminApp).toContain("no tier compatibility is confirmed for those offers.");
     expect(adminApp).toContain("onError:error=>{setImportError(true);setImportStatus(error.message)}");
     expect(adminApp).toContain("reader.onerror=");
     expect(adminApp).toContain("parseOpportunityCsv(String(reader.result||\"\"))");

@@ -591,7 +591,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
         expiresAt: expiresAt.toISOString(), enabled: true, reason: reasonUpdate,
       });
       expect(updatedPackage).toMatchObject({
-        id: createdPackage.id, expectedTermsVersion: 1, name, minimumQualifyingBalanceUsdMinor: 22345,
+        id: createdPackage.id, name, minimumQualifyingBalanceUsdMinor: 22345,
         durationMonths: 4, opportunitiesPerDay: 9, maxPopupsPerDay: 10,
         maxActiveInvestments: 3, enabled: true, termsVersion: 2,
       });
