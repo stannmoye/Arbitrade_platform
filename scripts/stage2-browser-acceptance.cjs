@@ -2365,8 +2365,9 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     await page.getByRole("heading", { name: "Welcome back, Jordan." }).waitFor({ state: "visible", timeout: 15000 });
     const popup = page.locator(".center-opportunity-toast").filter({ hasText: "Verified QA Company opportunity notice" });
     await popup.waitFor({ state: "visible", timeout: 10000 });
-    const companyVisible = await popup.getByText("Verified QA Company").isVisible().catch(() => false);
     const popupText = await popup.innerText();
+    const companyVisible = popupText.includes("Verified QA Company") &&
+      await popup.locator(".popup-company-reference").isVisible().catch(() => false);
     const insufficientVisible = popupText.includes("Missed — insufficient balance") &&
       popupText.includes("$ 100.00") && popupText.includes("$ 45.00") && popupText.includes("$ 55.00");
     const informationalOnly = popupText.includes("Informational notice only") &&
