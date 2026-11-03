@@ -1,4 +1,12 @@
 ## 2026-11-02 — Customer informational pop-up persistence and clarity
+## 2026-11-03 — MySQL/MariaDB-safe global controls migration
+
+- Working branch: `manus/pr275-global-migration`, based on `4a11470a`.
+- Reworked migration 0100 so the global policy aggregate and diagnostic base each scan `opportunity_package_policies` once; six separate diagnostic updates populate ordered disabled-package arrays without MySQL 8.4 `ER_CANT_REOPEN_TABLE`.
+- Preserved restrictive precedence, diagnostic JSON fields, existing canonical-row byte preservation, audit idempotency, fail-closed empty-source behavior, and no financial writes.
+- Validation: `pnpm install --frozen-lockfile`, focused global policy contract test (4 passed), full suite (1,119 passed, 27 skipped), `pnpm check`, `pnpm build`, and `git diff --check` passed. Disposable migration integration was skipped because no `TEST_DATABASE_URL` or local MySQL/MariaDB service was available.
+
+---
 
 ## 2026-11-02 — Fix tier-term saves blocked by delivery-policy activation gate
 

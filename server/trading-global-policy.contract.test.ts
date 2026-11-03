@@ -91,6 +91,10 @@ describe("global Trade master policy ownership and migration", () => {
     expect(migration).toContain("JSON_EXTRACT(IF(SUM(`enabled` = 0) > 0 AND SUM(`enabled` = 1) > 0, 'true', 'false'), '$')");
     expect(migration).toContain("'sourcePolicyCount', CAST(COUNT(*) AS UNSIGNED)");
     expect(migration).toContain("COALESCE((SELECT JSON_ARRAYAGG(`packageName`)");
+    expect(migration.match(/JSON_SET\(`settingValue`, '\$\.[a-zA-Z]+DisabledPackages'/g)).toHaveLength(6);
+    expect(migration.match(/UPDATE `app_settings`[\s\S]*?FROM `opportunity_package_policies`/g)).toHaveLength(6);
+    const diagnosticInsert = migration.slice(migration.indexOf("'trade.globalControls.migrationDiagnostic'"), migration.indexOf("--> statement-breakpoint", migration.indexOf("'trade.globalControls.migrationDiagnostic'")));
+    expect(diagnosticInsert).not.toContain("SELECT JSON_ARRAYAGG");
     expect(migration).toContain("trade-global-controls-migration-0100");
     expect(migration).toContain("existing values are preserved");
     expect(migration).toContain("ON DUPLICATE KEY UPDATE `settingKey`=VALUES(`settingKey`)");
@@ -98,7 +102,17 @@ describe("global Trade master policy ownership and migration", () => {
     expect(migration).toContain("'trade.globalControls'");
     expect(migration).toContain("'trade.globalControls.migrationDiagnostic'");
     const writeTargets = Array.from(migration.matchAll(/^\s*(INSERT\s+INTO|UPDATE|DELETE\s+FROM|TRUNCATE\s+TABLE|DROP\s+TABLE)\s+`?([a-z0-9_]+)/gim), match => [match[1].toUpperCase(), match[2]]);
-    expect(writeTargets).toEqual([["INSERT INTO", "app_settings"], ["INSERT INTO", "app_settings"], ["INSERT INTO", "v5_audit_events"]]);
+    expect(writeTargets).toEqual([
+      ["INSERT INTO", "app_settings"],
+      ["INSERT INTO", "app_settings"],
+      ["UPDATE", "app_settings"],
+      ["UPDATE", "app_settings"],
+      ["UPDATE", "app_settings"],
+      ["UPDATE", "app_settings"],
+      ["UPDATE", "app_settings"],
+      ["UPDATE", "app_settings"],
+      ["INSERT INTO", "v5_audit_events"],
+    ]);
     expect(migration).not.toMatch(/\bDROP\s+TABLE\b|\bDROP\s+COLUMN\b|\bALTER\s+TABLE\b/i);
     expect(migration).not.toMatch(/UPDATE\s+`?opportunity_package_policies`?/i);
   });

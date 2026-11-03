@@ -20,18 +20,21 @@ SELECT
 FROM `opportunity_package_policies`
 ON DUPLICATE KEY UPDATE `settingKey`=VALUES(`settingKey`);
 --> statement-breakpoint
+-- Build the diagnostic document from one aggregate source scan. The package-name
+-- arrays are filled by separate statements below so MySQL does not have to
+-- reopen opportunity_package_policies from an outer SELECT and nested subquery.
 INSERT INTO `app_settings` (`settingKey`,`settingValue`,`updatedBy`)
 SELECT
   'trade.globalControls.migrationDiagnostic',
   JSON_OBJECT(
     'migration', '0100_global_trade_master_controls',
     'sourcePolicyCount', CAST(COUNT(*) AS UNSIGNED),
-    'tierPolicyDisabledPackages', COALESCE((SELECT JSON_ARRAYAGG(`packageName`) FROM (SELECT `packageName` FROM `opportunity_package_policies` WHERE `enabled` = 0 ORDER BY `packageName`) AS p), JSON_ARRAY()),
-    'deliveryDisabledPackages', COALESCE((SELECT JSON_ARRAYAGG(`packageName`) FROM (SELECT `packageName` FROM `opportunity_package_policies` WHERE `automaticDelivery` = 0 ORDER BY `packageName`) AS p), JSON_ARRAY()),
-    'companyRotationDisabledPackages', COALESCE((SELECT JSON_ARRAYAGG(`packageName`) FROM (SELECT `packageName` FROM `opportunity_package_policies` WHERE `companyRotationEnabled` = 0 ORDER BY `packageName`) AS p), JSON_ARRAY()),
-    'randomizationDisabledPackages', COALESCE((SELECT JSON_ARRAYAGG(`packageName`) FROM (SELECT `packageName` FROM `opportunity_package_policies` WHERE `randomizationEnabled` = 0 ORDER BY `packageName`) AS p), JSON_ARRAY()),
-    'burstDisabledPackages', COALESCE((SELECT JSON_ARRAYAGG(`packageName`) FROM (SELECT `packageName` FROM `opportunity_package_policies` WHERE `burstEnabled` = 0 ORDER BY `packageName`) AS p), JSON_ARRAY()),
-    'settlementGuardDisabledPackages', COALESCE((SELECT JSON_ARRAYAGG(`packageName`) FROM (SELECT `packageName` FROM `opportunity_package_policies` WHERE `requirePreviousSettlement` = 0 ORDER BY `packageName`) AS p), JSON_ARRAY()),
+    'tierPolicyDisabledPackages', JSON_ARRAY(),
+    'deliveryDisabledPackages', JSON_ARRAY(),
+    'companyRotationDisabledPackages', JSON_ARRAY(),
+    'randomizationDisabledPackages', JSON_ARRAY(),
+    'burstDisabledPackages', JSON_ARRAY(),
+    'settlementGuardDisabledPackages', JSON_ARRAY(),
     'conflicts', JSON_OBJECT(
       'tierPolicyMasterEnabled', JSON_EXTRACT(IF(SUM(`enabled` = 0) > 0 AND SUM(`enabled` = 1) > 0, 'true', 'false'), '$'),
       'informationalPopupDeliveryEnabled', JSON_EXTRACT(IF(SUM(`automaticDelivery` = 0) > 0 AND SUM(`automaticDelivery` = 1) > 0, 'true', 'false'), '$'),
@@ -44,6 +47,30 @@ SELECT
   NULL
 FROM `opportunity_package_policies`
 ON DUPLICATE KEY UPDATE `settingKey`=VALUES(`settingKey`);
+--> statement-breakpoint
+UPDATE `app_settings`
+SET `settingValue` = JSON_SET(`settingValue`, '$.tierPolicyDisabledPackages', JSON_EXTRACT(COALESCE((SELECT JSON_ARRAYAGG(`packageName`) FROM (SELECT `packageName` FROM `opportunity_package_policies` WHERE `enabled` = 0 ORDER BY `packageName`) AS p), JSON_ARRAY()), '$'))
+WHERE `settingKey`='trade.globalControls.migrationDiagnostic';
+--> statement-breakpoint
+UPDATE `app_settings`
+SET `settingValue` = JSON_SET(`settingValue`, '$.deliveryDisabledPackages', JSON_EXTRACT(COALESCE((SELECT JSON_ARRAYAGG(`packageName`) FROM (SELECT `packageName` FROM `opportunity_package_policies` WHERE `automaticDelivery` = 0 ORDER BY `packageName`) AS p), JSON_ARRAY()), '$'))
+WHERE `settingKey`='trade.globalControls.migrationDiagnostic';
+--> statement-breakpoint
+UPDATE `app_settings`
+SET `settingValue` = JSON_SET(`settingValue`, '$.companyRotationDisabledPackages', JSON_EXTRACT(COALESCE((SELECT JSON_ARRAYAGG(`packageName`) FROM (SELECT `packageName` FROM `opportunity_package_policies` WHERE `companyRotationEnabled` = 0 ORDER BY `packageName`) AS p), JSON_ARRAY()), '$'))
+WHERE `settingKey`='trade.globalControls.migrationDiagnostic';
+--> statement-breakpoint
+UPDATE `app_settings`
+SET `settingValue` = JSON_SET(`settingValue`, '$.randomizationDisabledPackages', JSON_EXTRACT(COALESCE((SELECT JSON_ARRAYAGG(`packageName`) FROM (SELECT `packageName` FROM `opportunity_package_policies` WHERE `randomizationEnabled` = 0 ORDER BY `packageName`) AS p), JSON_ARRAY()), '$'))
+WHERE `settingKey`='trade.globalControls.migrationDiagnostic';
+--> statement-breakpoint
+UPDATE `app_settings`
+SET `settingValue` = JSON_SET(`settingValue`, '$.burstDisabledPackages', JSON_EXTRACT(COALESCE((SELECT JSON_ARRAYAGG(`packageName`) FROM (SELECT `packageName` FROM `opportunity_package_policies` WHERE `burstEnabled` = 0 ORDER BY `packageName`) AS p), JSON_ARRAY()), '$'))
+WHERE `settingKey`='trade.globalControls.migrationDiagnostic';
+--> statement-breakpoint
+UPDATE `app_settings`
+SET `settingValue` = JSON_SET(`settingValue`, '$.settlementGuardDisabledPackages', JSON_EXTRACT(COALESCE((SELECT JSON_ARRAYAGG(`packageName`) FROM (SELECT `packageName` FROM `opportunity_package_policies` WHERE `requirePreviousSettlement` = 0 ORDER BY `packageName`) AS p), JSON_ARRAY()), '$'))
+WHERE `settingKey`='trade.globalControls.migrationDiagnostic';
 --> statement-breakpoint
 INSERT INTO `v5_audit_events`
   (`actorUserId`,`action`,`entityType`,`entityId`,`reason`,`reference`,`metadataJson`)
