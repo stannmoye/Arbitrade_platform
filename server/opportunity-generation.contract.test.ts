@@ -29,6 +29,8 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(generator).toContain('eq(opportunityGenerationTemplates.status,"approved")');
     expect(generator).toContain("buildCompanySpotlightPool");
     expect(generator).not.toContain("templateIds.has(company.id)");
+    expect(generator).not.toContain("const templateRows=await tx.select()");
+    expect(generator).toContain('eq(opportunityGenerationTemplates.companyReferenceId,company.id)');
     expect(generator).toContain('createCatalogueIdentityOpportunityTemplate(company,packageMinimum,"USD")');
     expect(generator).toContain("selectOpportunityGenerationTerms");
     expect(generator).toContain("packageUsdUnitsToNativeMinor");
