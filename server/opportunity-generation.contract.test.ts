@@ -67,6 +67,8 @@ describe("automatic opportunity generation and package-aware customer delivery",
   it("shows catalogue company identity instead of the BRAND display sentinel in customer popup headings", () => {
     expect(customerPortal).toContain('String(popup.companyDisplayName||popup.symbol||"Opportunity")+" opportunity notice"');
     expect(customerPortal).toContain('popup.companyDisplayName||popup.symbol||"Company unavailable"');
+    expect(customerPortal).toContain('value!=="Informational"');
+    expect(customerPortal).toContain('"Brand catalogue opportunity"');
   });
 
   it("revalidates pinned companies when popup persistence occurs and expires generated assignments safely", () => {
