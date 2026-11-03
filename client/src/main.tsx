@@ -1,10 +1,10 @@
 import { trpc } from "@/lib/trpc";
-import { Suspense } from "react";
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
-import App from "./App";
+const App = lazy(() => import("./App"));
 import { ThemeProvider } from "./contexts/ThemeContext";
 import PortalRenderBoundary from "./components/PortalRenderBoundary";
 import "./index.css";
