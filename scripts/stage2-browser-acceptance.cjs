@@ -901,9 +901,15 @@ async function runAdminAppearanceInteractionCheck(browser) {
     // Wallet & Ledger lives inside the Finance group in the primary rail.
     // Primary groups intentionally start collapsed, so expand Finance first.
     const financeGroup = page.getByRole("button", { name: /^Finance/ });
-    await financeGroup.click();
-    await page.getByRole("button", { name: "Wallet & Ledger" }).click();
-    await page.getByRole("heading", { name: "Transaction review" }).waitFor({ state: "visible" });
+    const walletLedgerDestination = page.locator(
+      '#admin-main-navigation button[title="Read-only wallet balances and transaction history"]',
+    );
+    if (!(await walletLedgerDestination.isVisible())) {
+      await financeGroup.click();
+    }
+    await walletLedgerDestination.waitFor({ state: "visible" });
+    await walletLedgerDestination.click();
+    await page.getByRole("heading", { name: "Wallet & Ledger" }).waitFor({ state: "visible" });
     await page.setViewportSize({ width: 390, height: 844 });
 
     for (const tableCase of [
@@ -2094,6 +2100,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     minimumMinor: 10000, balanceAvailableMinor: 4500, balanceStatus: "insufficient",
     currencyScale: 2, currencySymbol: "$", configuredPopupDisplaySeconds: 1,
     closesAt: "2099-12-31T23:59:59.000Z", offerStatus: "open", popupEligible: true,
+    eventStatus: "DELIVERED", deliveryStatus: "delivered",
     companyDisplayName: "Verified QA Company", companyLogoUrl: null,
     badgeLabel: "QA tier", badgeStyle: "green",
   };
@@ -2199,6 +2206,15 @@ async function runAdminTradingControlsInteractionCheck(browser) {
     automaticTradingEnabled: false, requirePreviousSettlement: true,
     minSettlementDelaySeconds: 900, maxSettlementDelaySeconds: 900, policyVersion: 1,
   };
+  let savedGlobal = {
+    tierPolicyMasterEnabled: true,
+    informationalPopupDeliveryEnabled: true,
+    companyRotationEnabled: true,
+    randomizedTimingEnabled: true,
+    burstDeliveryEnabled: true,
+    available: true,
+    policyVersion: 1,
+  };
   const record = (check, passed, details = {}) => checks.push({
     route: "/ops-console-7f3a", routeName: "admin", width: 1440, check, passed, ...details,
   });
@@ -2224,6 +2240,8 @@ async function runAdminTradingControlsInteractionCheck(browser) {
           data = { id: 90502, email: "admin-qa@example.test", name: "Trading QA Admin", role: "admin" };
         } else if (procedure === "adminOperations.packagePolicies" || procedure === "adminOperations.overviewPackagePolicies") {
           data = [{ ...savedPolicy }];
+        } else if (procedure === "adminOperations.globalTradeControls") {
+          data = { ...savedGlobal };
         } else if (procedure === "adminOperations.customers" || procedure === "adminOperations.pendingSettlements" ||
           procedure === "adminOperations.ledgerActivity" || procedure === "adminOperations.currencies") {
           data = [];
@@ -2233,6 +2251,10 @@ async function runAdminTradingControlsInteractionCheck(browser) {
           for (const patch of patches) {
             if (patch.packageName === savedPolicy.packageName) savedPolicy = { ...savedPolicy, ...patch };
           }
+          data = { ok: true };
+        } else if (procedure === "adminOperations.updateGlobalTradeControl") {
+          savedGlobal = { ...savedGlobal, [input?.key]: input?.enabled, policyVersion: savedGlobal.policyVersion + 1 };
+          mutationCalls.push({ key: input?.key, enabled: input?.enabled });
           data = { ok: true };
         } else if (procedure === "adminOperations.settings") {
           data = {};
@@ -2250,37 +2272,40 @@ async function runAdminTradingControlsInteractionCheck(browser) {
     if (await tradeSettingsHeading.getAttribute("aria-expanded") !== "true") {
       await tradeSettingsHeading.click();
     }
-    await tradeSettingsNavigation.getByRole("button", { name: /Tiers & Eligibility/ }).click();
-    await page.getByRole("heading", { name: "Trading controls" }).waitFor({ state: "visible", timeout: 10000 });
+    await tradeSettingsNavigation.locator(
+      'button[title="Manage package-policy controls and the system-wide allocation safety gate"]',
+    ).click();
+    await page.getByRole("heading", { name: "Global Trade master controls" }).waitFor({ state: "visible", timeout: 10000 });
     const keys = [
-      ["Tier policy", "enabled"], ["Pop-up delivery", "automaticDelivery"],
-      ["Company rotation", "companyRotationEnabled"], ["Randomized timing", "randomizationEnabled"],
-      ["Burst delivery", "burstEnabled"],
+      ["Tier policy master", "tierPolicyMasterEnabled"], ["Pop-up delivery", "informationalPopupDeliveryEnabled"],
+      ["Company rotation", "companyRotationEnabled"], ["Randomized timing", "randomizedTimingEnabled"],
+      ["Burst delivery", "burstDeliveryEnabled"],
     ];
     for (const [label, key] of keys) {
-      const ariaLabel = label + " for " + savedPolicy.packageName;
+      const ariaLabel = label;
       const control = page.getByRole("switch", { name: ariaLabel });
-      const before = savedPolicy[key];
+      const before = savedGlobal[key];
       await control.click();
       await page.waitForFunction(({ label, expected }) => {
         const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
         return element?.getAttribute("aria-checked") === String(expected);
       }, { label: ariaLabel, expected: !before });
-      const switchedOff = savedPolicy[key] === !before;
+      const switchedOff = savedGlobal[key] === !before;
       await control.click();
       await page.waitForFunction(({ label, expected }) => {
         const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
         return element?.getAttribute("aria-checked") === String(expected);
       }, { label: ariaLabel, expected: before });
-      const switchedBack = savedPolicy[key] === before;
+      const switchedBack = savedGlobal[key] === before;
       record("admin-" + key + "-switch-saves-and-restores", switchedOff && switchedBack, {
-        initial: before, afterOff: !before, afterRestore: savedPolicy[key],
+        initial: before, afterOff: !before, afterRestore: savedGlobal[key],
       });
     }
     const financialExecutionStayedOff = savedPolicy.automaticTradingEnabled === false &&
-      mutationCalls.every(call => call.policies.every(patch => patch.automaticTradingEnabled !== true));
+      mutationCalls.every(call => !Array.isArray(call.policies) ||
+        call.policies.every(patch => patch.automaticTradingEnabled !== true));
     record("delivery-switches-never-enable-financial-execution", financialExecutionStayedOff, { mutationCalls, pageErrors });
-    record("admin-switches-show-save-feedback", await page.getByText("Trading control change saved and audit-logged.").isVisible().catch(() => false));
+    record("admin-switches-show-save-feedback", await page.getByText("Global Trade control saved and verified from a fresh database read.").isVisible().catch(() => false));
   } catch (error) {
     record("admin-trading-controls-interaction-completes", false, {
       error: error instanceof Error ? error.message : String(error),
