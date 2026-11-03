@@ -74,8 +74,8 @@ async function waitForStableViewportTarget(page, locator, { timeout = 10000 } = 
   }
   // A fixed or transformed rail can keep Playwright's bounding box outside
   // the page viewport even though the target itself is still rendered and
-  // enabled in the DOM. Return a safe-ready state for this exact locator so
-  // clickStableNavigationTarget can perform its narrow force-click fallback.
+  // enabled in the DOM. Preserve the DOM readiness check here; the subsequent
+  // normal click still performs Playwright's standard pointer/hit-target validation.
   const domReady = await locator.evaluate(element => {
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
@@ -90,42 +90,76 @@ async function waitForStableViewportTarget(page, locator, { timeout = 10000 } = 
 
 async function clickStableNavigationTarget(page, locator) {
   await waitForStableViewportTarget(page, locator);
-  const navigationGeometry = await locator.evaluate(element => {
-    const rect = element.getBoundingClientRect();
-    const style = getComputedStyle(element);
-    const visible = element.isConnected && style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) > 0;
-    const enabled = !element.hasAttribute("disabled") && element.getAttribute("aria-disabled") !== "true";
-    return {
-      safe: visible && enabled && rect.width > 0 && rect.height > 0,
-      offViewport: rect.right <= 0 || rect.bottom <= 0 || rect.left >= window.innerWidth || rect.top >= window.innerHeight,
-      fixedRailHeading: element.classList.contains("admin-nav-group-heading"),
-    };
+  await locator.click();
+}
+
+async function clickCanonicalNavigationTarget(page, locator, { timeout = 10000 } = {}) {
+  const navigation = page.locator(".admin-canonical-nav");
+  await navigation.waitFor({ state: "visible", timeout });
+  await locator.waitFor({ state: "visible", timeout });
+  await locator.evaluate(element => {
+    const nav = document.querySelector(".admin-canonical-nav");
+    if (!nav || !nav.contains(element)) throw new Error("Navigation target is outside .admin-canonical-nav");
+    const navRect = nav.getBoundingClientRect();
+    const targetRect = element.getBoundingClientRect();
+    const inset = 8;
+    if (targetRect.top < navRect.top + nav.clientTop + inset) {
+      nav.scrollTop += targetRect.top - navRect.top - nav.clientTop - inset;
+    } else if (targetRect.bottom > navRect.top + nav.clientTop + nav.clientHeight - inset) {
+      nav.scrollTop += targetRect.bottom - navRect.top - nav.clientTop - nav.clientHeight + inset;
+    }
+    if (targetRect.left < navRect.left + nav.clientLeft + inset) {
+      nav.scrollLeft += targetRect.left - navRect.left - nav.clientLeft - inset;
+    } else if (targetRect.right > navRect.left + nav.clientLeft + nav.clientWidth - inset) {
+      nav.scrollLeft += targetRect.right - navRect.left - nav.clientLeft - nav.clientWidth + inset;
+    }
   });
-  if ((navigationGeometry.safe || navigationGeometry.fixedRailHeading) &&
-      (navigationGeometry.offViewport || navigationGeometry.fixedRailHeading)) {
-    await locator.click({ force: true });
-    return;
-  }
-  try {
-    await locator.click();
-  } catch (error) {
-    // Fixed/sticky rails can report a valid, visible button as outside the
-    // viewport to Playwright's hit-target check after the rail reflows. Keep
-    // normal pointer validation first; only this navigation helper may use a
-    // forced pointer click, and only after an independent DOM geometry check.
-    const errorMessage = String(error?.message || error);
-    if (!/outside(?: of)? the viewport/i.test(errorMessage)) throw error;
-    const safelyClickable = await locator.evaluate(element => {
-      const rect = element.getBoundingClientRect();
+
+  const deadline = Date.now() + timeout;
+  let previous;
+  let stableFrames = 0;
+  while (Date.now() < deadline) {
+    const geometry = await locator.evaluate(element => {
+      const nav = document.querySelector(".admin-canonical-nav");
+      const navRect = nav.getBoundingClientRect();
+      const targetRect = element.getBoundingClientRect();
+      const left = Math.max(navRect.left + nav.clientLeft, 0, targetRect.left);
+      const right = Math.min(navRect.left + nav.clientLeft + nav.clientWidth, window.innerWidth, targetRect.right);
+      const top = Math.max(navRect.top + nav.clientTop, 0, targetRect.top);
+      const bottom = Math.min(navRect.top + nav.clientTop + nav.clientHeight, window.innerHeight, targetRect.bottom);
+      const centerX = (left + right) / 2;
+      const centerY = (top + bottom) / 2;
+      const hit = left < right && top < bottom ? document.elementFromPoint(centerX, centerY) : null;
       const style = getComputedStyle(element);
-      return element.isConnected &&
-        style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) > 0 &&
-        !element.hasAttribute("disabled") && element.getAttribute("aria-disabled") !== "true" &&
-        rect.width > 0 && rect.height > 0;
+      return {
+        scrollTop: nav.scrollTop,
+        scrollLeft: nav.scrollLeft,
+        left: targetRect.left,
+        top: targetRect.top,
+        width: targetRect.width,
+        height: targetRect.height,
+        intersectsNavigation: left < right && top < bottom,
+        intersectsViewport: targetRect.right > 0 && targetRect.left < window.innerWidth &&
+          targetRect.bottom > 0 && targetRect.top < window.innerHeight,
+        hitTarget: Boolean(hit && (hit === element || element.contains(hit))),
+        visible: style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) > 0,
+        enabled: !element.hasAttribute("disabled") && element.getAttribute("aria-disabled") !== "true",
+      };
     });
-    if (!safelyClickable) throw error;
-    await locator.click({ force: true });
+    const isStable = previous && Math.abs(geometry.scrollTop - previous.scrollTop) < 0.5 &&
+      Math.abs(geometry.scrollLeft - previous.scrollLeft) < 0.5 &&
+      Math.abs(geometry.left - previous.left) < 0.5 && Math.abs(geometry.top - previous.top) < 0.5 &&
+      Math.abs(geometry.width - previous.width) < 0.5 && Math.abs(geometry.height - previous.height) < 0.5;
+    stableFrames = isStable ? stableFrames + 1 : 0;
+    if (stableFrames >= 2 && geometry.intersectsNavigation && geometry.intersectsViewport &&
+      geometry.hitTarget && geometry.visible && geometry.enabled) {
+      await locator.click();
+      return;
+    }
+    previous = geometry;
+    await page.waitForTimeout(100);
   }
+  throw new Error("Canonical navigation target did not settle into an intersecting, hittable position");
 }
 
 async function runAdminAppearanceInteractionCheck(browser) {
@@ -190,7 +224,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
         } else if (procedure === "adminOperations.settings") {
           data = { appearance: savedAppearance };
         } else if (procedure === "adminOperations.customers") {
-          data = [{ id: 8000, role: "user", name: "Ledger Customer 1", email: "ledger1@example.test" }];
+          data = [{ id: 8001, name: "Stage Ledger Customer", email: "ledger.customer@example.test", role: "user" }];
         } else if (procedure === "adminOperations.packagePolicies") {
           data = [];
         } else if (procedure === "adminOperations.pendingSettlements") {
@@ -205,17 +239,21 @@ async function runAdminAppearanceInteractionCheck(browser) {
             rewardReservedMinor: 2500 + index * 10,
           }));
         } else if (procedure === "adminOperations.ledgerActivity") {
-          data = { entries: Array.from({ length: 24 }, (_, index) => ({
-            id: 9000 + index,
-            userId: 8000 + index,
-            customerName: `Ledger Customer ${index + 1}`,
-            customerEmail: `ledger${index + 1}@example.test`,
-            entryType: index % 2 ? "trade_reward" : "principal_reservation",
-            amountMinor: index % 2 ? 1250 + index : -(10000 + index * 100),
-            currency: "USD",
-            withdrawable: index % 2 === 1,
-            createdAt: new Date(Date.UTC(2026, 0, 1, 12, index)).toISOString(),
-          })) };
+          data = {
+            entries: Array.from({ length: 24 }, (_, index) => ({
+              id: 9000 + index,
+              userId: 8001,
+              customerName: "Stage Ledger Customer",
+              customerEmail: "ledger.customer@example.test",
+              entryType: index % 2 ? "trade_reward" : "principal_reservation",
+              amountMinor: index % 2 ? 1250 + index : -(10000 + index * 100),
+              currency: "USD",
+              withdrawable: index % 2 === 1,
+              createdAt: new Date(Date.UTC(2026, 0, 1, 12, index)).toISOString(),
+            })),
+            hasMore: false,
+            nextCursor: null,
+          };
         } else if (procedure === "adminOperations.currencies") {
           data = [{ code: "USD", scale: 2 }];
         } else if (procedure === "adminOperations.autoTradePolicy") {
@@ -1014,8 +1052,11 @@ async function runAdminAppearanceInteractionCheck(browser) {
     await walletLedgerDestination.waitFor({ state: "visible" });
     await walletLedgerDestination.click();
     await page.getByRole("heading", { name: "Wallet & Ledger" }).waitFor({ state: "visible" });
-    await page.getByLabel("Customer (required)").selectOption("8000");
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByLabel("Customer (required)").selectOption("8001");
+    await page.waitForFunction(() =>
+      document.querySelectorAll('[aria-label="Wallet activity ledger"] tbody tr').length >= 24,
+    );
 
     for (const tableCase of [
       { label: "Wallet activity ledger", check: "populated-financial-table-keyboard-scroll", minimumRows: 20 },
@@ -1073,15 +1114,25 @@ async function runAdminAppearanceInteractionCheck(browser) {
 
     // Settlement & Reconciliation is a separate Trade Settings owner; it is
     // intentionally not rendered on the Finance → Wallet & Ledger route.
+    const mobileAdminNavigationTrigger = page.locator(".admin-mobile-nav-trigger");
+    if (await mobileAdminNavigationTrigger.isVisible()) {
+      await mobileAdminNavigationTrigger.click();
+      await page.waitForFunction(() => document.querySelector(".admin-portal")?.classList.contains("mobile-nav-open"));
+    }
     const tradeSettingsGroup = page.getByRole("button", { name: /Trade Settings/ });
     if (await tradeSettingsGroup.getAttribute("aria-expanded") !== "true") {
-      await tradeSettingsGroup.click({ force: true });
+      await clickCanonicalNavigationTarget(page, tradeSettingsGroup);
+    }
+    if (await mobileAdminNavigationTrigger.isVisible() &&
+      !(await page.locator(".admin-portal").evaluate(element => element.classList.contains("mobile-nav-open")))) {
+      await mobileAdminNavigationTrigger.click();
+      await page.waitForFunction(() => document.querySelector(".admin-portal")?.classList.contains("mobile-nav-open"));
     }
     const settlementDestination = page.locator(
       '#admin-main-navigation button[title="Confirm trade outcomes and reconcile trade settlement records only"]',
     );
     await settlementDestination.waitFor({ state: "visible" });
-    await clickStableNavigationTarget(page, settlementDestination);
+    await clickCanonicalNavigationTarget(page, settlementDestination);
     await page.getByRole("heading", { name: "Settlement & Reconciliation" }).waitFor({ state: "visible" });
     const settlementRegion = page.getByRole("region", { name: "Trades awaiting manual settlement" });
     await settlementRegion.waitFor({ state: "visible" });
@@ -2433,7 +2484,7 @@ async function runAdminTradingControlsInteractionCheck(browser) {
     const tradeSettingsNavigation = page.locator("#admin-main-navigation .admin-nav-group--trade-settings");
     const tradeSettingsHeading = tradeSettingsNavigation.getByRole("button", { name: /Trade Settings/ });
     if (await tradeSettingsHeading.getAttribute("aria-expanded") !== "true") {
-      await tradeSettingsHeading.click({ force: true });
+      await clickStableNavigationTarget(page, tradeSettingsHeading);
     }
     const packageConfigurationDestination = tradeSettingsNavigation.locator(
       'button[title="Manage package-policy controls and the system-wide allocation safety gate"]',

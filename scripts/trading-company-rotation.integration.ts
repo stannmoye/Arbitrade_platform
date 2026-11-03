@@ -7,6 +7,7 @@ import { closeDbPool, getDb, updateCompanyCatalogueAdminState } from "../server/
 import { ensurePopupDeliveries } from "../server/opportunityLifecycle";
 import { COMPANY_REFERENCE_CATALOGUE } from "../server/modules/company-catalogue-reference";
 import { buildCompanySpotlightPool, type CompanySpotlightRepeatPolicy } from "../server/modules/company-spotlight-rotation";
+import { deliveryIdempotencyKey } from "../server/modules/opportunity-delivery-lifecycle";
 import { appSettings, opportunityOffers, opportunityPopupEvents, users, v5AuditEvents } from "../drizzle/schema";
 
 type PopupDelivery = Parameters<typeof ensurePopupDeliveries>[0][number];
@@ -234,10 +235,10 @@ try {
   const requiredOffers = 11 + exhaustionPool.length + 1;
   for (let index = 0; index < requiredOffers; index++) await addOffer(index);
 
-  // Two independent worker invocations race on the exact same user:offer:quotaDay.
+  // Two independent worker invocations race on the exact same user:offer.
   // Only one may claim the durable cursor and persist the company snapshot.
   const duplicateDelivery = makeDelivery(offerIds[0]!, mainPackage);
-  const duplicateKey = `${userId}:${offerIds[0]}`;
+  const duplicateKey = deliveryIdempotencyKey(userId!, offerIds[0]!);
   const [duplicateA, duplicateB] = await Promise.all([
     ensurePopupDeliveries([duplicateDelivery]),
     ensurePopupDeliveries([duplicateDelivery]),
@@ -302,7 +303,7 @@ try {
 
   // A distinct Node process models a worker restart: only the database cursor survives.
   const restartResult = assignInFreshProcess(makeDelivery(offerIds[6]!, mainPackage, selectedCountry, "allow_repeats"));
-  assert.equal(restartResult.eventKey, `${userId}:${offerIds[6]}`);
+  assert.equal(restartResult.eventKey, deliveryIdempotencyKey(userId!, offerIds[6]!));
   const afterRestart = await readEvent(offerIds[6]!);
   assert.ok(afterRestart);
   assert.equal(metadataOf(afterRestart).rotationSequence, 2, "a fresh worker process must resume from the persisted cursor");
