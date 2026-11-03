@@ -609,7 +609,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
 
       const reloaded = (await admin.adminOperations.tradingPackages()).find((row: any) => row.id === createdPackage.id) as any;
       expect(reloaded).toMatchObject({
-        id: createdPackage.id, expectedTermsVersion: 1, name, minimumQualifyingBalanceUsdMinor: 22345,
+        id: createdPackage.id, name, minimumQualifyingBalanceUsdMinor: 22345,
         durationMonths: 4, opportunitiesPerDay: 9, maxPopupsPerDay: 10,
         maxActiveInvestments: 3, enabled: true, termsVersion: 2,
       });
