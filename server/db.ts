@@ -3384,7 +3384,10 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       configuredDurationSeconds:terms.tradeDurationSeconds,packagePolicyVersionSnapshot:Number(selectedPolicy.policyVersion||1),
       symbol:terms.symbol,venueFrom:terms.venueFrom,venueTo:terms.venueTo,currency:terms.currency,minimumMinor,
       expectedRewardBps:terms.configuredPayoutRateBps,durationSeconds:terms.tradeDurationSeconds,
-      opensAt:input.now,closesAt,rewardAt,status:"open",
+      // TIMESTAMP columns have second precision in MySQL/MariaDB. Floor the
+      // opening instant so MySQL rounding cannot move it into the future and make
+      // the same worker cycle miss the row it just generated.
+      opensAt:new Date(Math.floor(input.now.getTime()/1000)*1000),closesAt,rewardAt,status:"open",
     });
     const offerId=Number(offerInsert[0].insertId);
     if(!Number.isSafeInteger(offerId)||offerId<1)throw new Error("Generated opportunity ID was not persisted.");
