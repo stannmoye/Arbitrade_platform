@@ -90,6 +90,8 @@ describe("global Trade master policy ownership and migration", () => {
     expect(migration.match(/ON DUPLICATE KEY UPDATE `settingKey`=VALUES\(`settingKey`\);/g)).toHaveLength(2);
     expect(migration).toContain("'trade.globalControls'");
     expect(migration).toContain("'trade.globalControls.migrationDiagnostic'");
+    const writeTargets = Array.from(migration.matchAll(/^\s*(INSERT\s+INTO|UPDATE|DELETE\s+FROM|TRUNCATE\s+TABLE|DROP\s+TABLE)\s+`?([a-z0-9_]+)/gim), match => [match[1].toUpperCase(), match[2]]);
+    expect(writeTargets).toEqual([["INSERT INTO", "app_settings"], ["INSERT INTO", "app_settings"], ["INSERT INTO", "v5_audit_events"]]);
     expect(migration).not.toMatch(/\bDROP\s+TABLE\b|\bDROP\s+COLUMN\b|\bALTER\s+TABLE\b/i);
     expect(migration).not.toMatch(/UPDATE\s+`?opportunity_package_policies`?/i);
   });
