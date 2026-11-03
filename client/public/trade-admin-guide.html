@@ -162,9 +162,9 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 </div>
 <h3>Buttons and import</h3>
 <ul>
-<li><strong>Publish to database:</strong> submits the manual opportunity form. All offer fields start blank; enter only reviewed, source-backed terms. The form does not invent symbols, venues, payout rates or execution results.</li>
-<li><strong>Choose CSV file:</strong> imports a CSV with columns <code>symbol, venueFrom, venueTo, currency, minimumMinor, expectedRewardBps, durationSeconds</code>. The current import accepts valid rows in one batch (up to 5,000 rows).</li>
-<li><strong>Open database opportunities:</strong> read-only list of open records; the page shows up to the first 100.</li>
+<li><strong>Publish to database:</strong> submits the manual opportunity form. All offer fields start blank; enter reviewed terms with a required source reference and operator review note. Both are saved with the administrator identity and accepted terms in Trade Audit History; the platform does not independently verify the external evidence or the substance of the note. The form does not invent symbols, venues, payout rates or execution results.</li>
+<li><strong>Choose CSV file:</strong> imports a CSV with columns <code>symbol, venueFrom, venueTo, currency, minimumMinor, expectedRewardBps, durationSeconds, sourceReference, reviewNotes</code>. Every row requires its own source reference and review note; valid rows are published in one batch (up to 5,000 rows). The platform does not independently verify the external evidence or the substance of the note.</li>
+<li><strong>Open database opportunities:</strong> list of currently open records; the page shows up to the first 100.</li>
 </ul>
 <div class="callout stop"><strong>Financial safety:</strong> A published opportunity, a countdown, a company logo or a configured reward estimate is not proof of external-market execution or realized profit. Actual results must be supported by auditable evidence and settlement records. Do not treat the manual form or CSV as permission to invent a result.</div>
 </section>

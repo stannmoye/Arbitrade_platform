@@ -63,6 +63,8 @@ For each generated opportunity, the server evaluates the customer's automaticall
 
 **Current opportunity-publication implementation status:** the market refresh worker currently stores market-instrument and FX reference snapshots only. `ensureMarketDrivenOpportunities` expires stale published offers and counts the remaining open offers; it currently returns `generationDisabled: true` and `created: 0`. Therefore, customer pop-ups require an administrator-published, open opportunity from the Opportunity Engine's manual form or validated CSV import. With zero open published offers, no customer pop-up can be created, regardless of tier eligibility or delivery settings. Do not remove this guard by inventing a reward rate, venue, price, quote, or execution result from reference market data. Any future automatic publisher must use explicitly approved offer terms and verifiable source evidence.
 
+Manual and CSV publication require an administrator-supplied source reference and review note; the accepted offer terms, actor, reference, and note are stored in Trade Audit History with the offer transaction. The platform does not independently verify the referenced evidence or the substance of the note. The existing publishing owner route also permits a reasoned, audited manual close of an open, unexpired offer. A closed offer is excluded from future delivery consideration; already-delivered popup and trade snapshots are not rewritten.
+
 When the administrator's block-until-settled policy is active and a prior trade is outstanding, pause delivery of new opportunities but retain already-published offers in their open state until their own expiry. Do not close or discard valid offers merely because delivery is temporarily paused; after the outstanding trade is resolved, still-unexpired offers may become eligible for delivery under the current tier/quota checks.
 
 
@@ -313,7 +315,7 @@ All Trading configuration, publishing, monitoring and audit destinations must ap
 - **Tiers & Eligibility** — tier name, qualifying USD threshold, duration, daily opportunity entitlement, effective dates, enabled state and terms version.
 - **Per-tier Daily Delivery Caps** — operational hard daily pop-up ceiling, maximum visible offers, optional daily target cap and quota-counting window.
 - **Per-tier Offer Rules & Capital Limits** — required capital bounds and configured reward-rate/duration eligibility bounds.
-- **Publish & Manage Opportunities** — manual reviewed-offer publishing, validated bulk import and read-only open-offer review; this page must not duplicate the tier/policy editor.
+- **Publish & Manage Opportunities** — source/review-recorded manual publishing, fully validated bulk import, open-offer review and reasoned audited manual close; this page must not duplicate the tier/policy editor.
 - **Per-tier Delivery Schedule** — per-tier delivery spacing, randomized timing bounds and post-completion intervals.
 - **Global Trade Timing & Settlement** — global trade-duration and closing/settlement review settings.
 - **Per-tier Pop-up Display** — per-tier expanded-card and completion-card display overrides.

@@ -112,6 +112,19 @@ describe("mounted Trade Settings Guide contract", () => {
     expect(byTerm("Payout requested")?.description).toContain("distinct from trade review/settlement");
   });
 
+  it("links offer publication to its owner while distinguishing operator review from platform verification", () => {
+    const publishRoute = ownerRoutes.find((route) => route.id === "trade-opportunity-publishing");
+    const publishLink = ownerLinks.find((link) => link.routeId === "trade-opportunity-publishing");
+    expect(publishRoute?.target).toBe("opportunity");
+    expect(publishLink?.target).toBe(publishRoute?.target);
+    expect(publishLink?.description).toContain("Required source references and operator review notes are saved in Trade Audit History");
+    expect(publishLink?.description).toContain("does not independently verify the external evidence or the substance of the note");
+    expect(byTerm("Published / open offer")?.description).toContain("source reference and operator review note are saved in Trade Audit History");
+    expect(byTerm("Published / open offer")?.description).toContain("does not independently verify the external evidence");
+    expect(troubleshooting.find((item) => item.routeId === "trade-opportunity-publishing")?.description)
+      .toContain("source reference and operator review note are recorded in Trade Audit History");
+  });
+
   it("explicitly identifies locked and unavailable functionality", () => {
     expect(guideSource).toContain("hard-locked OFF");
     expect(guideSource).toContain("Carry-forward across daily windows is not available");

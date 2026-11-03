@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./marketSync.ts", import.meta.url), "utf8");
 const databaseSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const adminApp = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
+const opportunityCsv = readFileSync(new URL("../client/src/opportunity-csv.ts", import.meta.url), "utf8");
 const start = source.indexOf("export async function ensureMarketDrivenOpportunities");
 const implementation = source.slice(start);
 
@@ -95,6 +96,9 @@ describe("Admin opportunity publisher error handling", () => {
     expect(adminApp).toContain("validated opportunities published successfully.");
     expect(adminApp).toContain("onError:error=>{setImportError(true);setImportStatus(error.message)}");
     expect(adminApp).toContain("reader.onerror=");
-    expect(adminApp).toContain("rows.length>5000");
+    expect(adminApp).toContain("parseOpportunityCsv(String(reader.result||\"\"))");
+    expect(opportunityCsv).toContain("const MAX_ROWS = 5000;");
+    expect(opportunityCsv).toContain("if (rows.length > MAX_ROWS)");
+    expect(opportunityCsv).not.toContain(".filter(");
   });
 });

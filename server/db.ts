@@ -9,6 +9,7 @@ import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
 import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostings, inspectWalletLedgerSnapshot } from "./modules/wallet-ledger-reconciliation";
 import { addCalendarMonths } from "./modules/calendar-months";
+import { validateOpportunityOfferClosure, validateOpportunityOfferPublication, type OpportunityOfferClosureInput, type OpportunityOfferPublicationInput } from "./modules/opportunity-publication";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { calculateConfiguredProfitMinor, chooseInclusiveInteger } from "./modules/trading-popup-policy";
@@ -165,7 +166,7 @@ export async function updateCompanyCatalogueAdminState(input: {
 }
 
 export async function listAdminAuditEvents(){ const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(v5AuditEvents).orderBy(desc(v5AuditEvents.createdAt)).limit(200); }
-const TRADE_SETTINGS_AUDIT_ACTIONS = ["trade_fee_policy_updated", "trade_global_timing_policy_updated", "trade_global_control_updated", "trade_global_controls_migrated", "trading_new_allocations_paused", "trading_new_allocations_resumed", "trading_package_created", "trading_package_terms_updated", "trading_delivery_policy_updated", "company_catalogue.bulk_status_updated"] as const;
+const TRADE_SETTINGS_AUDIT_ACTIONS = ["trade_fee_policy_updated", "trade_global_timing_policy_updated", "trade_global_control_updated", "trade_global_controls_migrated", "trading_new_allocations_paused", "trading_new_allocations_resumed", "trading_package_created", "trading_package_terms_updated", "trading_delivery_policy_updated", "company_catalogue.bulk_status_updated", "trading_opportunity_published", "trading_opportunity_closed"] as const;
 export type TradeAuditScope = "global" | "package" | "record";
 export type AdminTradeAuditHistoryFilters = { actorUserId?: number; fromDate?: string; toDate?: string; key?: string; entityType?: string; entityId?: string; package?: string; scope?: TradeAuditScope; cursor?: string; pageSize?: number };
 type TradeAuditCursor = { createdAt: string; id: number };
@@ -189,7 +190,7 @@ function auditString(record: Record<string, unknown> | null, ...keys: string[]):
 }
 function parseTradeAuditMetadata(raw: string | null) { try { return raw ? auditRecord(JSON.parse(raw)) : null; } catch { return null; } }
 export function deriveTradeAuditScope(action: string, entityType: string): TradeAuditScope | null {
-  if (action === "company_catalogue.bulk_status_updated" || entityType === "company_catalogue") return "record";
+  if (action === "company_catalogue.bulk_status_updated" || entityType === "company_catalogue" || entityType === "opportunity_offer") return "record";
   if (["trading_package_created", "trading_package_terms_updated", "trading_delivery_policy_updated"].includes(action)
     || entityType === "trading_package" || entityType === "opportunity_package_policy") return "package";
   return TRADE_SETTINGS_AUDIT_ACTIONS.includes(action as typeof TRADE_SETTINGS_AUDIT_ACTIONS[number]) ? "global" : null;
@@ -4981,10 +4982,187 @@ export async function processConfirmedTradeCredits(input?: { limit?: number }) {
   return {scanned:due.length,credited,skipped,limit,asOf:now.toISOString()};
 }
 
-export async function createOpportunityOffer(input:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number}){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();const closesAt=new Date(now.getTime()+input.durationSeconds*1000);const result=await db.insert(opportunityOffers).values({...input,opensAt:now,closesAt,rewardAt:closesAt,status:"open"});return {id:Number(result[0].insertId),...input,opensAt:now,closesAt,rewardAt:closesAt};}
+type PersistedOpportunityPublication = {
+  id: number;
+  publication: ReturnType<typeof validateOpportunityOfferPublication>;
+  opensAt: Date;
+  closesAt: Date;
+  rewardAt: Date;
+};
 
-export async function bulkCreateOpportunityOffers(inputs:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number;opensAt?:Date;closesAt?:Date;rewardAt?:Date}[]) { const db=await getDb(); if(!db) throw new Error("Database is not available"); if(!inputs.length) return {created:0}; const rows=inputs.map(input=>{const opensAt=input.opensAt||new Date(); const closesAt=input.closesAt||new Date(opensAt.getTime()+input.durationSeconds*1000); return {...input,opensAt,closesAt,rewardAt:input.rewardAt||closesAt,status:"open" as const};}); await db.insert(opportunityOffers).values(rows); return {created:rows.length}; }
+function validateOpportunityPublisher(adminId: number) {
+  if (!Number.isSafeInteger(adminId) || adminId <= 0) throw new Error("Authenticated administrator identity is required to publish opportunities.");
+}
 
+function opportunityPublicationAuditEvent(adminId: number, offer: PersistedOpportunityPublication) {
+  const acceptedTerms = {
+    symbol: offer.publication.symbol,
+    venueFrom: offer.publication.venueFrom,
+    venueTo: offer.publication.venueTo,
+    currency: offer.publication.currency,
+    minimumMinor: offer.publication.minimumMinor,
+    expectedRewardBps: offer.publication.expectedRewardBps,
+    durationSeconds: offer.publication.durationSeconds,
+    opensAt: offer.opensAt.toISOString(),
+    closesAt: offer.closesAt.toISOString(),
+    rewardAt: offer.rewardAt.toISOString(),
+    status: "open",
+  };
+  return {
+    actorUserId: adminId,
+    action: "trading_opportunity_published",
+    entityType: "opportunity_offer",
+    entityId: String(offer.id),
+    reason: offer.publication.reviewNotes,
+    reference: offer.publication.sourceReference,
+    metadataJson: JSON.stringify({
+      source: offer.publication.sourceReference,
+      reviewNotes: offer.publication.reviewNotes,
+      new: acceptedTerms,
+      acceptedTerms,
+    }),
+  };
+}
+
+async function insertReviewedOpportunityOffer(tx: any, adminId: number, publication: ReturnType<typeof validateOpportunityOfferPublication>): Promise<PersistedOpportunityPublication> {
+  const now = new Date();
+  const opensAt = publication.opensAt ?? now;
+  const closesAt = publication.closesAt ?? new Date(opensAt.getTime() + publication.durationSeconds * 1000);
+  const rewardAt = publication.rewardAt ?? closesAt;
+  const validated = validateOpportunityOfferPublication({ ...publication, opensAt, closesAt, rewardAt });
+  if (closesAt.getTime() <= now.getTime()) throw new Error("Opportunity expiry must be later than the publication time.");
+  const result = await tx.insert(opportunityOffers).values({
+    symbol: validated.symbol,
+    venueFrom: validated.venueFrom,
+    venueTo: validated.venueTo,
+    currency: validated.currency,
+    minimumMinor: validated.minimumMinor,
+    expectedRewardBps: validated.expectedRewardBps,
+    durationSeconds: validated.durationSeconds,
+    opensAt,
+    closesAt,
+    rewardAt,
+    status: "open",
+  });
+  const id = Number(result[0].insertId);
+  if (!Number.isSafeInteger(id) || id <= 0) throw new Error("Published opportunity ID could not be verified.");
+  const persisted: PersistedOpportunityPublication = { id, publication: validated, opensAt, closesAt, rewardAt };
+  await tx.insert(v5AuditEvents).values(opportunityPublicationAuditEvent(adminId, persisted));
+  return persisted;
+}
+
+export async function createOpportunityOffer(adminId: number, input: OpportunityOfferPublicationInput) {
+  validateOpportunityPublisher(adminId);
+  const publication = validateOpportunityOfferPublication(input);
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const persisted = await insertReviewedOpportunityOffer(tx, adminId, publication);
+    return {
+      id: persisted.id,
+      symbol: publication.symbol,
+      venueFrom: publication.venueFrom,
+      venueTo: publication.venueTo,
+      currency: publication.currency,
+      minimumMinor: publication.minimumMinor,
+      expectedRewardBps: publication.expectedRewardBps,
+      durationSeconds: publication.durationSeconds,
+      opensAt: persisted.opensAt,
+      closesAt: persisted.closesAt,
+      rewardAt: persisted.rewardAt,
+    };
+  });
+}
+
+export async function bulkCreateOpportunityOffers(adminId: number, inputs: OpportunityOfferPublicationInput[]) {
+  validateOpportunityPublisher(adminId);
+  if (!inputs.length) return { created: 0 };
+  const publications = inputs.map(validateOpportunityOfferPublication);
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    for (const publication of publications) {
+      await insertReviewedOpportunityOffer(tx, adminId, publication);
+    }
+    return { created: publications.length };
+  });
+}
+
+function opportunityClosureAuditEvent(adminId: number, offerId: number, reason: string) {
+  return {
+    actorUserId: adminId,
+    action: "trading_opportunity_closed",
+    entityType: "opportunity_offer",
+    entityId: String(offerId),
+    reason,
+    reference: `opportunity-offer:${offerId}:manual-close`,
+    metadataJson: JSON.stringify({ old: { status: "open" }, new: { status: "closed" }, reason }),
+  };
+}
+
+function isAuditedManualOpportunityClosure(row: typeof v5AuditEvents.$inferSelect | undefined) {
+  if (!row || row.action !== "trading_opportunity_closed" || row.entityType !== "opportunity_offer") return false;
+  const metadata = parseTradeAuditMetadata(row.metadataJson);
+  const oldState = auditRecord(metadata?.old);
+  const newState = auditRecord(metadata?.new);
+  return oldState?.status === "open" && newState?.status === "closed" && typeof row.reason === "string" && row.reason.trim().length > 0;
+}
+
+export async function closeOpportunityOffer(adminId: number, input: OpportunityOfferClosureInput) {
+  validateOpportunityPublisher(adminId);
+  const closure = validateOpportunityOfferClosure(input);
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const transactionResult = await db.transaction(async tx => {
+    const offer = (await tx.select().from(opportunityOffers)
+      .where(eq(opportunityOffers.id, closure.offerId)).limit(1).for("update"))[0];
+    if (!offer) throw new Error("Published opportunity was not found.");
+
+    if (offer.status === "closed") {
+      const priorAudit = (await tx.select().from(v5AuditEvents).where(and(
+        eq(v5AuditEvents.action, "trading_opportunity_closed"),
+        eq(v5AuditEvents.entityType, "opportunity_offer"),
+        eq(v5AuditEvents.entityId, String(closure.offerId)),
+      )).orderBy(desc(v5AuditEvents.id)).limit(1))[0];
+      if (!isAuditedManualOpportunityClosure(priorAudit)) {
+        throw new Error("This opportunity is no longer open and has no verified manual-close audit record.");
+      }
+      return { auditId: priorAudit.id, auditReason: priorAudit.reason!, idempotent: true };
+    }
+
+    if (offer.status !== "open" || offer.closesAt.getTime() <= Date.now()) {
+      throw new Error("Only a currently open, unexpired published opportunity can be manually closed.");
+    }
+
+    const changed = await tx.update(opportunityOffers).set({ status: "closed" })
+      .where(and(eq(opportunityOffers.id, closure.offerId), eq(opportunityOffers.status, "open")));
+    assertExactlyOneAffectedRow(changed, "Published opportunity manual close");
+
+    const insertedAudit = await tx.insert(v5AuditEvents).values(opportunityClosureAuditEvent(adminId, closure.offerId, closure.reason));
+    const auditId = Number(insertedAudit[0]?.insertId);
+    if (!Number.isSafeInteger(auditId) || auditId <= 0) throw new Error("Opportunity closure audit record could not be verified.");
+    return { auditId, auditReason: closure.reason, idempotent: false };
+  });
+
+  // Read both durable records after commit; a mutation response is not a success until this read-back agrees.
+  const savedOffer = (await db.select().from(opportunityOffers).where(eq(opportunityOffers.id, closure.offerId)).limit(1))[0];
+  const savedAudit = (await db.select().from(v5AuditEvents).where(eq(v5AuditEvents.id, transactionResult.auditId)).limit(1))[0];
+  if (savedOffer?.status !== "closed"
+    || !isAuditedManualOpportunityClosure(savedAudit)
+    || savedAudit?.reason !== transactionResult.auditReason
+    || savedAudit?.entityId !== String(closure.offerId)) {
+    throw new Error("Opportunity closure was not confirmed by a fresh persisted read-back.");
+  }
+  return {
+    success: true as const,
+    offerId: savedOffer.id,
+    status: savedOffer.status,
+    auditEventId: savedAudit.id,
+    idempotent: transactionResult.idempotent,
+    verified: true as const,
+  };
+}
 
 export const ADMIN_LEDGER_ACTIVITY_PAGE_SIZE = 50;
 export type AdminLedgerActivityCursor = { createdAt: Date; id: number };

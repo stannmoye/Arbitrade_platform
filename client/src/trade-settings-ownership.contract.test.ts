@@ -145,6 +145,7 @@ describe("Trade Settings ownership registry contract", () => {
     for (const [key, mutation] of [
       ["trade.opportunity.publishSingle", "adminOperations.createOffer"],
       ["trade.opportunity.publishBulk", "adminOperations.bulkCreateOffers"],
+      ["trade.opportunity.close", "adminOperations.closeOffer"],
       ["trade.opportunity.runRetentionCleanup", "adminOperations.runPopupRetention"],
     ] as const) {
       const action = byKey.get(key);
@@ -156,6 +157,31 @@ describe("Trade Settings ownership registry contract", () => {
     const deliveryRetryLimit = byKey.get("trade.policy.maximumDeliveryAttempts");
     expect(deliveryRetryLimit?.ownerRoute).toBe("trade-retries");
     expect(deliveryRetryLimit?.controlContract).toBe("packagePolicies.maxDeliveryAttempts");
+  });
+
+  it("assigns opportunity publication to its single live route without claiming platform-verified evidence review", () => {
+    const publish = tradeSettingsOwnershipRegistry.find((entry) => entry.key === "trade.opportunity.publishSingle");
+    const publishRoute = tradeRoutes.filter((route) => route.id === "trade-opportunity-publishing");
+    expect(publishRoute).toHaveLength(1);
+    expect(publishRoute[0]?.target).toBe("opportunity");
+    expect(publish).toMatchObject({
+      ownerRoute: "trade-opportunity-publishing",
+      saveMutation: "adminOperations.createOffer",
+      readQuery: "adminOperations.offers",
+      label: "Publish one opportunity",
+    });
+    expect(publish?.explanation).toContain("source reference and operator review note are saved");
+    expect(publish?.explanation).toContain("does not independently verify the external evidence");
+    const close = tradeSettingsOwnershipRegistry.find((entry) => entry.key === "trade.opportunity.close");
+    expect(close).toMatchObject({
+      ownerRoute: "trade-opportunity-publishing",
+      saveMutation: "adminOperations.closeOffer",
+      readQuery: "adminOperations.offers",
+      controlContract: "adminOperations.closeOffer",
+      availability: "available",
+    });
+    expect(close?.auditRequirement).toContain("administrator actor and reason");
+    expect(close?.effectiveTime).toContain("future delivery");
   });
 
   it("shows actionable Worker Health diagnostics without inventing unavailable queue lease fields", () => {

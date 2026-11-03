@@ -41,6 +41,7 @@ describe("Trade Settings audit history query", () => {
     expect(deriveTradeAuditScope("trading_package_terms_updated", "trading_package")).toBe("package");
     expect(deriveTradeAuditScope("trading_delivery_policy_updated", "opportunity_package_policy")).toBe("package");
     expect(deriveTradeAuditScope("company_catalogue.bulk_status_updated", "company_catalogue")).toBe("record");
+    expect(deriveTradeAuditScope("trading_opportunity_published", "opportunity_offer")).toBe("record");
     expect(deriveTradeAuditScope("unrelated_event", "unknown_entity")).toBeNull();
   });
 

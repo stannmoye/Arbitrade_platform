@@ -31,6 +31,7 @@ import { localIdentityService } from "./_core/localIdentityService";
 import { createHeartbeatJob, deleteHeartbeatJob, listHeartbeatJobs, updateHeartbeatJob } from "./_core/heartbeat";
 import { getWorkerHealthSummary, requeueDeadQualificationJob } from "./_core/workerHealth";
 import { getTradeGlobalControls, setTradeGlobalControl, TradeGlobalControlVersionConflictError } from "./db";
+import { closeOpportunityOffer } from "./db";
 import { getSystemDiagnosticsReport } from "./_core/systemDiagnostics";
 
 async function getCustomerApprovedCompanyReferences(
@@ -755,8 +756,9 @@ export const appRouter = router({
         closePolicy: z.enum(["after_completion","after_final_display"]).optional(),
       }).strict()).min(1).max(1000),
     })).mutation(({ ctx, input }) => updateOpportunityPackagePolicies(ctx.user.id, input.policies, input.reason)),
-    createOffer: adminProcedure.input(z.object({ symbol: z.string().min(1).max(40), venueFrom: z.string().min(1).max(80), venueTo: z.string().min(1).max(80), currency: z.enum(["USD","EUR","GBP","BTC","ETH"]), minimumMinor: z.number().int().positive(), expectedRewardBps: z.number().int().min(1).max(5000), durationSeconds: z.number().int().min(10).max(86400) })).mutation(({ input }) => createOpportunityOffer(input)),
-    bulkCreateOffers: adminProcedure.input(z.object({ offers: z.array(z.object({ symbol: z.string().min(1).max(40), venueFrom: z.string().min(1).max(80), venueTo: z.string().min(1).max(80), currency: z.enum(["USD","EUR","GBP","BTC","ETH"]), minimumMinor: z.number().int().positive(), expectedRewardBps: z.number().int().min(1).max(5000), durationSeconds: z.number().int().min(10).max(86400) })).min(1).max(5000) })).mutation(({ input }) => bulkCreateOpportunityOffers(input.offers)),
+    createOffer: adminProcedure.input(z.object({ symbol: z.string().trim().min(1).max(40), venueFrom: z.string().trim().min(1).max(80), venueTo: z.string().trim().min(1).max(80), currency: z.enum(["USD","EUR","GBP","BTC","ETH"]), minimumMinor: z.number().int().positive().safe(), expectedRewardBps: z.number().int().min(1).max(5000), durationSeconds: z.number().int().min(10).max(86400), sourceReference: z.string().trim().min(1).max(160), reviewNotes: z.string().trim().min(1).max(2000) })).mutation(({ ctx, input }) => createOpportunityOffer(ctx.user.id, input)),
+    bulkCreateOffers: adminProcedure.input(z.object({ offers: z.array(z.object({ symbol: z.string().trim().min(1).max(40), venueFrom: z.string().trim().min(1).max(80), venueTo: z.string().trim().min(1).max(80), currency: z.enum(["USD","EUR","GBP","BTC","ETH"]), minimumMinor: z.number().int().positive().safe(), expectedRewardBps: z.number().int().min(1).max(5000), durationSeconds: z.number().int().min(10).max(86400), sourceReference: z.string().trim().min(1).max(160), reviewNotes: z.string().trim().min(1).max(2000) })).min(1).max(5000) })).mutation(({ ctx, input }) => bulkCreateOpportunityOffers(ctx.user.id, input.offers)),
+    closeOffer: adminProcedure.input(z.object({ offerId: z.number().int().positive().safe(), reason: z.string().trim().min(1).max(2000) })).mutation(({ ctx, input }) => closeOpportunityOffer(ctx.user.id, input)),
     tickets: adminProcedure.query(() => listAllTickets()),
     supportAssignees: adminProcedure.query(() => listSupportAssignees()),
     assignTicket: adminProcedure.input(z.object({ ticketId: z.number().int().positive(), assignedAdminId: z.number().int().positive().nullable() })).mutation(({ ctx, input }) => assignSupportTicket(ctx.user.id, input.ticketId, input.assignedAdminId)),

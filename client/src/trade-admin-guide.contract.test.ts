@@ -32,6 +32,9 @@ describe("Trade Settings standalone admin guide", () => {
     expect(guide).toContain("Insufficient balance");
     expect(guide).toContain("carry-forward is not currently enabled");
     expect(guide).toContain("Minimize/Maximize");
+    expect(guide).toContain("sourceReference, reviewNotes");
+    expect(guide).toContain("required source reference and operator review note");
+    expect(guide).toContain("does not independently verify the external evidence or the substance of the note");
   });
 
   it("keeps global masters in Package Configuration and per-tier legacy placeholders inert", () => {
