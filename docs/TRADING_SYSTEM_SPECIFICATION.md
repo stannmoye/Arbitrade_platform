@@ -309,6 +309,7 @@ The admin portal is the only interface for managing tier configuration. Only aut
 All Trading configuration, publishing, monitoring and audit destinations must appear under one top-level administrator navigation group named **Trade Settings**. Do not duplicate the same Trading page under separate setup, offers, results, monitoring or history groups. Each submenu has one distinct responsibility:
 
 - **Trading Overview** — persisted delivery, pending-work, open-opportunity, settlement and pause summaries.
+- **Package Configuration** — the single UI owner for package-policy controls and the global new-allocation safety gate.
 - **Tiers & Eligibility** — tier name, qualifying USD threshold, duration, daily opportunity entitlement, effective dates, enabled state and terms version.
 - **Per-tier Daily Delivery Caps** — operational hard daily pop-up ceiling, maximum visible offers, optional daily target cap and quota-counting window.
 - **Per-tier Offer Rules & Capital Limits** — required capital bounds and configured reward-rate/duration eligibility bounds.
@@ -323,12 +324,11 @@ All Trading configuration, publishing, monitoring and audit destinations must ap
 - **Retries & Carry-Forward** — bounded retry and recovery configuration; do not imply carry-forward is enabled if it is not implemented.
 - **Active & Pending Opportunities** — persisted delivery/lifecycle records awaiting customer or system action.
 - **Settlement & Reconciliation** — confirmed trade outcomes and wallet/ledger reconciliation.
-- **System Pause & Safety** — pause/resume new allocations without deleting pending work or blocking required reconciliation.
 - **Worker Health & Recovery** — worker heartbeats, queues and audited recovery.
 - **Audit & Policy History** — actor, timestamp, reason, previous/new values and saved policy versions.
 - **Trade Settings Guide** — read-only help.
 
-The persistent Trading controls panel remains visible above every administrator page except the clean Home/overview landing page. The **Global Trade Timing & Settlement** page is the only editor for global settlement, wallet-credit, cooldown, pop-up timing and market-refresh defaults; the general Settings page no longer repeats that form. The ticket settings form submits only ticket fields, and email settings remain under Communications. Each form saves only its own section and confirms success only after a fresh read-back. The panel is the single owner for the per-tier **Tier policy**, **Pop-up delivery**, **Company rotation**, **Randomized timing**, and **Burst delivery** ON/OFF switches. Detailed configuration screens must not render duplicate controls for those same switches. Automatic financial execution remains separately protected OFF.
+The dedicated **Package Configuration** route is the only UI owner for the five package-policy delivery switches and the system-wide new-allocation safety gate. The delivery switches are currently stored per package; they are not a canonical global master row. The global-settings schema/runtime checkpoint must establish a separate source of truth before any such switch is described as globally effective. Detailed policy screens must not render duplicate switches. The **Global Trade Timing & Settlement** page remains the only editor for global settlement, wallet-credit, cooldown, pop-up timing and market-refresh defaults; general Settings must not repeat that form. Ticket settings submit only ticket fields, and email settings remain under Communications. Each save must be scoped to its owner and confirm success only after a fresh read-back. Automatic financial execution remains separately protected OFF.
 
 The tier field `opportunitiesPerDay` is the customer's daily opportunity entitlement contribution. Active qualifying tier contributions are cumulative. The **Per-tier Daily Delivery Caps** page owns the separate operational hard daily pop-up ceiling, concurrent visible-offer limit, optional target cap and counting window. These caps may reduce but must never increase the entitlement. A tier entitlement of 600/day can be fully available only when the hard daily pop-up ceiling is at least 600 and the optional target cap is 0 (no additional target restriction), subject to opportunity availability and all other eligibility limits.
 

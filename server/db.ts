@@ -236,40 +236,108 @@ export async function setTradeFeePolicy(input:{feeRateBps:number;roundingMode:Fe
 }
 
 export async function getTradeSettlementPolicy() {
-  const delaySeconds = Number(await getAppSetting("trade.settlementDelaySeconds", "900"));
-  const creditDelaySeconds = Number(await getAppSetting("trade.creditDelaySeconds", "0"));
-  const cooldownSeconds = Number(await getAppSetting("trade.interTradeCooldownSeconds", "30"));
-  const nextPopupFormulaDelaySeconds = Number(await getAppSetting("opportunity.nextPopupFormulaDelaySeconds", "30"));
-  const popupCooldownSeconds = Number(await getAppSetting("opportunity.popup.minGapSeconds", "45"));
-  const popupDisplaySeconds = Number(await getAppSetting("opportunity.popup.displaySeconds", "8"));
-  const popupPreAlertSeconds = Number(await getAppSetting("opportunity.popup.preAlertSeconds", "4"));
-  const popupJitterSeconds = Number(await getAppSetting("opportunity.popup.jitterSeconds", "90"));
-  const popupMaxPerHour = Number(await getAppSetting("opportunity.popup.maxPerHour", "12"));
-  const marketRefreshIntervalMinutes = Number(await getAppSetting("market.refreshIntervalMinutes", "120"));
-  const blockUntilSettled = (await getAppSetting("trade.blockOpportunitiesUntilSettled", "true")) === "true";
-  const values = { delaySeconds, creditDelaySeconds, cooldownSeconds, nextPopupFormulaDelaySeconds, popupCooldownSeconds, popupDisplaySeconds, popupPreAlertSeconds, popupJitterSeconds, popupMaxPerHour, marketRefreshIntervalMinutes };
-  if (!Number.isInteger(delaySeconds) || delaySeconds < 1) throw new Error("Settlement time must be a positive integer");
-  if (!Number.isInteger(creditDelaySeconds) || creditDelaySeconds < 0) throw new Error("Credit delay must be a non-negative integer");
-  if (!Number.isInteger(cooldownSeconds) || cooldownSeconds < 0) throw new Error("Inter-trade cooldown must be a non-negative integer");
-  const invalid = Object.entries(values).find(([, value]) => !Number.isInteger(value) || value < 0);
-  if (invalid) throw new Error(`Invalid timing setting: ${invalid[0]}`);
-  return { ...values, settlementDelaySeconds: delaySeconds, blockUntilSettled };
+  const db = await getDb();
+  const keys = [...TRADE_SETTLEMENT_POLICY_SETTING_KEYS, TRADE_SETTLEMENT_POLICY_VERSION_KEY];
+  const rows = db ? await db.select().from(appSettings).where(inArray(appSettings.settingKey, keys)) : [];
+  const settings = new Map(rows.map(row => [row.settingKey, row.settingValue]));
+  const policy = normalizeTradeSettlementPolicy({
+    delaySeconds: settings.get("trade.settlementDelaySeconds") ?? "900",
+    creditDelaySeconds: settings.get("trade.creditDelaySeconds") ?? "0",
+    cooldownSeconds: settings.get("trade.interTradeCooldownSeconds") ?? "30",
+    nextPopupFormulaDelaySeconds: settings.get("opportunity.nextPopupFormulaDelaySeconds") ?? "30",
+    popupCooldownSeconds: settings.get("opportunity.popup.minGapSeconds") ?? "45",
+    popupDisplaySeconds: settings.get("opportunity.popup.displaySeconds") ?? "8",
+    popupPreAlertSeconds: settings.get("opportunity.popup.preAlertSeconds") ?? "4",
+    popupJitterSeconds: settings.get("opportunity.popup.jitterSeconds") ?? "90",
+    popupMaxPerHour: settings.get("opportunity.popup.maxPerHour") ?? "12",
+    marketRefreshIntervalMinutes: settings.get("market.refreshIntervalMinutes") ?? "120",
+    blockUntilSettled: settings.get("trade.blockOpportunitiesUntilSettled") ?? "true",
+    policyVersion: settings.get(TRADE_SETTLEMENT_POLICY_VERSION_KEY) ?? "1",
+  });
+  return { ...policy, settlementDelaySeconds: policy.delaySeconds };
 }
-export async function setTradeSettlementPolicy(input:{delaySeconds:number;creditDelaySeconds:number;cooldownSeconds:number;nextPopupFormulaDelaySeconds:number;popupCooldownSeconds:number;popupDisplaySeconds:number;popupPreAlertSeconds:number;popupJitterSeconds:number;popupMaxPerHour:number;marketRefreshIntervalMinutes:number;blockUntilSettled:boolean}, updatedBy:number) {
-  const bounded = [["settlement",input.delaySeconds,1,604800],["credit",input.creditDelaySeconds,0,604800],["cooldown",input.cooldownSeconds,0,604800],["formula",input.nextPopupFormulaDelaySeconds,0,604800],["popup cooldown",input.popupCooldownSeconds,0,604800],["popup display",input.popupDisplaySeconds,1,3600],["popup pre-alert",input.popupPreAlertSeconds,0,3600],["popup jitter",input.popupJitterSeconds,0,604800],["popup hourly cap",input.popupMaxPerHour,1,10000],["market refresh",input.marketRefreshIntervalMinutes,1,10080]] as const;
-  for (const [label,value,min,max] of bounded) if (!Number.isInteger(value) || value < min || value > max) throw new Error(`${label} timing is outside its allowed range`);
-  await setAppSetting("trade.settlementDelaySeconds", String(input.delaySeconds), updatedBy);
-  await setAppSetting("trade.creditDelaySeconds", String(input.creditDelaySeconds), updatedBy);
-  await setAppSetting("trade.interTradeCooldownSeconds", String(input.cooldownSeconds), updatedBy);
-  await setAppSetting("trade.blockOpportunitiesUntilSettled", String(input.blockUntilSettled), updatedBy);
-  await setAppSetting("opportunity.nextPopupFormulaDelaySeconds", String(input.nextPopupFormulaDelaySeconds), updatedBy);
-  await setAppSetting("opportunity.popup.minGapSeconds", String(input.popupCooldownSeconds), updatedBy);
-  await setAppSetting("opportunity.popup.displaySeconds", String(input.popupDisplaySeconds), updatedBy);
-  await setAppSetting("opportunity.popup.preAlertSeconds", String(input.popupPreAlertSeconds), updatedBy);
-  await setAppSetting("opportunity.popup.jitterSeconds", String(input.popupJitterSeconds), updatedBy);
-  await setAppSetting("opportunity.popup.maxPerHour", String(input.popupMaxPerHour), updatedBy);
-  await setAppSetting("market.refreshIntervalMinutes", String(input.marketRefreshIntervalMinutes), updatedBy);
-  return getTradeSettlementPolicy();
+const TRADE_SETTLEMENT_POLICY_VERSION_KEY = "trade.timingPolicyVersion";
+const TRADE_SETTLEMENT_POLICY_SETTING_KEYS = [
+  "trade.settlementDelaySeconds", "trade.creditDelaySeconds", "trade.interTradeCooldownSeconds",
+  "trade.blockOpportunitiesUntilSettled", "opportunity.nextPopupFormulaDelaySeconds",
+  "opportunity.popup.minGapSeconds", "opportunity.popup.displaySeconds", "opportunity.popup.preAlertSeconds",
+  "opportunity.popup.jitterSeconds", "opportunity.popup.maxPerHour", "market.refreshIntervalMinutes",
+] as const;
+type TradeSettlementPolicyInput = {
+  delaySeconds: number; creditDelaySeconds: number; cooldownSeconds: number; nextPopupFormulaDelaySeconds: number;
+  popupCooldownSeconds: number; popupDisplaySeconds: number; popupPreAlertSeconds: number; popupJitterSeconds: number;
+  popupMaxPerHour: number; marketRefreshIntervalMinutes: number; blockUntilSettled: boolean;
+};
+function normalizeTradeSettlementPolicy(values: Record<string, unknown> & { policyVersion?: unknown }) {
+  const numeric = {
+    delaySeconds: Number(values.delaySeconds), creditDelaySeconds: Number(values.creditDelaySeconds),
+    cooldownSeconds: Number(values.cooldownSeconds), nextPopupFormulaDelaySeconds: Number(values.nextPopupFormulaDelaySeconds),
+    popupCooldownSeconds: Number(values.popupCooldownSeconds), popupDisplaySeconds: Number(values.popupDisplaySeconds),
+    popupPreAlertSeconds: Number(values.popupPreAlertSeconds), popupJitterSeconds: Number(values.popupJitterSeconds),
+    popupMaxPerHour: Number(values.popupMaxPerHour), marketRefreshIntervalMinutes: Number(values.marketRefreshIntervalMinutes),
+  };
+  const bounds = [
+    ["settlement review delay", numeric.delaySeconds, 900, 604800], ["credit delay", numeric.creditDelaySeconds, 0, 604800],
+    ["inter-trade cooldown", numeric.cooldownSeconds, 0, 604800], ["formula delay", numeric.nextPopupFormulaDelaySeconds, 0, 604800],
+    ["popup cooldown", numeric.popupCooldownSeconds, 0, 604800], ["popup display", numeric.popupDisplaySeconds, 1, 3600],
+    ["popup pre-alert", numeric.popupPreAlertSeconds, 0, 3600], ["popup jitter", numeric.popupJitterSeconds, 0, 604800],
+    ["popup hourly cap", numeric.popupMaxPerHour, 1, 10000], ["market refresh", numeric.marketRefreshIntervalMinutes, 1, 10080],
+  ] as const;
+  for (const [label, value, min, max] of bounds) if (!Number.isInteger(value) || value < min || value > max) throw new Error(`${label} timing is outside its allowed range`);
+  const rawBlock = values.blockUntilSettled;
+  const blockUntilSettled = rawBlock === undefined || rawBlock === null || rawBlock === "true" || rawBlock === true
+    ? true : rawBlock === "false" || rawBlock === false ? false : (() => { throw new Error("Malformed settlement safety setting; new opportunities must remain blocked until administrator review"); })();
+  const policyVersion = Number(values.policyVersion ?? 1);
+  if (!Number.isSafeInteger(policyVersion) || policyVersion < 1) throw new Error("Trade timing policy version is invalid");
+  return { ...numeric, blockUntilSettled, policyVersion };
+}
+export class TradeTimingPolicyVersionConflictError extends Error {
+  constructor() { super("Trade timing settings changed in another session. Refresh the saved settings before retrying."); this.name = "TradeTimingPolicyVersionConflictError"; }
+}
+export async function setTradeSettlementPolicy(input:TradeSettlementPolicyInput, updatedBy:number, reason:string, expectedPolicyVersion:number) {
+  const auditReason = reason.trim();
+  if (auditReason.length < 5 || auditReason.length > 500) throw new Error("A 5–500 character administrator reason is required for Trade timing changes");
+  if (!Number.isSafeInteger(expectedPolicyVersion) || expectedPolicyVersion < 1) throw new Error("A valid saved Trade timing policy version is required");
+  const db = await getDb(); if (!db) throw new Error("Database is not available");
+  const next = await db.transaction(async tx => {
+    await tx.insert(appSettings).values({ settingKey: TRADE_SETTLEMENT_POLICY_VERSION_KEY, settingValue: "1", updatedBy: null })
+      .onDuplicateKeyUpdate({ set: { settingKey: TRADE_SETTLEMENT_POLICY_VERSION_KEY } });
+    const keys = [...TRADE_SETTLEMENT_POLICY_SETTING_KEYS, TRADE_SETTLEMENT_POLICY_VERSION_KEY];
+    const rows = await tx.select().from(appSettings).where(inArray(appSettings.settingKey, keys)).for("update");
+    const settings = new Map(rows.map(row => [row.settingKey, row.settingValue]));
+    const current = normalizeTradeSettlementPolicy({
+      delaySeconds: settings.get("trade.settlementDelaySeconds") ?? "900", creditDelaySeconds: settings.get("trade.creditDelaySeconds") ?? "0",
+      cooldownSeconds: settings.get("trade.interTradeCooldownSeconds") ?? "30", nextPopupFormulaDelaySeconds: settings.get("opportunity.nextPopupFormulaDelaySeconds") ?? "30",
+      popupCooldownSeconds: settings.get("opportunity.popup.minGapSeconds") ?? "45", popupDisplaySeconds: settings.get("opportunity.popup.displaySeconds") ?? "8",
+      popupPreAlertSeconds: settings.get("opportunity.popup.preAlertSeconds") ?? "4", popupJitterSeconds: settings.get("opportunity.popup.jitterSeconds") ?? "90",
+      popupMaxPerHour: settings.get("opportunity.popup.maxPerHour") ?? "12", marketRefreshIntervalMinutes: settings.get("market.refreshIntervalMinutes") ?? "120",
+      blockUntilSettled: settings.get("trade.blockOpportunitiesUntilSettled") ?? "true", policyVersion: settings.get(TRADE_SETTLEMENT_POLICY_VERSION_KEY) ?? "1",
+    });
+    if (current.policyVersion !== expectedPolicyVersion) throw new TradeTimingPolicyVersionConflictError();
+    const saved = normalizeTradeSettlementPolicy({ ...input, policyVersion: current.policyVersion + 1 });
+    const updates: Array<[string, string]> = [
+      ["trade.settlementDelaySeconds", String(saved.delaySeconds)], ["trade.creditDelaySeconds", String(saved.creditDelaySeconds)],
+      ["trade.interTradeCooldownSeconds", String(saved.cooldownSeconds)], ["trade.blockOpportunitiesUntilSettled", String(saved.blockUntilSettled)],
+      ["opportunity.nextPopupFormulaDelaySeconds", String(saved.nextPopupFormulaDelaySeconds)], ["opportunity.popup.minGapSeconds", String(saved.popupCooldownSeconds)],
+      ["opportunity.popup.displaySeconds", String(saved.popupDisplaySeconds)], ["opportunity.popup.preAlertSeconds", String(saved.popupPreAlertSeconds)],
+      ["opportunity.popup.jitterSeconds", String(saved.popupJitterSeconds)], ["opportunity.popup.maxPerHour", String(saved.popupMaxPerHour)],
+      ["market.refreshIntervalMinutes", String(saved.marketRefreshIntervalMinutes)], [TRADE_SETTLEMENT_POLICY_VERSION_KEY, String(saved.policyVersion)],
+    ];
+    for (const [settingKey, settingValue] of updates) {
+      await tx.insert(appSettings).values({ settingKey, settingValue, updatedBy })
+        .onDuplicateKeyUpdate({ set: { settingValue, updatedBy, updatedAt: new Date() } });
+    }
+    await tx.insert(v5AuditEvents).values({
+      actorUserId: updatedBy, action: "trade_global_timing_policy_updated", entityType: "trade_global_timing_policy",
+      entityId: String(saved.policyVersion), reason: auditReason, reference: `trade-global-timing:${saved.policyVersion}`,
+      metadataJson: JSON.stringify({ old: current, new: saved }),
+    });
+    return saved;
+  });
+  const persisted = await getTradeSettlementPolicy();
+  const expected = { ...next, settlementDelaySeconds: next.delaySeconds };
+  if (JSON.stringify(persisted) !== JSON.stringify(expected)) throw new Error("Trade timing save committed, but a fresh database read did not confirm every value and the new policy version");
+  return persisted;
 }
 export async function countOutstandingTrades(userId?: number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const rows=await db.select({id:tradePositions.id}).from(tradePositions).where(userId===undefined?eq(tradePositions.status,"confirmed"):and(eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed"))); return rows.length; }
 export async function getTicketUploadPolicy() {

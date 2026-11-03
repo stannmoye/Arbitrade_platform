@@ -5,8 +5,9 @@ import { describe, expect, it } from "vitest";
 const app = readFileSync(resolve(process.cwd(), "client/src/App.tsx"), "utf8");
 
 describe("admin Home content and navigation", () => {
-  it("keeps global Trading controls off Home while preserving them on other admin pages", () => {
-    expect(app).toContain('{section!=="overview"&&<AdminTradingGlobalControls/>}');
+  it("keeps Trading controls out of Home and other pages unless Package Configuration is selected", () => {
+    expect(app).toContain('{section==="tradePackageConfiguration"&&<AdminPackageConfiguration/>}');
+    expect(app).not.toContain('{section!=="overview"&&<AdminTradingGlobalControls/>}');
     expect(app).toContain('<PortalRenderBoundary key={section} portal="admin">');
   });
 

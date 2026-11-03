@@ -63,6 +63,8 @@ describe("global trade allocation pause", () => {
     expect(adminUi).toContain("Pause new allocations");
     expect(adminUi).toContain("Resume new allocations");
     expect(adminUi).toContain("Existing open trades are not changed");
-    expect(adminUi).toContain('{section==="tradeSystemHealth"&&<AdminTradeAllocationControl/>}');
+    expect(adminUi).toContain('{section==="tradePackageConfiguration"&&<AdminPackageConfiguration/>}');
+    expect(adminUi).toContain("function AdminPackageConfiguration");
+    expect(adminUi).toContain("<AdminPackagePolicyControls />");
   });
 });

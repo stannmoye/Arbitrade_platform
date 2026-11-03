@@ -7,15 +7,22 @@ const adminCss = readFileSync(new URL("../client/src/admin-operations.css", impo
 const specification = readFileSync(new URL("../docs/TRADING_SYSTEM_SPECIFICATION.md", import.meta.url), "utf8");
 const manual = readFileSync(new URL("../docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md", import.meta.url), "utf8");
 
-describe("persistent administrator Trading control panel", () => {
-  it("renders above the selected page so it remains visible across admin navigation", () => {
-    const mount = adminApp.indexOf("<AdminTradingGlobalControls/>");
-    const pageRouter = adminApp.indexOf('<PortalRenderBoundary key={section} portal="admin">');
-    expect(adminApp).toContain("function AdminTradingGlobalControls()");
-    expect(mount).toBeGreaterThanOrEqual(0);
-    expect(pageRouter).toBeGreaterThan(mount);
+describe("Package Configuration owner controls", () => {
+  it("renders package policy controls and allocation safety only on their owner route", () => {
+    const ownerStart = adminApp.indexOf("function AdminPackageConfiguration()");
+    const ownerEnd = adminApp.indexOf("function AdminPackages({focus}", ownerStart);
+    const owner = adminApp.slice(ownerStart, ownerEnd);
+    expect(ownerStart).toBeGreaterThanOrEqual(0);
+    expect(owner).toContain("<AdminPackagePolicyControls />");
+    expect(owner).toContain("<AdminTradeAllocationControl />");
+    expect(adminApp).toContain("function AdminPackagePolicyControls()");
+    expect(adminApp).not.toContain("<AdminTradingGlobalControls/>");
+    expect(adminApp).not.toContain('{section!=="overview"&&<AdminPackagePolicyControls/>}');
+    expect(adminApp).not.toContain("Persistent Trading controls");
     expect(adminApp).toContain('trpc.adminOperations.packagePolicies.useQuery(undefined, { refetchInterval: 10000 })');
     expect(adminApp).toContain("trpc.adminOperations.updatePackagePolicies.useMutation");
+    expect(adminApp).toContain("fresh server read did not confirm every changed field and policy version");
+    expect(adminApp).toContain("Change reason (required, 5–500 characters)");
     expect(adminApp).toContain("Pause all new delivery");
   });
 
@@ -36,7 +43,7 @@ describe("persistent administrator Trading control panel", () => {
   it("does not expose a UI route for enabling automatic execution or disabling the settlement guard", () => {
     expect(policyEditor).not.toContain('onChange={e=>updateRow(index,"automaticTradingEnabled"');
     expect(policyEditor).not.toContain('onChange={e=>updateRow(index,"requirePreviousSettlement"');
-    expect(adminApp).toContain("function AdminTradingGlobalControls()");
+    expect(adminApp).toContain("function AdminPackagePolicyControls()");
     expect(adminApp).toContain("disableAutomaticTrading(policy)");
     expect(adminApp).toContain("enableSettlementGate(policy)");
     expect(policyEditor).toContain('onClick={()=>updateRow(index,"requirePreviousSettlement",true)}');
@@ -44,12 +51,13 @@ describe("persistent administrator Trading control panel", () => {
     expect(adminApp).toContain("settlementTimingSafe");
   });
 
-  it("styles the panel for persistent desktop and mobile visibility and documents its safeguards", () => {
+  it("styles the owner panel responsively and documents its transitional storage and safety boundaries", () => {
     expect(adminCss).toContain(".admin-trading-global-controls");
     expect(adminCss).toContain(".admin-trading-global-controls__grid");
     expect(adminCss).toContain("@media (max-width: 760px)");
-    expect(specification).toContain("Persistent administrator control panel and safety boundary");
-    expect(manual).toContain("Persistent admin-wide Trading control panel");
+    expect(specification).toContain("**Package Configuration** route");
+    expect(manual).toContain("dedicated **Package Configuration** route");
+    expect(manual).toContain("not yet a single global settings row");
     expect(manual).toContain("900 seconds (15 minutes)");
   });
 });

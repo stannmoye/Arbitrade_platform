@@ -66,6 +66,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
   ]},
   { id: "trade-settings", label: "Trade Settings", detail: "One place for tier rules, opportunity delivery, trade records and system health", items: [
     { id: "trade-settings-overview", target: "tradeSystemOverview", label: "Trading Overview", detail: "View current delivery, open work and system status", icon: Gauge },
+    { id: "trade-package-configuration", target: "tradePackageConfiguration", label: "Package Configuration", detail: "Manage package-policy controls and the system-wide allocation safety gate", icon: Settings2 },
     { id: "trade-tiers-eligibility", target: "packages", focus: "tiers", label: "Tiers & Eligibility", detail: "Create and edit admin-managed tiers, thresholds, duration and assigned entitlements", icon: PackageCheck },
     { id: "trade-daily-delivery-caps", target: "packages", focus: "quotas", label: "Per-tier Daily Delivery Caps", detail: "Set per-tier hard pop-up ceilings, simultaneous display limits and counting windows", icon: Layers3 },
     { id: "trade-delivery-policy", target: "packages", focus: "policy", label: "Per-tier Offer Rules & Capital Limits", detail: "Configure per-tier capital bounds and published offer limits; ON/OFF switches stay in the shared Trading controls panel", icon: SlidersHorizontal },
@@ -80,7 +81,6 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "trade-retries", target: "tradeRetryPolicy", label: "Retries & Carry-Forward", detail: "Set technical retry limits and inspect the current carry-forward availability", icon: Activity },
     { id: "trade-active-pending", target: "deliveryMonitor", label: "Active & Pending Opportunities", detail: "Review opportunities waiting for delivery, customer action or further processing", icon: Activity },
     { id: "trade-settlement", target: "transactionReview", focus: "reconciliation", label: "Settlement & Reconciliation", detail: "Review confirmed outcomes and reconcile trade records against wallet ledger entries", icon: ReceiptText },
-    { id: "trade-system-health", target: "tradeSystemHealth", label: "System Pause & Safety", detail: "Pause new allocations safely without deleting pending work or blocking reconciliation", icon: ShieldAlert },
     { id: "trade-worker-health", target: "tradeWorkerHealth", label: "Worker Health & Recovery", detail: "Check background worker heartbeats, delayed work and recovery queues", icon: Activity },
     { id: "trade-audit-policy-history", target: "audit", label: "Audit & Policy History", detail: "Review who changed Trading settings, why they changed and the saved versions", icon: FileText },
     { id: "trade-admin-guide", target: "tradeAdminGuide", label: "Trade Settings Guide", detail: "Read the menu guide and explanations for each Trading control", icon: BookOpen },

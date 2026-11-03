@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { adminNavigationGroups, adminPrimaryNavigationGroups, adminSecondaryNavigationGroups, adminSecondaryNavigationGroupIds } from "./admin-navigation";
+import { tradeSettingsOwnershipRegistry } from "./trade-settings-ownership";
 
 describe("Trading administrator navigation", () => {
   const group = (id: string) => adminNavigationGroups.find((item) => item.id === id);
@@ -9,6 +10,7 @@ describe("Trading administrator navigation", () => {
     expect(tradeGroup?.label).toBe("Trade Settings");
     expect(tradeGroup?.items.map((item) => item.label)).toEqual([
       "Trading Overview",
+      "Package Configuration",
       "Tiers & Eligibility",
       "Per-tier Daily Delivery Caps",
       "Per-tier Offer Rules & Capital Limits",
@@ -23,7 +25,6 @@ describe("Trading administrator navigation", () => {
       "Retries & Carry-Forward",
       "Active & Pending Opportunities",
       "Settlement & Reconciliation",
-      "System Pause & Safety",
       "Worker Health & Recovery",
       "Audit & Policy History",
       "Trade Settings Guide",
@@ -44,11 +45,12 @@ describe("Trading administrator navigation", () => {
 
   it("routes each Trade Settings submenu to its single intended screen", () => {
     expect(group("trade-settings")?.items.map((item) => item.target)).toEqual([
-      "tradeSystemOverview", "packages", "packages", "packages", "opportunity", "packages",
+      "tradeSystemOverview", "tradePackageConfiguration", "packages", "packages", "packages", "opportunity", "packages",
       "tradeDurationRules", "tradeCustomerDisplay", "packages", "companyCatalogue",
       "transactionReview", "transactionReview", "tradeRetryPolicy", "deliveryMonitor",
-      "transactionReview", "tradeSystemHealth", "tradeWorkerHealth", "audit", "tradeAdminGuide",
+      "transactionReview", "tradeWorkerHealth", "audit", "tradeAdminGuide",
     ]);
+    expect(group("trade-settings")?.items.find((item) => item.id === "trade-package-configuration")?.target).toBe("tradePackageConfiguration");
     expect(group("trade-settings")?.items.find((item) => item.id === "trade-company-rotation")?.focus).toBe("rotation");
     expect(group("trade-settings")?.items.find((item) => item.id === "trade-company-catalogue")?.target).toBe("companyCatalogue");
   });
@@ -66,5 +68,18 @@ describe("Trading administrator navigation", () => {
   it("does not expose quick-create shortcuts in the secondary drawer registry", () => {
     const secondaryLabels = adminSecondaryNavigationGroups.flatMap((group) => group.items).map((item) => item.label);
     expect(secondaryLabels).not.toEqual(expect.arrayContaining(["Add Customer", "Credit Adjustment", "Debit Adjustment", "Create Offer", "Compose Email"]));
+  });
+
+  it("gives each registered control exactly one existing owner route", () => {
+    const routes = new Set(adminPrimaryNavigationGroups.flatMap((item) => item.items.map((route) => route.id)));
+    const keys = tradeSettingsOwnershipRegistry.map((entry) => entry.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const entry of tradeSettingsOwnershipRegistry) {
+      expect(routes.has(entry.ownerRoute), `${entry.key} owner route ${entry.ownerRoute}`).toBe(true);
+      expect(entry.readQuery.length).toBeGreaterThan(0);
+      expect(entry.auditRequirement.length).toBeGreaterThan(0);
+      expect(entry.customerImpact.length).toBeGreaterThan(0);
+      if (entry.availability === "locked") expect(entry.saveMutation).toBeNull();
+    }
   });
 });

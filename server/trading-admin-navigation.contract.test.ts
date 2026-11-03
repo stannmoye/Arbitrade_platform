@@ -250,7 +250,34 @@ describe("Trading navigation focus and plain-language controls", () => {
     expect(adminApp).toContain('className="admin-nav-item-detail"');
     expect(navigation).toContain('label: "Publish & Manage Opportunities"');
     expect(navigation).toContain('label: "Retries & Carry-Forward"');
-    expect(navigation).toContain('label: "System Pause & Safety"');
+    expect(navigation).toContain('label: "Package Configuration"');
+    expect(navigation).not.toContain('label: "System Pause & Safety"');
+  });
+});
+
+describe("Trade Settings owner route isolation", () => {
+  it("renders package controls and allocation pause only from Package Configuration", () => {
+    expect(adminApp).toContain('section==="tradePackageConfiguration"&&<AdminPackageConfiguration/>');
+    expect(adminApp).not.toContain('{section!=="overview"&&<AdminPackagePolicyControls/>}');
+    expect(adminApp).not.toContain('{section!=="overview"&&<AdminTradingGlobalControls/>}');
+    const ownerStart = adminApp.indexOf("function AdminPackageConfiguration()");
+    const ownerEnd = adminApp.indexOf("function AdminPackages({focus}", ownerStart);
+    const owner = adminApp.slice(ownerStart, ownerEnd);
+    expect(owner).toContain("<AdminPackagePolicyControls />");
+    expect(owner).toContain("<AdminTradeAllocationControl />");
+    const apiStart = adminApp.indexOf("function AdminApis()");
+    const apiEnd = adminApp.indexOf("function AdminBranding()", apiStart);
+    expect(adminApp.slice(apiStart, apiEnd)).not.toContain("AdminTradeAllocationControl");
+  });
+
+  it("keeps the owner guide navigation-only and describes financial and storage limits", () => {
+    const guide = readFileSync(new URL("../client/src/components/TradeSettingsAdminGuide.tsx", import.meta.url), "utf8");
+    expect(adminApp).toContain('section==="tradeAdminGuide"&&<TradeSettingsAdminGuide');
+    expect(guide).toContain("onNavigate");
+    expect(guide).toContain("does not save settings or perform operational actions");
+    expect(guide).toContain("not as a separate global master record");
+    expect(guide).toContain("Automatic financial execution remains hard-disabled");
+    expect(guide).not.toMatch(/<form\b|<input\b|<textarea\b|useMutation\(|\.mutate\(/);
   });
 });
 
@@ -334,14 +361,18 @@ describe("Trading overview and duration navigation", () => {
     expect(focusedSettings).toContain('{tab==="ticket"&&!focus&&<div className="settings-card">');
     expect(focusedSettings).not.toContain('{tab==="email"&&!focus');
     expect(focusedSettings).toContain('{tab==="password"&&!focus&&<div className="settings-card">');
-    expect(focusedSettings).toContain('await save.mutateAsync({trade});');
+    expect(focusedSettings).toContain('await save.mutateAsync({trade:{...trade,reason:tradeReason.trim(),expectedPolicyVersion}});');
+    expect(focusedSettings).toContain('Number(stored?.policyVersion)===expectedPolicyVersion+1');
+    expect(focusedSettings).toContain('Reason for this global policy change (required)');
     expect(focusedSettings).toContain('await save.mutateAsync({ticket});');
     expect(focusedSettings).toContain('Only the section shown on this page is submitted; other saved settings are left unchanged.');
     expect(focusedSettings).toContain('fresh server read did not confirm every saved value');
     expect(focusedSettings).not.toContain('email:{');
     expect(focusedSettings).toContain('{tab==="trade"&&focus==="tradeDuration"&&<div className="settings-card">');
     expect(focusedSettings).not.toContain('>Trade settlement</button>');
-    expect(focusedSettings).toContain('await save.mutateAsync({trade});');
+    expect(focusedSettings).toContain('await save.mutateAsync({trade:{...trade,reason:tradeReason.trim(),expectedPolicyVersion}});');
+    expect(focusedSettings).toContain('Number(stored?.policyVersion)===expectedPolicyVersion+1');
+    expect(focusedSettings).toContain('Reason for this global policy change (required)');
     expect(focusedSettings).toContain('await save.mutateAsync({ticket});');
     expect(focusedSettings).toContain('Other settings sections were not changed.');
     expect(focusedSettings).toContain('fresh server read did not confirm every saved value');
