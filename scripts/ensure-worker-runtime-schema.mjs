@@ -154,6 +154,8 @@ async function main() {
     await executeCompatibleMigrationSql(db, dailyExecutionAttemptAccountingMigration);
     const automaticFinancialExecutionOffMigration = await readFile(resolve(root, "drizzle/0098_disable_automatic_financial_execution.sql"), "utf8");
     await executeCompatibleMigrationSql(db, automaticFinancialExecutionOffMigration);
+    const packageFeePolicyMigration = await readFile(resolve(root, "drizzle/0101_package_fee_policy_versions.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, packageFeePolicyMigration);
 
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],

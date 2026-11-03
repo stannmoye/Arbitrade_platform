@@ -560,6 +560,11 @@ export const tradePositions = mysqlTable("trade_positions", {
   feePolicyVersion: int("feePolicyVersion").default(1).notNull(),
   platformFeeRateBps: int("platformFeeRateBps").default(1500).notNull(),
   platformFeeRoundingMode: varchar("platformFeeRoundingMode", { length: 20 }).default("half_up").notNull(),
+  packageIdSnapshot: int("packageIdSnapshot"),
+  packageFeeRateBpsSnapshot: int("packageFeeRateBpsSnapshot"),
+  packageFeeRoundingModeSnapshot: varchar("packageFeeRoundingModeSnapshot", { length: 20 }),
+  packageFeePolicyVersionSnapshot: int("packageFeePolicyVersionSnapshot"),
+  packageFeeEffectiveAtSnapshot: timestamp("packageFeeEffectiveAtSnapshot"),
   settlementOutcome: varchar("settlementOutcome", { length: 32 }).default("legacy_unrecorded").notNull(),
   walletUpdatedAt: timestamp("walletUpdatedAt"),
   completionAt: timestamp("completionAt"),
@@ -627,6 +632,21 @@ export const packages = mysqlTable("packages", {
   enabled: boolean("enabled").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
+
+export const tradingPackageFeePolicyVersions = mysqlTable("trading_package_fee_policy_versions", {
+  packageId: int("packageId").notNull(),
+  version: int("version").notNull(),
+  feeRateBps: int("feeRateBps").notNull(),
+  roundingMode: varchar("roundingMode", { length: 20 }).notNull(),
+  effectiveAt: timestamp("effectiveAt").notNull(),
+  changedBy: varchar("changedBy", { length: 80 }).notNull(),
+  changedAt: timestamp("changedAt").defaultNow().notNull(),
+  reason: text("reason").notNull(),
+  source: varchar("source", { length: 80 }).notNull(),
+}, (table) => ({
+  packageVersionPrimary: uniqueIndex("trading_package_fee_policy_version_pk").on(table.packageId, table.version),
+  packageEffectiveIndex: index("trading_package_fee_policy_effective_idx").on(table.packageId, table.effectiveAt, table.version),
+}));
 
 export const packageEntitlements = mysqlTable("package_entitlements", {
   id: int("id").autoincrement().primaryKey(),

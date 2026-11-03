@@ -350,10 +350,8 @@ export function AdminTransactionReview({ focus }: { focus?: "ledger" | "capital"
   }, { enabled: focus === "reconciliation", refetchInterval: 30_000 });
   const confirmSettlement = trpc.adminOperations.confirmManualSettlement.useMutation({ onSuccess: () => { pendingQuery.refetch(); integrityQuery.refetch(); walletLedgerReconciliationQuery.refetch(); } });
   const tradeFeePolicyQuery = trpc.adminOperations.tradeFeePolicy.useQuery(undefined, { enabled: focus === "fees", staleTime: 60_000 });
-  const [feePolicyDraft, setFeePolicyDraft] = useState<{ feePercent: string; roundingMode: "half_up" | "down" | "up" | "half_even" } | null>(null);
+  const packageFeePoliciesQuery = trpc.adminOperations.packageFeePolicies.useQuery(undefined, { enabled: focus === "fees", staleTime: 30_000 });
   const feePolicy = tradeFeePolicyQuery.data;
-  const feeDraft = feePolicyDraft ?? { feePercent: feePolicy ? String(feePolicy.feeRateBps / 100) : "15", roundingMode: feePolicy?.roundingMode ?? "half_up" };
-  const updateTradeFeePolicy = trpc.adminOperations.updateTradeFeePolicy.useMutation({ onSuccess: () => { setFeePolicyDraft(null); tradeFeePolicyQuery.refetch(); } });
   const [drafts, setDrafts] = useState<Record<number, { grossProfitMinor: string; reference: string }>>({});
   const currencyQuery = trpc.adminOperations.currencies.useQuery(undefined, { enabled: focus === "ledger", staleTime: 60_000 });
   const rows = (ledgerQuery.data?.entries ?? []) as unknown as LedgerRecord[];
@@ -368,7 +366,7 @@ export function AdminTransactionReview({ focus }: { focus?: "ledger" | "capital"
   };
 
   return (
-    <ToolPage eyebrow={focus === "reconciliation" ? "Trade settlement records" : focus === "fees" ? "Trading fee policy" : focus === "capital" ? "Capital and wallet funding" : "Append-only balance ledger"} title={focus === "fees" ? "Returns and fees" : focus === "capital" ? "Capital & Wallet Funding" : focus === "reconciliation" ? "Settlement & Reconciliation" : "Wallet & Ledger"} description={focus === "fees" ? "Set the fee taken only from confirmed positive profit. Losses and zero-profit trades have no profit fee." : focus === "capital" ? "Read-only availability status for the unimplemented capital and wallet-funding queue." : focus === "reconciliation" ? "Review and reconcile trade settlement records only." : "Read-only wallet activity for one selected customer and one UTC calendar day."} icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { if (focus === "fees") tradeFeePolicyQuery.refetch(); else if (focus === "reconciliation") { pendingQuery.refetch(); integrityQuery.refetch(); walletLedgerReconciliationQuery.refetch(); } else if (focus === "ledger" || !focus) { ledgerQuery.refetch(); currencyQuery.refetch(); } }} disabled={focus === "fees" ? tradeFeePolicyQuery.isFetching : focus === "reconciliation" ? pendingQuery.isFetching || integrityQuery.isFetching || walletLedgerReconciliationQuery.isFetching : focus === "ledger" || !focus ? !ledgerFilterValid || ledgerQuery.isFetching || currencyQuery.isFetching : false}><RefreshCw size={14} /> Refresh</button>}>
+    <ToolPage eyebrow={focus === "reconciliation" ? "Trade settlement records" : focus === "fees" ? "Trading fee policy" : focus === "capital" ? "Capital and wallet funding" : "Append-only balance ledger"} title={focus === "fees" ? "Returns and fees" : focus === "capital" ? "Capital & Wallet Funding" : focus === "reconciliation" ? "Settlement & Reconciliation" : "Wallet & Ledger"} description={focus === "fees" ? "Legacy global fee settings are read-only. New allocations require an effective, explicitly configured package fee policy." : focus === "capital" ? "Read-only availability status for the unimplemented capital and wallet-funding queue." : focus === "reconciliation" ? "Review and reconcile trade settlement records only." : "Read-only wallet activity for one selected customer and one UTC calendar day."} icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { if (focus === "fees") { tradeFeePolicyQuery.refetch(); packageFeePoliciesQuery.refetch(); } else if (focus === "reconciliation") { pendingQuery.refetch(); integrityQuery.refetch(); walletLedgerReconciliationQuery.refetch(); } else if (focus === "ledger" || !focus) { ledgerQuery.refetch(); currencyQuery.refetch(); } }} disabled={focus === "fees" ? tradeFeePolicyQuery.isFetching || packageFeePoliciesQuery.isFetching : focus === "reconciliation" ? pendingQuery.isFetching || integrityQuery.isFetching || walletLedgerReconciliationQuery.isFetching : focus === "ledger" || !focus ? !ledgerFilterValid || ledgerQuery.isFetching || currencyQuery.isFetching : false}><RefreshCw size={14} /> Refresh</button>}>
       {focus === "capital" && <section className="admin-ops-panel" aria-label="Capital and wallet funding availability">
         <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Read-only availability</span><h2>Capital &amp; Wallet Funding</h2></div><span className="admin-ops-subtle">Unavailable</span></div>
         <div className="admin-ops-empty compact">A capital and wallet-funding queue is not implemented. No funding, payout, or settlement actions are available on this route.</div>
@@ -376,27 +374,18 @@ export function AdminTransactionReview({ focus }: { focus?: "ledger" | "capital"
       {focus === "capital" ? null : ledgerQuery.isLoading && (focus === "ledger" || !focus) ? <LoadingState /> : ledgerQuery.isError && (focus === "ledger" || !focus) ? <div className="admin-ops-empty error">The balance ledger could not be loaded.</div> : <>
         {focus === "fees" && <>
         <section className="admin-ops-panel">
-          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Realized-profit fee policy</span><h2>Trading platform fee</h2></div><span className="admin-ops-subtle">Policy v{feePolicy?.policyVersion ?? 1}</span></div>
-          <p>Applies only to confirmed positive gross profit. Zero-profit and loss settlements incur no profit-based fee. The default policy is 15%.</p>
-          {tradeFeePolicyQuery.isError && <div className="admin-ops-empty error">Trading fee policy could not be loaded; changes are disabled.</div>}
-          {updateTradeFeePolicy.error && <div className="admin-ops-empty error">{updateTradeFeePolicy.error.message}</div>}
-          <div className="admin-ops-form-grid">
-            <label>Fee rate (%)
-              <input type="number" min={0} max={100} step={0.01} value={feeDraft.feePercent} disabled={tradeFeePolicyQuery.isLoading || tradeFeePolicyQuery.isError} onChange={(event) => setFeePolicyDraft({ ...feeDraft, feePercent: event.target.value })} />
-            </label>
-            <label>Fee rounding
-              <select value={feeDraft.roundingMode} disabled={tradeFeePolicyQuery.isLoading || tradeFeePolicyQuery.isError} onChange={(event) => setFeePolicyDraft({ ...feeDraft, roundingMode: event.target.value as "half_up" | "down" | "up" | "half_even" })}>
-                <option value="half_up">Half up</option>
-                <option value="down">Down</option>
-                <option value="up">Up</option>
-                <option value="half_even">Half even</option>
-              </select>
-            </label>
-            <div className="admin-ops-form-actions">
-              <button className="admin-ops-button" type="button" disabled={tradeFeePolicyQuery.isLoading || tradeFeePolicyQuery.isError || updateTradeFeePolicy.isPending || !feeDraft.feePercent.trim() || !Number.isFinite(Number(feeDraft.feePercent)) || Number(feeDraft.feePercent) < 0 || Number(feeDraft.feePercent) > 100} onClick={() => updateTradeFeePolicy.mutate({ feeRateBps: Math.round(Number(feeDraft.feePercent) * 100), roundingMode: feeDraft.roundingMode })}>{updateTradeFeePolicy.isPending ? "Saving…" : "Save fee policy"}</button>
-            </div>
-          </div>
-          <div className="admin-ops-note"><ShieldCheck size={16} /><span>Changes are audited and versioned. Each settlement stores the fee rate, rounding rule, and policy version used.</span></div>
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Read-only compatibility policy</span><h2>Legacy global fee settings</h2></div><span className="admin-ops-subtle">{feePolicy ? `Policy v${feePolicy.policyVersion}` : "Unavailable"}</span></div>
+          <p>Legacy global settings cannot be changed. New package allocations require a saved, effective package-specific fee version. Existing trades are settled only from their immutable fee snapshot.</p>
+          {tradeFeePolicyQuery.isError && <div className="admin-ops-empty error">Legacy global fee settings are missing or invalid; they are not replaced with defaults.</div>}
+          {feePolicy && <div className="admin-ops-note"><ShieldCheck size={16} /><span>Legacy reference: {feePolicy.feeRateBps / 100}% fee, {feePolicy.roundingMode} rounding, version {feePolicy.policyVersion}. Read only.</span></div>}
+        </section>
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Effective and scheduled versions</span><h2>Package fee policies</h2></div><span className="admin-ops-subtle">{packageFeePoliciesQuery.data?.length ?? 0} packages</span></div>
+          {packageFeePoliciesQuery.isError && <div className="admin-ops-empty error">Package fee policies could not be loaded.</div>}
+          {packageFeePoliciesQuery.isLoading ? <LoadingState /> : !packageFeePoliciesQuery.data?.length ? <div className="admin-ops-empty compact">No package fee policies are configured.</div> : <div className="admin-ops-table-wrap"><table className="admin-ops-table"><thead><tr><th>Package</th><th>Currently effective</th><th>Latest / scheduled version</th><th>Optimistic update target</th></tr></thead><tbody>
+            {packageFeePoliciesQuery.data.map((policy) => <tr key={policy.packageId}><td>{policy.packageName}</td><td>{policy.activePolicy ? `${policy.activePolicy.feeRateBps / 100}% · v${policy.activePolicy.version} · effective ${new Date(policy.activePolicy.effectiveAt).toLocaleString("en-GB", { timeZone: "UTC" })} UTC` : "No effective policy · allocation blocked"}</td><td>{policy.latestPolicy ? `${policy.latestPolicy.feeRateBps / 100}% · v${policy.latestPolicy.version} · effective ${new Date(policy.latestPolicy.effectiveAt).toLocaleString("en-GB", { timeZone: "UTC" })} UTC${policy.scheduled ? " · scheduled" : ""}` : "No explicitly configured package fee"}</td><td>{policy.latestVersion ?? "Unavailable"}</td></tr>)}
+          </tbody></table></div>}
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span>Optimistic package fee updates must use the latest version shown above, even when that version is scheduled for a future effective time.</span></div>
         </section>
         </>}
         {focus === "reconciliation" && <>

@@ -3,7 +3,7 @@ import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, not
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool, type Pool } from "mysql2/promise";
 import { ENV } from "./_core/env";
-import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, tradingTierQualificationJobs, adminWalletAdjustmentIdempotency, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
+import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, tradingTierQualificationJobs, tradingPackageFeePolicyVersions, adminWalletAdjustmentIdempotency, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
@@ -30,6 +30,10 @@ import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityE
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 import { isTradingTierEnablingTransition } from "./modules/trading-tier-activation";
 import { FAIL_CLOSED_TRADE_GLOBAL_CONTROLS, TRADE_GLOBAL_CONTROL_MIGRATION_DIAGNOSTIC_KEY, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, TRADE_GLOBAL_MASTER_KEYS, parseTradeGlobalControlPolicy, type TradeGlobalMasterKey, type TradeGlobalControlStatus } from "./trading-global-policy";
+import { normalizeImmutableTradeFeeSnapshot, normalizeLegacyTradeFeePolicy, resolvePackageFeePolicyWrite, selectLatestEffectivePackageFeePolicy } from "./modules/package-fee-policy";
+
+const TRADE_FEE_SETTING_KEYS = ["trade.platformFeeBps", "trade.feeRoundingMode", "trade.feePolicyVersion"] as const;
+const READ_ONLY_LEGACY_TRADE_FEE_SETTING_KEYS = new Set<string>(TRADE_FEE_SETTING_KEYS);
 let _db: MySql2Database<Record<string, unknown>> | null = null;
 let _pool: Pool | null = null;
 
@@ -120,6 +124,9 @@ export async function getAppSetting(key: string, fallback?: string) {
   return row?.settingValue ?? fallback;
 }
 export async function setAppSetting(key: string, value: string, updatedBy?: number) {
+  if (READ_ONLY_LEGACY_TRADE_FEE_SETTING_KEYS.has(key)) {
+    throw new Error("Legacy global Trading fee settings are read-only; configure a package-specific fee policy instead");
+  }
   const db = await getDb(); if (!db) throw new Error("Database is not available");
   const existing = (await db.select().from(appSettings).where(eq(appSettings.settingKey, key)).limit(1))[0];
   if (existing) await db.update(appSettings).set({ settingValue: value, updatedBy: updatedBy ?? null }).where(eq(appSettings.settingKey, key));
@@ -278,64 +285,103 @@ export async function listAdminTradeAuditHistory(filters: AdminTradeAuditHistory
     : null;
   return { events, nextCursor, scanCapped };
 }
-const TRADE_FEE_SETTING_KEYS = ["trade.platformFeeBps", "trade.feeRoundingMode", "trade.feePolicyVersion"] as const;
-const DEFAULT_TRADE_FEE_POLICY = { feeRateBps: 1500, roundingMode: "half_up" as FeeRoundingMode, policyVersion: 1 };
-function normalizeTradeFeePolicy(values: { feeRateBps: unknown; roundingMode: unknown; policyVersion: unknown }) {
-  const feeRateBps=Number(values.feeRateBps);
-  const policyVersion=Number(values.policyVersion);
-  const roundingMode=String(values.roundingMode) as FeeRoundingMode;
-  if(!Number.isInteger(feeRateBps)||feeRateBps<0||feeRateBps>10000) throw new Error("Trading fee rate setting is invalid");
-  if(!["half_up","down","up","half_even"].includes(roundingMode)) throw new Error("Trading fee rounding setting is invalid");
-  if(!Number.isSafeInteger(policyVersion)||policyVersion<1) throw new Error("Trading fee policy version is invalid");
-  return {feeRateBps,roundingMode,policyVersion};
-}
 export async function getTradeFeePolicy() {
-  const [feeRateBps,roundingMode,policyVersion]=await Promise.all([
-    getAppSetting("trade.platformFeeBps",String(DEFAULT_TRADE_FEE_POLICY.feeRateBps)),
-    getAppSetting("trade.feeRoundingMode",DEFAULT_TRADE_FEE_POLICY.roundingMode),
-    getAppSetting("trade.feePolicyVersion",String(DEFAULT_TRADE_FEE_POLICY.policyVersion)),
-  ]);
-  const policy=normalizeTradeFeePolicy({feeRateBps,roundingMode,policyVersion});
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const rows=await db.select().from(appSettings).where(inArray(appSettings.settingKey,[...TRADE_FEE_SETTING_KEYS]));
+  const byKey=new Map(rows.map(row=>[row.settingKey,row.settingValue]));
+  const missing=TRADE_FEE_SETTING_KEYS.filter(key=>!byKey.has(key));
+  if(missing.length) throw new Error(`Legacy global Trading fee settings are incomplete: ${missing.join(", ")}`);
+  const policy=normalizeLegacyTradeFeePolicy({
+    feeRateBps:byKey.get("trade.platformFeeBps"),
+    roundingMode:byKey.get("trade.feeRoundingMode"),
+    policyVersion:byKey.get("trade.feePolicyVersion"),
+  });
   return {...policy,feePercent:policy.feeRateBps/100};
 }
 export async function setTradeFeePolicy(input:{feeRateBps:number;roundingMode:FeeRoundingMode},updatedBy:number) {
-  if(!Number.isInteger(input.feeRateBps)||input.feeRateBps<0||input.feeRateBps>10000) throw new Error("Trading fee rate must be between 0% and 100%");
-  if(!["half_up","down","up","half_even"].includes(input.roundingMode)) throw new Error("Unsupported trading fee rounding mode");
+  void input; void updatedBy;
+  throw new Error("Legacy global Trading fee settings are read-only; configure a package-specific fee policy instead");
+}
+function normalizePackageFeePolicy(row:any) {
+  const feeRateBps=Number(row.feeRateBps), version=Number(row.version);
+  const roundingMode=String(row.roundingMode) as FeeRoundingMode;
+  if(!Number.isInteger(feeRateBps)||feeRateBps<0||feeRateBps>10000||!Number.isSafeInteger(version)||version<1||!["half_up","down","up","half_even"].includes(roundingMode)) throw new Error("Saved package fee policy is invalid");
+  return {...row,packageId:Number(row.packageId),version,feeRateBps,roundingMode,effectiveAt:new Date(row.effectiveAt).toISOString(),changedAt:new Date(row.changedAt).toISOString()};
+}
+export async function getPackageFeePolicies() {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
-  return db.transaction(async tx=>{
-    const rows=await tx.select().from(appSettings).where(inArray(appSettings.settingKey,[...TRADE_FEE_SETTING_KEYS])).for("update");
-    const byKey=new Map<string,string>();
-    for(const row of rows) byKey.set(row.settingKey,row.settingValue);
-    const current=normalizeTradeFeePolicy({
-      feeRateBps:byKey.get("trade.platformFeeBps")??String(DEFAULT_TRADE_FEE_POLICY.feeRateBps),
-      roundingMode:byKey.get("trade.feeRoundingMode")??DEFAULT_TRADE_FEE_POLICY.roundingMode,
-      policyVersion:byKey.get("trade.feePolicyVersion")??String(DEFAULT_TRADE_FEE_POLICY.policyVersion),
-    });
-    const next={feeRateBps:input.feeRateBps,roundingMode:input.roundingMode,policyVersion:current.policyVersion+1};
-    if(!Number.isSafeInteger(next.policyVersion)) throw new Error("Trading fee policy version has reached its limit");
-    const updateSetting=async(settingKey:string,settingValue:string)=>{
-      if(byKey.has(settingKey)) {
-        await tx.update(appSettings).set({settingValue,updatedBy,updatedAt:new Date()}).where(eq(appSettings.settingKey,settingKey));
-      } else {
-        await tx.insert(appSettings).values({settingKey,settingValue,updatedBy});
-      }
+  const [packageRows,versions]=await Promise.all([
+    db.select({packageId:packages.id,packageName:packages.name}).from(packages).orderBy(packages.id),
+    db.select().from(tradingPackageFeePolicyVersions).orderBy(desc(tradingPackageFeePolicyVersions.version)),
+  ]);
+  const byPackage=new Map<number,any[]>();
+  for(const row of versions) {
+    const packageId=Number(row.packageId);
+    const packageVersions=byPackage.get(packageId)??[];
+    packageVersions.push(row);
+    byPackage.set(packageId,packageVersions);
+  }
+  const asOf=new Date();
+  return packageRows.map(pkg=>{
+    const packageVersions=byPackage.get(pkg.packageId)??[];
+    const latest=packageVersions.reduce<any>((selected,row)=>!selected||Number(row.version)>Number(selected.version)?row:selected,null);
+    const active=selectLatestEffectivePackageFeePolicy(packageVersions,asOf);
+    const activePolicy=active?normalizePackageFeePolicy(active):null;
+    const latestPolicy=latest?normalizePackageFeePolicy(latest):null;
+    return {
+      packageId:pkg.packageId,
+      packageName:pkg.packageName,
+      // Preserve the original flat read-model fields as the currently effective policy.
+      feeRateBps:activePolicy?.feeRateBps??null,
+      roundingMode:activePolicy?.roundingMode??null,
+      version:activePolicy?.version??null,
+      effectiveAt:activePolicy?.effectiveAt??null,
+      changedBy:activePolicy?.changedBy??null,
+      changedAt:activePolicy?.changedAt??null,
+      reason:activePolicy?.reason??null,
+      source:activePolicy?.source??null,
+      configured:Boolean(activePolicy),
+      activePolicy,
+      activeVersion:activePolicy?.version??null,
+      latestPolicy,
+      latestVersion:latestPolicy?.version??null,
+      scheduled:!!latestPolicy&&latestPolicy.version!==activePolicy?.version,
     };
-    await updateSetting("trade.platformFeeBps",String(next.feeRateBps));
-    await updateSetting("trade.feeRoundingMode",next.roundingMode);
-    await updateSetting("trade.feePolicyVersion",String(next.policyVersion));
-    await tx.insert(v5AuditEvents).values({
-      actorUserId:updatedBy,
-      action:"trade_fee_policy_updated",
-      entityType:"trade_fee_policy",
-      entityId:String(next.policyVersion),
-      reason:"Administrator updated realized-profit fee settings.",
-      reference:`trade-fee-policy:${next.policyVersion}`,
-      metadataJson:JSON.stringify({old:{...current,feePercent:current.feeRateBps/100},new:{...next,feePercent:next.feeRateBps/100}}),
-    });
-    return {...next,feePercent:next.feeRateBps/100};
   });
 }
-
+export async function getPackageFeeHistory(packageId:number) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const pkg=(await db.select({packageId:packages.id,packageName:packages.name}).from(packages).where(eq(packages.id,packageId)).limit(1))[0];
+  if(!pkg) throw new Error("Package not found");
+  const rows=await db.select().from(tradingPackageFeePolicyVersions).where(eq(tradingPackageFeePolicyVersions.packageId,packageId)).orderBy(desc(tradingPackageFeePolicyVersions.version));
+  return rows.map(row=>({packageId:pkg.packageId,packageName:pkg.packageName,...normalizePackageFeePolicy(row)}));
+}
+export async function updatePackageFeePolicy(input:{packageId:number;expectedVersion:number;feeRateBps:number;roundingMode:FeeRoundingMode;effectiveAt:string;reason:string},actorId:number) {
+  if(!Number.isSafeInteger(input.packageId)||input.packageId<1||!Number.isSafeInteger(input.expectedVersion)||input.expectedVersion<0) throw new Error("Package and expected version must be valid");
+  if(!Number.isInteger(input.feeRateBps)||input.feeRateBps<0||input.feeRateBps>10000||!["half_up","down","up","half_even"].includes(input.roundingMode)) throw new Error("Package fee policy is invalid");
+  const reason=input.reason.trim(); if(reason.length<3||reason.length>2000) throw new Error("A reason of 3 to 2000 characters is required");
+  const effectiveAt=new Date(input.effectiveAt); if(!Number.isFinite(effectiveAt.getTime())||effectiveAt.toISOString()!==input.effectiveAt) throw new Error("Effective time must be a valid UTC ISO timestamp");
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const changedAt=new Date();
+  await db.transaction(async tx=>{
+    const pkg=(await tx.select({id:packages.id,name:packages.name}).from(packages).where(eq(packages.id,input.packageId)).limit(1).for("update"))[0];
+    if(!pkg) throw new Error("Package not found");
+    const current=(await tx.select().from(tradingPackageFeePolicyVersions).where(eq(tradingPackageFeePolicyVersions.packageId,input.packageId)).orderBy(desc(tradingPackageFeePolicyVersions.version)).limit(1).for("update"))[0];
+    const write=resolvePackageFeePolicyWrite(current?Number(current.version):null,input.expectedVersion);
+    if(effectiveAt.getTime()<changedAt.getTime()||(current&&effectiveAt.getTime()<=new Date(current.effectiveAt).getTime())) throw new Error("Package fee policy effective time must not be retroactive or stale");
+    const version=write.version;
+    const source=write.initial?"admin_initial":"admin_update";
+    const values={packageId:input.packageId,version,feeRateBps:input.feeRateBps,roundingMode:input.roundingMode,effectiveAt,changedBy:String(actorId),changedAt,reason,source};
+    await tx.insert(tradingPackageFeePolicyVersions).values(values);
+    await tx.insert(v5AuditEvents).values({actorUserId:actorId,action:write.initial?"trading_package_fee_policy_initialized":"trading_package_fee_policy_updated",entityType:"trading_package_fee_policy",entityId:String(input.packageId),reason,reference:`trading-package-fee-policy:${input.packageId}:${version}`,metadataJson:JSON.stringify({packageId:input.packageId,packageName:pkg.name,old:current?{version:Number(current.version),feeRateBps:Number(current.feeRateBps),roundingMode:current.roundingMode,effectiveAt:new Date(current.effectiveAt).toISOString()}:null,new:{version,feeRateBps:input.feeRateBps,roundingMode:input.roundingMode,effectiveAt:effectiveAt.toISOString()},source})});
+  });
+  const history=await getPackageFeeHistory(input.packageId);
+  const saved=history[0];
+  const expected=resolvePackageFeePolicyWrite(input.expectedVersion===0?null:input.expectedVersion,input.expectedVersion);
+  const expectedSource=expected.initial?"admin_initial":"admin_update";
+  if(!saved||saved.version!==expected.version||saved.feeRateBps!==input.feeRateBps||saved.roundingMode!==input.roundingMode||saved.effectiveAt!==effectiveAt.toISOString()||saved.reason!==reason||saved.source!==expectedSource) throw new Error("Package fee policy save could not be verified by fresh read-back");
+  return saved;
+}
 export async function getTradeSettlementPolicy() {
   const db = await getDb();
   const keys = [...TRADE_SETTLEMENT_POLICY_SETTING_KEYS, TRADE_SETTLEMENT_POLICY_VERSION_KEY];
@@ -3881,6 +3927,7 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
   };
 }
 export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number;packageId?:number;executionLeaseToken?:string}){
+ if(!AUTOMATIC_FINANCIAL_EXECUTION_ENABLED) throw new Error("Automatic trade allocation is hard-disabled");
  const db=await getDb();if(!db)throw new Error("Database is not available");
  // Fetch FX quotes before opening the financial transaction. The transaction below
  // locks every affected wallet in stable order and rechecks all spendable balances.
@@ -4036,6 +4083,16 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const activePackageSubscription=requestedSubscription||samePackageSubscription||(!input.packageSubscriptionId&&!input.packageId?subscriptionsWithQuota[0]:undefined);
   if(!activePackageSubscription) throw new Error("No eligible package subscription remains for this allocation");
   const selectedSubscriptionId=Number(activePackageSubscription.subscriptionId);
+  const feePackageId=Number(activePackageSubscription.packageId);
+  const feePackage=(await tx.select({id:packages.id}).from(packages).where(eq(packages.id,feePackageId)).limit(1).for("update"))[0];
+  if(!feePackage) throw new Error("The selected package fee identity is unavailable");
+  const allocationAt=new Date();
+  const feeRows=await tx.select().from(tradingPackageFeePolicyVersions)
+    .where(and(eq(tradingPackageFeePolicyVersions.packageId,feePackageId),lte(tradingPackageFeePolicyVersions.effectiveAt,allocationAt)))
+    .orderBy(desc(tradingPackageFeePolicyVersions.effectiveAt),desc(tradingPackageFeePolicyVersions.version)).limit(1).for("update");
+  const effectiveFeeRow=selectLatestEffectivePackageFeePolicy(feeRows,allocationAt);
+  const packageFeePolicy=effectiveFeeRow ? normalizePackageFeePolicy(effectiveFeeRow) : null;
+  if(!packageFeePolicy) throw new Error("The selected package has no saved fee policy; allocation is blocked until an administrator configures one");
   const packagePolicy=policyByName.get(activePackageSubscription.packageName);
   let activeTermsSnapshot:any={};try{activeTermsSnapshot=JSON.parse(String(activePackageSubscription.termsSnapshotJson||"{}"))}catch{activeTermsSnapshot={}}
   const tierActiveLimit=Number(activeTermsSnapshot.maxActiveInvestments??activePackageSubscription.maxActiveInvestments??0);
@@ -4190,7 +4247,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const settlementReviewAt=new Date(settlesAt.getTime()+settlementDelaySeconds*1000);
   const creditAt=new Date(settlementReviewAt.getTime()+settlementPolicy.creditDelaySeconds*1000);
   const snapshotVersion=Number(popupSnapshot?.packagePolicyVersionSnapshot||packagePolicy.policyVersion||activePackageSubscription.termsVersion||1);
-  const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null,companyLogoUrl:popupSnapshot?.companyLogoUrl||null,companyReferenceMetadataJson:popupSnapshot?.companyReferenceMetadataJson||null,companyReferenceOnly:Boolean(popupSnapshot?.companyReferenceOnly??false),walletFundingPlanJson,transactionReference:ref,rewardReservedMinor:reward,settlesAt,settlementReviewAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:snapshotVersion} as any);
+  const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null,companyLogoUrl:popupSnapshot?.companyLogoUrl||null,companyReferenceMetadataJson:popupSnapshot?.companyReferenceMetadataJson||null,companyReferenceOnly:Boolean(popupSnapshot?.companyReferenceOnly??false),walletFundingPlanJson,packageIdSnapshot:feePackageId,packageFeeRateBpsSnapshot:packageFeePolicy.feeRateBps,packageFeeRoundingModeSnapshot:packageFeePolicy.roundingMode,packageFeePolicyVersionSnapshot:packageFeePolicy.version,packageFeeEffectiveAtSnapshot:new Date(packageFeePolicy.effectiveAt),feePolicyVersion:packageFeePolicy.version,platformFeeRateBps:packageFeePolicy.feeRateBps,platformFeeRoundingMode:packageFeePolicy.roundingMode,transactionReference:ref,rewardReservedMinor:reward,settlesAt,settlementReviewAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:snapshotVersion} as any);
   const tradeId=Number(result[0].insertId);
   await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,packageSubscriptionId:selectedSubscriptionId,packageId:Number(activePackageSubscription.packageId),termsVersion:Number(activePackageSubscription.termsVersion||1),policyVersion:snapshotVersion,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null})});
   if(input.deliveryEventId!==undefined) await tx.update(opportunityPopupEvents).set({tradeId,eventStatus:"TRADED",executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,tradedAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offer.id)));
@@ -4768,15 +4825,25 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
       packageName=packageRow.name;
     }
 
-    // Lock the active fee policy so this result uses one auditable, stable version.
-    const feeSettings=await tx.select().from(appSettings).where(inArray(appSettings.settingKey,[...TRADE_FEE_SETTING_KEYS])).for("update");
-    const feeByKey=new Map<string,string>();
-    for(const row of feeSettings) feeByKey.set(row.settingKey,row.settingValue);
-    const feePolicy=normalizeTradeFeePolicy({
-      feeRateBps:feeByKey.get("trade.platformFeeBps")??String(DEFAULT_TRADE_FEE_POLICY.feeRateBps),
-      roundingMode:feeByKey.get("trade.feeRoundingMode")??DEFAULT_TRADE_FEE_POLICY.roundingMode,
-      policyVersion:feeByKey.get("trade.feePolicyVersion")??String(DEFAULT_TRADE_FEE_POLICY.policyVersion),
-    });
+    // New trades use the package snapshot; pre-migration trades may use only fee
+    // fields already saved on that trade. Never reprice an existing trade from a
+    // mutable global setting or infer missing historical evidence.
+    let feePolicy:{feeRateBps:number;roundingMode:FeeRoundingMode;policyVersion:number};
+    if(trade.packageIdSnapshot!==null) {
+      if(trade.packageFeeRateBpsSnapshot===null||trade.packageFeeRoundingModeSnapshot===null||trade.packageFeePolicyVersionSnapshot===null||trade.packageFeeEffectiveAtSnapshot===null) throw new Error("Trade package fee snapshot is incomplete");
+      if(trade.packageSubscriptionId!==null) {
+        const subscription=(await tx.select({packageId:customerPackageSubscriptions.packageId}).from(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.id,trade.packageSubscriptionId)).limit(1).for("update"))[0];
+        if(!subscription||Number(subscription.packageId)!==Number(trade.packageIdSnapshot)) throw new Error("Trade package fee snapshot does not match its allocated package");
+      }
+      const saved=normalizePackageFeePolicy({packageId:trade.packageIdSnapshot,version:trade.packageFeePolicyVersionSnapshot,feeRateBps:trade.packageFeeRateBpsSnapshot,roundingMode:trade.packageFeeRoundingModeSnapshot,effectiveAt:trade.packageFeeEffectiveAtSnapshot,changedAt:trade.packageFeeEffectiveAtSnapshot});
+      feePolicy={feeRateBps:saved.feeRateBps,roundingMode:saved.roundingMode,policyVersion:saved.version};
+    } else {
+      feePolicy=normalizeImmutableTradeFeeSnapshot({
+        feeRateBps:trade.platformFeeRateBps,
+        roundingMode:trade.platformFeeRoundingMode,
+        policyVersion:trade.feePolicyVersion,
+      });
+    }
     const principal=Number(trade.principalMinor);
     const accounting=calculateRealizedProfitSettlement({
       principalMinor:principal,

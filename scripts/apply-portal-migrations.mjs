@@ -67,6 +67,7 @@ const migrationFiles = [
   "0098_disable_automatic_financial_execution.sql",
   "0099_trading_global_timing_policy_version.sql",
   "0100_global_trade_master_controls.sql",
+  "0101_package_fee_policy_versions.sql",
 ];
 // These tables are schema-baseline indicators for first-time portal migration tracking.
 // Some also belong to the main Drizzle chain; none of them alone proves that a

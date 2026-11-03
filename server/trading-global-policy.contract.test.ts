@@ -75,7 +75,9 @@ describe("global Trade master policy ownership and migration", () => {
   });
 
   it("is forward-only, preserves restrictive legacy values, and is registered by both migration paths", () => {
-    expect(journal.entries.at(-1).tag).toBe("0100_global_trade_master_controls");
+    const masterIndex = journal.entries.findIndex((entry:any) => entry.tag === "0100_global_trade_master_controls");
+    expect(masterIndex).toBeGreaterThanOrEqual(0);
+    expect(journal.entries[masterIndex + 1]?.tag).toBe("0101_package_fee_policy_versions");
     expect(migrationRunner).toContain('"0100_global_trade_master_controls.sql"');
     expect(installerRunner).toContain('"0100_global_trade_master_controls.sql"');
     expect(migration).toContain("MIN(`enabled`) = 1");

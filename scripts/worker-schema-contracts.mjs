@@ -65,10 +65,19 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
     },
   },
   trade_positions: {
-    columns: ["walletFundingPlanJson", "settlementReviewAt"],
-    dataTypes: { walletFundingPlanJson: "text", settlementReviewAt: "timestamp" },
-    nullable: { walletFundingPlanJson: true, settlementReviewAt: true },
+    columns: ["walletFundingPlanJson", "settlementReviewAt", "packageIdSnapshot", "packageFeeRateBpsSnapshot", "packageFeeRoundingModeSnapshot", "packageFeePolicyVersionSnapshot", "packageFeeEffectiveAtSnapshot"],
+    dataTypes: { walletFundingPlanJson: "text", settlementReviewAt: "timestamp", packageIdSnapshot: "int", packageFeeRateBpsSnapshot: "int", packageFeeRoundingModeSnapshot: "varchar", packageFeePolicyVersionSnapshot: "int", packageFeeEffectiveAtSnapshot: "datetime" },
+    nullable: { walletFundingPlanJson: true, settlementReviewAt: true, packageIdSnapshot: true, packageFeeRateBpsSnapshot: true, packageFeeRoundingModeSnapshot: true, packageFeePolicyVersionSnapshot: true, packageFeeEffectiveAtSnapshot: true },
     indexes: {},
+  },
+  trading_package_fee_policy_versions: {
+    columns: ["packageId", "version", "feeRateBps", "roundingMode", "effectiveAt", "changedBy", "changedAt", "reason", "source"],
+    dataTypes: { packageId: "int", version: "int", feeRateBps: "int", roundingMode: "varchar", effectiveAt: "datetime", changedBy: "varchar", changedAt: "datetime", reason: "text", source: "varchar" },
+    nullable: {},
+    indexes: {
+      PRIMARY: { unique: true, columns: ["packageId", "version"] },
+      trading_package_fee_policy_effective_idx: { unique: false, columns: ["packageId", "effectiveAt", "version"] },
+    },
   },
   admin_wallet_adjustment_idempotency: {
     columns: ["id", "adminId", "idempotencyKey", "requestHash", "responseJson", "createdAt", "updatedAt"],

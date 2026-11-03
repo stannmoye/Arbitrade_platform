@@ -226,8 +226,9 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(last.tag).toBe("0100_global_trade_master_controls");
-    expect(journal.entries.slice(-29).map((entry) => entry.tag)).toEqual([
+    const masterIndex = journal.entries.findIndex((entry) => entry.tag === "0100_global_trade_master_controls");
+    expect(journal.entries[masterIndex + 1]?.tag).toBe("0101_package_fee_policy_versions");
+    expect(journal.entries.slice(journal.entries.findIndex((entry) => entry.tag === "0072_wallet_ledger_reconciliation_indexes"), masterIndex + 1).map((entry) => entry.tag)).toEqual([
       "0072_wallet_ledger_reconciliation_indexes",
       "0073_trade_settlement_recovery_cases",
       "0074_trade_execution_retries",
@@ -258,6 +259,8 @@ describe("worker schema contracts", () => {
       "0099_trading_global_timing_policy_version",
       "0100_global_trade_master_controls",
     ]);
+    expect(portalRunner).toContain('"0101_package_fee_policy_versions.sql"');
+    expect(runtimeSchema).toContain('drizzle/0101_package_fee_policy_versions.sql');
     expect(portalRunner).toContain('"0076_trading_admin_policy_read_repair.sql"');
     expect(portalRunner).toContain('"0077_trading_package_catalogue_schema_repair.sql"');
     expect(portalRunner).toContain('"0078_trading_customer_package_subscription_repair.sql"');

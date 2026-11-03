@@ -187,11 +187,14 @@ describe("Trading tier policy audit and versioning", () => {
 });
 
 describe("Trading fee-policy navigation", () => {
-  it("opens the administrator screen that actually edits realized-profit fees", () => {
+  it("opens the read-only legacy fee view and schedule-aware package fee model", () => {
     const item = navigation.match(/id: "trade-fees-earnings", target: "([^"]+)"/);
     expect(item?.[1]).toBe("transactionReview");
     expect(adminApp).toContain("{section===\"transactionReview\"&&<AdminTransactionReview focus={focus as \"ledger\"|\"capital\"|\"fees\"|\"reconciliation\"|undefined}/>}");
-    expect(operationsUi).toContain("trpc.adminOperations.updateTradeFeePolicy.useMutation");
+    expect(operationsUi).toContain("trpc.adminOperations.packageFeePolicies.useQuery");
+    expect(operationsUi).toContain("policy.activePolicy.feeRateBps");
+    expect(operationsUi).toContain("policy.latestVersion");
+    expect(operationsUi).not.toContain("updateTradeFeePolicy.useMutation");
   });
 });
 

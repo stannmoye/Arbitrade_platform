@@ -491,6 +491,13 @@
       "when": 1793404800016,
       "tag": "0100_global_trade_master_controls",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1793404800017,
+      "tag": "0101_package_fee_policy_versions",
+      "breakpoints": true
     }
   ]
 }
