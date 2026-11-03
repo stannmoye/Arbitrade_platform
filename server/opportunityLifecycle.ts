@@ -4,6 +4,7 @@ import { mysqlConnectionOptions } from "./_core/mysql";
 import { buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, type CompanySpotlightState, type CompanySpotlightRepeatPolicy } from "./modules/company-spotlight-rotation";
 import { acknowledgeDelivery, claimDeliveryDispatch, deliveryAdmissionLockKey, deliveryIdempotencyKey, failDeliveryAttempt, type DeliveryState } from "./modules/opportunity-delivery-lifecycle";
 import { DELIVERY_RETRY_POLICY_SETTING_KEY, FAIL_CLOSED_DELIVERY_RETRY_POLICY, parseDeliveryRetryPolicy } from "./modules/opportunity-delivery-retry-policy";
+import { isRetryableMySqlTransactionError, mysqlTransactionRetryDelayMs, MYSQL_TRANSACTION_RETRY_MAX_ATTEMPTS } from "./modules/mysql-transaction-retry";
 
 type PopupDelivery = {
   userId: number;
@@ -43,10 +44,11 @@ async function withConnection<T>(fn: (connection: mysql.PoolConnection) => Promi
 export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
   if (!deliveries.length || !process.env.DATABASE_URL) return new Map<string, number>();
   return withConnection(async connection => {
-    for (const item of deliveries) {
+    deliveryLoop: for (const item of deliveries) {
       const eventKey = deliveryIdempotencyKey(item.userId, item.offerId);
-      await connection.beginTransaction();
-      try {
+      for (let transactionAttempt = 1; transactionAttempt <= MYSQL_TRANSACTION_RETRY_MAX_ATTEMPTS; transactionAttempt += 1) {
+        await connection.beginTransaction();
+        try {
         if (!Number.isSafeInteger(item.packageId) || item.packageId < 1) throw new Error("Delivery package identity is invalid.");
         const lockKey = deliveryAdmissionLockKey(item.userId, item.packageId);
         await connection.execute(
@@ -60,7 +62,7 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
         );
         if (alreadyCreated.length) {
           await connection.commit();
-          continue;
+          continue deliveryLoop;
         }
         const [pendingRows] = await connection.query<any[]>(
           "SELECT id FROM opportunity_popup_events WHERE userId=? AND packageId=? AND deliveryStatus IN ('queued','in_progress','retry_wait') FOR UPDATE",
@@ -68,7 +70,7 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
         );
         if (pendingRows.length >= item.maxPendingDeliveries) {
           await connection.commit();
-          continue;
+          continue deliveryLoop;
         }
 
         let company: { id: string; name: string; logoUrl: string; metadataJson: string; rotationCycle: number; rotationSequence: number; poolFingerprint: string } | null = null;
@@ -114,7 +116,7 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
           );
           if (racedEvent.length) {
             await connection.commit();
-            continue;
+            continue deliveryLoop;
           }
 
           let priorState: CompanySpotlightState | null = null;
@@ -203,9 +205,18 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
           [item.userId, item.offerId, popupEventId, item.packageId, item.packageName],
         );
         await connection.commit();
-      } catch (error) {
-        await connection.rollback();
-        throw error;
+        } catch (error) {
+          try {
+            await connection.rollback();
+          } catch {
+            // Preserve the original database error and fail closed.
+          }
+          if (isRetryableMySqlTransactionError(error) && transactionAttempt < MYSQL_TRANSACTION_RETRY_MAX_ATTEMPTS) {
+            await new Promise<void>(resolve => setTimeout(resolve, mysqlTransactionRetryDelayMs(transactionAttempt)));
+            continue;
+          }
+          throw error;
+        }
       }
     }
     const keys = deliveries.map(item => deliveryIdempotencyKey(item.userId, item.offerId));
