@@ -1,3 +1,17 @@
+## 2026-11-03 — Canonical global Trade Settings migration checkpoint
+
+- Working branch: `feat/trade-settings-ownership-registry`, based on `main` `59c425414b981bc2fd8720119f2d4b650b97ab15`.
+- Added forward-only migration `drizzle/0099_trade_global_settings_canonical.sql` and registered it in `drizzle/meta/_journal.json`.
+- Added canonical singleton schema `trade_global_settings` with policy version, effective time, global delivery gates and automatic-execution safety OFF.
+- Added `trade_global_settings_migration_conflicts` diagnostics. The backfill uses strictest-safety precedence (`MIN`) for legacy package switches, records divergent legacy values, does not update/delete legacy rows, and is idempotent.
+- Extended the Trade Settings registry and Package Configuration ownership metadata for tier policy, pop-up delivery, company rotation, randomized timing and burst delivery gates.
+- Added migration contract coverage in `server/trade-global-settings-migration.contract.test.ts`.
+- Validation: `pnpm check` passed; full Vitest suite passed with 929 tests passed and 17 skipped; `pnpm build` passed; `git diff --check` passed.
+- The migration has not been applied to any database. Legacy package columns remain for the compatibility-read window.
+- Next safe action: implement the compatibility-read layer and a dedicated `tradingGlobalControls` query/mutation backed by the canonical table, with strictest-safety fallback when the canonical row is unavailable. Only after that should legacy package switch writes be disabled.
+
+---
+
 ## 2026-11-03 — Server Trade Settings scope-validation checkpoint
 
 - Working branch: `feat/trade-settings-ownership-registry`, based on `main` `59c425414b981bc2fd8720119f2d4b650b97ab15`.

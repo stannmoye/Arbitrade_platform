@@ -305,6 +305,31 @@ export const appSettings = mysqlTable("app_settings", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+/** Canonical singleton for global Trading delivery/safety gates. */
+export const tradeGlobalSettings = mysqlTable("trade_global_settings", {
+  id: int("id").primaryKey(),
+  policyVersion: int("policyVersion").default(1).notNull(),
+  tierEnabled: boolean("tierEnabled").default(false).notNull(),
+  popupDeliveryEnabled: boolean("popupDeliveryEnabled").default(false).notNull(),
+  companyRotationEnabled: boolean("companyRotationEnabled").default(false).notNull(),
+  randomizedTimingEnabled: boolean("randomizedTimingEnabled").default(false).notNull(),
+  burstDeliveryEnabled: boolean("burstDeliveryEnabled").default(false).notNull(),
+  automaticTradingEnabled: boolean("automaticTradingEnabled").default(false).notNull(),
+  effectiveAt: timestamp("effectiveAt").defaultNow().notNull(),
+  updatedBy: int("updatedBy"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/** Durable diagnostics for divergent legacy package switch values during migration. */
+export const tradeGlobalSettingsMigrationConflicts = mysqlTable("trade_global_settings_migration_conflicts", {
+  id: int("id").autoincrement().primaryKey(),
+  fieldName: varchar("fieldName", { length: 80 }).notNull().unique(),
+  enabledPackageCount: int("enabledPackageCount").default(0).notNull(),
+  disabledPackageCount: int("disabledPackageCount").default(0).notNull(),
+  detailJson: text("detailJson").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export const opportunityPackagePolicies = mysqlTable("opportunity_package_policies", {
   id: int("id").autoincrement().primaryKey(),
   packageName: varchar("packageName", { length: 80 }).notNull().unique(),
