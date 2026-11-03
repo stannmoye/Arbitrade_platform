@@ -30,7 +30,20 @@ describe("Trade Settings standalone admin guide", () => {
     }
     expect(guide).toContain("admin_manual_deposit_credit");
     expect(guide).toContain("Insufficient balance");
-    expect(guide).toContain("carry-forward is not currently available");
+    expect(guide).toContain("carry-forward is not currently enabled");
     expect(guide).toContain("Minimize/Maximize");
+  });
+
+  it("keeps global masters in Package Configuration and per-tier legacy placeholders inert", () => {
+    expect(guide).toContain("Package Configuration</strong> is the single UI owner for global eligibility");
+    expect(guide).toContain("legacy per-tier master columns are inert OFF compatibility placeholders");
+    expect(guide).toContain("Set global masters only through Package Configuration");
+    expect(guide).toContain("Set the global rotation master in Package Configuration");
+    expect(guide).toContain("Automatic financial execution remains hard-disabled");
+    expect(guide).not.toContain("persistent Trading controls panel");
+    expect(guide).not.toMatch(/new tier package is enabled by default/i);
+    expect(guide).not.toMatch(/initialized with valid display defaults/i);
+    expect(guide).not.toMatch(/newly created tier starts enabled/i);
+    expect(guide).not.toMatch(/new tiers are enabled by default/i);
   });
 });

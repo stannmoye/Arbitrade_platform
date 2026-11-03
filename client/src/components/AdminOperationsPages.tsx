@@ -255,10 +255,11 @@ export function AdminTradeSettingsOverview() {
         <Metric label="Trades recorded" value={count(lifecycle.isLoading, lifecycle.isError, totals.traded, sourceAvailable)} detail="Rolling 24-hour lifecycle events" icon={CircleDollarSign} />
         <Metric label="Settled trade events" value={count(lifecycle.isLoading, lifecycle.isError, totals.settled, sourceAvailable)} detail="Rolling 24-hour lifecycle events" icon={CheckCircle2} />
         <Metric label="Insufficient-balance events" value={count(lifecycle.isLoading, lifecycle.isError, totals.zeroBalance, sourceAvailable)} detail="Rolling 24-hour lifecycle events" icon={AlertTriangle} />
-        <Metric label="Manual settlements pending" value={count(pending.isLoading, pending.isError, pending.data?.length)} detail="Current administrator queue" icon={Clock3} />
+        <Metric label="Manual settlements requiring review" value={count(pending.isLoading, pending.isError, pending.data?.filter((trade) => trade.settlementStatus === "pending").length)} detail="Unconfirmed results awaiting administrator review" icon={Clock3} />
+        <Metric label="Confirmed, awaiting wallet credit" value={count(pending.isLoading, pending.isError, pending.data?.filter((trade) => trade.settlementStatus === "confirmed_awaiting_credit").length)} detail="Result confirmed; waiting for scheduled wallet credit" icon={CircleDollarSign} />
       </section>
       {(lifecycle.isError || offers.isError || policies.isError || pending.isError || allocation.isError) && <div className="admin-ops-empty error" role="status">One or more data sources could not be loaded. Unavailable metrics are not zero; refresh after verifying the database-backed service.</div>}
-      <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Data scope</strong> This view reports open opportunity records, enabled package-policy rows, the global new-allocation gate, the current manual-settlement queue, and rolling 24-hour lifecycle events. It does not infer calendar-day totals, all in-flight trade states, or worker/provider health from these sources.</span></div>
+      <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Data scope</strong> This view reports open opportunity records, enabled package-policy rows, the global new-allocation gate, the current settlement queue split between unconfirmed administrator reviews and confirmed trades awaiting wallet credit, and rolling 24-hour lifecycle events. It does not infer calendar-day totals, all in-flight trade states, or worker/provider health from these sources.</span></div>
     </ToolPage>
   );
 }

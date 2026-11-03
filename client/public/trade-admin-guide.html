@@ -70,7 +70,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 
 <section class="section anchor" id="menu">
 <div class="eyebrow">02 · Find your way around</div><h2>Trade Settings menu map</h2>
-<p>All Trading configuration and monitoring now lives under one top-level <strong>Trade Settings</strong> group. Each setting has one primary page. The persistent Trading controls panel above page content (except Home) is the only place for the per-tier ON/OFF switches.</p>
+<p>All Trading configuration and monitoring now lives under one top-level <strong>Trade Settings</strong> group. Each setting has one primary page. <strong>Package Configuration</strong> is the single UI owner for global eligibility, informational pop-up delivery, company rotation, randomized timing, burst delivery and the new-allocation safety gate. Tier lifecycle status is managed separately in Tiers &amp; Eligibility; legacy per-tier master columns are inert OFF compatibility placeholders, not copies of global state.</p>
 <div class="table-wrap"><table><thead><tr><th>Trade Settings submenu</th><th>What it is for</th><th>What you do there</th></tr></thead><tbody>
 <tr><td><strong>Trading Overview</strong></td><td>Operations summary</td><td>Review delivery totals, pending work, open opportunities, settlement status and global pause state.</td></tr>
 <tr><td><strong>Package Configuration</strong></td><td>Global policy owner</td><td>Manage global eligibility, informational pop-up delivery, company rotation, randomized timing, burst delivery and the allocation safety gate.</td></tr>
@@ -81,7 +81,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <tr><td><strong>Per-tier Delivery Schedule</strong></td><td>Per-tier cadence</td><td>Set minimum/maximum spacing and post-completion intervals for future pop-up delivery.</td></tr>
 <tr><td><strong>Global Trade Timing &amp; Settlement</strong></td><td>Closing and review timing</td><td>Review trade-duration estimates and global settlement/closing settings; time alone never confirms settlement.</td></tr>
 <tr><td><strong>Per-tier Pop-up Display</strong></td><td>Display-only settings</td><td>Adjust expanded pop-up and completion-card display durations.</td></tr>
-<tr><td><strong>Per-tier Company Rotation Rules</strong></td><td>Rotation configuration</td><td>Choose approved-company country filters and repeat-handling rules. ON/OFF is in the persistent controls panel.</td></tr>
+<tr><td><strong>Per-tier Company Rotation Rules</strong></td><td>Rotation configuration</td><td>Choose approved-company country filters and repeat-handling rules. The global rotation ON/OFF master is in Package Configuration.</td></tr>
 <tr><td><strong>Company Catalogue</strong></td><td>Reference records</td><td>Search and manage company reference records and their approval status. This page does not repeat rotation settings.</td></tr>
 <tr><td><strong>Capital &amp; Wallet Funding Rules</strong></td><td>Read-only availability</td><td>The funding queue is not implemented. This route shows an explicit unavailable state and has no payout or settlement controls.</td></tr>
 <tr><td><strong>Fees &amp; Earnings Limits</strong></td><td>Fee policy</td><td>Configure Trading fees and review earnings ceilings.</td></tr>
@@ -93,13 +93,13 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <tr><td><strong>Audit &amp; Policy History</strong></td><td>Administrator audit log</td><td>Review who changed Trading settings, why and which policy version was saved.</td></tr>
 <tr><td><strong>Trade Settings Guide</strong></td><td>This handbook</td><td>Read explanations without changing Trading data.</td></tr>
 </tbody></table></div>
-<div class="callout">The persistent Trading controls panel owns the per-tier Tier policy, Pop-up delivery, Company rotation, Randomized timing and Burst delivery switches. They are not repeated on the detailed settings pages. Customer package browsing and activation controls are not available.</div>
+<div class="callout">Package Configuration owns the canonical global master switches; legacy per-tier master columns are inert OFF compatibility placeholders, not duplicate controls. Tier lifecycle status is separate. Customer package browsing and activation controls are not available.</div>
 <div class="callout warn"><strong>Keep finance work separate:</strong> Finance → Wallet &amp; Ledger is read-only wallet/ledger activity and balance reconciliation; it does not resolve payout requests or settle trades. Trade Settings → Manual Payouts is the only payout-review route. Capital &amp; Wallet Funding Rules is explicitly unavailable/read-only until a funding queue is implemented.</div>
 </section>
 
 <section class="section anchor" id="tiers">
 <div class="eyebrow">03 · Packages & eligibility</div><h2>Tiers &amp; Eligibility: every input</h2>
-<p>This screen defines the milestones used by the automatic qualification system. A new tier package is enabled by default for future automatic eligibility. Its pop-up policy is initialized with valid display defaults (2%–3% configured rate, 300–900 second duration, policy and pop-up delivery, company rotation, randomized timing and bounded burst delivery enabled); automatic financial execution remains OFF. Administrators can disable the package or individual delivery controls at any time.</p>
+<p>This screen defines the milestones used by the automatic qualification system. Package lifecycle status is separate from the global eligibility and informational-delivery masters. Legacy per-tier master columns are inert OFF compatibility placeholders, not copies of global settings. Set global masters only through Package Configuration; qualification and informational delivery require those canonical settings to be present, valid and ON. Save reviewed, valid offer-rate and duration bounds before enabling a tier. Automatic financial execution remains hard-disabled.</p>
 <div class="field-list">
 <div class="field"><b>Tier name</b><span>The name administrators and the eligible customer may see, such as Starter or Growth. Use a clear unique name.</span></div>
 <div class="field"><b>Qualifying deposit threshold (USD)</b><span>The cumulative qualifying admin-credit amount needed for this tier. The server compares saved USD-minor attribution, not a customer's ordinary wallet balance.</span></div>
@@ -171,10 +171,10 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 
 <section class="section anchor" id="policy">
 <div class="eyebrow">06 · The most detailed editor</div><h2>Offer Rules &amp; Capital Limits</h2>
-<p>This editor holds offer eligibility and capital bounds for each tier. Delivery policy and pop-up delivery ON/OFF switches are available only in the persistent Trading controls panel. Changes are validated, audited and versioned by the server.</p>
-<div class="callout warn"><strong>Before enabling:</strong> save both a minimum and maximum configured return rate, and both a minimum and maximum trade duration. The two bounds in each pair must be present and valid. A newly created tier starts enabled for eligible customer pop-up delivery. Administrators can disable it at any time; financial execution remains separately controlled.</div>
+<p>This editor holds offer eligibility and capital bounds for each tier. Global eligibility and pop-up delivery masters are available only in Package Configuration. Tier lifecycle status is separate; legacy per-tier master columns are inert OFF compatibility placeholders. Changes are validated, audited and versioned by the server.</p>
+<div class="callout warn"><strong>Before enabling:</strong> save both a minimum and maximum configured return rate, and both a minimum and maximum trade duration. The two bounds in each pair must be present and valid. Confirm the saved tier lifecycle status and the canonical global masters in Package Configuration; financial execution remains separately hard-disabled.</div>
 <h3>Delivery switches</h3>
-<p>Use the persistent Trading controls panel above the admin page to change Tier policy and Pop-up delivery. Company rotation, randomized timing and burst delivery switches are also owned there. This detail page does not repeat those controls. Automatic financial execution remains protected OFF.</p>
+<p>Use Package Configuration to change the global Tier policy, Pop-up delivery, Company rotation, randomized timing and Burst delivery masters. This detail page does not repeat those controls. Automatic financial execution remains protected OFF.</p>
 <h3>Capital bounds</h3>
 <div class="field-list">
 <div class="field"><b>Minimum required capital (USD units)</b><span>Lowest configured capital amount. This legacy field uses whole USD units.</span></div>
@@ -211,7 +211,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 </div>
 <h3>Company spotlight rotation</h3>
 <div class="field-list">
-<div class="field"><b>Company rotation status</b><span>Turn rotation ON/OFF in the persistent Trading controls panel. The settings on this page only choose the approved company pool and repeat-handling rules.</span></div>
+<div class="field"><b>Company rotation status</b><span>Set the global rotation master in Package Configuration. The settings on this page only choose the approved company pool and repeat-handling rules.</span></div>
 <div class="field"><b>Repeat policy</b><span><strong>Avoid repeats until the pool is traversed</strong> is the no-repeat preference. <strong>Allow repeats</strong> permits reuse sooner.</span></div>
 <div class="field"><b>Country-folder filters</b><span>Comma-separated exact catalogue folder labels. Blank includes the full catalogue. Folder labels are not proof of headquarters or exchange listing.</span></div>
 </div>
@@ -345,7 +345,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <div class="eyebrow">13 · A sensible setup order</div><h2>How to choose settings safely</h2>
 <p>There is no single magic number that is best for every business. Start with small, controlled settings, confirm that the records and customer screens behave correctly, and only then increase capacity.</p>
 <ol>
-<li><strong>Build the tiers first.</strong> Give each tier a clear name, threshold, duration and daily opportunity contribution. New tiers are enabled by default; use the administrator controls to pause a tier or its delivery when required.</li>
+<li><strong>Build the tiers first.</strong> Give each tier a clear name, threshold, duration and daily opportunity contribution. Review and set each tier’s lifecycle status and valid policy values explicitly; configure global eligibility and delivery only in Package Configuration.</li>
 <li><strong>Check qualifying-credit rules.</strong> Make sure administrators understand that only the explicitly qualifying Credit Customer flow counts. Do not use signup credit or ordinary deposits to reach thresholds.</li>
 <li><strong>Start with a modest daily quota.</strong> Keep the daily target and maximum pop-ups aligned. Choose a rolling 24-hour or UTC calendar-day window deliberately.</li>
 <li><strong>Keep delivery intervals sensible.</strong> The minimum interval must be no greater than the maximum. Avoid bursts and high concurrency until the complete lifecycle has been tested.</li>

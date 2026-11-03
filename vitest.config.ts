@@ -23,6 +23,7 @@ export default defineConfig({
       "client/src/admin-navigation.test.ts",
       "client/src/trading-policy-patches.test.ts",
       "client/src/trade-settings-*.test.ts",
+      "client/src/trade-admin-guide.contract.test.ts",
       "client/src/trading-delivery-policy-*.test.ts",
     ],
   },
