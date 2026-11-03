@@ -7,6 +7,8 @@ import { TRADING_TIER_POLICY_PATCH_KEYS } from "./trading-policy-patches";
 const tierEditorSource = readFileSync(new URL("./components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
 const operationsPagesSource = readFileSync(new URL("./components/AdminOperationsPages.tsx", import.meta.url), "utf8");
 const adminAppSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const feeEditorSource = readFileSync(new URL("./components/AdminPackageFeeEditor.tsx", import.meta.url), "utf8");
+const retryEditorSource = readFileSync(new URL("./components/AdminDeliveryRetryPolicy.tsx", import.meta.url), "utf8");
 const renderedPolicyFields = [...tierEditorSource.matchAll(/updateRow\(index,\s*"([^"]+)"/g)].map((match) => match[1]);
 const expectedPolicyOwners: Record<string, string> = {
   maxPopupsPerDay: "trade-daily-delivery-caps",
@@ -19,7 +21,6 @@ const expectedPolicyOwners: Record<string, string> = {
   maxIntervalSeconds: "trade-delivery-schedule",
   postCompletionIntervalSeconds: "trade-delivery-schedule",
   maxPendingDeliveries: "trade-delivery-schedule",
-  maxDeliveryAttempts: "trade-retries",
   maxTradeAttemptsPerDay: "trade-retries",
   tradeRetryDelaySeconds: "trade-retries",
   maxSuccessfulTradesPerDay: "trade-retries",
@@ -154,9 +155,21 @@ describe("Trade Settings ownership registry contract", () => {
       expect(action?.readQuery).toBe(key === "trade.opportunity.runRetentionCleanup" ? "adminOperations.popupLifecycleSummary" : "adminOperations.offers");
     }
 
-    const deliveryRetryLimit = byKey.get("trade.policy.maximumDeliveryAttempts");
-    expect(deliveryRetryLimit?.ownerRoute).toBe("trade-retries");
-    expect(deliveryRetryLimit?.controlContract).toBe("packagePolicies.maxDeliveryAttempts");
+    expect(byKey.get("trade.package.feePolicy")).toMatchObject({ ownerRoute: "trade-tiers-eligibility", readQuery: "adminOperations.packageFeePolicies", saveMutation: "adminOperations.updatePackageFeePolicy" });
+    expect(byKey.get("trade.package.initialFeeOnCreate")).toMatchObject({ ownerRoute: "trade-tiers-eligibility", saveMutation: "adminOperations.createTradingPackage" });
+    expect(byKey.get("trade.deliveryRetry.sharedPolicy")).toMatchObject({ ownerRoute: "trade-retries", readQuery: "adminOperations.deliveryRetryPolicy", saveMutation: "adminOperations.updateDeliveryRetryPolicy" });
+    expect(byKey.get("trade.package.feePolicy")?.effectiveTime).toContain("allocation created after effectiveAt");
+    expect(feeEditorSource).toContain("api.packageFeeHistory.useQuery");
+    expect(feeEditorSource).toContain("api.updatePackageFeePolicy.useMutation");
+    expect(feeEditorSource).toContain("activePolicy");
+    expect(feeEditorSource).toContain("upcomingPolicy");
+    expect(retryEditorSource).toContain("api.deliveryRetryPolicy.useQuery");
+    expect(retryEditorSource).toContain("api.updateDeliveryRetryPolicy.useMutation");
+    expect(adminAppSource.match(/<AdminPackageFeeEditor /g)).toHaveLength(1);
+    expect(adminAppSource.match(/<AdminDeliveryRetryPolicy\/>/g)).toHaveLength(1);
+    expect(tierEditorSource).not.toContain('updateRow(index, "maxDeliveryAttempts"');
+    expect(operationsPagesSource).not.toContain("adminOperations.updateTradeFeePolicy.useMutation");
+    expect(adminAppSource).toContain("initialFeeRateBps:");
   });
 
   it("assigns opportunity publication to its single live route without claiming platform-verified evidence review", () => {

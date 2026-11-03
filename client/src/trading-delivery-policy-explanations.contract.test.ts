@@ -1,8 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-
 const editorSource = readFileSync(new URL("./components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
-
+const retrySource = readFileSync(new URL("./components/AdminDeliveryRetryPolicy.tsx", import.meta.url), "utf8");
 function fieldBlock(label: string) {
   const start = editorSource.indexOf(`<label>${label}<`);
   expect(start, `field label exists: ${label}`).toBeGreaterThanOrEqual(0);
@@ -11,14 +10,12 @@ function fieldBlock(label: string) {
   expect(end, `field label closes: ${label}`).toBeGreaterThan(start);
   return editorSource.slice(start, end < 0 ? editorSource.length : end + "</label>".length);
 }
-
 function fieldHelp(label: string) {
   const block = fieldBlock(label);
   const match = block.match(/<small>([\s\S]*?)<\/small>/);
   expect(match, `${label} has visible field help`).toBeTruthy();
   return match?.[1] ?? "";
 }
-
 describe("tier policy field explanation contract", () => {
   it.each([
     ["Hard daily pop-up ceiling", ["Per-tier operational ceiling", "1–1,000", "never raise", "later delivery eligibility"]],
@@ -32,8 +29,7 @@ describe("tier policy field explanation contract", () => {
     ["Expanded pop-up display duration (seconds)", ["supported range is 1–86,400 seconds", "server rejects longer values", "Display only", "does not close an active item", "countdown"]],
     ["Completed card display duration (seconds)", ["1–3,600 seconds", "Controls display only", "settlement", "wallet-credit timing"]],
     ["Interval after completion (seconds)", ["0–604,800", "0 = no extra wait", "delivery cooldown", "not trade duration"]],
-    ["Maximum pending deliveries", ["stored per-tier pending-delivery setting", "0–1,000", "policy validation rejects a positive daily target when this value is zero", "current delivery worker does not use it to gate work", "does not currently limit pending deliveries"]],
-    ["Maximum delivery attempts", ["1–20 whole attempts", "server saves and range-checks", "does not consume it", "does not alter current retry behavior", "carry-forward"]],
+    ["Maximum pending deliveries", ["Per-customer/per-package cap", "queued, in-progress and retry-wait", "0–1,000", "delivered, dismissed, failed and expired rows do not count", "0 blocks new pending deliveries"]],
     ["Maximum trade attempts per day", ["customer-wide daily attempt ceiling", "0–10,000", "0 = no extra daily cap", "technical retries"]],
     ["Trade retry delay (seconds)", ["5–3,600 whole seconds", "already scheduled retry time", "does not reset", "enable financial execution"]],
     ["Maximum successful trades per day", ["customer-wide daily ceiling", "0–10,000", "0 = no extra cap", "UTC-day"]],
@@ -55,7 +51,6 @@ describe("tier policy field explanation contract", () => {
     const help = fieldHelp(label);
     for (const phrase of expectedHelp) expect(help.toLowerCase()).toContain(phrase.toLowerCase());
   });
-
   it("states the key separations and the snapshot/effective-time rule", () => {
     expect(editorSource).toContain("per-tier operational delivery ceilings that can reduce that entitlement but never increase it");
     expect(editorSource).toContain("Per-tier policy and pop-up delivery switches are controlled in the shared Trading controls panel");
@@ -66,17 +61,27 @@ describe("tier policy field explanation contract", () => {
     expect(editorSource).toContain("already delivered pop-ups and allocated trades keep their snapshots");
     expect(editorSource).toContain("display controls affect presentation only");
   });
-
-  it("preserves existing server-aligned input bounds and step sizes", () => {
+  it("keeps delivery retry editing in the one shared Retry & Carry-Forward owner", () => {
+    expect(editorSource).not.toContain("Maximum delivery attempts");
+    expect(editorSource).not.toContain('"maxDeliveryAttempts"');
+    expect(retrySource).toContain("one shared delivery-retry owner");
+    expect(retrySource).toContain("one whole-second interval per retry attempt, from 5 to 3,600 seconds");
+    expect(retrySource).toContain("No intervals are prefilled");
+    expect(retrySource).toContain('placeholder="Enter a comma-separated sequence; none is prefilled"');
+    expect(retrySource).toContain('option value="temporary" disabled={!policy.configured}');
+    expect(retrySource).toContain("Temporary retry cannot be saved until a shared policy is configured and confirmed.");
+    expect(retrySource).not.toContain('max={604800}');
+  });
+  it("preserves existing per-tier bounds and checks shared retry validation separately", () => {
     expect(fieldBlock("Hard daily pop-up ceiling")).toContain('min="1" max="1000" step="1"');
     expect(fieldBlock("Maximum visible offers at once")).toContain('min="1" max="10000" step="1"');
     expect(fieldBlock("Minimum required capital (USD units)")).toContain('min="1" max="2147483647" step="1"');
     expect(fieldBlock("Minimum interval between deliveries (seconds)")).toContain('min="0" max="604800" step="1"');
     expect(fieldBlock("Expanded pop-up display duration (seconds)")).toContain('min="1" max="86400" step="1"');
-    expect(fieldBlock("Maximum delivery attempts")).toContain('min="1" max="20" step="1"');
     expect(fieldBlock("Trade retry delay (seconds)")).toContain('min="5" max="3600" step="1"');
     expect(fieldBlock("Minimum settlement delay (seconds)")).toContain('min="900" max="604800" step="1"');
     expect(fieldBlock("Minimum configured return rate (%)")).toContain('min="0.01" max="50" step="0.01"');
     expect(fieldBlock("Minimum trade duration (seconds)")).toContain('min="10" max="86400" step="1"');
+    expect(retrySource).toContain("from 5 to 3,600 seconds");
   });
 });

@@ -9,7 +9,7 @@ export const TRADING_TIER_POLICY_PATCH_KEYS = [
   "minHourlyTarget", "normalHourlyTarget", "marketInfluenceBps", "maxBurstSize",
   "dailyPopupTarget", "schedulingPeriod", "minIntervalSeconds", "maxIntervalSeconds",
   "popupDisplayTargetSeconds", "completionDisplaySeconds", "postCompletionIntervalSeconds",
-  "maxPendingDeliveries", "maxDeliveryAttempts", "maxTradeAttemptsPerDay",
+  "maxPendingDeliveries", "maxTradeAttemptsPerDay",
   "tradeRetryDelaySeconds", "maxSuccessfulTradesPerDay", "maxConcurrentActiveTrades",
   "minSettlementDelaySeconds", "maxSettlementDelaySeconds", "minimumRewardBps",
   "maxDailyRewardMinor", "maxRewardPerTradeMinor", "badgeLabel", "badgeStyle",
