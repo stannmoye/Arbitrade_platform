@@ -587,12 +587,13 @@ export const appRouter = router({
     customers: adminProcedure.query(() => listAdminCustomers()),
     audit: adminProcedure.query(() => listAdminAuditEvents()),
     ledgerActivity: adminProcedure.input(z.object({
-      userId: z.number().int().positive().optional(),
+      userId: z.number().int().positive(),
       utcDay: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
         const date = new Date(`${value}T00:00:00.000Z`);
         return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
-      }, { message: "UTC day must be a valid YYYY-MM-DD calendar date." }).optional(),
-    }).strict().optional()).query(({ input }) => listAdminRecentLedgerActivity(input ?? {})),
+      }, { message: "UTC day must be a valid YYYY-MM-DD calendar date." }),
+      cursor: z.string().min(1).max(256).optional(),
+    }).strict()).query(({ input }) => listAdminRecentLedgerActivity(input)),
     tradeFeePolicy: adminProcedure.query(() => getTradeFeePolicy()),
     updateTradeFeePolicy: adminProcedure.input(z.object({
       feeRateBps: z.number().int().min(0).max(10000),

@@ -73,7 +73,7 @@ export function TradeSettingsAdminGuide({ onNavigate }: TradeSettingsAdminGuideP
         <div>
           <div className="eyebrow">Read-only administrator help · Guide 1.1</div>
           <h1 id="trade-settings-guide-title">Trade Settings Guide</h1>
-          <p>Reviewed 3 November 2026 against repository source baseline <code>21a8221405979794f210b2d3222741392b857984</code>. This mounted Guide explains current owner screens and links to them; it does not save settings or perform operational actions, and it does not verify deployment state.</p>
+          <p>This mounted Guide follows the current Trade Settings navigation and ownership registry. It explains the source-backed owner screens and links to them; it does not save settings or perform operational actions, and it does not verify deployment state.</p>
         </div>
         <BookOpen size={24} aria-hidden="true" />
       </header>

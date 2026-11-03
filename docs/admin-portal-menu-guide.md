@@ -392,7 +392,6 @@ These controls define how new customers are screened and onboarded. Country-spec
 | **Active & Pending Opportunities** | Review opportunity delivery and lifecycle records waiting for customer or system action. |
 | **Manual Payouts** | The sole Trade Settings route for listing payout requests and recording the existing administrator paid/rejected resolution. Any external bank or blockchain transfer occurs outside Arbitrade; this page does not initiate one. |
 | **Settlement & Reconciliation** | Confirm trade outcomes and review/reconcile trade settlement records only. Payout requests are handled on Manual Payouts. |
-| **System Pause & Safety** | Pause or resume new allocations with an audit reason; pending work and required reconciliation must remain available. |
 | **Worker Health & Recovery** | Inspect worker heartbeats, queue status, delayed work and audited recovery actions. |
 | **Audit & Policy History** | Review who changed Trading settings, the reason, previous/new values and saved policy versions. |
 | **Trade Settings Guide** | Read the in-portal guide without changing Trading data. |

@@ -5,8 +5,11 @@ import { fieldGlossary, ownerLinks, statusDefinitions, troubleshooting } from ".
 import { tradeSettingsOwnershipRegistry } from "./trade-settings-ownership";
 
 const guideSource = readFileSync(new URL("./components/TradeSettingsAdminGuide.tsx", import.meta.url), "utf8");
+const handbookSource = readFileSync(new URL("../../docs/admin-portal-menu-guide.md", import.meta.url), "utf8");
 const tradeRoutes = adminNavigationGroups.find((group) => group.id === "trade-settings")?.items ?? [];
 const ownerRoutes = tradeRoutes.filter((route) => route.id !== "trade-admin-guide");
+const handbookTradeSubmenu = handbookSource.split("### Trade Settings submenu\n")[1]?.split("\n### One owner for each setting")[0] ?? "";
+const handbookRouteLabels = [...handbookTradeSubmenu.matchAll(/^\|\s*\*\*(.+?)\*\*\s*\|/gm)].map(([, label]) => label);
 
 const byTerm = (term: string) => statusDefinitions.find((status) => status.term === term);
 
@@ -20,6 +23,10 @@ describe("mounted Trade Settings Guide contract", () => {
     for (const link of ownerLinks) {
       expect(link.description.trim().length, `${link.routeId} explanation`).toBeGreaterThan(20);
     }
+  });
+
+  it("keeps the handbook destination list aligned with current registered Trade Settings routes", () => {
+    expect(handbookRouteLabels).toEqual(tradeRoutes.map((route) => route.label));
   });
 
   it("projects every ownership-registry entry into a complete glossary row with its registered owner link", () => {
@@ -76,9 +83,10 @@ describe("mounted Trade Settings Guide contract", () => {
     }
   });
 
-  it("refreshes the reviewed-source SHA to the requested starting HEAD", () => {
-    expect(guideSource).toContain("21a8221405979794f210b2d3222741392b857984");
-    expect(guideSource).not.toContain("32215a3f48b52fb901d9efc4b0760e25eb74faf9");
+  it("describes current source alignment without pinning the Guide to a commit SHA", () => {
+    expect(guideSource).toContain("current Trade Settings navigation and ownership registry");
+    expect(guideSource).not.toMatch(/\b[a-f0-9]{40}\b/i);
+    expect(guideSource).not.toMatch(/source baseline/i);
   });
 
   it("distinguishes open offers, informational delivery, allocation, review, settlement and payout", () => {

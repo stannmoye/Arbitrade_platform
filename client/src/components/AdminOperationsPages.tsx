@@ -21,6 +21,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 type CustomerRecord = {
   id: number;
+  role?: string;
   name?: string | null;
   email?: string | null;
   package?: string;
@@ -314,14 +315,16 @@ export function AdminRiskWatchlist() {
 
 export function AdminTransactionReview({ focus }: { focus?: "ledger" | "capital" | "fees" | "reconciliation" }) {
   const [ledgerCustomerId, setLedgerCustomerId] = useState("");
-  const [ledgerUtcDay, setLedgerUtcDay] = useState("");
+  const [ledgerUtcDay, setLedgerUtcDay] = useState(() => new Date().toISOString().slice(0, 10));
+  const [ledgerCursor, setLedgerCursor] = useState<string | undefined>(undefined);
   const ledgerUserId = /^[1-9]\d*$/.test(ledgerCustomerId.trim()) && Number.isSafeInteger(Number(ledgerCustomerId)) ? Number(ledgerCustomerId) : undefined;
-  const ledgerFilterValid = ledgerCustomerId.trim() === "" || ledgerUserId !== undefined;
-  const ledgerFilter = { ...(ledgerUserId === undefined ? {} : { userId: ledgerUserId }), ...(ledgerUtcDay ? { utcDay: ledgerUtcDay } : {}) };
+  const ledgerUtcDayValid = /^\d{4}-\d{2}-\d{2}$/.test(ledgerUtcDay) && Number.isFinite(new Date(`${ledgerUtcDay}T00:00:00.000Z`).getTime()) && new Date(`${ledgerUtcDay}T00:00:00.000Z`).toISOString().slice(0, 10) === ledgerUtcDay;
+  const ledgerFilterValid = ledgerUserId !== undefined && ledgerUtcDayValid;
+  const ledgerCustomersQuery = trpc.adminOperations.customers.useQuery(undefined, { enabled: focus === "ledger" || !focus, staleTime: 60_000 });
+  const ledgerFilter = { userId: ledgerUserId ?? 1, utcDay: ledgerUtcDayValid ? ledgerUtcDay : "1970-01-01", ...(ledgerCursor ? { cursor: ledgerCursor } : {}) };
   const ledgerQuery = trpc.adminOperations.ledgerActivity.useQuery(ledgerFilter, { enabled: ledgerFilterValid && (focus === "ledger" || !focus), refetchInterval: 10_000 });
   const pendingQuery = trpc.adminOperations.pendingSettlements.useQuery(undefined, { enabled: focus === "reconciliation", refetchInterval: 5_000 });
   const [integrityBeforeTradeId, setIntegrityBeforeTradeId] = useState<number | undefined>(undefined);
-  const [walletReconciliationAfter, setWalletReconciliationAfter] = useState<{ afterUserId: number; afterCurrency: string } | undefined>(undefined);
   const [settlementLedgerBeforeTradeId, setSettlementLedgerBeforeTradeId] = useState<number | undefined>(undefined);
   const integrityQuery = trpc.adminOperations.settlementIntegrityIssues.useQuery({
     limit: 250,
@@ -329,12 +332,8 @@ export function AdminTransactionReview({ focus }: { focus?: "ledger" | "capital"
   }, { enabled: focus === "reconciliation", refetchInterval: 30_000 });
   const walletLedgerReconciliationQuery = trpc.adminOperations.walletLedgerReconciliation.useQuery({
     limit: 250,
-    ...(walletReconciliationAfter === undefined ? {} : {
-      afterUserId: walletReconciliationAfter.afterUserId,
-      afterCurrency: walletReconciliationAfter.afterCurrency,
-    }),
     ...(settlementLedgerBeforeTradeId === undefined ? {} : { beforeTradeId: settlementLedgerBeforeTradeId }),
-  }, { enabled: focus === "ledger" || focus === "reconciliation", refetchInterval: 30_000 });
+  }, { enabled: focus === "reconciliation", refetchInterval: 30_000 });
   const confirmSettlement = trpc.adminOperations.confirmManualSettlement.useMutation({ onSuccess: () => { pendingQuery.refetch(); integrityQuery.refetch(); walletLedgerReconciliationQuery.refetch(); } });
   const tradeFeePolicyQuery = trpc.adminOperations.tradeFeePolicy.useQuery(undefined, { enabled: focus === "fees", staleTime: 60_000 });
   const [feePolicyDraft, setFeePolicyDraft] = useState<{ feePercent: string; roundingMode: "half_up" | "down" | "up" | "half_even" } | null>(null);
@@ -343,7 +342,8 @@ export function AdminTransactionReview({ focus }: { focus?: "ledger" | "capital"
   const updateTradeFeePolicy = trpc.adminOperations.updateTradeFeePolicy.useMutation({ onSuccess: () => { setFeePolicyDraft(null); tradeFeePolicyQuery.refetch(); } });
   const [drafts, setDrafts] = useState<Record<number, { grossProfitMinor: string; reference: string }>>({});
   const currencyQuery = trpc.adminOperations.currencies.useQuery(undefined, { enabled: focus === "ledger", staleTime: 60_000 });
-  const rows = (ledgerQuery.data ?? []) as unknown as LedgerRecord[];
+  const rows = (ledgerQuery.data?.entries ?? []) as unknown as LedgerRecord[];
+  const ledgerCustomers = (ledgerCustomersQuery.data ?? []) as unknown as CustomerRecord[];
   const currencies = (currencyQuery.data ?? []) as unknown as Array<{ code: string; scale: number }>;
   const scales = new Map(currencies.map((currency) => [currency.code.toUpperCase(), Math.max(0, Math.min(8, Number(currency.scale) || 0))]));
   const formatAmount = (amountMinor: number, currency: string) => {
@@ -354,7 +354,7 @@ export function AdminTransactionReview({ focus }: { focus?: "ledger" | "capital"
   };
 
   return (
-    <ToolPage eyebrow={focus === "reconciliation" ? "Trade settlement records" : focus === "fees" ? "Trading fee policy" : focus === "capital" ? "Capital and wallet funding" : "Append-only balance ledger"} title={focus === "fees" ? "Returns and fees" : focus === "capital" ? "Capital & Wallet Funding" : focus === "reconciliation" ? "Settlement & Reconciliation" : "Wallet & Ledger"} description={focus === "fees" ? "Set the fee taken only from confirmed positive profit. Losses and zero-profit trades have no profit fee." : focus === "capital" ? "Read-only availability status for the unimplemented capital and wallet-funding queue." : focus === "reconciliation" ? "Review and reconcile trade settlement records only." : "Read-only wallet balances, reconciliation and transaction history."} icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { if (focus === "fees") tradeFeePolicyQuery.refetch(); else if (focus === "reconciliation") { pendingQuery.refetch(); integrityQuery.refetch(); walletLedgerReconciliationQuery.refetch(); } else if (focus === "ledger" || !focus) { ledgerQuery.refetch(); walletLedgerReconciliationQuery.refetch(); currencyQuery.refetch(); } }} disabled={focus === "fees" ? tradeFeePolicyQuery.isFetching : focus === "reconciliation" ? pendingQuery.isFetching || integrityQuery.isFetching || walletLedgerReconciliationQuery.isFetching : focus === "ledger" || !focus ? ledgerQuery.isFetching || walletLedgerReconciliationQuery.isFetching || currencyQuery.isFetching : false}><RefreshCw size={14} /> Refresh</button>}>
+    <ToolPage eyebrow={focus === "reconciliation" ? "Trade settlement records" : focus === "fees" ? "Trading fee policy" : focus === "capital" ? "Capital and wallet funding" : "Append-only balance ledger"} title={focus === "fees" ? "Returns and fees" : focus === "capital" ? "Capital & Wallet Funding" : focus === "reconciliation" ? "Settlement & Reconciliation" : "Wallet & Ledger"} description={focus === "fees" ? "Set the fee taken only from confirmed positive profit. Losses and zero-profit trades have no profit fee." : focus === "capital" ? "Read-only availability status for the unimplemented capital and wallet-funding queue." : focus === "reconciliation" ? "Review and reconcile trade settlement records only." : "Read-only wallet activity for one selected customer and one UTC calendar day."} icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { if (focus === "fees") tradeFeePolicyQuery.refetch(); else if (focus === "reconciliation") { pendingQuery.refetch(); integrityQuery.refetch(); walletLedgerReconciliationQuery.refetch(); } else if (focus === "ledger" || !focus) { ledgerQuery.refetch(); currencyQuery.refetch(); } }} disabled={focus === "fees" ? tradeFeePolicyQuery.isFetching : focus === "reconciliation" ? pendingQuery.isFetching || integrityQuery.isFetching || walletLedgerReconciliationQuery.isFetching : focus === "ledger" || !focus ? !ledgerFilterValid || ledgerQuery.isFetching || currencyQuery.isFetching : false}><RefreshCw size={14} /> Refresh</button>}>
       {focus === "capital" && <section className="admin-ops-panel" aria-label="Capital and wallet funding availability">
         <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Read-only availability</span><h2>Capital &amp; Wallet Funding</h2></div><span className="admin-ops-subtle">Unavailable</span></div>
         <div className="admin-ops-empty compact">A capital and wallet-funding queue is not implemented. No funding, payout, or settlement actions are available on this route.</div>
@@ -419,37 +419,7 @@ export function AdminTransactionReview({ focus }: { focus?: "ledger" | "capital"
           <div className="admin-ops-note"><ShieldCheck size={16} /><span>Confirm only after independently verifying the actual result and evidence reference. Review becomes available when the configured settlement-review delay ends. Confirmation records the result and fee-policy snapshot but does not release principal or credit earnings. The server-side worker posts the wallet and ledger exactly once when the saved creditAt is reached; elapsed time alone never confirms a result.</span></div>
         </section>
         </>}
-        {focus === "ledger" && <>
-        <section className="admin-ops-panel">
-          <div className="admin-ops-panel-head">
-            <div><span className="admin-ops-kicker">Read-only wallet reconciliation</span><h2>Available balances versus signed ledger entries</h2></div>
-            <span className="admin-ops-subtle">{walletLedgerReconciliationQuery.data?.walletIssues.length ?? 0} flagged groups</span>
-          </div>
-          <p>Ledger-net totals are compared with available balances, not available plus locked funds. Missing opening-balance history is shown as inconclusive. Known trade principal and pending payouts are checked separately against locked funds.</p>
-          {walletLedgerReconciliationQuery.isLoading ? <LoadingState /> : walletLedgerReconciliationQuery.isError ? <div className="admin-ops-empty error">Wallet and ledger reconciliation could not be loaded. Refresh before relying on this review.</div> : <>
-            <div className="admin-ops-note"><ShieldCheck size={16} /><span>Read only: this report does not change wallets or post adjustments. Confirmed flags identify structural contradictions; balance deltas without a trusted opening snapshot remain inconclusive.</span></div>
-            <div className="admin-ops-subtle">Generated {walletLedgerReconciliationQuery.data?.generatedAt ? new Date(walletLedgerReconciliationQuery.data.generatedAt).toLocaleString() : "—"} · Examined {walletLedgerReconciliationQuery.data?.walletScan.groupsExamined ?? 0} account/currency groups · Batch limit {walletLedgerReconciliationQuery.data?.walletScan.limit ?? 250} · {walletLedgerReconciliationQuery.data?.walletScan.hasMore ? "More groups remain" : "No further groups in this scan"}</div>
-            <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Wallet ledger reconciliation results">
-              <table className="admin-ops-table"><thead><tr><th>Customer / currency</th><th>Wallet rows</th><th>Available balance</th><th>Signed ledger net</th><th>Delta (available − ledger)</th><th>Locked / known obligations</th><th>Review flags</th></tr></thead><tbody>
-                {(walletLedgerReconciliationQuery.data?.walletIssues ?? []).map((item) => <tr key={String(item.userId) + ":" + item.currency}>
-                  <td><strong>Account {item.userId}</strong><small>{item.currency}</small></td>
-                  <td>{item.walletCount ?? "Unsafe total"}</td>
-                  <td>{item.availableMinor === null ? "Unsafe total" : formatAmount(Number(item.availableMinor), item.currency)}</td>
-                  <td>{item.ledgerNetMinor === null ? "Unsafe total" : formatAmount(Number(item.ledgerNetMinor), item.currency)}<small>{item.ledgerEntryCount ?? "?"} ledger entries</small></td>
-                  <td>{item.availableLedgerDeltaMinor === null ? "Not comparable" : formatAmount(Number(item.availableLedgerDeltaMinor), item.currency)}</td>
-                  <td>{item.lockedMinor === null ? "Unsafe total" : formatAmount(Number(item.lockedMinor), item.currency)}<small>Known trades: {item.knownActiveTradePrincipalMinor === null ? "unknown" : formatAmount(Number(item.knownActiveTradePrincipalMinor), item.currency)} · Pending payouts: {item.pendingPayoutMinor === null ? "unknown" : formatAmount(Number(item.pendingPayoutMinor), item.currency)}</small></td>
-                  <td>{item.issues.map((issue) => <div key={issue.code}><strong>{issue.confidence}</strong>: {issue.code.replaceAll("_", " ")}<small>{issue.explanation}</small></div>)}</td>
-                </tr>)}
-                {!(walletLedgerReconciliationQuery.data?.walletIssues ?? []).length && <tr><td colSpan={7} className="admin-ops-table-empty">No flagged groups in this batch. This does not mean unscanned groups were reviewed.</td></tr>}
-              </tbody></table>
-            </div>
-            <div className="admin-payout-actions">
-              {walletLedgerReconciliationQuery.data?.walletScan.hasMore && walletLedgerReconciliationQuery.data.walletScan.nextCursor && <button className="admin-ops-button" type="button" onClick={() => setWalletReconciliationAfter(walletLedgerReconciliationQuery.data!.walletScan.nextCursor ?? undefined)}>Load next wallet groups</button>}
-              {walletReconciliationAfter && <button className="admin-ops-button" type="button" onClick={() => setWalletReconciliationAfter(undefined)}>Restart wallet scan</button>}
-            </div>
-          </>}
-        </section>
-        </>}
+        {focus === "ledger" && <section className="admin-ops-note"><ShieldCheck size={16} /><span>Settlement reconciliation belongs to the separate “Trade Settings → Settlement &amp; Reconciliation” report. Database Entries only displays wallet activity for the selected customer and UTC day.</span></section>}
         {focus === "reconciliation" && <>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head">
@@ -511,23 +481,34 @@ export function AdminTransactionReview({ focus }: { focus?: "ledger" | "capital"
           </section>
         )}
         {focus === "ledger" && <section className="admin-ops-panel">
-          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Latest database entries</span><h2>Wallet activity</h2></div><span className="admin-ops-subtle">Up to 150 · {ledgerUserId ? `Customer ${ledgerUserId}` : "All customers"} · {ledgerUtcDay || "All UTC dates"}</span></div>
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Database Entries · read only</span><h2>Wallet activity</h2></div><span className="admin-ops-subtle">Up to 50 · {ledgerUserId ? `Customer ${ledgerUserId}` : "Select one customer"} · {ledgerUtcDay} UTC</span></div>
           <div className="admin-ops-form-grid" aria-label="Filter wallet database entries">
-            <label>Customer user ID (optional)
-              <input type="number" min={1} step={1} value={ledgerCustomerId} onChange={event => setLedgerCustomerId(event.target.value)} aria-label="Customer user ID" />
+            <label>Customer (required)
+              <select value={ledgerCustomerId} onChange={event => { setLedgerCustomerId(event.target.value); setLedgerCursor(undefined); }} aria-label="Customer (required)">
+                <option value="">Select one customer</option>
+                {ledgerCustomers.filter(customer => customer.role === "user").map(customer => <option key={customer.id} value={customer.id}>{`Account ${customer.id} · ${customer.name || customer.email || "Customer"}`}</option>)}
+              </select>
             </label>
-            <label>UTC day (optional)
-              <input type="date" value={ledgerUtcDay} onChange={event => setLedgerUtcDay(event.target.value)} aria-label="UTC day" />
+            <label>Calendar day (required, UTC)
+              <input type="date" required value={ledgerUtcDay} onChange={event => { setLedgerUtcDay(event.target.value); setLedgerCursor(undefined); }} aria-label="Calendar day (required, UTC)" />
             </label>
             <div className="admin-ops-form-actions">
-              <button className="admin-ops-button" type="button" onClick={() => { setLedgerCustomerId(""); setLedgerUtcDay(""); }}>Clear filters</button>
+              <button className="admin-ops-button" type="button" onClick={() => { setLedgerCustomerId(""); setLedgerUtcDay(new Date().toISOString().slice(0, 10)); setLedgerCursor(undefined); }}>Clear selection</button>
             </div>
           </div>
-          {!ledgerFilterValid && <div className="admin-ops-empty error" role="alert">Enter a positive whole customer ID to filter ledger entries.</div>}
-          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Wallet activity ledger" onKeyDown={(event) => { if (event.key === "ArrowRight") { event.preventDefault(); event.currentTarget.scrollLeft += 80; } else if (event.key === "ArrowLeft") { event.preventDefault(); event.currentTarget.scrollLeft -= 80; } }}><table className="admin-ops-table"><thead><tr><th>Recorded</th><th>Customer</th><th>Entry type</th><th>Amount</th><th>Withdrawable</th></tr></thead><tbody>
-            {rows.map((row) => <tr key={row.id}><td>{timestamp(row.createdAt)}</td><td><strong>{row.customerName || "Customer"}</strong><small>{row.customerEmail || `Account ${row.userId}`}</small></td><td><span className="admin-ops-entry-type">{row.entryType}</span></td><td className={Number(row.amountMinor) < 0 ? "amount-negative" : "amount-positive"}>{formatAmount(Number(row.amountMinor), row.currency)}</td><td><StatusPill tone={row.withdrawable ? "good" : "neutral"}>{row.withdrawable ? "Yes" : "No"}</StatusPill></td></tr>)}
-            {!rows.length && <tr><td colSpan={5} className="admin-ops-table-empty">No wallet ledger entries have been recorded.</td></tr>}
+          <div className="admin-ops-subtle">Timezone: UTC. This page includes entries at {ledgerUtcDay} 00:00:00 UTC and excludes entries at the next day’s 00:00:00 UTC. Timestamps below are shown in UTC.</div>
+          {!ledgerCustomerId && <div className="admin-ops-empty compact">Select exactly one customer to inspect that customer’s wallet activity.</div>}
+          {!ledgerUtcDayValid && <div className="admin-ops-empty error" role="alert">Select a valid UTC calendar day.</div>}
+          {ledgerCustomersQuery.isError && <div className="admin-ops-empty error" role="alert">The customer list could not be loaded; choose a customer after refreshing.</div>}
+          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Wallet activity ledger" onKeyDown={(event) => { if (event.key === "ArrowRight") { event.preventDefault(); event.currentTarget.scrollLeft += 80; } else if (event.key === "ArrowLeft") { event.preventDefault(); event.currentTarget.scrollLeft -= 80; } }}><table className="admin-ops-table"><thead><tr><th>Recorded (UTC)</th><th>Customer</th><th>Entry type</th><th>Amount</th><th>Withdrawable</th></tr></thead><tbody>
+            {rows.map((row) => <tr key={row.id}><td>{new Date(row.createdAt).toLocaleString("en-GB", { timeZone: "UTC", timeZoneName: "short" })}</td><td><strong>{row.customerName || "Customer"}</strong><small>{row.customerEmail || `Account ${row.userId}`}</small></td><td><span className="admin-ops-entry-type">{row.entryType}</span></td><td className={Number(row.amountMinor) < 0 ? "amount-negative" : "amount-positive"}>{formatAmount(Number(row.amountMinor), row.currency)}</td><td><StatusPill tone={row.withdrawable ? "good" : "neutral"}>{row.withdrawable ? "Yes" : "No"}</StatusPill></td></tr>)}
+            {!rows.length && ledgerFilterValid && !ledgerQuery.isLoading && !ledgerQuery.isError && <tr><td colSpan={5} className="admin-ops-table-empty">No wallet activity for this customer on this UTC day.</td></tr>}
           </tbody></table></div>
+          {ledgerQuery.isError && <div className="admin-ops-empty error" role="alert">Wallet activity could not be loaded for this customer and UTC day.</div>}
+          <div className="admin-payout-actions">
+            {ledgerQuery.data?.hasMore && ledgerQuery.data.nextCursor && <button className="admin-ops-button" type="button" disabled={ledgerQuery.isFetching} onClick={() => setLedgerCursor(ledgerQuery.data!.nextCursor ?? undefined)}>Load next 50 entries</button>}
+            {ledgerCursor && <button className="admin-ops-button" type="button" disabled={ledgerQuery.isFetching} onClick={() => setLedgerCursor(undefined)}>Restart day</button>}
+          </div>
         </section>}
         {focus === "ledger" && <div className="admin-ops-note"><CircleDollarSign size={16} /><span>Amounts are formatted from the configured currency scale and the ledger’s stored minor-unit integer. The ledger view is read-only.</span></div>}
       </>}
@@ -631,35 +612,30 @@ function downloadJson(filename: string, value: unknown) {
 
 export function AdminReportsExports() {
   const customersQuery = trpc.adminOperations.customers.useQuery(undefined, { staleTime: 15_000 });
-  const ledgerQuery = trpc.adminOperations.ledgerActivity.useQuery(undefined, { staleTime: 15_000 });
   const auditQuery = trpc.adminOperations.audit.useQuery(undefined, { staleTime: 15_000 });
   const customers = (customersQuery.data ?? []) as unknown as CustomerRecord[];
-  const ledger = (ledgerQuery.data ?? []) as unknown as LedgerRecord[];
   const audit = (auditQuery.data ?? []) as unknown as Array<Record<string, unknown> & { id: number; createdAt?: Date | string; action?: string; actorUserId?: number | null; entityType?: string; entityId?: number | string | null; reason?: string | null }>;
-  const loading = customersQuery.isLoading || ledgerQuery.isLoading || auditQuery.isLoading;
-  const error = customersQuery.isError || ledgerQuery.isError || auditQuery.isError;
+  const loading = customersQuery.isLoading || auditQuery.isLoading;
+  const error = customersQuery.isError || auditQuery.isError;
   const customerExport = customers.map((row) => ({ id: row.id, name: row.name, email: row.email, package: row.package, accountState: row.accountState || row.status, emailVerified: row.emailVerified, kycRequired: row.kyc, riskTier: row.riskTier, createdAt: row.createdAt }));
-  const ledgerExport = ledger.map((row) => ({ id: row.id, userId: row.userId, customerName: row.customerName, customerEmail: row.customerEmail, currency: row.currency, amountMinor: row.amountMinor, entryType: row.entryType, withdrawable: row.withdrawable, createdAt: row.createdAt }));
   const auditExport = audit.map((row) => ({ id: row.id, createdAt: row.createdAt, action: row.action, actorUserId: row.actorUserId, entityType: row.entityType, entityId: row.entityId, reason: row.reason }));
-  const totalRecords = customers.length + ledger.length + audit.length;
+  const totalRecords = customers.length + audit.length;
 
   return (
-    <ToolPage eyebrow="Operational reporting" title="Reports & exports" description="Download the latest admin-visible customer, wallet-ledger and audit records as CSV files. Export generation happens in this browser; no data is sent to another service." icon={Download}>
+    <ToolPage eyebrow="Operational reporting" title="Reports & exports" description="Download admin-visible customer and audit records as CSV files. Customer wallet activity is available only in Database Entries with one customer and one UTC day selected." icon={Download}>
       {error && <div className="admin-ops-empty error">One or more report datasets could not be loaded. Retry after checking database availability.</div>}
       {loading ? <LoadingState /> : <>
         <section className="admin-ops-metrics compact-metrics">
           <Metric label="Customer records" value={customers.length} icon={Users} />
-          <Metric label="Ledger entries" value={ledger.length} icon={CircleDollarSign} />
           <Metric label="Audit events" value={audit.length} icon={ShieldCheck} />
           <Metric label="Available records" value={totalRecords} icon={FileText} />
         </section>
         <section className="admin-ops-export-grid">
           <article className="admin-ops-export-card"><span className="admin-ops-export-icon"><Users size={18} /></span><div><strong>Customer register</strong><p>Customer identity, package, account state, verification controls and risk tier.</p><small>{customers.length} records available</small></div><button className="admin-ops-button" type="button" disabled={!customerExport.length} onClick={() => downloadCsv("arbitrade-customers.csv", customerExport)}><Download size={14} /> Export CSV</button></article>
-          <article className="admin-ops-export-card"><span className="admin-ops-export-icon"><CircleDollarSign size={18} /></span><div><strong>Wallet ledger</strong><p>Most recent append-only balance entries with native minor-unit values.</p><small>{ledger.length} records available</small></div><button className="admin-ops-button" type="button" disabled={!ledgerExport.length} onClick={() => downloadCsv("arbitrade-wallet-ledger.csv", ledgerExport)}><Download size={14} /> Export CSV</button></article>
           <article className="admin-ops-export-card"><span className="admin-ops-export-icon"><ShieldCheck size={18} /></span><div><strong>Admin audit log</strong><p>Recorded administrative actions and their entity references.</p><small>{audit.length} records available</small></div><button className="admin-ops-button" type="button" disabled={!auditExport.length} onClick={() => downloadCsv("arbitrade-admin-audit.csv", auditExport)}><Download size={14} /> Export CSV</button></article>
         </section>
         {!totalRecords && <div className="admin-ops-empty compact">No report rows are available yet.</div>}
-        <div className="admin-ops-note"><ShieldCheck size={16} /><span>Exports require an authenticated administrator session. CSV values that could be interpreted as spreadsheet formulas are escaped.</span></div>
+        <div className="admin-ops-note"><ShieldCheck size={16} /><span>Exports require an authenticated administrator session. CSV values that could be interpreted as spreadsheet formulas are escaped. Wallet activity is deliberately excluded from all-customer exports; inspect one customer and one UTC day at a time in Database Entries.</span></div>
       </>}
     </ToolPage>
   );

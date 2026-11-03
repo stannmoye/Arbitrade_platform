@@ -4785,18 +4785,49 @@ export async function createOpportunityOffer(input:{symbol:string;venueFrom:stri
 export async function bulkCreateOpportunityOffers(inputs:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number;opensAt?:Date;closesAt?:Date;rewardAt?:Date}[]) { const db=await getDb(); if(!db) throw new Error("Database is not available"); if(!inputs.length) return {created:0}; const rows=inputs.map(input=>{const opensAt=input.opensAt||new Date(); const closesAt=input.closesAt||new Date(opensAt.getTime()+input.durationSeconds*1000); return {...input,opensAt,closesAt,rewardAt:input.rewardAt||closesAt,status:"open" as const};}); await db.insert(opportunityOffers).values(rows); return {created:rows.length}; }
 
 
-export async function listAdminRecentLedgerActivity(input: { userId?: number; utcDay?: string } = {}) {
+export const ADMIN_LEDGER_ACTIVITY_PAGE_SIZE = 50;
+export type AdminLedgerActivityCursor = { createdAt: Date; id: number };
+
+export function getAdminLedgerUtcDayBounds(utcDay: string) {
+  const start = new Date(`${utcDay}T00:00:00.000Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(utcDay) || !Number.isFinite(start.getTime()) || start.toISOString().slice(0, 10) !== utcDay) {
+    throw new Error("UTC day must be a valid YYYY-MM-DD calendar date");
+  }
+  return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
+}
+
+export function encodeAdminLedgerActivityCursor(cursor: AdminLedgerActivityCursor) {
+  return Buffer.from(JSON.stringify({ createdAt: cursor.createdAt.toISOString(), id: cursor.id }), "utf8").toString("base64url");
+}
+
+export function decodeAdminLedgerActivityCursor(value: string | undefined): AdminLedgerActivityCursor | undefined {
+  if (value === undefined) return undefined;
+  try {
+    const decoded: unknown = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+    if (!decoded || typeof decoded !== "object") throw new Error();
+    const candidate = decoded as { createdAt?: unknown; id?: unknown };
+    if (typeof candidate.createdAt !== "string" || !Number.isSafeInteger(candidate.id) || Number(candidate.id) < 1) throw new Error();
+    const createdAt = new Date(candidate.createdAt);
+    if (!Number.isFinite(createdAt.getTime()) || createdAt.toISOString() !== candidate.createdAt) throw new Error();
+    return { createdAt, id: Number(candidate.id) };
+  } catch {
+    throw new Error("Ledger activity cursor is invalid");
+  }
+}
+
+export function isAdminLedgerEntryBeforeCursor(row: { createdAt: Date | string; id: number }, cursor: AdminLedgerActivityCursor) {
+  const rowTime = new Date(row.createdAt).getTime();
+  const cursorTime = cursor.createdAt.getTime();
+  return rowTime < cursorTime || (rowTime === cursorTime && row.id < cursor.id);
+}
+
+export async function listAdminRecentLedgerActivity(input: { userId: number; utcDay: string; cursor?: string }) {
+  if (!Number.isSafeInteger(input.userId) || input.userId < 1) throw new Error("Customer ID must be a positive integer");
+  const { start: dayStart, end: dayEnd } = getAdminLedgerUtcDayBounds(input.utcDay);
+  const cursor = decodeAdminLedgerActivityCursor(input.cursor);
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  if (input.userId !== undefined && (!Number.isSafeInteger(input.userId) || input.userId < 1)) throw new Error("Customer ID must be a positive integer");
-  let dayStart: Date | undefined;
-  if (input.utcDay !== undefined) {
-    dayStart = new Date(`${input.utcDay}T00:00:00.000Z`);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.utcDay) || !Number.isFinite(dayStart.getTime()) || dayStart.toISOString().slice(0, 10) !== input.utcDay) {
-      throw new Error("UTC day must be a valid YYYY-MM-DD calendar date");
-    }
-  }
-  return db.select({
+  const rows = await db.select({
     id: balanceLedger.id,
     userId: balanceLedger.userId,
     customerName: users.name,
@@ -4809,10 +4840,22 @@ export async function listAdminRecentLedgerActivity(input: { userId?: number; ut
   }).from(balanceLedger)
     .leftJoin(users, eq(users.id, balanceLedger.userId))
     .where(and(
-      input.userId === undefined ? undefined : eq(balanceLedger.userId, input.userId),
-      dayStart === undefined ? undefined : gte(balanceLedger.createdAt, dayStart),
-      dayStart === undefined ? undefined : lt(balanceLedger.createdAt, new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)),
+      eq(balanceLedger.userId, input.userId),
+      gte(balanceLedger.createdAt, dayStart),
+      lt(balanceLedger.createdAt, dayEnd),
+      cursor ? or(
+        lt(balanceLedger.createdAt, cursor.createdAt),
+        and(eq(balanceLedger.createdAt, cursor.createdAt), lt(balanceLedger.id, cursor.id)),
+      ) : undefined,
     ))
-    .orderBy(desc(balanceLedger.createdAt))
-    .limit(150);
+    .orderBy(desc(balanceLedger.createdAt), desc(balanceLedger.id))
+    .limit(ADMIN_LEDGER_ACTIVITY_PAGE_SIZE + 1);
+  const hasMore = rows.length > ADMIN_LEDGER_ACTIVITY_PAGE_SIZE;
+  const entries = hasMore ? rows.slice(0, ADMIN_LEDGER_ACTIVITY_PAGE_SIZE) : rows;
+  const last = entries.at(-1);
+  return {
+    entries,
+    hasMore,
+    nextCursor: hasMore && last ? encodeAdminLedgerActivityCursor({ createdAt: new Date(last.createdAt), id: last.id }) : null,
+  };
 }
