@@ -209,7 +209,53 @@ describe.skipIf(!enabled)("global Trade controls migration against disposable My
     });
   });
 
+  it("keeps global masters ON when every legacy package copy is ON", async () => {
+    await resetFixtures([legacyRow("Tier One"), legacyRow("Tier Two")]);
+    await applyGlobalControlsMigration();
+
+    expect(parseJson(await readSetting("trade.globalControls"))).toMatchObject({
+      tierPolicyMasterEnabled: true,
+      informationalPopupDeliveryEnabled: true,
+      companyRotationEnabled: true,
+      randomizedTimingEnabled: true,
+      burstDeliveryEnabled: true,
+      requirePreviousSettlement: true,
+      policyVersion: 1,
+    });
+    expect(parseJson(await readSetting("trade.globalControls.migrationDiagnostic"))).toMatchObject({
+      conflicts: {
+        tierPolicyMasterEnabled: false,
+        informationalPopupDeliveryEnabled: false,
+        companyRotationEnabled: false,
+        randomizedTimingEnabled: false,
+        burstDeliveryEnabled: false,
+        requirePreviousSettlement: false,
+      },
+    });
+  });
+
   it("preserves an existing canonical setting row byte-for-byte, including malformed data", async () => {
+    const validExistingValue = JSON.stringify({
+      tierPolicyMasterEnabled: true,
+      informationalPopupDeliveryEnabled: false,
+      companyRotationEnabled: true,
+      randomizedTimingEnabled: false,
+      burstDeliveryEnabled: true,
+      requirePreviousSettlement: true,
+      policyVersion: 42,
+      updatedBy: 7,
+      updatedAt: "2026-11-03T00:00:00.000Z",
+    });
+    await resetFixtures([legacyRow("Legacy OFF", { automaticDelivery: 0 })], validExistingValue);
+    await applyGlobalControlsMigration();
+
+    expect(await readSetting("trade.globalControls")).toBe(validExistingValue);
+    expect(parseJson(await readSetting("trade.globalControls.migrationDiagnostic"))).toMatchObject({
+      sourcePolicyCount: 1,
+      deliveryDisabledPackages: ["Legacy OFF"],
+    });
+    expect(await readAuditCount()).toBe(1);
+
     const invalidExistingValue = "{broken-existing-admin-policy";
     await resetFixtures([legacyRow("Legacy OFF", { automaticDelivery: 0 })], invalidExistingValue);
 
