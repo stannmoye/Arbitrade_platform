@@ -9,6 +9,7 @@ import {
   currencyRegistry,
   opportunityDeliveryEvents,
   opportunityDeliveryIdempotency,
+  opportunityGenerationAssignments,
   opportunityOffers,
   opportunityPackagePolicies,
   opportunityPopupEvents,
@@ -36,7 +37,7 @@ assert.ok(migratedExecutionPolicies.every(row => row.automaticTradingEnabled ===
 
 const token = crypto.randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase();
 const userEmail = `popup-delivery-${token.toLowerCase()}@example.invalid`;
-const currency = `P${token.slice(0, 7)}`;
+const currency = "USD";
 const packageName = `Popup QA ${token}`;
 const now = new Date();
 const quotaDay = now.toISOString().slice(0, 10);
@@ -45,7 +46,8 @@ let packageId: number | undefined;
 let subscriptionId: number | undefined;
 let offerId: number | undefined;
 let blockedOfferId: number | undefined;
-let currencyInserted = false;
+const catalogueStateKey = "trade.companyCatalogue.adminState";
+let originalCompanyCatalogueStateRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
 let originalGlobalControlRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
 let currentTestGlobalPolicy: TradeGlobalControlPolicy | null = null;
 
@@ -70,6 +72,15 @@ async function setGlobalPolicy(overrides: Partial<TradeGlobalControlPolicy>) {
     updatedAt: new Date().toISOString(),
   };
   await persistGlobalPolicy(currentTestGlobalPolicy);
+}
+
+async function restoreOriginalCompanyCatalogueState() {
+  if (originalCompanyCatalogueStateRow) {
+    await db.update(appSettings).set(originalCompanyCatalogueStateRow)
+      .where(eq(appSettings.settingKey, catalogueStateKey));
+  } else {
+    await db.delete(appSettings).where(eq(appSettings.settingKey, catalogueStateKey));
+  }
 }
 
 async function restoreOriginalGlobalPolicy() {
@@ -107,6 +118,25 @@ try {
   };
   await persistGlobalPolicy(currentTestGlobalPolicy);
 
+  const [catalogueStateRow] = await db.select({
+    settingValue: appSettings.settingValue,
+    updatedBy: appSettings.updatedBy,
+    updatedAt: appSettings.updatedAt,
+  }).from(appSettings).where(eq(appSettings.settingKey, catalogueStateKey)).limit(1);
+  originalCompanyCatalogueStateRow = catalogueStateRow ?? null;
+  const testCatalogueState = JSON.stringify({
+    verifiedIds: ["logo-brand-0001"],
+    archivedIds: [],
+    disabledIds: [],
+  });
+  await db.insert(appSettings).values({
+    settingKey: catalogueStateKey,
+    settingValue: testCatalogueState,
+    updatedBy: null,
+  }).onDuplicateKeyUpdate({
+    set: { settingValue: testCatalogueState, updatedBy: null, updatedAt: new Date() },
+  });
+
   const [userResult] = await db.insert(users).values({
     openId: `popup-delivery-${token}`,
     name: "Popup Delivery Integration Customer",
@@ -116,17 +146,12 @@ try {
   });
   userId = Number(userResult.insertId);
 
-  await db.insert(currencyRegistry).values({
-    code: currency,
-    name: "Popup Delivery Integration Currency",
-    symbol: currency,
-    scale: 2,
-    assetType: "fiat",
-    usdRate: "1",
-    rateProvider: "integration-test",
-    enabled: true,
-  });
-  currencyInserted = true;
+  const usdCurrency = await db.select({
+    code: currencyRegistry.code,
+    enabled: currencyRegistry.enabled,
+  }).from(currencyRegistry).where(eq(currencyRegistry.code, currency)).limit(1);
+  assert.equal(usdCurrency[0]?.enabled, true,
+    "The existing USD registry entry must be available for catalogue-native generation.");
 
   const [packageResult] = await db.insert(packages).values({
     name: packageName,
@@ -194,22 +219,7 @@ try {
     earnedMinor: 0,
   });
 
-  const [offerResult] = await db.insert(opportunityOffers).values({
-    symbol: `POPUP-${token.slice(0, 5)}`,
-    venueFrom: "reviewed-integration-source",
-    venueTo: "reviewed-integration-destination",
-    currency,
-    minimumMinor: 10_000,
-    expectedRewardBps: 250,
-    durationSeconds: 600,
-    opensAt: new Date(Date.now() - 1_000),
-    closesAt: new Date(Date.now() + 10 * 60_000),
-    rewardAt: new Date(Date.now() + 10 * 60_000),
-    status: "open",
-  });
-  offerId = Number(offerResult.insertId);
-
-  const balanceBefore = await db.select({
+remove manually published offer fixture  const balanceBefore = await db.select({
     availableMinor: customerBalances.availableMinor,
     lockedMinor: customerBalances.lockedMinor,
   }).from(customerBalances).where(eq(customerBalances.userId, userId));
@@ -221,14 +231,37 @@ try {
   const firstCycle = await listCustomerOpportunities(userId, {
     workerCycle: true,
     consumeDelivery: false,
+    automaticGenerationEnabled: true,
+    generationBatchId: `popup-delivery-${token}`,
   });
+  const generatedOfferId = Number(firstCycle.generatedOpportunityId);
+  assert.ok(Number.isSafeInteger(generatedOfferId) && generatedOfferId > 0,
+    "The worker must generate an opportunity directly from the approved brand catalogue without a template.");
+  offerId = generatedOfferId;
 
   assert.equal(firstCycle.delivery.enabled, true,
     "An active eligible tier with a valid enabled delivery policy must expose delivery as enabled.");
   assert.equal(firstCycle.offers.length, 1,
-    "The worker cycle must create one customer popup from the one open reviewed opportunity.");
+    "The worker cycle must create one customer popup from the catalogue-native generated opportunity.");
   assert.equal(firstCycle.offers[0]?.offerId, offerId);
   assert.equal(firstCycle.offers[0]?.popupEligible, true);
+  assert.equal(firstCycle.offers[0]?.companyDisplayName?.length > 0, true,
+    "The generated opportunity must carry the existing catalogue company name.");
+  const generatedAssignments = await db.select().from(opportunityGenerationAssignments)
+    .where(eq(opportunityGenerationAssignments.offerId, offerId));
+  assert.equal(generatedAssignments.length, 1,
+    "A catalogue-native opportunity must persist one customer/package assignment.");
+  assert.equal(generatedAssignments[0]?.templateId, null,
+    "No manually authored opportunity template is required.");
+  assert.equal(generatedAssignments[0]?.templateVersion, null);
+  assert.equal(generatedAssignments[0]?.companyReferenceId, "logo-brand-0001");
+  const generatedSnapshot = JSON.parse(String(generatedAssignments[0]?.packageSnapshotJson || "{}"));
+  assert.ok(Number(generatedSnapshot.configuredProfitRateBps) >= 200 && Number(generatedSnapshot.configuredProfitRateBps) <= 300,
+    "The configured return must stay inside this customer's package-specific minimum/maximum.");
+  assert.ok(Number(generatedSnapshot.configuredDurationSeconds) >= 300 && Number(generatedSnapshot.configuredDurationSeconds) <= 600,
+    "The generated duration must stay inside this customer's package-specific range.");
+  assert.equal(generatedSnapshot.symbol, "BRAND",
+    "Brand-only companies must not be represented as real ticker symbols.");
   assert.equal(firstCycle.autoTrades.length, 0,
     "The global server-side execution lock must prevent trades even if a stale package policy says automaticTradingEnabled=true.");
 
@@ -238,6 +271,7 @@ try {
     deliveryStatus: opportunityPopupEvents.deliveryStatus,
     packageId: opportunityPopupEvents.packageId,
     offerId: opportunityPopupEvents.offerId,
+    companyDisplayName: opportunityPopupEvents.companyDisplayName,
   }).from(opportunityPopupEvents).where(and(
     eq(opportunityPopupEvents.userId, userId),
     eq(opportunityPopupEvents.offerId, offerId),
@@ -253,6 +287,9 @@ try {
   assert.equal(Number(fenceRows[0]?.packageId), packageId);
   assert.equal(Number(fenceRows[0]?.popupEventId), Number(popupRows[0]?.id));
   assert.equal(popupRows[0]?.eventStatus, "DELIVERED");
+  assert.equal(typeof popupRows[0]?.companyDisplayName, "string");
+  assert.ok(String(popupRows[0]?.companyDisplayName || "").length > 0,
+    "The persisted customer popup must include the selected catalogue company name.");
   assert.equal(popupRows[0]?.deliveryStatus, "queued",
     "Worker admission queues the durable informational delivery; the customer poll owns the dispatch claim.");
   assert.equal(Number((await db.select({ deliveryAttemptCount: opportunityPopupEvents.deliveryAttemptCount }).from(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, popupRows[0]!.id)))[0]?.deliveryAttemptCount), 0,
@@ -336,6 +373,9 @@ try {
     postCompletionIntervalSeconds: 0,
   }).where(eq(opportunityPackagePolicies.packageName, packageName));
   const [blockedOfferResult] = await db.insert(opportunityOffers).values({
+    assignedUserId: userId,
+    assignedPackageId: packageId,
+    assignedPackageSubscriptionId: subscriptionId,
     symbol: `BLOCKED-${token.slice(0, 5)}`,
     venueFrom: "reviewed-integration-source",
     venueTo: "reviewed-integration-destination",
@@ -421,8 +461,12 @@ try {
     await restoreOriginalGlobalPolicy();
   } finally {
     try {
-      for (const fixtureOfferId of [offerId, blockedOfferId]) {
+      await restoreOriginalCompanyCatalogueState();
+    } finally {
+      try {
+        for (const fixtureOfferId of [offerId, blockedOfferId]) {
         if (userId !== undefined && fixtureOfferId !== undefined) {
+          await db.delete(opportunityGenerationAssignments).where(eq(opportunityGenerationAssignments.offerId, fixtureOfferId));
           await db.delete(opportunityDeliveryIdempotency).where(and(
             eq(opportunityDeliveryIdempotency.userId, userId),
             eq(opportunityDeliveryIdempotency.offerId, fixtureOfferId),
@@ -439,15 +483,19 @@ try {
         if (fixtureOfferId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, fixtureOfferId));
       }
       if (userId !== undefined) {
+        await db.delete(appSettings).where(eq(appSettings.settingKey, `trading.opportunityGenerator.${userId}`));
+        if (packageId !== undefined) {
+          await db.delete(appSettings).where(eq(appSettings.settingKey, `trading.companyRotation.${userId}.${packageId}`));
+        }
         await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.userId, userId));
         await db.delete(customerBalances).where(eq(customerBalances.userId, userId));
         await db.delete(users).where(eq(users.id, userId));
       }
       await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName));
       if (packageId !== undefined) await db.delete(packages).where(eq(packages.id, packageId));
-      if (currencyInserted) await db.delete(currencyRegistry).where(eq(currencyRegistry.code, currency));
     } finally {
       await closeDbPool();
     }
   }
 }
+
