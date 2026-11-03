@@ -45,6 +45,48 @@ export type CompanyReferenceSearch = {
   limit?: number;
 };
 
+export type CompanyCatalogueStatusAction = "verified" | "unverified" | "disabled" | "enabled" | "archived" | "restored";
+
+export type CompanyCatalogueAdminStateSets = {
+  verifiedIds: readonly string[];
+  archivedIds: readonly string[];
+  disabledIds?: readonly string[];
+};
+
+/** Normalize an operator-entered case reason at the pure boundary shared by admin state writes. */
+export function normalizeCompanyCatalogueActionReason(reason: unknown): string {
+  if (typeof reason !== "string") throw new Error("A case-specific reason is required.");
+  const normalized = reason.trim();
+  if (normalized.length < 8 || normalized.length > 500) throw new Error("A case-specific reason between 8 and 500 characters is required.");
+  return normalized;
+}
+
+/** Change only the status set owned by this action; overlapping flags remain independently auditable. */
+export function transitionCompanyCatalogueAdminState(
+  current: CompanyCatalogueAdminStateSets,
+  ids: readonly string[],
+  action: CompanyCatalogueStatusAction,
+): { verifiedIds: string[]; archivedIds: string[]; disabledIds: string[] } {
+  const verified = new Set(current.verifiedIds);
+  const archived = new Set(current.archivedIds);
+  const disabled = new Set(current.disabledIds ?? []);
+  for (const id of ids) {
+    switch (action) {
+      case "verified": verified.add(id); break;
+      case "unverified": verified.delete(id); break;
+      case "disabled": disabled.add(id); break;
+      case "enabled": disabled.delete(id); break;
+      case "archived": archived.add(id); break;
+      case "restored": archived.delete(id); break;
+    }
+  }
+  return {
+    verifiedIds: [...verified].sort(),
+    archivedIds: [...archived].sort(),
+    disabledIds: [...disabled].sort(),
+  };
+}
+
 export type CompanyReferenceResponse = CompanyReferenceRecord & {
   referenceOnly: true;
   logoReusePermissionVerified: false;
@@ -269,7 +311,7 @@ export function searchCompanyReferences(filters: CompanyReferenceSearch = {}): C
   const results: CompanyReferenceResponse[] = [];
   let matched = 0;
   for (const company of COMPANY_REFERENCE_CATALOGUE) {
-    if (term && ![company.name, company.domain, company.ticker, company.exchangeCode].some((value) => value.toLowerCase().includes(term))) continue;
+    if (term && company.id.toLowerCase() !== term && ![company.name, company.domain, company.ticker, company.exchangeCode].some((value) => value.toLowerCase().includes(term))) continue;
     if (countryName && company.countryName.toLowerCase() !== countryName) continue;
     if (matched++ < offset) continue;
     results.push(asReferenceResponse(company));

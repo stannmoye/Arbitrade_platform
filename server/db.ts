@@ -16,6 +16,7 @@ import { planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-w
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, usdUnitsToNativeMinor } from "../shared/money";
 import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, createCompanySpotlightDisplayGuard, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
+import { normalizeCompanyCatalogueActionReason, transitionCompanyCatalogueAdminState, type CompanyCatalogueStatusAction } from "./modules/company-catalogue-reference";
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule, resolveTradingBurstLimit } from "./modules/trading-delivery-quota";
@@ -126,7 +127,7 @@ export async function setAppSetting(key: string, value: string, updatedBy?: numb
 
 export async function updateCompanyCatalogueAdminState(input: {
   ids: string[];
-  status: "verified" | "unverified" | "archived" | "disabled" | "enabled";
+  status: CompanyCatalogueStatusAction;
   reason: string;
   updatedBy: number;
 }) {
@@ -134,7 +135,7 @@ export async function updateCompanyCatalogueAdminState(input: {
   if (!ids.length || ids.length > 1811 || ids.some(id => !/^logo-brand-\d{4}$/.test(id))) {
     throw new Error("Select between 1 and 1,811 valid company catalogue IDs.");
   }
-  if (!input.reason.trim() || input.reason.trim().length > 500) throw new Error("A valid reason is required.");
+  const reason = normalizeCompanyCatalogueActionReason(input.reason);
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.transaction(async tx => {
@@ -143,25 +144,11 @@ export async function updateCompanyCatalogueAdminState(input: {
       .onDuplicateKeyUpdate({ set: { settingKey } });
     const row = (await tx.select().from(appSettings).where(eq(appSettings.settingKey, settingKey)).limit(1).for("update"))[0];
     const currentCatalogueState = parseCompanyCatalogueAdminState(row?.settingValue ?? "{}");
-    const verifiedIds = [...currentCatalogueState.verifiedIds];
-    const archivedIds = [...currentCatalogueState.archivedIds];
-    const disabledIds = [...(currentCatalogueState.disabledIds ?? [])];
-    const verified = new Set(verifiedIds);
-    const archived = new Set(archivedIds);
-    const disabled = new Set(disabledIds);
+    const nextState = transitionCompanyCatalogueAdminState(currentCatalogueState, ids, input.status);
     const updatedAt = new Date().toISOString();
-    for (const id of ids) {
-      if (input.status === "verified") { verified.add(id); archived.delete(id); disabled.delete(id); }
-      if (input.status === "unverified") { verified.delete(id); archived.delete(id); disabled.delete(id); }
-      if (input.status === "archived") { verified.delete(id); disabled.delete(id); archived.add(id); }
-      if (input.status === "disabled") disabled.add(id);
-      if (input.status === "enabled") disabled.delete(id);
-    }
     const nextValue = JSON.stringify({
-      verifiedIds: [...verified].sort(),
-      archivedIds: [...archived].sort(),
-      disabledIds: [...disabled].sort(),
-      lastAction: { status: input.status, count: ids.length, reason: input.reason.trim(), updatedAt, updatedBy: input.updatedBy },
+      ...nextState,
+      lastAction: { status: input.status, count: ids.length, reason, updatedAt, updatedBy: input.updatedBy },
     });
     await tx.update(appSettings).set({ settingValue: nextValue, updatedBy: input.updatedBy, updatedAt: new Date() }).where(eq(appSettings.settingKey, settingKey));
     await tx.insert(v5AuditEvents).values({
@@ -169,7 +156,7 @@ export async function updateCompanyCatalogueAdminState(input: {
       action: "company_catalogue.bulk_status_updated",
       entityType: "company_catalogue",
       entityId: "bulk",
-      reason: input.reason.trim(),
+      reason,
       reference: `company-catalogue:${input.status}:${updatedAt}`,
       metadataJson: JSON.stringify({ status: input.status, count: ids.length, ids, updatedAt }),
     });

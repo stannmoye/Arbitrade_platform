@@ -1,4 +1,5 @@
 import { BookOpen, ExternalLink, ShieldCheck } from "lucide-react";
+import { tradeSettingsOwnershipRegistry } from "../trade-settings-ownership";
 
 type TradeSettingsAdminGuideProps = {
   onNavigate: (target: string, focus?: string) => void;
@@ -20,14 +21,27 @@ export const ownerLinks: readonly GuideOwnerLink[] = [
   { routeId: "trade-popup-display", label: "Per-tier Pop-up Display", target: "tradeCustomerDisplay", description: "Review per-tier presentation and completion-card display settings. Display duration and dismissal affect presentation only." },
   { routeId: "trade-company-rotation", label: "Per-tier Company Rotation Rules", target: "packages", focus: "rotation", description: "Review per-tier approved-company filters and repeat rules. Company identity is reference metadata, not evidence of listing, execution or profit." },
   { routeId: "trade-company-catalogue", label: "Company Catalogue", target: "companyCatalogue", description: "Review company reference records and their administrator approval status. Approval controls display eligibility only; it does not verify a security or trade." },
-  { routeId: "trade-capital-funding", label: "Capital & Wallet Funding Rules", target: "transactionReview", focus: "capital", description: "Review the current capital and permitted-funding information. This destination is not a customer-credit action or proof that funds moved." },
+  { routeId: "trade-capital-funding", label: "Capital & Wallet Funding Rules", target: "transactionReview", focus: "capital", description: "The capital and wallet-funding queue is unavailable in the current source. This route is read-only; it cannot accept or post funds." },
   { routeId: "trade-fees-earnings", label: "Fees & Earnings Limits", target: "transactionReview", focus: "fees", description: "Review fee and earnings-limit information in its current source-supported scope. Configured terms are not realized earnings or a posted wallet credit." },
   { routeId: "trade-retries", label: "Retries & Carry-Forward", target: "tradeRetryPolicy", description: "Review technical delivery retries and their status. Carry-forward across daily windows is not available; a delivery retry is not a trade-execution retry." },
   { routeId: "trade-active-pending", label: "Active & Pending Opportunities", target: "deliveryMonitor", description: "Inspect informational opportunities waiting for delivery or further processing. Pending work is not an allocation, settlement or payout." },
+  { routeId: "trade-manual-payouts", label: "Manual Payouts", target: "manualPayouts", description: "Review and resolve internal manual payout requests. A request or status change does not itself transfer funds through a bank or blockchain provider." },
   { routeId: "trade-settlement", label: "Settlement & Reconciliation", target: "transactionReview", focus: "reconciliation", description: "Review recorded result evidence and reconcile persisted trade/settlement records with ledger entries. A review confirmation alone is not a posted wallet credit." },
   { routeId: "trade-worker-health", label: "Worker Health & Recovery", target: "tradeWorkerHealth", description: "Inspect worker heartbeat, due work and supported recovery status. A saved setting or recent heartbeat does not guarantee delivery or financial processing." },
   { routeId: "trade-audit-policy-history", label: "Audit & Policy History", target: "audit", description: "Review recorded administrator changes, reasons and policy versions. This is history, not a second editor or operational action." },
 ];
+
+/** Read-only glossary projection of the canonical ownership registry; no policy values are copied here. */
+export const fieldGlossary = tradeSettingsOwnershipRegistry.map((entry) => ({
+  key: entry.key,
+  label: entry.label,
+  scope: entry.scope === "global" ? "Global" : entry.scope === "package" ? "One package/tier" : "One operational record",
+  units: entry.units,
+  validation: entry.validation,
+  effectiveTime: entry.effectiveTime,
+  customerImpact: entry.customerImpact,
+  ownerRoute: entry.ownerRoute,
+}));
 
 export const troubleshooting: readonly GuideTroubleshootingItem[] = [
   { issue: "No active entitlement", routeId: "trade-tiers-eligibility", route: "Tiers & Eligibility", target: "packages", focus: "tiers", description: "Check for a current server-assigned entitlement from qualifying manual administrator credits. Customer/provider deposits, signup credits, profits and other credits do not qualify." },
@@ -59,7 +73,7 @@ export function TradeSettingsAdminGuide({ onNavigate }: TradeSettingsAdminGuideP
         <div>
           <div className="eyebrow">Read-only administrator help · Guide 1.1</div>
           <h1 id="trade-settings-guide-title">Trade Settings Guide</h1>
-          <p>Reviewed 3 November 2026 against repository source baseline <code>32215a3f48b52fb901d9efc4b0760e25eb74faf9</code>. This mounted Guide explains current owner screens and links to them; it does not save settings or perform operational actions, and it does not verify deployment state.</p>
+          <p>Reviewed 3 November 2026 against repository source baseline <code>21a8221405979794f210b2d3222741392b857984</code>. This mounted Guide explains current owner screens and links to them; it does not save settings or perform operational actions, and it does not verify deployment state.</p>
         </div>
         <BookOpen size={24} aria-hidden="true" />
       </header>
@@ -69,6 +83,19 @@ export function TradeSettingsAdminGuide({ onNavigate }: TradeSettingsAdminGuideP
         <p>The current delivery path uses administrator-published, open opportunities. Published reference-market data does not create an offer. Informational delivery is separate from financial allocation, result review, settlement and payout.</p>
         <div className="admin-policy-note" role="note"><ShieldCheck size={16} /><span>Automatic financial allocation/execution is hard-locked OFF in the current source. Automatic financial execution remains hard-disabled by the release guard. An informational pop-up is not an offer generated from market refresh, a trade, wallet movement, evidence of execution, profit or settlement.</span></div>
         <p>Carry-forward across daily windows is not available. Where an owner screen shows a locked or unavailable status, do not treat it as an active control. Global delivery, company-rotation, randomized-timing and burst masters are stored together in the single persisted <code>trade.globalControls</code> record under Package Configuration. Legacy per-package master columns are inert compatibility fields, not separate switch owners.</p>
+      </section>
+
+      <section className="settings-card" aria-labelledby="guide-prepare-package-title">
+        <h2 id="guide-prepare-package-title">Prepare a package (tier)</h2>
+        <p>Use the existing owner screens in order. This Guide is explanatory only: it has no package editor or save action.</p>
+        <ol className="trade-settings-guide__troubleshooting">
+          <li><div><strong>Define the tier terms.</strong><p>Open Tiers &amp; Eligibility to create or review one administrator-managed tier. Supply its name, cumulative qualifying threshold in USD minor units, entitlement duration in calendar months and daily opportunity allowance. Add a start/expiry time only when the intended effective dates are known. A tier does not enrol a customer: only eligible, explicitly qualifying manual administrator wallet credits can lead to automatic server assignment.</p></div><button type="button" className="text-button" onClick={() => navigate("packages", "tiers")}>Open Tiers &amp; Eligibility</button></li>
+          <li><div><strong>Set that tier’s offer bounds.</strong><p>In Per-tier Offer Rules &amp; Capital Limits, review the source-backed capital bounds and any configured-return and duration bounds available for the tier. Read the displayed units and validation limits; do not substitute guessed values. A configured return is a policy term, not evidence of market-earned profit or a wallet credit. Automatic financial allocation/execution remains locked OFF.</p></div><button type="button" className="text-button" onClick={() => navigate("packages", "policy")}>Open Per-tier Offer Rules &amp; Capital Limits</button></li>
+          <li><div><strong>Check operational limits and presentation.</strong><p>Review the separate per-tier delivery ceiling, schedule, pop-up display and company-rotation rules. Delivery ceilings can reduce—but never increase—the entitlement. Display duration affects presentation only. Global delivery masters are not copied into tier rows.</p></div><button type="button" className="text-button" onClick={() => navigate("packages", "quotas")}>Open Per-tier Daily Delivery Caps</button></li>
+          <li><div><strong>Review shared gates once.</strong><p>Package Configuration owns the single global eligibility/delivery controls and allocation-safety status. A global gate does not replace tier terms, and turning on an informational-delivery gate does not enable financial execution.</p></div><button type="button" className="text-button" onClick={() => navigate("tradePackageConfiguration")}>Open Package Configuration</button></li>
+          <li><div><strong>Confirm an eligible offer can be delivered.</strong><p>Informational pop-ups require an active automatically assigned entitlement, valid saved policy, an administrator-published open opportunity, remaining quota, due schedule and a healthy delivery worker. Market-data refresh is not opportunity publication; worker health or saved settings are not a delivery guarantee. Review the owner screens and status; this Guide performs no changes.</p></div><button type="button" className="text-button" onClick={() => navigate("opportunity")}>Open Publish &amp; Manage Opportunities</button></li>
+        </ol>
+        <p>Tier-term edits apply to future automatic assignments; existing entitlement snapshots are not rewritten. Active records keep their saved terms under the documented effective-time policy. Do not treat a badge as eligibility or a delivery as allocation, execution or settlement.</p>
       </section>
 
       <section className="settings-card" aria-labelledby="guide-owner-routes-title">
@@ -81,6 +108,29 @@ export function TradeSettingsAdminGuide({ onNavigate }: TradeSettingsAdminGuideP
               Open owner <ExternalLink size={14} aria-hidden="true" />
             </button>
           </div>)}
+        </div>
+      </section>
+
+      <section className="settings-card" aria-labelledby="guide-glossary-title">
+        <h2 id="guide-glossary-title">Read-only field glossary</h2>
+        <p>Entries below are projected from the Trade Settings ownership registry. Units and limits use its recorded units and validation text. The registry has no separate default-value field, so no defaults are inferred; a missing or unavailable value remains exactly that rather than being guessed.</p>
+        <div className="trade-settings-guide__glossary-wrap">
+          <table className="trade-settings-guide__glossary">
+            <thead><tr><th scope="col">Setting</th><th scope="col">Scope</th><th scope="col">Units / range</th><th scope="col">Effective time</th><th scope="col">Customer impact</th><th scope="col">Owner</th></tr></thead>
+            <tbody>{fieldGlossary.map((entry) => {
+              const owner = ownerLinks.find((link) => link.routeId === entry.ownerRoute);
+              return <tr key={entry.key}>
+                <th scope="row">{entry.label}</th>
+                <td>{entry.scope}</td>
+                <td><span>{entry.units}</span><br /><span>{entry.validation}</span></td>
+                <td>{entry.effectiveTime}</td>
+                <td>{entry.customerImpact}</td>
+                <td>{owner
+                  ? <button type="button" className="text-button" onClick={() => navigate(owner.target, owner.focus)} aria-label={`Open owner screen ${owner.label} for ${entry.label}`}>{owner.label}</button>
+                  : <span>Owner route not linked: {entry.ownerRoute}</span>}</td>
+              </tr>;
+            })}</tbody>
+          </table>
         </div>
       </section>
 

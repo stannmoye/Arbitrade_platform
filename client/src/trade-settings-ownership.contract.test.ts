@@ -5,6 +5,8 @@ import { tradeSettingsOwnershipRegistry, tradeSettingsRouteOwnerIds } from "./tr
 import { TRADING_TIER_POLICY_PATCH_KEYS } from "./trading-policy-patches";
 
 const tierEditorSource = readFileSync(new URL("./components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
+const operationsPagesSource = readFileSync(new URL("./components/AdminOperationsPages.tsx", import.meta.url), "utf8");
+const adminAppSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
 const renderedPolicyFields = [...tierEditorSource.matchAll(/updateRow\(index,\s*"([^"]+)"/g)].map((match) => match[1]);
 const expectedPolicyOwners: Record<string, string> = {
   maxPopupsPerDay: "trade-daily-delivery-caps",
@@ -154,5 +156,38 @@ describe("Trade Settings ownership registry contract", () => {
     const deliveryRetryLimit = byKey.get("trade.policy.maximumDeliveryAttempts");
     expect(deliveryRetryLimit?.ownerRoute).toBe("trade-retries");
     expect(deliveryRetryLimit?.controlContract).toBe("packagePolicies.maxDeliveryAttempts");
+  });
+
+  it("gives manual payout review one Trade Settings owner and keeps it off finance and settlement routes", () => {
+    const payoutRoutes = tradeRoutes.filter((route) => route.id === "trade-manual-payouts");
+    expect(payoutRoutes).toHaveLength(1);
+    expect(payoutRoutes[0]?.target).toBe("manualPayouts");
+    expect(adminNavigationGroups.flatMap((group) => group.items).filter((route) => route.target === "manualPayouts")).toHaveLength(1);
+    const payoutAction = tradeSettingsOwnershipRegistry.filter((entry) => entry.key === "trade.manualPayouts.review");
+    expect(payoutAction).toHaveLength(1);
+    expect(payoutAction[0]).toMatchObject({
+      ownerRoute: "trade-manual-payouts",
+      readQuery: "adminOperations.payoutRequests",
+      saveMutation: "adminOperations.resolvePayoutRequest",
+      availability: "available",
+    });
+    expect(adminAppSource).toContain('section==="manualPayouts"');
+
+    const payoutComponentStart = operationsPagesSource.indexOf("export function AdminManualPayouts()");
+    const nextComponentStart = operationsPagesSource.indexOf("function csvCell(value: unknown)", payoutComponentStart);
+    expect(payoutComponentStart).toBeGreaterThanOrEqual(0);
+    expect(nextComponentStart).toBeGreaterThan(payoutComponentStart);
+    const payoutComponent = operationsPagesSource.slice(payoutComponentStart, nextComponentStart);
+    expect(payoutComponent).toContain("trpc.adminOperations.payoutRequests.useQuery");
+    expect(payoutComponent).toContain("trpc.adminOperations.resolvePayoutRequest.useMutation");
+
+    const transactionReviewStart = operationsPagesSource.indexOf("export function AdminTransactionReview");
+    const transactionReview = operationsPagesSource.slice(transactionReviewStart, payoutComponentStart);
+    expect(transactionReview).not.toContain("adminOperations.payoutRequests");
+    expect(transactionReview).not.toContain("adminOperations.resolvePayoutRequest");
+    expect(transactionReview).toContain('focus === "capital" && <section');
+    expect(transactionReview).toContain("A capital and wallet-funding queue is not implemented.");
+    expect(transactionReview).toContain('focus === "reconciliation"');
+    expect(transactionReview).toContain('focus === "ledger"');
   });
 });

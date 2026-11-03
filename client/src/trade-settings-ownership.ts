@@ -487,8 +487,8 @@ const registryEntries: readonly RegistryEntry[] = [
   {
     key: "trade.companyCatalogue.bulkStatus", scope: "record", ownerRoute: "trade-company-catalogue",
     section: "approval-and-lifecycle", label: "Company catalogue status action",
-    explanation: "Bulk mark selected reference records verified/unverified, enabled/disabled, archive or restore them to unverified.",
-    units: "one or more stable Logo IDs", validation: "Existing mutation accepts 1–1,811 valid catalogue IDs, a supported status and a 3–500 character reason; restore is unverified.",
+    explanation: "Bulk mark selected reference records verified/unverified, enabled/disabled, archive them, or restore them by clearing archived status only; verification and enablement remain independent.",
+    units: "one or more stable Logo IDs", validation: "Mutation accepts 1–1,811 valid catalogue IDs, a supported status and a trimmed 8–500 character reason; restore clears archivedIds only and preserves verifiedIds and disabledIds.",
     saveMutation: "companyCatalogueReference.updateAdminState", readQuery: "companyCatalogueReference.adminState",
     auditRequirement: "Administrator actor, submitted reason, selected IDs and resulting status are required by the existing status-update contract.",
     effectiveTime: "Immediately on subsequent customer catalogue/pop-up reads; historical completed snapshots are not rewritten.",
@@ -507,6 +507,18 @@ const registryEntries: readonly RegistryEntry[] = [
     runtimeConsumer: "Tier qualification worker and durable qualification-job queue.",
     customerImpact: "May cause the worker to recompute tier eligibility from the original qualifying ledger record; it does not itself change funds or directly assign a tier.",
     risk: "high", availability: "available", controlContract: "adminOperations.requeueDeadQualificationJob",
+  },
+  {
+    key: "trade.manualPayouts.review", scope: "record", ownerRoute: "trade-manual-payouts",
+    section: "manual-payout-review", label: "Manual payout request review and resolution",
+    explanation: "The sole Trade Settings UI owner for listing manual payout requests and recording the existing paid/rejected administrative resolution.",
+    units: "one payout request", validation: "Uses the existing payout resolution validation and external-reference requirements; the route does not initiate a bank or blockchain transfer.",
+    saveMutation: "adminOperations.resolvePayoutRequest", readQuery: "adminOperations.payoutRequests",
+    auditRequirement: "Resolution uses the existing server-side manual payout request contract; no UI route duplicates or bypasses that mutation.",
+    effectiveTime: "Applies to the selected existing payout request only; no automatic transfer or trade settlement is triggered.",
+    runtimeConsumer: "Existing manual payout request list and resolution path; external transfer remains outside Arbitrade.",
+    customerImpact: "Records the administrator's existing payout resolution outcome; it does not execute an external payment.",
+    risk: "high", availability: "available", controlContract: "adminOperations.resolvePayoutRequest",
   },
 ];
 
@@ -533,6 +545,7 @@ export const tradeSettingsRouteOwnerIds = [
   "trade-fees-earnings",
   "trade-retries",
   "trade-active-pending",
+  "trade-manual-payouts",
   "trade-settlement",
   "trade-worker-health",
   "trade-audit-policy-history",

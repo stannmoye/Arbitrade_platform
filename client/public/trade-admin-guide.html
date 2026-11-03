@@ -73,6 +73,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <p>All Trading configuration and monitoring now lives under one top-level <strong>Trade Settings</strong> group. Each setting has one primary page. The persistent Trading controls panel above page content (except Home) is the only place for the per-tier ON/OFF switches.</p>
 <div class="table-wrap"><table><thead><tr><th>Trade Settings submenu</th><th>What it is for</th><th>What you do there</th></tr></thead><tbody>
 <tr><td><strong>Trading Overview</strong></td><td>Operations summary</td><td>Review delivery totals, pending work, open opportunities, settlement status and global pause state.</td></tr>
+<tr><td><strong>Package Configuration</strong></td><td>Global policy owner</td><td>Manage global eligibility, informational pop-up delivery, company rotation, randomized timing, burst delivery and the allocation safety gate.</td></tr>
 <tr><td><strong>Tiers &amp; Eligibility</strong></td><td>Package entitlement rules</td><td>Edit tier names, qualifying thresholds, duration, daily opportunity entitlement and effective dates.</td></tr>
 <tr><td><strong>Per-tier Daily Delivery Caps</strong></td><td>Operational delivery ceilings</td><td>Set the hard daily pop-up ceiling, concurrent visible-offer limit, optional target cap and counting window.</td></tr>
 <tr><td><strong>Per-tier Offer Rules &amp; Capital Limits</strong></td><td>Published offer constraints</td><td>Set required capital bounds and configured reward-rate/duration eligibility bounds. Switches are not repeated here.</td></tr>
@@ -82,17 +83,18 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <tr><td><strong>Per-tier Pop-up Display</strong></td><td>Display-only settings</td><td>Adjust expanded pop-up and completion-card display durations.</td></tr>
 <tr><td><strong>Per-tier Company Rotation Rules</strong></td><td>Rotation configuration</td><td>Choose approved-company country filters and repeat-handling rules. ON/OFF is in the persistent controls panel.</td></tr>
 <tr><td><strong>Company Catalogue</strong></td><td>Reference records</td><td>Search and manage company reference records and their approval status. This page does not repeat rotation settings.</td></tr>
-<tr><td><strong>Capital &amp; Wallet Funding Rules</strong></td><td>Capital policy</td><td>Review required capital and permitted wallet funding rules.</td></tr>
+<tr><td><strong>Capital &amp; Wallet Funding Rules</strong></td><td>Read-only availability</td><td>The funding queue is not implemented. This route shows an explicit unavailable state and has no payout or settlement controls.</td></tr>
 <tr><td><strong>Fees &amp; Earnings Limits</strong></td><td>Fee policy</td><td>Configure Trading fees and review earnings ceilings.</td></tr>
 <tr><td><strong>Retries &amp; Carry-Forward</strong></td><td>Recovery policy</td><td>Review retry settings and carry-forward availability. The stored per-tier delivery-attempt field is not currently consumed by the worker; carry-forward is not currently enabled.</td></tr>
 <tr><td><strong>Active &amp; Pending Opportunities</strong></td><td>Lifecycle monitoring</td><td>Review delivery events waiting for customer or system action.</td></tr>
-<tr><td><strong>Settlement &amp; Reconciliation</strong></td><td>Ledger review</td><td>Inspect confirmed outcomes and reconcile trade records against wallet/ledger entries.</td></tr>
-<tr><td><strong>System Pause &amp; Safety</strong></td><td>Global pause</td><td>Pause or resume new allocations with an audit reason while preserving pending work and reconciliation.</td></tr>
+<tr><td><strong>Manual Payouts</strong></td><td>Manual payout request owner</td><td>Review requests and record the existing paid/rejected administrative outcome. Any external bank or blockchain transfer occurs outside Arbitrade; this screen does not initiate one.</td></tr>
+<tr><td><strong>Settlement &amp; Reconciliation</strong></td><td>Trade settlement records</td><td>Confirm trade outcomes and review/reconcile trade settlement records only. Payout requests are handled on Manual Payouts.</td></tr>
 <tr><td><strong>Worker Health &amp; Recovery</strong></td><td>Background services</td><td>Check worker heartbeats, delayed work, queues and audited recovery actions.</td></tr>
 <tr><td><strong>Audit &amp; Policy History</strong></td><td>Administrator audit log</td><td>Review who changed Trading settings, why and which policy version was saved.</td></tr>
 <tr><td><strong>Trade Settings Guide</strong></td><td>This handbook</td><td>Read explanations without changing Trading data.</td></tr>
 </tbody></table></div>
 <div class="callout">The persistent Trading controls panel owns the per-tier Tier policy, Pop-up delivery, Company rotation, Randomized timing and Burst delivery switches. They are not repeated on the detailed settings pages. Customer package browsing and activation controls are not available.</div>
+<div class="callout warn"><strong>Keep finance work separate:</strong> Finance → Wallet &amp; Ledger is read-only wallet/ledger activity and balance reconciliation; it does not resolve payout requests or settle trades. Trade Settings → Manual Payouts is the only payout-review route. Capital &amp; Wallet Funding Rules is explicitly unavailable/read-only until a funding queue is implemented.</div>
 </section>
 
 <section class="section anchor" id="tiers">

@@ -190,8 +190,32 @@ describe("Trading fee-policy navigation", () => {
   it("opens the administrator screen that actually edits realized-profit fees", () => {
     const item = navigation.match(/id: "trade-fees-earnings", target: "([^"]+)"/);
     expect(item?.[1]).toBe("transactionReview");
-    expect(adminApp).toContain("{section===\"transactionReview\"&&<AdminTransactionReview focus={focus as \"capital\"|\"fees\"|\"reconciliation\"|undefined}/>}");
+    expect(adminApp).toContain("{section===\"transactionReview\"&&<AdminTransactionReview focus={focus as \"ledger\"|\"capital\"|\"fees\"|\"reconciliation\"|undefined}/>}");
     expect(operationsUi).toContain("trpc.adminOperations.updateTradeFeePolicy.useMutation");
+  });
+});
+
+describe("Manual payout navigation ownership", () => {
+  it("exposes payout review once under Trade Settings, separate from read-only finance and trade settlement", () => {
+    expect(navigation).toContain('id: "trade-manual-payouts", target: "manualPayouts", label: "Manual Payouts"');
+    expect(navigation.match(/target: "manualPayouts"/g)).toHaveLength(1);
+    expect(navigation).toContain('id: "wallet-ledger", target: "transactionReview", focus: "ledger"');
+    expect(navigation).toContain('id: "trade-settlement", target: "transactionReview", focus: "reconciliation"');
+    expect(navigation).toContain("Funding queue unavailable; read-only status, no payout or settlement actions");
+    expect(adminApp).toContain('section==="manualPayouts"');
+    expect(adminApp).toContain("AdminManualPayouts");
+
+    const payoutStart = operationsUi.indexOf("export function AdminManualPayouts()");
+    const nextComponent = operationsUi.indexOf("function csvCell(value: unknown)", payoutStart);
+    const transactionReviewStart = operationsUi.indexOf("export function AdminTransactionReview");
+    expect(payoutStart).toBeGreaterThanOrEqual(0);
+    expect(nextComponent).toBeGreaterThan(payoutStart);
+    const payoutOwner = operationsUi.slice(payoutStart, nextComponent);
+    const transactionReview = operationsUi.slice(transactionReviewStart, payoutStart);
+    expect(payoutOwner).toContain("trpc.adminOperations.payoutRequests.useQuery");
+    expect(payoutOwner).toContain("trpc.adminOperations.resolvePayoutRequest.useMutation");
+    expect(transactionReview).not.toContain("adminOperations.payoutRequests");
+    expect(transactionReview).not.toContain("adminOperations.resolvePayoutRequest");
   });
 });
 

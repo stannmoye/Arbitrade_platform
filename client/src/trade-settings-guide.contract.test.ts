@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { adminNavigationGroups } from "./admin-navigation";
-import { ownerLinks, statusDefinitions, troubleshooting } from "./components/TradeSettingsAdminGuide";
+import { fieldGlossary, ownerLinks, statusDefinitions, troubleshooting } from "./components/TradeSettingsAdminGuide";
+import { tradeSettingsOwnershipRegistry } from "./trade-settings-ownership";
 
 const guideSource = readFileSync(new URL("./components/TradeSettingsAdminGuide.tsx", import.meta.url), "utf8");
 const tradeRoutes = adminNavigationGroups.find((group) => group.id === "trade-settings")?.items ?? [];
@@ -21,6 +22,33 @@ describe("mounted Trade Settings Guide contract", () => {
     }
   });
 
+  it("projects every ownership-registry entry into a complete glossary row with its registered owner link", () => {
+    expect(fieldGlossary).toHaveLength(tradeSettingsOwnershipRegistry.length);
+    expect(fieldGlossary.map((entry) => entry.key)).toEqual(tradeSettingsOwnershipRegistry.map((entry) => entry.key));
+    expect(fieldGlossary).toEqual(tradeSettingsOwnershipRegistry.map((entry) => ({
+      key: entry.key,
+      label: entry.label,
+      scope: entry.scope === "global" ? "Global" : entry.scope === "package" ? "One package/tier" : "One operational record",
+      units: entry.units,
+      validation: entry.validation,
+      effectiveTime: entry.effectiveTime,
+      customerImpact: entry.customerImpact,
+      ownerRoute: entry.ownerRoute,
+    })));
+    for (const entry of fieldGlossary) {
+      expect(entry.label.trim(), `${entry.key} label`).not.toBe("");
+      expect(entry.scope.trim(), `${entry.key} scope`).not.toBe("");
+      expect(entry.units.trim(), `${entry.key} units`).not.toBe("");
+      expect(entry.validation.trim(), `${entry.key} validation/range`).not.toBe("");
+      expect(entry.effectiveTime.trim(), `${entry.key} effective time`).not.toBe("");
+      expect(entry.customerImpact.trim(), `${entry.key} customer impact`).not.toBe("");
+      expect(ownerLinks.find((link) => link.routeId === entry.ownerRoute), `${entry.key} owner link`).toBeDefined();
+    }
+    expect(guideSource).toContain("Read-only field glossary");
+    expect(guideSource).toContain("Units / range");
+    expect(guideSource).toContain("no separate default-value field");
+  });
+
   it("routes troubleshooting links through current navigation IDs and destinations", () => {
     for (const item of troubleshooting) {
       const route = ownerRoutes.find((candidate) => candidate.id === item.routeId);
@@ -29,6 +57,28 @@ describe("mounted Trade Settings Guide contract", () => {
       expect(item.focus, `${item.issue} focus`).toBe(route?.focus);
       expect(item.description.trim().length).toBeGreaterThan(20);
     }
+  });
+
+  it("explains how to prepare a tier and check the informational-delivery prerequisites", () => {
+    for (const phrase of [
+      "Prepare a package (tier)",
+      "qualifying threshold in USD minor units",
+      "calendar months",
+      "future automatic assignments",
+      "valid saved policy",
+      "administrator-published open opportunity",
+      "remaining quota",
+      "due schedule",
+      "healthy delivery worker",
+      "Market-data refresh is not opportunity publication",
+    ]) {
+      expect(guideSource).toContain(phrase);
+    }
+  });
+
+  it("refreshes the reviewed-source SHA to the requested starting HEAD", () => {
+    expect(guideSource).toContain("21a8221405979794f210b2d3222741392b857984");
+    expect(guideSource).not.toContain("32215a3f48b52fb901d9efc4b0760e25eb74faf9");
   });
 
   it("distinguishes open offers, informational delivery, allocation, review, settlement and payout", () => {

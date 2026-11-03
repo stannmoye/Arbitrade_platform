@@ -312,21 +312,21 @@ export function AdminRiskWatchlist() {
   );
 }
 
-export function AdminTransactionReview({ focus }: { focus?: "capital" | "fees" | "reconciliation" }) {
+export function AdminTransactionReview({ focus }: { focus?: "ledger" | "capital" | "fees" | "reconciliation" }) {
   const [ledgerCustomerId, setLedgerCustomerId] = useState("");
   const [ledgerUtcDay, setLedgerUtcDay] = useState("");
   const ledgerUserId = /^[1-9]\d*$/.test(ledgerCustomerId.trim()) && Number.isSafeInteger(Number(ledgerCustomerId)) ? Number(ledgerCustomerId) : undefined;
   const ledgerFilterValid = ledgerCustomerId.trim() === "" || ledgerUserId !== undefined;
   const ledgerFilter = { ...(ledgerUserId === undefined ? {} : { userId: ledgerUserId }), ...(ledgerUtcDay ? { utcDay: ledgerUtcDay } : {}) };
-  const ledgerQuery = trpc.adminOperations.ledgerActivity.useQuery(ledgerFilter, { enabled: ledgerFilterValid, refetchInterval: 10_000 });
-  const pendingQuery = trpc.adminOperations.pendingSettlements.useQuery(undefined, { refetchInterval: 5_000 });
+  const ledgerQuery = trpc.adminOperations.ledgerActivity.useQuery(ledgerFilter, { enabled: ledgerFilterValid && (focus === "ledger" || !focus), refetchInterval: 10_000 });
+  const pendingQuery = trpc.adminOperations.pendingSettlements.useQuery(undefined, { enabled: focus === "reconciliation", refetchInterval: 5_000 });
   const [integrityBeforeTradeId, setIntegrityBeforeTradeId] = useState<number | undefined>(undefined);
   const [walletReconciliationAfter, setWalletReconciliationAfter] = useState<{ afterUserId: number; afterCurrency: string } | undefined>(undefined);
   const [settlementLedgerBeforeTradeId, setSettlementLedgerBeforeTradeId] = useState<number | undefined>(undefined);
   const integrityQuery = trpc.adminOperations.settlementIntegrityIssues.useQuery({
     limit: 250,
     ...(integrityBeforeTradeId === undefined ? {} : { beforeTradeId: integrityBeforeTradeId }),
-  }, { refetchInterval: 30_000 });
+  }, { enabled: focus === "reconciliation", refetchInterval: 30_000 });
   const walletLedgerReconciliationQuery = trpc.adminOperations.walletLedgerReconciliation.useQuery({
     limit: 250,
     ...(walletReconciliationAfter === undefined ? {} : {
@@ -334,18 +334,15 @@ export function AdminTransactionReview({ focus }: { focus?: "capital" | "fees" |
       afterCurrency: walletReconciliationAfter.afterCurrency,
     }),
     ...(settlementLedgerBeforeTradeId === undefined ? {} : { beforeTradeId: settlementLedgerBeforeTradeId }),
-  }, { refetchInterval: 30_000 });
-  const confirmSettlement = trpc.adminOperations.confirmManualSettlement.useMutation({ onSuccess: () => { pendingQuery.refetch(); ledgerQuery.refetch(); integrityQuery.refetch(); walletLedgerReconciliationQuery.refetch(); } });
-  const tradeFeePolicyQuery = trpc.adminOperations.tradeFeePolicy.useQuery(undefined, { staleTime: 60_000 });
+  }, { enabled: focus === "ledger" || focus === "reconciliation", refetchInterval: 30_000 });
+  const confirmSettlement = trpc.adminOperations.confirmManualSettlement.useMutation({ onSuccess: () => { pendingQuery.refetch(); integrityQuery.refetch(); walletLedgerReconciliationQuery.refetch(); } });
+  const tradeFeePolicyQuery = trpc.adminOperations.tradeFeePolicy.useQuery(undefined, { enabled: focus === "fees", staleTime: 60_000 });
   const [feePolicyDraft, setFeePolicyDraft] = useState<{ feePercent: string; roundingMode: "half_up" | "down" | "up" | "half_even" } | null>(null);
   const feePolicy = tradeFeePolicyQuery.data;
   const feeDraft = feePolicyDraft ?? { feePercent: feePolicy ? String(feePolicy.feeRateBps / 100) : "15", roundingMode: feePolicy?.roundingMode ?? "half_up" };
   const updateTradeFeePolicy = trpc.adminOperations.updateTradeFeePolicy.useMutation({ onSuccess: () => { setFeePolicyDraft(null); tradeFeePolicyQuery.refetch(); } });
-  const payoutQuery = trpc.adminOperations.payoutRequests.useQuery(undefined, { refetchInterval: 5_000 });
-  const resolvePayout = trpc.adminOperations.resolvePayoutRequest.useMutation({ onSuccess: () => { payoutQuery.refetch(); ledgerQuery.refetch(); } });
-  const [payoutDrafts, setPayoutDrafts] = useState<Record<number, { externalReference: string; note: string }>>({});
   const [drafts, setDrafts] = useState<Record<number, { grossProfitMinor: string; reference: string }>>({});
-  const currencyQuery = trpc.adminOperations.currencies.useQuery(undefined, { staleTime: 60_000 });
+  const currencyQuery = trpc.adminOperations.currencies.useQuery(undefined, { enabled: focus === "ledger", staleTime: 60_000 });
   const rows = (ledgerQuery.data ?? []) as unknown as LedgerRecord[];
   const currencies = (currencyQuery.data ?? []) as unknown as Array<{ code: string; scale: number }>;
   const scales = new Map(currencies.map((currency) => [currency.code.toUpperCase(), Math.max(0, Math.min(8, Number(currency.scale) || 0))]));
@@ -357,8 +354,13 @@ export function AdminTransactionReview({ focus }: { focus?: "capital" | "fees" |
   };
 
   return (
-    <ToolPage eyebrow="Append-only balance ledger" title={focus === "fees" ? "Returns and fees" : focus === "capital" ? "Money used for trades" : focus === "reconciliation" ? "Check finished trades" : "Transaction review"} description={focus === "fees" ? "Set the fee taken only from confirmed positive profit. Losses and zero-profit trades have no profit fee." : focus === "capital" ? "Review wallet movements and the money reserved for trade activity." : focus === "reconciliation" ? "Compare finished trades with their ledger records before treating them as settled." : "Review wallet ledger entries and confirm manually settled trades. Elapsed time never credits a reward or releases principal."} icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { ledgerQuery.refetch(); pendingQuery.refetch(); integrityQuery.refetch(); walletLedgerReconciliationQuery.refetch(); payoutQuery.refetch(); }} disabled={ledgerQuery.isFetching || pendingQuery.isFetching || integrityQuery.isFetching || walletLedgerReconciliationQuery.isFetching || payoutQuery.isFetching}><RefreshCw size={14} /> Refresh</button>}>
-      {ledgerQuery.isLoading ? <LoadingState /> : ledgerQuery.isError ? <div className="admin-ops-empty error">The balance ledger could not be loaded.</div> : <>
+    <ToolPage eyebrow={focus === "reconciliation" ? "Trade settlement records" : focus === "fees" ? "Trading fee policy" : focus === "capital" ? "Capital and wallet funding" : "Append-only balance ledger"} title={focus === "fees" ? "Returns and fees" : focus === "capital" ? "Capital & Wallet Funding" : focus === "reconciliation" ? "Settlement & Reconciliation" : "Wallet & Ledger"} description={focus === "fees" ? "Set the fee taken only from confirmed positive profit. Losses and zero-profit trades have no profit fee." : focus === "capital" ? "Read-only availability status for the unimplemented capital and wallet-funding queue." : focus === "reconciliation" ? "Review and reconcile trade settlement records only." : "Read-only wallet balances, reconciliation and transaction history."} icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { if (focus === "fees") tradeFeePolicyQuery.refetch(); else if (focus === "reconciliation") { pendingQuery.refetch(); integrityQuery.refetch(); walletLedgerReconciliationQuery.refetch(); } else if (focus === "ledger" || !focus) { ledgerQuery.refetch(); walletLedgerReconciliationQuery.refetch(); currencyQuery.refetch(); } }} disabled={focus === "fees" ? tradeFeePolicyQuery.isFetching : focus === "reconciliation" ? pendingQuery.isFetching || integrityQuery.isFetching || walletLedgerReconciliationQuery.isFetching : focus === "ledger" || !focus ? ledgerQuery.isFetching || walletLedgerReconciliationQuery.isFetching || currencyQuery.isFetching : false}><RefreshCw size={14} /> Refresh</button>}>
+      {focus === "capital" && <section className="admin-ops-panel" aria-label="Capital and wallet funding availability">
+        <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Read-only availability</span><h2>Capital &amp; Wallet Funding</h2></div><span className="admin-ops-subtle">Unavailable</span></div>
+        <div className="admin-ops-empty compact">A capital and wallet-funding queue is not implemented. No funding, payout, or settlement actions are available on this route.</div>
+      </section>}
+      {focus === "capital" ? null : ledgerQuery.isLoading && (focus === "ledger" || !focus) ? <LoadingState /> : ledgerQuery.isError && (focus === "ledger" || !focus) ? <div className="admin-ops-empty error">The balance ledger could not be loaded.</div> : <>
+        {focus === "fees" && <>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Realized-profit fee policy</span><h2>Trading platform fee</h2></div><span className="admin-ops-subtle">Policy v{feePolicy?.policyVersion ?? 1}</span></div>
           <p>Applies only to confirmed positive gross profit. Zero-profit and loss settlements incur no profit-based fee. The default policy is 15%.</p>
@@ -382,6 +384,8 @@ export function AdminTransactionReview({ focus }: { focus?: "capital" | "fees" |
           </div>
           <div className="admin-ops-note"><ShieldCheck size={16} /><span>Changes are audited and versioned. Each settlement stores the fee rate, rounding rule, and policy version used.</span></div>
         </section>
+        </>}
+        {focus === "reconciliation" && <>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Settlement and delayed-credit queue</span><h2>Review results and track wallet credits</h2></div><span className="admin-ops-subtle">{pendingQuery.data?.length ?? 0} waiting</span></div>
           {pendingQuery.isError && <div className="admin-ops-empty error">Pending settlements could not be loaded. Refresh before attempting any settlement.</div>}
@@ -414,6 +418,8 @@ export function AdminTransactionReview({ focus }: { focus?: "capital" | "fees" |
           </tbody></table></div>}
           <div className="admin-ops-note"><ShieldCheck size={16} /><span>Confirm only after independently verifying the actual result and evidence reference. Review becomes available when the configured settlement-review delay ends. Confirmation records the result and fee-policy snapshot but does not release principal or credit earnings. The server-side worker posts the wallet and ledger exactly once when the saved creditAt is reached; elapsed time alone never confirms a result.</span></div>
         </section>
+        </>}
+        {focus === "ledger" && <>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head">
             <div><span className="admin-ops-kicker">Read-only wallet reconciliation</span><h2>Available balances versus signed ledger entries</h2></div>
@@ -443,6 +449,8 @@ export function AdminTransactionReview({ focus }: { focus?: "capital" | "fees" |
             </div>
           </>}
         </section>
+        </>}
+        {focus === "reconciliation" && <>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head">
             <div><span className="admin-ops-kicker">Read-only settlement ledger audit</span><h2>Expected postings versus recorded ledger</h2></div>
@@ -470,6 +478,8 @@ export function AdminTransactionReview({ focus }: { focus?: "capital" | "fees" |
           </>}
           <div className="admin-ops-note"><ShieldCheck size={16} /><span>This audit is investigative, not a repair command. Missing historical results or references remain inconclusive. Any justified correction must be separately authorized, evidence-backed, idempotent, and recorded with compensating ledger entries rather than rewriting old entries.</span></div>
         </section>
+        </>}
+        {focus === "reconciliation" && <>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Read-only settlement integrity scan</span><h2>Settlement state and reservation issues</h2></div><span className="admin-ops-subtle">{integrityQuery.data?.issues.length ?? 0} flagged</span></div>
           <p>This scan checks saved settlement state, claims and reservation transitions. It is paginated and never changes balances, creates ledger entries, or infers missing profit results.</p>
@@ -491,6 +501,57 @@ export function AdminTransactionReview({ focus }: { focus?: "capital" | "fees" |
             </div>
           </>}
         </section>
+        </>}
+        {focus === "ledger" && (
+          <section className="admin-ops-metrics compact-metrics">
+          <Metric label="Entries shown" value={rows.length} icon={FileText} />
+          <Metric label="Positive entries" value={rows.filter((row) => Number(row.amountMinor) > 0).length} icon={CheckCircle2} />
+          <Metric label="Negative entries" value={rows.filter((row) => Number(row.amountMinor) < 0).length} icon={AlertTriangle} />
+          <Metric label="Currencies represented" value={new Set(rows.map((row) => row.currency)).size} icon={CircleDollarSign} />
+          </section>
+        )}
+        {focus === "ledger" && <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Latest database entries</span><h2>Wallet activity</h2></div><span className="admin-ops-subtle">Up to 150 · {ledgerUserId ? `Customer ${ledgerUserId}` : "All customers"} · {ledgerUtcDay || "All UTC dates"}</span></div>
+          <div className="admin-ops-form-grid" aria-label="Filter wallet database entries">
+            <label>Customer user ID (optional)
+              <input type="number" min={1} step={1} value={ledgerCustomerId} onChange={event => setLedgerCustomerId(event.target.value)} aria-label="Customer user ID" />
+            </label>
+            <label>UTC day (optional)
+              <input type="date" value={ledgerUtcDay} onChange={event => setLedgerUtcDay(event.target.value)} aria-label="UTC day" />
+            </label>
+            <div className="admin-ops-form-actions">
+              <button className="admin-ops-button" type="button" onClick={() => { setLedgerCustomerId(""); setLedgerUtcDay(""); }}>Clear filters</button>
+            </div>
+          </div>
+          {!ledgerFilterValid && <div className="admin-ops-empty error" role="alert">Enter a positive whole customer ID to filter ledger entries.</div>}
+          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Wallet activity ledger" onKeyDown={(event) => { if (event.key === "ArrowRight") { event.preventDefault(); event.currentTarget.scrollLeft += 80; } else if (event.key === "ArrowLeft") { event.preventDefault(); event.currentTarget.scrollLeft -= 80; } }}><table className="admin-ops-table"><thead><tr><th>Recorded</th><th>Customer</th><th>Entry type</th><th>Amount</th><th>Withdrawable</th></tr></thead><tbody>
+            {rows.map((row) => <tr key={row.id}><td>{timestamp(row.createdAt)}</td><td><strong>{row.customerName || "Customer"}</strong><small>{row.customerEmail || `Account ${row.userId}`}</small></td><td><span className="admin-ops-entry-type">{row.entryType}</span></td><td className={Number(row.amountMinor) < 0 ? "amount-negative" : "amount-positive"}>{formatAmount(Number(row.amountMinor), row.currency)}</td><td><StatusPill tone={row.withdrawable ? "good" : "neutral"}>{row.withdrawable ? "Yes" : "No"}</StatusPill></td></tr>)}
+            {!rows.length && <tr><td colSpan={5} className="admin-ops-table-empty">No wallet ledger entries have been recorded.</td></tr>}
+          </tbody></table></div>
+        </section>}
+        {focus === "ledger" && <div className="admin-ops-note"><CircleDollarSign size={16} /><span>Amounts are formatted from the configured currency scale and the ledger’s stored minor-unit integer. The ledger view is read-only.</span></div>}
+      </>}
+    </ToolPage>
+  );
+}
+
+
+export function AdminManualPayouts() {
+  const payoutQuery = trpc.adminOperations.payoutRequests.useQuery(undefined, { refetchInterval: 5_000 });
+  const resolvePayout = trpc.adminOperations.resolvePayoutRequest.useMutation({ onSuccess: () => { payoutQuery.refetch(); } });
+  const [payoutDrafts, setPayoutDrafts] = useState<Record<number, { externalReference: string; note: string }>>({});
+  const currencyQuery = trpc.adminOperations.currencies.useQuery(undefined, { staleTime: 60_000 });
+  const currencies = (currencyQuery.data ?? []) as unknown as Array<{ code: string; scale: number }>;
+  const scales = new Map(currencies.map((currency) => [currency.code.toUpperCase(), Math.max(0, Math.min(8, Number(currency.scale) || 0))]));
+  const formatAmount = (amountMinor: number, currency: string) => {
+    const code = currency.toUpperCase();
+    const scale = scales.get(code) ?? 2;
+    const value = Number(amountMinor) / (10 ** scale);
+    return `${code} ${new Intl.NumberFormat("en-US", { minimumFractionDigits: scale, maximumFractionDigits: scale }).format(value)}`;
+  };
+
+  return (
+    <ToolPage eyebrow="Manual payout review" title="Manual Payouts" description="Review pending customer payout requests and record a manual outcome. No external bank or blockchain transfer is initiated here." icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => payoutQuery.refetch()} disabled={payoutQuery.isFetching}><RefreshCw size={14} /> Refresh</button>}>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head">
             <div><span className="admin-ops-kicker">Manual payout processing</span><h2>Customer payout requests</h2></div>
@@ -534,33 +595,6 @@ export function AdminTransactionReview({ focus }: { focus?: "capital" | "fees" |
             </div>
           </>}
         </section>
-        <section className="admin-ops-metrics compact-metrics">
-          <Metric label="Entries shown" value={rows.length} icon={FileText} />
-          <Metric label="Positive entries" value={rows.filter((row) => Number(row.amountMinor) > 0).length} icon={CheckCircle2} />
-          <Metric label="Negative entries" value={rows.filter((row) => Number(row.amountMinor) < 0).length} icon={AlertTriangle} />
-          <Metric label="Currencies represented" value={new Set(rows.map((row) => row.currency)).size} icon={CircleDollarSign} />
-        </section>
-        <section className="admin-ops-panel">
-          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Latest database entries</span><h2>Wallet activity</h2></div><span className="admin-ops-subtle">Up to 150 · {ledgerUserId ? `Customer ${ledgerUserId}` : "All customers"} · {ledgerUtcDay || "All UTC dates"}</span></div>
-          <div className="admin-ops-form-grid" aria-label="Filter wallet database entries">
-            <label>Customer user ID (optional)
-              <input type="number" min={1} step={1} value={ledgerCustomerId} onChange={event => setLedgerCustomerId(event.target.value)} aria-label="Customer user ID" />
-            </label>
-            <label>UTC day (optional)
-              <input type="date" value={ledgerUtcDay} onChange={event => setLedgerUtcDay(event.target.value)} aria-label="UTC day" />
-            </label>
-            <div className="admin-ops-form-actions">
-              <button className="admin-ops-button" type="button" onClick={() => { setLedgerCustomerId(""); setLedgerUtcDay(""); }}>Clear filters</button>
-            </div>
-          </div>
-          {!ledgerFilterValid && <div className="admin-ops-empty error" role="alert">Enter a positive whole customer ID to filter ledger entries.</div>}
-          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Wallet activity ledger" onKeyDown={(event) => { if (event.key === "ArrowRight") { event.preventDefault(); event.currentTarget.scrollLeft += 80; } else if (event.key === "ArrowLeft") { event.preventDefault(); event.currentTarget.scrollLeft -= 80; } }}><table className="admin-ops-table"><thead><tr><th>Recorded</th><th>Customer</th><th>Entry type</th><th>Amount</th><th>Withdrawable</th></tr></thead><tbody>
-            {rows.map((row) => <tr key={row.id}><td>{timestamp(row.createdAt)}</td><td><strong>{row.customerName || "Customer"}</strong><small>{row.customerEmail || `Account ${row.userId}`}</small></td><td><span className="admin-ops-entry-type">{row.entryType}</span></td><td className={Number(row.amountMinor) < 0 ? "amount-negative" : "amount-positive"}>{formatAmount(Number(row.amountMinor), row.currency)}</td><td><StatusPill tone={row.withdrawable ? "good" : "neutral"}>{row.withdrawable ? "Yes" : "No"}</StatusPill></td></tr>)}
-            {!rows.length && <tr><td colSpan={5} className="admin-ops-table-empty">No wallet ledger entries have been recorded.</td></tr>}
-          </tbody></table></div>
-        </section>
-        <div className="admin-ops-note"><CircleDollarSign size={16} /><span>Amounts are formatted from the configured currency scale and the ledger’s stored minor-unit integer. The ledger view is read-only.</span></div>
-      </>}
     </ToolPage>
   );
 }

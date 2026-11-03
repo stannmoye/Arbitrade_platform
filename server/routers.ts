@@ -105,8 +105,8 @@ export const appRouter = router({
     }),
     updateAdminState: adminProcedure.input(z.object({
       ids: z.array(z.string().regex(/^logo-brand-\d{4}$/)).min(1).max(1811),
-      status: z.enum(["verified", "unverified", "archived", "disabled", "enabled"]),
-      reason: z.string().trim().min(3).max(500),
+      status: z.enum(["verified", "unverified", "archived", "restored", "disabled", "enabled"]),
+      reason: z.string().trim().min(8).max(500),
     })).mutation(async ({ ctx, input }) => {
       const ids = [...new Set(input.ids)];
       if (ids.some(id => !getCompanyReferenceById(id))) {

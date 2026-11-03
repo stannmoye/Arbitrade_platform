@@ -98,6 +98,24 @@ describe("manual payout request lifecycle contract", () => {
     expect(adminUi).toContain("Mark paid");
   });
 
+  it("keeps payout list and review actions on the dedicated owner component only", () => {
+    const reviewStart = adminUi.indexOf("export function AdminTransactionReview");
+    const payoutStart = adminUi.indexOf("export function AdminManualPayouts()");
+    const nextComponent = adminUi.indexOf("function csvCell(value: unknown)", payoutStart);
+    expect(reviewStart).toBeGreaterThanOrEqual(0);
+    expect(payoutStart).toBeGreaterThan(reviewStart);
+    expect(nextComponent).toBeGreaterThan(payoutStart);
+    const financeAndSettlement = adminUi.slice(reviewStart, payoutStart);
+    const payoutOwner = adminUi.slice(payoutStart, nextComponent);
+    expect(financeAndSettlement).not.toContain("adminOperations.payoutRequests");
+    expect(financeAndSettlement).not.toContain("adminOperations.resolvePayoutRequest");
+    expect(payoutOwner).toContain("trpc.adminOperations.payoutRequests.useQuery");
+    expect(payoutOwner).toContain("trpc.adminOperations.resolvePayoutRequest.useMutation");
+    expect(payoutOwner).toContain('action: "paid"');
+    expect(payoutOwner).toContain('action: "rejected"');
+    expect(payoutOwner).toContain("No external bank or blockchain transfer is initiated here.");
+  });
+
   it("keeps the payout browser acceptance script parseable and focused on real user-visible flow states", async () => {
     const parsed = await transform(payoutBrowserAcceptance, { loader: "js", target: "node22" });
     expect(parsed.code).toContain('procedure === "customer.requestPayout"');

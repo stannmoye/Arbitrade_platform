@@ -376,6 +376,7 @@ These controls define how new customers are screened and onboarded. Country-spec
 | Submenu | What it controls |
 |---|---|
 | **Trading Overview** | Current delivery totals, pending work, open opportunities, settlement status and the global pause state. |
+| **Package Configuration** | The single owner for global eligibility, informational pop-up delivery, company rotation, randomized timing, burst delivery and the allocation safety gate. |
 | **Tiers & Eligibility** | Tier name, qualifying USD threshold, entitlement duration, daily opportunity entitlement, effective dates and enabled state. Only qualifying admin-issued credits determine automatic eligibility. |
 | **Per-tier Daily Delivery Caps** | The hard daily pop-up ceiling, maximum visible offers, optional daily target cap and the delivery-counting window. These are operational limits: they can reduce the tier entitlement but cannot increase it. |
 | **Per-tier Offer Rules & Capital Limits** | Required capital bounds and configured reward-rate/trade-duration eligibility bounds. ON/OFF switches are located only in the persistent Trading controls panel above the page content. |
@@ -389,11 +390,14 @@ These controls define how new customers are screened and onboarded. Country-spec
 | **Fees & Earnings Limits** | Configure the Trading fee policy and review configured earnings ceilings. |
 | **Retries & Carry-Forward** | Configure bounded retry limits and review recovery behaviour. Carry-forward across daily windows is not currently enabled. |
 | **Active & Pending Opportunities** | Review opportunity delivery and lifecycle records waiting for customer or system action. |
-| **Settlement & Reconciliation** | Review confirmed trade outcomes and reconcile trade records against wallet and ledger entries. |
+| **Manual Payouts** | The sole Trade Settings route for listing payout requests and recording the existing administrator paid/rejected resolution. Any external bank or blockchain transfer occurs outside Arbitrade; this page does not initiate one. |
+| **Settlement & Reconciliation** | Confirm trade outcomes and review/reconcile trade settlement records only. Payout requests are handled on Manual Payouts. |
 | **System Pause & Safety** | Pause or resume new allocations with an audit reason; pending work and required reconciliation must remain available. |
 | **Worker Health & Recovery** | Inspect worker heartbeats, queue status, delayed work and audited recovery actions. |
 | **Audit & Policy History** | Review who changed Trading settings, the reason, previous/new values and saved policy versions. |
 | **Trade Settings Guide** | Read the in-portal guide without changing Trading data. |
+
+**Distinct finance and funding routes:** Finance → **Wallet & Ledger** is read-only wallet/ledger activity and balance reconciliation; it does not review or resolve payout requests or settle trades. **Capital & Wallet Funding Rules** currently has no implemented funding queue and therefore presents an explicit read-only unavailable state, with no payout or settlement controls. Manual payout review is owned only by Trade Settings → **Manual Payouts**.
 
 ### One owner for each setting
 

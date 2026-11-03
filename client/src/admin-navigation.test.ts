@@ -24,6 +24,7 @@ describe("Trading administrator navigation", () => {
       "Fees & Earnings Limits",
       "Retries & Carry-Forward",
       "Active & Pending Opportunities",
+      "Manual Payouts",
       "Settlement & Reconciliation",
       "Worker Health & Recovery",
       "Audit & Policy History",
@@ -48,11 +49,18 @@ describe("Trading administrator navigation", () => {
       "tradeSystemOverview", "tradePackageConfiguration", "packages", "packages", "packages", "opportunity", "packages",
       "tradeDurationRules", "tradeCustomerDisplay", "packages", "companyCatalogue",
       "transactionReview", "transactionReview", "tradeRetryPolicy", "deliveryMonitor",
-      "transactionReview", "tradeWorkerHealth", "audit", "tradeAdminGuide",
+      "manualPayouts", "transactionReview", "tradeWorkerHealth", "audit", "tradeAdminGuide",
     ]);
     expect(group("trade-settings")?.items.find((item) => item.id === "trade-package-configuration")?.target).toBe("tradePackageConfiguration");
     expect(group("trade-settings")?.items.find((item) => item.id === "trade-company-rotation")?.focus).toBe("rotation");
     expect(group("trade-settings")?.items.find((item) => item.id === "trade-company-catalogue")?.target).toBe("companyCatalogue");
+    const payoutOwner = group("trade-settings")?.items.find((item) => item.id === "trade-manual-payouts");
+    expect(payoutOwner?.target).toBe("manualPayouts");
+    expect(adminNavigationGroups.flatMap((item) => item.items).filter((item) => item.target === "manualPayouts")).toHaveLength(1);
+    expect(group("trade-settings")?.items.find((item) => item.id === "trade-settlement")?.target).toBe("transactionReview");
+    expect(group("trade-settings")?.items.find((item) => item.id === "trade-settlement")?.focus).toBe("reconciliation");
+    expect(adminNavigationGroups.flatMap((item) => item.items).find((item) => item.id === "wallet-ledger")?.focus).toBe("ledger");
+    expect(group("trade-settings")?.items.find((item) => item.id === "trade-capital-funding")?.detail).toMatch(/unavailable; read-only/i);
   });
 
   it("moves the five requested administrative sections and all their submenu entries to the right drawer", () => {
