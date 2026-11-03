@@ -380,7 +380,7 @@ These controls define how new customers are screened and onboarded. Country-spec
 | **Tiers & Eligibility** | Tier name, qualifying USD threshold, entitlement duration, daily opportunity entitlement, effective dates and enabled state. Only qualifying admin-issued credits determine automatic eligibility. |
 | **Per-tier Daily Delivery Caps** | The hard daily pop-up ceiling, maximum visible offers, optional daily target cap and the delivery-counting window. These are operational limits: they can reduce the tier entitlement but cannot increase it. |
 | **Per-tier Offer Rules & Capital Limits** | Required capital bounds and configured reward-rate/trade-duration eligibility bounds. ON/OFF switches are located only in the persistent Trading controls panel above the page content. |
-| **Opportunity Generation & Management** | Approve reusable source templates, pause/resume automatic generation, review durable worker batches and inspect customer-specific package assignments. Manual publishing and CSV imports are retired. |
+| **Automatic Opportunity Generation & Management** | Pause/resume automatic generation, review durable worker batches and inspect customer-specific package assignments generated directly from the approved company catalogue. Optional display templates are not required. Manual publishing and CSV imports are retired. |
 | **Per-tier Delivery Schedule** | Per-tier spacing between eligible pop-ups, randomized timing bounds and post-completion delivery intervals. |
 | **Global Trade Timing & Settlement** | Trade timing estimates and the global closing/settlement review settings. A scheduled time is not proof of execution or settlement. |
 | **Per-tier Pop-up Display** | Expanded pop-up and completion-card display durations. Display settings do not cancel active records. |
@@ -500,15 +500,15 @@ Shows persisted opportunity lifecycle totals, such as delivered, noticed, opened
 
 Displays the legacy/global countdown and signup-credit settings currently present in the opportunity workspace. Signup credits do not qualify customers for Trading tiers. Tier quotas, hard delivery caps, delivery schedules and policy switches are edited only in their dedicated Trade Settings submenu or the persistent controls panel.
 
-### Approved templates and generation control
+### Catalogue-driven generation and optional display overrides
 
-An authorized administrator selects a stable Logo ID from the currently verified/enabled/non-archived company catalogue and saves a reviewed template with base symbol/code, venues, currency, minimum minor units, source reference and review notes. Template approval is audited, and company approval is rechecked when the worker generates and persists the customer popup. Source references and notes are operator-provided and not independently verified. Templates cannot override package payout-rate or duration settings.
+The worker selects company identity directly from the existing admin-verified, enabled, non-archived catalogue, using the saved package country filters and rotation rules. The existing company name and logo are sufficient; a brand-only entry does not need a ticker, exchange listing or market feed. No manually created or approved template is required. Optional company-specific templates can enrich display metadata but do not gate company selection or generation. Package policy remains authoritative for capital bounds, configured return-rate range and duration.
 
 The versioned generation control is default-ON after migration 0103 and supports audited pause/resume. A missing or malformed control fails closed. Pausing stops new assignments; existing generated offers remain subject to saved expiry and separate package delivery controls. The monitor shows batch outcomes, daily generation/delivery/failure counts and recent customer assignments.
 
 ### Generated customer opportunities
 
-The worker creates one persisted offer per due qualifying customer/package assignment. It uses only administrator-approved template terms and that customer's saved package capital bounds, configured payout range, duration, schedule, quota and delivery settings. Exact terms, package/template versions, company snapshot, source provenance and idempotency key are retained. The admin list shows only customer-assigned generated offers; historical unassigned manual/imported records remain outside customer delivery. Reasoned audited closure stops future delivery but does not rewrite delivered popup/trade snapshots.
+The worker creates one persisted offer per due qualifying customer/package assignment. It uses the selected catalogue company's identity and that customer's saved package capital bounds, configured payout range, duration, schedule, quota and delivery settings. Exact terms, package/policy versions, company snapshot, optional template provenance and idempotency key are retained; template ID/version are null when no override is used. The admin list shows only customer-assigned generated offers; historical unassigned manual/imported records remain outside customer delivery. Reasoned audited closure stops future delivery but does not rewrite delivered popup/trade snapshots.
 
 ---
 
