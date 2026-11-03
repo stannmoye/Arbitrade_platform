@@ -913,7 +913,6 @@ async function runAdminAppearanceInteractionCheck(browser) {
     await page.setViewportSize({ width: 390, height: 844 });
 
     for (const tableCase of [
-      { label: "Trades awaiting manual settlement", check: "populated-settlement-table-keyboard-scroll", minimumRows: 10 },
       { label: "Wallet activity ledger", check: "populated-financial-table-keyboard-scroll", minimumRows: 20 },
     ]) {
       const region = page.getByRole("region", { name: tableCase.label });
@@ -966,6 +965,65 @@ async function runAdminAppearanceInteractionCheck(browser) {
         note: "Uses mocked administrator and ledger data; verifies the rendered table's keyboard scrolling and containment, not live ledger authorization or persistence.",
       });
     }
+
+    // Settlement & Reconciliation is a separate Trade Settings owner; it is
+    // intentionally not rendered on the Finance → Wallet & Ledger route.
+    const tradeSettingsGroup = page.getByRole("button", { name: /Trade Settings/ });
+    if (await tradeSettingsGroup.getAttribute("aria-expanded") !== "true") {
+      await tradeSettingsGroup.click();
+    }
+    const settlementDestination = page.locator(
+      '#admin-main-navigation button[title="Confirm trade outcomes and reconcile trade settlement records only"]',
+    );
+    await settlementDestination.waitFor({ state: "visible" });
+    await settlementDestination.click();
+    await page.getByRole("heading", { name: "Settlement & Reconciliation" }).waitFor({ state: "visible" });
+    const settlementRegion = page.getByRole("region", { name: "Trades awaiting manual settlement" });
+    await settlementRegion.waitFor({ state: "visible" });
+    const settlementBefore = await settlementRegion.evaluate(element => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      scrollLeft: element.scrollLeft,
+      tabIndex: element.tabIndex,
+      role: element.getAttribute("role"),
+      label: element.getAttribute("aria-label"),
+      rows: element.querySelectorAll("tbody tr").length,
+    }));
+    await settlementRegion.focus();
+    const settlementFocused = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") === "Trades awaiting manual settlement");
+    await page.keyboard.press("ArrowRight");
+    await page.waitForTimeout(100);
+    const settlementAfter = await settlementRegion.evaluate(element => ({
+      scrollLeft: element.scrollLeft,
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+    }));
+    record("populated-settlement-table-keyboard-scroll",
+      settlementBefore.rows >= 10 &&
+      settlementBefore.scrollWidth > settlementBefore.clientWidth &&
+      settlementBefore.tabIndex === 0 &&
+      settlementBefore.role === "region" &&
+      settlementBefore.label === "Trades awaiting manual settlement" &&
+      settlementFocused &&
+      settlementAfter.scrollLeft > settlementBefore.scrollLeft &&
+      settlementAfter.documentWidth <= settlementAfter.viewportWidth + 1,
+      {
+        tableLabel: "Trades awaiting manual settlement",
+        rows: settlementBefore.rows,
+        clientWidth: settlementBefore.clientWidth,
+        scrollWidth: settlementBefore.scrollWidth,
+        scrollLeftBefore: settlementBefore.scrollLeft,
+        scrollLeftAfter: settlementAfter.scrollLeft,
+        tabIndex: settlementBefore.tabIndex,
+        role: settlementBefore.role,
+        accessibleName: settlementBefore.label,
+        activeElementAfterFocus: settlementFocused,
+        documentWidth: settlementAfter.documentWidth,
+        viewportWidth: settlementAfter.viewportWidth,
+        note: "Uses mocked pending-settlement data on the dedicated Settlement & Reconciliation route; verifies keyboard scrolling and containment, not live settlement authorization or persistence.",
+      });
   } catch (error) {
     record("admin-appearance-interaction-unhandled-error", false, {
       error: error instanceof Error ? error.message : String(error),
@@ -2276,36 +2334,50 @@ async function runAdminTradingControlsInteractionCheck(browser) {
       'button[title="Manage package-policy controls and the system-wide allocation safety gate"]',
     ).click();
     await page.getByRole("heading", { name: "Global Trade master controls" }).waitFor({ state: "visible", timeout: 10000 });
+    const unavailableNotice = page.getByRole("alert").filter({ hasText: "canonical global policy is not installed or is malformed" });
+    const controlsAvailable = await unavailableNotice.count() === 0;
     const keys = [
       ["Tier policy master", "tierPolicyMasterEnabled"], ["Pop-up delivery", "informationalPopupDeliveryEnabled"],
       ["Company rotation", "companyRotationEnabled"], ["Randomized timing", "randomizedTimingEnabled"],
       ["Burst delivery", "burstDeliveryEnabled"],
     ];
-    for (const [label, key] of keys) {
-      const ariaLabel = label;
-      const control = page.getByRole("switch", { name: ariaLabel });
-      const before = savedGlobal[key];
-      await control.click();
-      await page.waitForFunction(({ label, expected }) => {
-        const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
-        return element?.getAttribute("aria-checked") === String(expected);
-      }, { label: ariaLabel, expected: !before });
-      const switchedOff = savedGlobal[key] === !before;
-      await control.click();
-      await page.waitForFunction(({ label, expected }) => {
-        const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
-        return element?.getAttribute("aria-checked") === String(expected);
-      }, { label: ariaLabel, expected: before });
-      const switchedBack = savedGlobal[key] === before;
-      record("admin-" + key + "-switch-saves-and-restores", switchedOff && switchedBack, {
-        initial: before, afterOff: !before, afterRestore: savedGlobal[key],
-      });
+    if (!controlsAvailable) {
+      const switches = page.getByRole("switch");
+      record("admin-global-controls-unavailable-fail-closed",
+        await unavailableNotice.isVisible() && await switches.count() === 0 && mutationCalls.length === 0,
+        { unavailable: true, switchCount: await switches.count(), mutationCalls });
+    } else {
+      // Switches are disabled until the required audited reason is supplied.
+      await page.getByLabel("Administrator reason (required, 5–500 characters)")
+        .fill("Stage 2 verifies the canonical global control owner.");
+      for (const [label, key] of keys) {
+        const ariaLabel = label;
+        const control = page.getByRole("switch", { name: ariaLabel });
+        const before = savedGlobal[key];
+        await control.click();
+        await page.waitForFunction(({ label, expected }) => {
+          const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
+          return element?.getAttribute("aria-checked") === String(expected);
+        }, { label: ariaLabel, expected: !before });
+        const switchedOff = savedGlobal[key] === !before;
+        await control.click();
+        await page.waitForFunction(({ label, expected }) => {
+          const element = Array.from(document.querySelectorAll('[role="switch"]')).find(node => node.getAttribute("aria-label") === label);
+          return element?.getAttribute("aria-checked") === String(expected);
+        }, { label: ariaLabel, expected: before });
+        const switchedBack = savedGlobal[key] === before;
+        record("admin-" + key + "-switch-saves-and-restores", switchedOff && switchedBack, {
+          initial: before, afterOff: !before, afterRestore: savedGlobal[key],
+        });
+      }
     }
     const financialExecutionStayedOff = savedPolicy.automaticTradingEnabled === false &&
       mutationCalls.every(call => !Array.isArray(call.policies) ||
         call.policies.every(patch => patch.automaticTradingEnabled !== true));
     record("delivery-switches-never-enable-financial-execution", financialExecutionStayedOff, { mutationCalls, pageErrors });
-    record("admin-switches-show-save-feedback", await page.getByText("Global Trade control saved and verified from a fresh database read.").isVisible().catch(() => false));
+    record("admin-switches-show-save-feedback",
+      !controlsAvailable || await page.getByText("Global Trade control saved and verified from a fresh database read.").isVisible().catch(() => false),
+      { controlsAvailable, note: controlsAvailable ? "Save feedback is asserted after an enabled control interaction." : "Unavailable policy is not treated as saved; no save feedback is expected." });
   } catch (error) {
     record("admin-trading-controls-interaction-completes", false, {
       error: error instanceof Error ? error.message : String(error),
