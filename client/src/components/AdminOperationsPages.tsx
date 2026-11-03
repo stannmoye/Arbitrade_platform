@@ -118,6 +118,15 @@ function timestamp(value: Date | string | null | undefined) {
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
 }
 
+function durationLabel(milliseconds: number | null | undefined) {
+  if (milliseconds == null || !Number.isFinite(milliseconds)) return "Unavailable";
+  if (milliseconds < 60_000) return `${Math.floor(milliseconds / 1_000)}s`;
+  if (milliseconds < 3_600_000) return `${Math.floor(milliseconds / 60_000)}m ${Math.floor((milliseconds % 60_000) / 1_000)}s`;
+  const hours = Math.floor(milliseconds / 3_600_000);
+  const minutes = Math.floor((milliseconds % 3_600_000) / 60_000);
+  return `${hours}h ${minutes}m`;
+}
+
 export function AdminSettings({focus}:{focus?:"tradeDuration"}={}){ const q=trpc.adminOperations.settings.useQuery(); const save=trpc.adminOperations.updateSettings.useMutation(); const [tab,setTab]=useState<"ticket"|"trade"|"password">(focus==="tradeDuration"?"trade":"ticket"); useEffect(()=>{if(focus==="tradeDuration")setTab("trade")},[focus]); const [maxMb,setMaxMb]=useState(25); const [types,setTypes]=useState("image/*,application/pdf,text/plain,.doc,.docx,.xls,.xlsx");  const [settlementMinutes,setSettlementMinutes]=useState(15); const [creditDelaySeconds,setCreditDelaySeconds]=useState(0); const [cooldownSeconds,setCooldownSeconds]=useState(30); const [nextPopupFormulaDelaySeconds,setNextPopupFormulaDelaySeconds]=useState(30); const [popupCooldownSeconds,setPopupCooldownSeconds]=useState(45); const [popupDisplaySeconds,setPopupDisplaySeconds]=useState(8); const [popupPreAlertSeconds,setPopupPreAlertSeconds]=useState(4); const [popupJitterSeconds,setPopupJitterSeconds]=useState(90); const [popupMaxPerHour,setPopupMaxPerHour]=useState(12); const [marketRefreshIntervalMinutes,setMarketRefreshIntervalMinutes]=useState(120); const [blockUntilSettled,setBlockUntilSettled]=useState(true); const [tradeReason,setTradeReason]=useState(""); const hydratedSettings=useRef(false); const [saved,setSaved]=useState(false); const [settingsMessage,setSettingsMessage]=useState(""); const [settingsMessageKind,setSettingsMessageKind]=useState<"success"|"error">("success"); useEffect(()=>{if(q.data&&!hydratedSettings.current){hydratedSettings.current=true;setMaxMb(q.data.ticket.maxAttachmentMb);setTypes(q.data.ticket.allowedMimeTypes.join(","));setSettlementMinutes(Math.max(15,Math.ceil(Number(q.data.trade?.settlementDelaySeconds||900)/60)));setCreditDelaySeconds(Number(q.data.trade?.creditDelaySeconds||0));setCooldownSeconds(Number(q.data.trade?.cooldownSeconds||30));setNextPopupFormulaDelaySeconds(Number(q.data.trade?.nextPopupFormulaDelaySeconds||30));setPopupCooldownSeconds(Number(q.data.trade?.popupCooldownSeconds||45));setPopupDisplaySeconds(Number(q.data.trade?.popupDisplaySeconds||8));setPopupPreAlertSeconds(Number(q.data.trade?.popupPreAlertSeconds||4));setPopupJitterSeconds(Number(q.data.trade?.popupJitterSeconds||90));setPopupMaxPerHour(Number(q.data.trade?.popupMaxPerHour||12));setMarketRefreshIntervalMinutes(Number(q.data.trade?.marketRefreshIntervalMinutes||120));setBlockUntilSettled(q.data.trade?.blockUntilSettled!==false)}},[q.data]); const submit=async()=>{
     setSaved(false);
     setSettingsMessage("");
@@ -650,12 +659,15 @@ type WorkerHealthEntry = {
   staleAfterMs: number;
   instanceId: string;
   status: "running" | "healthy" | "degraded" | "stale" | "not_started";
+  healthRecordAvailable: boolean;
   heartbeatAt: string | null;
+  lastAttemptAt: string | null;
   lastSuccessAt: string | null;
   lastFailureAt: string | null;
   lastDurationMs: number | null;
   consecutiveFailures: number;
   lastError: string | null;
+  lastErrorCode: string | null;
 };
 
 type DeadQualificationJob = {
@@ -664,13 +676,22 @@ type DeadQualificationJob = {
   sourceLedgerId: number;
   attempts: number;
   lastError: string | null;
+  lastErrorCode: string | null;
   updatedAt: string | null;
+};
+
+type QualificationQueueDiagnostics = {
+  backlog: number;
+  oldestPendingCreatedAt: string | null;
+  oldestPendingAgeMs: number | null;
+  oldestProcessingLease: { leaseOwner: null; lockedAt: string | null; expiresAt: string | null; stale: boolean | null } | null;
 };
 
 type WorkerHealthData = {
   generatedAt: string;
   workers: WorkerHealthEntry[];
   qualificationQueue: { pending: number; processing: number; completed: number; dead: number; total: number } | null;
+  qualificationQueueDiagnostics: QualificationQueueDiagnostics | null;
   deadQualificationJobs: DeadQualificationJob[] | null;
 };
 
@@ -773,6 +794,20 @@ export function AdminWorkerHealth() {
     try {
       const report = await fetchReport();
       rememberSnapshot(report);
+      const workerRows = (report.workerHealth?.workers ?? []).map((worker: any) => {
+        const recordAvailable = worker.healthRecordAvailable === true;
+        const runtimeRecord = recordAvailable ? "Recorded" : "Unavailable";
+        return {
+          ...worker,
+          runtimeRecord,
+          reportLabel: `${worker.displayName} (runtime record: ${runtimeRecord})`,
+          heartbeatAt: recordAvailable ? worker.heartbeatAt ?? "Not recorded" : "Unavailable",
+          lastAttemptAt: recordAvailable ? worker.lastAttemptAt ?? "Not recorded" : "Unavailable",
+          lastSuccessAt: recordAvailable ? worker.lastSuccessAt ?? "Not recorded" : "Unavailable",
+          consecutiveFailures: recordAvailable ? worker.consecutiveFailures ?? "Not recorded" : "Unavailable",
+          lastErrorCode: recordAvailable ? worker.lastErrorCode ?? "—" : "Unavailable",
+        };
+      });
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       if (format === "json") {
         downloadJson("arbitrade-full-system-diagnostics-" + stamp + ".json", report);
@@ -784,8 +819,8 @@ export function AdminWorkerHealth() {
           ["Feature", "Status", "Evidence note"],
           ...(report.featureCoverage ?? []).map((feature: any) => [feature.label, diagnosticFeatureState(feature, report.checks ?? []), feature.note ?? ""]),
           [],
-          ["Worker", "Status", "Instance", "Heartbeat", "Last success", "Failures", "Last error"],
-          ...(report.workerHealth?.workers ?? []).map((worker: any) => [worker.displayName, worker.status, worker.instanceId, worker.heartbeatAt ?? "", worker.lastSuccessAt ?? "", worker.consecutiveFailures ?? 0, worker.lastError ?? ""]),
+          ["Worker", "Runtime record", "Status", "Instance", "Heartbeat", "Last attempt", "Last success", "Failures", "Safe error code"],
+          ...workerRows.map((worker: any) => [worker.displayName, worker.runtimeRecord, worker.status, worker.instanceId, worker.heartbeatAt, worker.lastAttemptAt, worker.lastSuccessAt, worker.consecutiveFailures, worker.lastErrorCode]),
           [],
           ["Source file", "Code area", "Bytes", "Test file"],
           ...(report.sourceInventory?.files ?? []).map((file: any) => [file.path, file.area, file.bytes, file.testFile ? "Yes" : "No"]),
@@ -822,11 +857,11 @@ export function AdminWorkerHealth() {
         if (!printWindow) throw new Error("The PDF print window is unavailable.");
         const checks = (report.checks ?? []).map((item: any) => `<tr><td>${escapeReportHtml(diagnosticSeverity(item))}</td><td>${escapeReportHtml(item.status)}</td><td>${escapeReportHtml(item.area)}</td><td><strong>${escapeReportHtml(item.title)}</strong><br>${escapeReportHtml(item.detail)}${item.recommendation ? `<br><em>Action: ${escapeReportHtml(item.recommendation)}</em>` : ""}</td></tr>`).join("");
         const features = (report.featureCoverage ?? []).map((feature: any) => `<tr><td>${escapeReportHtml(feature.label)}</td><td>${escapeReportHtml(diagnosticFeatureState(feature, report.checks ?? []))}</td><td>${escapeReportHtml(feature.note)}</td></tr>`).join("");
-        const workers = (report.workerHealth?.workers ?? []).map((worker: any) => `<tr><td>${escapeReportHtml(worker.displayName)}</td><td>${escapeReportHtml(worker.status)}</td><td>${escapeReportHtml(worker.instanceId)}</td><td>${escapeReportHtml(worker.heartbeatAt ?? "—")}</td><td>${escapeReportHtml(worker.lastSuccessAt ?? "—")}</td><td>${escapeReportHtml(worker.consecutiveFailures ?? 0)}</td><td>${escapeReportHtml(worker.lastError ?? "—")}</td></tr>`).join("");
+        const workers = workerRows.map((worker: any) => `<tr><td>${escapeReportHtml(worker.reportLabel)}</td><td>${escapeReportHtml(worker.status)}</td><td>${escapeReportHtml(worker.instanceId)}</td><td>${escapeReportHtml(worker.heartbeatAt ?? "—")}</td><td>${escapeReportHtml(worker.lastAttemptAt ?? "—")}</td><td>${escapeReportHtml(worker.lastSuccessAt ?? "—")}</td><td>${escapeReportHtml(worker.consecutiveFailures ?? "Unavailable")}</td><td>${escapeReportHtml(worker.lastErrorCode ?? "—")}</td></tr>`).join("");
         const sourceFiles = (report.sourceInventory?.files ?? []).map((file: any) => `<tr><td>${escapeReportHtml(file.path)}</td><td>${escapeReportHtml(file.area)}</td><td>${escapeReportHtml(file.bytes)}</td><td>${file.testFile ? "Yes" : "No"}</td></tr>`).join("");
         const markers = (report.sourceInventory?.reviewMarkers ?? []).map((marker: any) => `<tr><td>${escapeReportHtml(marker.path)}</td><td>${escapeReportHtml(marker.line)}</td><td>${escapeReportHtml(marker.marker)}</td></tr>`).join("");
         const recommendations = (report.recommendations ?? []).map((item: string) => `<li>${escapeReportHtml(item)}</li>`).join("");
-        printWindow.document.write(`<!doctype html><html><head><title>Arbitrade System Diagnostics</title><style>body{font:12px Arial,sans-serif;color:#172033;margin:28px}h1{font-size:22px}h2{font-size:16px;margin-top:24px}.meta{color:#526078}table{width:100%;border-collapse:collapse;margin:12px 0 20px}th,td{border:1px solid #cbd5e1;padding:7px;text-align:left;vertical-align:top}th{background:#eef2f7}em{display:block;margin-top:5px;color:#475569}.summary{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0}.summary b{font-size:18px}footer{margin-top:24px;color:#64748b}@media print{body{margin:12mm}tr{break-inside:avoid}}</style></head><body><h1>Arbitrade — Full System Diagnostics</h1><p class="meta">Generated: ${escapeReportHtml(report.generatedAt)} · Revision: ${escapeReportHtml(report.application?.sourceRevision || "Not supplied")} · Overall: ${escapeReportHtml(report.overallStatus)}</p><div class="summary"><span>Critical/High findings: <b>${(report.summary?.fail ?? 0)}</b></span><span>Warnings: <b>${(report.summary?.warning ?? 0)}</b></span><span>Not run: <b>${(report.summary?.not_run ?? 0)}</b></span><span>Passed: <b>${(report.summary?.pass ?? 0)}</b></span></div><h2>Detected issues and corrective actions</h2><table><thead><tr><th>Severity</th><th>Status</th><th>Area</th><th>Finding and recommended correction</th></tr></thead><tbody>${checks}</tbody></table><h2>Feature health assessment</h2><p>“Not Verified” means source files are present but live feature acceptance has not been proven by this diagnostic.</p><table><thead><tr><th>Feature</th><th>Assessment</th><th>Evidence</th></tr></thead><tbody>${features}</tbody></table><h2>Server and database details</h2><table><tbody><tr><th>Node / platform</th><td>${escapeReportHtml(report.server?.nodeVersion)} / ${escapeReportHtml(report.server?.platform)} (${escapeReportHtml(report.server?.architecture)})</td></tr><tr><th>Uptime / process</th><td>${escapeReportHtml(report.server?.uptimeSeconds)} seconds / PID ${escapeReportHtml(report.server?.pid)}</td></tr><tr><th>CPU cores / load avg (1m, 5m, 15m)</th><td>${escapeReportHtml(report.server?.cpuCount)} / ${escapeReportHtml(JSON.stringify(report.server?.cpuLoadAverage ?? []))}</td></tr><tr><th>System RAM total / free</th><td>${escapeReportHtml(report.server?.totalMemoryBytes)} / ${escapeReportHtml(report.server?.freeMemoryBytes)} bytes</td></tr><tr><th>Process memory bytes</th><td>${escapeReportHtml(JSON.stringify(report.server?.memoryBytes ?? {}))}</td></tr><tr><th>Database</th><td>${escapeReportHtml(report.database?.status)} · checked ${escapeReportHtml(report.database?.checkedAt ?? report.generatedAt)}</td></tr><tr><th>Available tables</th><td>${escapeReportHtml((report.database?.schema?.available ?? []).join(", "))}</td></tr><tr><th>Missing tables</th><td>${escapeReportHtml((report.database?.schema?.missing ?? []).join(", ") || "None reported")}</td></tr></tbody></table><h2>Worker detail</h2><table><thead><tr><th>Worker</th><th>Status</th><th>Instance</th><th>Heartbeat</th><th>Last success</th><th>Failures</th><th>Last error</th></tr></thead><tbody>${workers}</tbody></table><h2>Source inventory (${escapeReportHtml(report.sourceInventory?.filesScanned ?? 0)} files)</h2><p>Scan complete: ${escapeReportHtml(report.sourceInventory?.complete ? "Yes" : "No")} · Test files: ${escapeReportHtml(report.sourceInventory?.testFiles ?? 0)} · Total bytes: ${escapeReportHtml(report.sourceInventory?.totalBytes ?? 0)}</p><table><thead><tr><th>Source path</th><th>Area</th><th>Bytes</th><th>Test</th></tr></thead><tbody>${sourceFiles}</tbody></table><h2>Potential source review markers</h2><table><thead><tr><th>File</th><th>Line</th><th>Marker</th></tr></thead><tbody>${markers}</tbody></table><h2>Recommended corrections</h2><ul>${recommendations}</ul><h2>Deployment readiness</h2><p>${escapeReportHtml(report.overallStatus)} — ${(report.summary?.fail ?? 0) ? "Do not treat this deployment as ready until critical/high findings are corrected and rechecked." : (report.summary?.warning ?? 0) || (report.summary?.not_run ?? 0) ? "Review warnings and complete checks not run before release." : "No issues were detected by the checks that ran; complete CI and hosted acceptance before production sign-off."}</p><h2>Required configuration presence (values redacted)</h2><ul>${(report.configuration?.requiredVariables ?? []).map((item: any) => `<li>${escapeReportHtml(item.name)}: ${item.configured ? "Configured" : "Missing"}</li>`).join("")}</ul><h2>Scope and limitations</h2><ul>${(report.scope?.limitations ?? []).map((item: string) => `<li>${escapeReportHtml(item)}</li>`).join("")}</ul><footer>Read-only diagnostic snapshot. Recommendations do not modify production code or database records.</footer></body></html>`);
+        printWindow.document.write(`<!doctype html><html><head><title>Arbitrade System Diagnostics</title><style>body{font:12px Arial,sans-serif;color:#172033;margin:28px}h1{font-size:22px}h2{font-size:16px;margin-top:24px}.meta{color:#526078}table{width:100%;border-collapse:collapse;margin:12px 0 20px}th,td{border:1px solid #cbd5e1;padding:7px;text-align:left;vertical-align:top}th{background:#eef2f7}em{display:block;margin-top:5px;color:#475569}.summary{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0}.summary b{font-size:18px}footer{margin-top:24px;color:#64748b}@media print{body{margin:12mm}tr{break-inside:avoid}}</style></head><body><h1>Arbitrade — Full System Diagnostics</h1><p class="meta">Generated: ${escapeReportHtml(report.generatedAt)} · Revision: ${escapeReportHtml(report.application?.sourceRevision || "Not supplied")} · Overall: ${escapeReportHtml(report.overallStatus)}</p><div class="summary"><span>Critical/High findings: <b>${(report.summary?.fail ?? 0)}</b></span><span>Warnings: <b>${(report.summary?.warning ?? 0)}</b></span><span>Not run: <b>${(report.summary?.not_run ?? 0)}</b></span><span>Passed: <b>${(report.summary?.pass ?? 0)}</b></span></div><h2>Detected issues and corrective actions</h2><table><thead><tr><th>Severity</th><th>Status</th><th>Area</th><th>Finding and recommended correction</th></tr></thead><tbody>${checks}</tbody></table><h2>Feature health assessment</h2><p>“Not Verified” means source files are present but live feature acceptance has not been proven by this diagnostic.</p><table><thead><tr><th>Feature</th><th>Assessment</th><th>Evidence</th></tr></thead><tbody>${features}</tbody></table><h2>Server and database details</h2><table><tbody><tr><th>Node / platform</th><td>${escapeReportHtml(report.server?.nodeVersion)} / ${escapeReportHtml(report.server?.platform)} (${escapeReportHtml(report.server?.architecture)})</td></tr><tr><th>Uptime / process</th><td>${escapeReportHtml(report.server?.uptimeSeconds)} seconds / PID ${escapeReportHtml(report.server?.pid)}</td></tr><tr><th>CPU cores / load avg (1m, 5m, 15m)</th><td>${escapeReportHtml(report.server?.cpuCount)} / ${escapeReportHtml(JSON.stringify(report.server?.cpuLoadAverage ?? []))}</td></tr><tr><th>System RAM total / free</th><td>${escapeReportHtml(report.server?.totalMemoryBytes)} / ${escapeReportHtml(report.server?.freeMemoryBytes)} bytes</td></tr><tr><th>Process memory bytes</th><td>${escapeReportHtml(JSON.stringify(report.server?.memoryBytes ?? {}))}</td></tr><tr><th>Database</th><td>${escapeReportHtml(report.database?.status)} · checked ${escapeReportHtml(report.database?.checkedAt ?? report.generatedAt)}</td></tr><tr><th>Available tables</th><td>${escapeReportHtml((report.database?.schema?.available ?? []).join(", "))}</td></tr><tr><th>Missing tables</th><td>${escapeReportHtml((report.database?.schema?.missing ?? []).join(", ") || "None reported")}</td></tr></tbody></table><h2>Worker detail</h2><table><thead><tr><th>Worker</th><th>Status</th><th>Instance</th><th>Heartbeat</th><th>Last attempt</th><th>Last success</th><th>Failures</th><th>Safe error code</th></tr></thead><tbody>${workers}</tbody></table><h2>Source inventory (${escapeReportHtml(report.sourceInventory?.filesScanned ?? 0)} files)</h2><p>Scan complete: ${escapeReportHtml(report.sourceInventory?.complete ? "Yes" : "No")} · Test files: ${escapeReportHtml(report.sourceInventory?.testFiles ?? 0)} · Total bytes: ${escapeReportHtml(report.sourceInventory?.totalBytes ?? 0)}</p><table><thead><tr><th>Source path</th><th>Area</th><th>Bytes</th><th>Test</th></tr></thead><tbody>${sourceFiles}</tbody></table><h2>Potential source review markers</h2><table><thead><tr><th>File</th><th>Line</th><th>Marker</th></tr></thead><tbody>${markers}</tbody></table><h2>Recommended corrections</h2><ul>${recommendations}</ul><h2>Deployment readiness</h2><p>${escapeReportHtml(report.overallStatus)} — ${(report.summary?.fail ?? 0) ? "Do not treat this deployment as ready until critical/high findings are corrected and rechecked." : (report.summary?.warning ?? 0) || (report.summary?.not_run ?? 0) ? "Review warnings and complete checks not run before release." : "No issues were detected by the checks that ran; complete CI and hosted acceptance before production sign-off."}</p><h2>Required configuration presence (values redacted)</h2><ul>${(report.configuration?.requiredVariables ?? []).map((item: any) => `<li>${escapeReportHtml(item.name)}: ${item.configured ? "Configured" : "Missing"}</li>`).join("")}</ul><h2>Scope and limitations</h2><ul>${(report.scope?.limitations ?? []).map((item: string) => `<li>${escapeReportHtml(item)}</li>`).join("")}</ul><footer>Read-only diagnostic snapshot. Recommendations do not modify production code or database records.</footer></body></html>`);
         printWindow.document.close();
         printWindow.focus();
         printWindow.print();
@@ -868,9 +903,11 @@ export function AdminWorkerHealth() {
 
   const data = (query.data ?? {}) as unknown as WorkerHealthData;
   const workers = data.workers ?? [];
-  const healthy = workers.filter((worker) => worker.status === "healthy").length;
-  const attention = workers.filter((worker) => worker.status === "degraded" || worker.status === "stale" || worker.status === "not_started").length;
+  const recordedWorkers = workers.filter((worker) => worker.healthRecordAvailable);
+  const healthy = recordedWorkers.filter((worker) => worker.status === "healthy").length;
+  const attention = recordedWorkers.filter((worker) => worker.status === "degraded" || worker.status === "stale").length;
   const queue = data.qualificationQueue;
+  const queueDiagnostics = data.qualificationQueueDiagnostics;
   const [recoveryReasons, setRecoveryReasons] = useState<Record<number, string>>({});
   const [lastRequeuedJobId, setLastRequeuedJobId] = useState<number | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
@@ -907,6 +944,7 @@ export function AdminWorkerHealth() {
       </>}
     >
       <div className="admin-ops-meta-line"><span><Activity size={14} /> Auto-refresh every 15 seconds</span><span>Snapshot {timestamp(data.generatedAt)}</span></div>
+      <div className="admin-ops-note"><Activity size={16} /><span><strong>Configured is not running</strong> Worker definitions describe expected services; only persisted attempts, heartbeats and queue timestamps are runtime evidence.</span></div>
       {exportError && <div className="admin-ops-empty error" role="alert">{exportError}</div>}
       {verification && <div className="admin-ops-note" role="status"><CheckCircle2 size={16} /><span><strong>Post-fix comparison</strong> {verification}</span></div>}
       <div className="admin-ops-note"><Download size={16} /><span><strong>Complete diagnostic exports</strong> JSON contains the full structured report; Excel/CSV exports checks and feature assessments; Print/PDF opens a print-ready report that can be saved as PDF. Snapshots are retained locally in this administrator's browser only. No secrets are exported.</span></div>
@@ -918,7 +956,7 @@ export function AdminWorkerHealth() {
           <Metric label="Warnings" value={exportQuery.data.summary?.warning ?? "—"} icon={AlertTriangle} />
           <Metric label="Checks not run" value={exportQuery.data.summary?.not_run ?? "—"} icon={Clock3} />
           <Metric label="Passed checks" value={exportQuery.data.summary?.pass ?? "—"} icon={CheckCircle2} />
-          <Metric label="Workers registered" value={exportQuery.data.workerHealth?.workers?.length ?? "Unavailable"} icon={Activity} />
+          <Metric label="Persisted worker records" value={exportQuery.data.workerHealth?.workers ? exportQuery.data.workerHealth.workers.filter((worker: any) => worker.healthRecordAvailable).length : "Unavailable"} icon={Activity} />
           <Metric label="Dead-letter jobs" value={exportQuery.data.workerHealth?.qualificationQueue?.dead ?? "Unavailable"} icon={AlertTriangle} />
           <Metric label="Database" value={exportQuery.data.database?.status ?? "Unavailable"} icon={ShieldCheck} />
           <Metric label="Heap used" value={exportQuery.data.server?.heapUsePercent == null ? "Unavailable" : exportQuery.data.server.heapUsePercent + "%"} detail={exportQuery.data.server?.cpuCount == null ? "CPU data unavailable" : exportQuery.data.server.cpuCount + " CPU cores"} icon={Activity} />
@@ -954,40 +992,45 @@ export function AdminWorkerHealth() {
         <div className="admin-ops-empty error" role="alert">Worker health could not be loaded. Verify migration 0084 and the database connection; an unavailable monitor must not be interpreted as a healthy worker.</div>
       ) : <>
         <section className="admin-ops-metrics">
-          <Metric label="Worker records" value={workers.length} detail="Includes recent server instances" icon={Activity} />
-          <Metric label="Healthy workers" value={healthy} detail="Last cycle completed successfully" icon={CheckCircle2} />
-          <Metric label="Needs attention" value={attention} detail="Degraded, stale, or not started" icon={AlertTriangle} />
+          <Metric label="Worker records" value={recordedWorkers.length} detail={`${workers.length - recordedWorkers.length} configured definitions without a runtime record`} icon={Activity} />
+          <Metric label="Healthy workers" value={recordedWorkers.length ? healthy : "Unavailable"} detail="A health record is required to count a worker as healthy" icon={CheckCircle2} />
+          <Metric label="Needs attention" value={recordedWorkers.length ? attention : "Unavailable"} detail={`${workers.filter((worker) => !worker.healthRecordAvailable).length} configured definitions have no recent health record`} icon={AlertTriangle} />
           <Metric label="Dead-lettered qualification jobs" value={queue === null ? "Unavailable" : queue.dead.toLocaleString()} detail="Requires operator review" icon={FileText} />
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Background services</span><h2>Worker status</h2></div><span className="admin-ops-subtle">{workers.length} rows</span></div>
-          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Background worker health"><table className="admin-ops-table"><thead><tr><th>Worker</th><th>Status</th><th>Instance</th><th>Last heartbeat</th><th>Last success</th><th>Failures</th><th>Last cycle</th><th>Last error</th></tr></thead><tbody>
+          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Background worker health"><table className="admin-ops-table"><thead><tr><th>Worker</th><th>Status</th><th>Instance</th><th>Last heartbeat</th><th>Last attempt started</th><th>Last success</th><th>Failures</th><th>Last cycle</th><th>Safe error code</th></tr></thead><tbody>
             {workers.map((worker) => <tr key={worker.workerKey + ":" + worker.instanceId}>
               <td><strong>{worker.displayName}</strong><small>{worker.description}</small><small>Expected interval: {Math.max(1, Math.round(worker.expectedIntervalMs / 1000))} seconds</small></td>
               <td><StatusPill tone={workerStatusTone(worker.status)}>{workerStatusLabel(worker.status)}</StatusPill></td>
-              <td><code>{worker.instanceId}</code></td><td>{timestamp(worker.heartbeatAt)}</td><td>{timestamp(worker.lastSuccessAt)}</td>
-              <td>{worker.consecutiveFailures}</td><td>{worker.lastDurationMs === null ? "—" : worker.lastDurationMs.toLocaleString() + " ms"}</td><td>{worker.lastError || "—"}</td>
+              <td><code>{worker.instanceId}</code></td><td>{worker.healthRecordAvailable ? timestamp(worker.heartbeatAt) : "Unavailable"}</td><td>{worker.healthRecordAvailable ? worker.lastAttemptAt ? timestamp(worker.lastAttemptAt) : "Unavailable" : "Unavailable"}</td><td>{worker.healthRecordAvailable ? timestamp(worker.lastSuccessAt) : "Unavailable"}</td>
+              <td>{worker.healthRecordAvailable ? worker.consecutiveFailures : "Unavailable"}</td><td>{worker.healthRecordAvailable && worker.lastDurationMs !== null ? worker.lastDurationMs.toLocaleString() + " ms" : "Unavailable"}</td><td>{worker.healthRecordAvailable ? worker.lastErrorCode || "—" : "Unavailable"}</td>
             </tr>)}
-            {!workers.length && <tr><td colSpan={8} className="admin-ops-table-empty">No worker records are available yet.</td></tr>}
+            {!workers.length && <tr><td colSpan={9} className="admin-ops-table-empty">No worker records are available yet.</td></tr>}
           </tbody></table></div>
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Durable qualification queue</span><h2>Tier assignment jobs</h2></div></div>
-          {queue === null ? <div className="admin-ops-empty">Queue counts are unavailable. Verify migration 0082 and database access.</div> : <section className="admin-ops-metrics compact-metrics">
-            <Metric label="Pending" value={queue.pending} icon={Clock3} /><Metric label="Processing" value={queue.processing} icon={Activity} />
+          {queue === null ? <div className="admin-ops-empty">Queue counts and lag diagnostics are unavailable. Verify migration 0082 and database access; this is not an empty queue.</div> : <>
+            <section className="admin-ops-metrics compact-metrics">
+              <Metric label="Pending backlog" value={queueDiagnostics == null ? "Unavailable" : queueDiagnostics.backlog.toLocaleString()} icon={Clock3} />
+              <Metric label="Oldest pending job age since creation" value={queueDiagnostics == null ? "Unavailable" : queueDiagnostics.oldestPendingAgeMs === null ? queueDiagnostics.backlog === 0 ? "None" : "Unavailable" : durationLabel(queueDiagnostics.oldestPendingAgeMs)} detail={queueDiagnostics?.oldestPendingCreatedAt ? `Created ${timestamp(queueDiagnostics.oldestPendingCreatedAt)}` : undefined} icon={Clock3} />
+              <Metric label="Processing" value={queue.processing} icon={Activity} />
             <Metric label="Completed" value={queue.completed} icon={CheckCircle2} /><Metric label="Dead-lettered" value={queue.dead} icon={AlertTriangle} />
-          </section>}
-          <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Safe recovery boundary</strong> Retry uses a guarded, audited transaction; it does not change a wallet balance, grant an entitlement directly, or force a trade settlement. A missing monitor or queue is reported as unavailable, never as zero.</span></div>
+            </section>
+            {queueDiagnostics == null ? <div className="admin-ops-empty">Queue backlog age and lease details are unavailable; queue counts alone do not prove there is no lag.</div> : queueDiagnostics.oldestProcessingLease === null ? <div className="admin-ops-note"><Activity size={16} /><span>No processing lease is currently recorded.</span></div> : queueDiagnostics.oldestProcessingLease.lockedAt === null ? <div className="admin-ops-empty">Processing jobs exist, but their lease timestamp is unavailable.</div> : <div className="admin-ops-note"><Clock3 size={16} /><span><strong>Oldest processing lease</strong> Locked {timestamp(queueDiagnostics.oldestProcessingLease.lockedAt)}; derived reclaim threshold {timestamp(queueDiagnostics.oldestProcessingLease.expiresAt)}; {queueDiagnostics.oldestProcessingLease.stale === null ? "staleness unavailable" : queueDiagnostics.oldestProcessingLease.stale ? "stale under the five-minute reclaim rule" : "within the five-minute reclaim window"}. Lease owner: not persisted by this queue.</span></div>}
+          </>}
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Safe recovery boundary</strong> Retry uses a guarded, audited transaction; it does not change a wallet balance, grant an entitlement directly, or force a trade settlement. A missing monitor or queue is reported as unavailable, never as zero. No generic force-complete action exists.</span></div>
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Operator recovery</span><h2>Dead-lettered qualification jobs</h2></div><span className="admin-ops-subtle">Latest 25</span></div>
           {recoveryError && <div className="admin-ops-empty error" role="alert">{recoveryError}</div>}
           {lastRequeuedJobId !== null && <div className="admin-ops-note" role="status"><CheckCircle2 size={16} /><span>Qualification job #{lastRequeuedJobId} was requeued. The background worker will process it under the normal idempotent workflow.</span></div>}
           {data.deadQualificationJobs === null ? <div className="admin-ops-empty">Dead-letter details are unavailable. Verify the qualification queue migration and database connection.</div> : data.deadQualificationJobs.length === 0 ? <div className="admin-ops-empty">No dead-lettered qualification jobs need review.</div> : (
-            <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Dead-lettered qualification jobs"><table className="admin-ops-table"><thead><tr><th>Job / customer</th><th>Source ledger</th><th>Attempts</th><th>Last error</th><th>Last update</th><th>Audited retry</th></tr></thead><tbody>
+            <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Dead-lettered qualification jobs"><table className="admin-ops-table"><thead><tr><th>Job / customer</th><th>Source ledger</th><th>Attempts</th><th>Safe error code</th><th>Last update</th><th>Audited retry</th></tr></thead><tbody>
               {data.deadQualificationJobs.map((job) => <tr key={job.id}>
                 <td><strong>Job #{job.id}</strong><small>Customer ID {job.userId}</small></td><td>Ledger #{job.sourceLedgerId}</td><td>{job.attempts}</td>
-                <td>{job.lastError || "No error detail retained"}</td><td>{timestamp(job.updatedAt)}</td>
+                <td>{job.lastErrorCode || "—"}</td><td>{timestamp(job.updatedAt)}</td>
                 <td><div className="admin-ops-actions" style={{ alignItems: "stretch", flexDirection: "column", gap: 8 }}>
                   <input type="text" aria-label={"Recovery reason for qualification job " + job.id} minLength={8} maxLength={500}
                     value={recoveryReasons[job.id] ?? ""} onChange={(event) => setRecoveryReasons((current) => ({ ...current, [job.id]: event.target.value }))}

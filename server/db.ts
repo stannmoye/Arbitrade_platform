@@ -165,6 +165,118 @@ export async function updateCompanyCatalogueAdminState(input: {
 }
 
 export async function listAdminAuditEvents(){ const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(v5AuditEvents).orderBy(desc(v5AuditEvents.createdAt)).limit(200); }
+const TRADE_SETTINGS_AUDIT_ACTIONS = ["trade_fee_policy_updated", "trade_global_timing_policy_updated", "trade_global_control_updated", "trading_new_allocations_paused", "trading_new_allocations_resumed", "trading_package_created", "trading_package_terms_updated", "trading_delivery_policy_updated", "company_catalogue.bulk_status_updated"] as const;
+export type TradeAuditScope = "global" | "package" | "record";
+export type AdminTradeAuditHistoryFilters = { actorUserId?: number; fromDate?: string; toDate?: string; key?: string; entityType?: string; entityId?: string; package?: string; scope?: TradeAuditScope; cursor?: string; pageSize?: number };
+type TradeAuditCursor = { createdAt: string; id: number };
+export function encodeTradeAuditCursor(createdAt: Date, id: number) {
+  return Buffer.from(JSON.stringify({ createdAt: createdAt.toISOString(), id }), "utf8").toString("base64url");
+}
+export function decodeTradeAuditCursor(value?: string): TradeAuditCursor | null {
+  if (value === undefined) return null;
+  try {
+    if (!/^[A-Za-z0-9_-]{1,200}$/.test(value)) throw new Error("Invalid cursor encoding");
+    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Partial<TradeAuditCursor>;
+    const date = new Date(String(parsed.createdAt ?? ""));
+    if (!Number.isFinite(date.getTime()) || date.toISOString() !== parsed.createdAt || !Number.isSafeInteger(parsed.id) || Number(parsed.id) < 1) throw new Error("Invalid cursor values");
+    return { createdAt: date.toISOString(), id: Number(parsed.id) };
+  } catch { throw new Error("Trade audit cursor is invalid"); }
+}
+function auditRecord(value: unknown): Record<string, unknown> | null { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null; }
+function auditString(record: Record<string, unknown> | null, ...keys: string[]): string | null {
+  for (const key of keys) if (typeof record?.[key] === "string" && record[key]) return record[key] as string;
+  return null;
+}
+function parseTradeAuditMetadata(raw: string | null) { try { return raw ? auditRecord(JSON.parse(raw)) : null; } catch { return null; } }
+export function deriveTradeAuditScope(action: string, entityType: string): TradeAuditScope | null {
+  if (action === "company_catalogue.bulk_status_updated" || entityType === "company_catalogue") return "record";
+  if (["trading_package_created", "trading_package_terms_updated", "trading_delivery_policy_updated"].includes(action)
+    || entityType === "trading_package" || entityType === "opportunity_package_policy") return "package";
+  return TRADE_SETTINGS_AUDIT_ACTIONS.includes(action as typeof TRADE_SETTINGS_AUDIT_ACTIONS[number]) ? "global" : null;
+}
+function projectTradeAuditEvent(row: typeof v5AuditEvents.$inferSelect) {
+  const metadata = parseTradeAuditMetadata(row.metadataJson);
+  const before = Object.hasOwn(metadata ?? {}, "old") ? metadata!.old : Object.hasOwn(metadata ?? {}, "oldPolicy") ? metadata!.oldPolicy : undefined;
+  const after = Object.hasOwn(metadata ?? {}, "new") ? metadata!.new : Object.hasOwn(metadata ?? {}, "newPolicy") ? metadata!.newPolicy : undefined;
+  const beforeRecord = auditRecord(before);
+  const afterRecord = auditRecord(after);
+  const version = metadata?.policyVersion ?? metadata?.nextVersion ?? metadata?.version ?? metadata?.termsVersion ?? afterRecord?.policyVersion ?? afterRecord?.termsVersion;
+  return {
+    id: row.id, actorUserId: row.actorUserId, action: row.action, entityType: row.entityType, entityId: row.entityId,
+    reason: row.reason, reference: row.reference, createdAt: row.createdAt,
+    beforeAvailable: before !== undefined, before: before ?? null, afterAvailable: after !== undefined, after: after ?? null,
+    source: auditString(metadata, "source"), scope: deriveTradeAuditScope(row.action, row.entityType),
+    policyVersion: version === undefined || version === null ? null : String(version),
+    effectiveAt: auditString(metadata, "effectiveAt") ?? auditString(afterRecord, "effectiveAt"),
+    packageName: auditString(metadata, "packageName", "name") ?? auditString(beforeRecord, "name") ?? auditString(afterRecord, "name"),
+    changedKey: auditString(metadata, "changedKey"), valueKeys: [...Object.keys(metadata ?? {}), ...Object.keys(beforeRecord ?? {}), ...Object.keys(afterRecord ?? {})],
+  };
+}
+function matchesTradeAuditFilters(event: ReturnType<typeof projectTradeAuditEvent>, filters: AdminTradeAuditHistoryFilters) {
+  const contains = (candidate: string | null | undefined, value: string | undefined) => !value || Boolean(candidate?.toLocaleLowerCase().includes(value.toLocaleLowerCase()));
+  return (!filters.key || contains(event.changedKey, filters.key) || event.valueKeys.some(key => contains(key, filters.key)) || contains(event.action, filters.key))
+    && (!filters.package || contains(event.packageName, filters.package) || contains(event.entityId, filters.package))
+    && (!filters.scope || event.scope === filters.scope);
+}
+function validAuditDate(value: string) {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+function auditKeysetPredicate(cursor: TradeAuditCursor) {
+  const date = new Date(cursor.createdAt);
+  return or(lt(v5AuditEvents.createdAt, date), and(eq(v5AuditEvents.createdAt, date), lt(v5AuditEvents.id, cursor.id)))!;
+}
+export async function listAdminTradeAuditHistory(filters: AdminTradeAuditHistoryFilters) {
+  const pageSize = filters.pageSize ?? 50;
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) throw new Error("Trade audit page size must be from 1 to 100");
+  if (filters.fromDate && !validAuditDate(filters.fromDate)) throw new Error("Trade audit start date must be a valid UTC calendar date");
+  if (filters.toDate && !validAuditDate(filters.toDate)) throw new Error("Trade audit end date must be a valid UTC calendar date");
+  if (filters.fromDate && filters.toDate && filters.fromDate > filters.toDate) throw new Error("Trade audit start date must not follow its end date");
+  let scanCursor = decodeTradeAuditCursor(filters.cursor);
+  const base: any[] = [inArray(v5AuditEvents.action, [...TRADE_SETTINGS_AUDIT_ACTIONS])];
+  if (filters.actorUserId !== undefined) base.push(eq(v5AuditEvents.actorUserId, filters.actorUserId));
+  if (filters.fromDate) base.push(gte(v5AuditEvents.createdAt, new Date(`${filters.fromDate}T00:00:00.000Z`)));
+  if (filters.toDate) { const end = new Date(`${filters.toDate}T00:00:00.000Z`); end.setUTCDate(end.getUTCDate() + 1); base.push(lt(v5AuditEvents.createdAt, end)); }
+  if (filters.entityType) base.push(eq(v5AuditEvents.entityType, filters.entityType));
+  if (filters.entityId) base.push(eq(v5AuditEvents.entityId, filters.entityId));
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const matches: ReturnType<typeof projectTradeAuditEvent>[] = [];
+  let scanned = 0;
+  let ended = false;
+  let hasMore = false;
+  let scanCapped = false;
+  const batchSize = 200;
+  const scanLimit = 1000;
+  while (scanned < scanLimit && matches.length <= pageSize && !ended) {
+    const limit = Math.min(batchSize, scanLimit - scanned);
+    const predicates = scanCursor ? [...base, auditKeysetPredicate(scanCursor)] : base;
+    const rows = await db.select().from(v5AuditEvents).where(and(...predicates)).orderBy(desc(v5AuditEvents.createdAt), desc(v5AuditEvents.id)).limit(limit);
+    if (rows.length < limit) ended = true;
+    for (const row of rows) {
+      scanned += 1;
+      scanCursor = { createdAt: row.createdAt.toISOString(), id: row.id };
+      const event = projectTradeAuditEvent(row);
+      if (matchesTradeAuditFilters(event, filters)) matches.push(event);
+      if (matches.length > pageSize) break;
+    }
+    if (matches.length > pageSize) { hasMore = true; break; }
+  }
+  if (!hasMore && !ended && scanned >= scanLimit && scanCursor) {
+    const [remainingCandidate] = await db.select({ id: v5AuditEvents.id }).from(v5AuditEvents)
+      .where(and(...base, auditKeysetPredicate(scanCursor)))
+      .orderBy(desc(v5AuditEvents.createdAt), desc(v5AuditEvents.id)).limit(1);
+    hasMore = Boolean(remainingCandidate);
+    scanCapped = hasMore;
+  }
+  const events = matches.slice(0, pageSize);
+  const nextCursor = hasMore
+    ? scanCapped && matches.length <= pageSize && scanCursor
+      ? Buffer.from(JSON.stringify(scanCursor), "utf8").toString("base64url")
+      : events.length ? encodeTradeAuditCursor(events[events.length - 1].createdAt, events[events.length - 1].id) : null
+    : null;
+  return { events, nextCursor, scanCapped };
+}
 const TRADE_FEE_SETTING_KEYS = ["trade.platformFeeBps", "trade.feeRoundingMode", "trade.feePolicyVersion"] as const;
 const DEFAULT_TRADE_FEE_POLICY = { feeRateBps: 1500, roundingMode: "half_up" as FeeRoundingMode, policyVersion: 1 };
 function normalizeTradeFeePolicy(values: { feeRateBps: unknown; roundingMode: unknown; policyVersion: unknown }) {

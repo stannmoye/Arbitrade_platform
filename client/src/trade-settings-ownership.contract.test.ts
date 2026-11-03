@@ -158,6 +158,21 @@ describe("Trade Settings ownership registry contract", () => {
     expect(deliveryRetryLimit?.controlContract).toBe("packagePolicies.maxDeliveryAttempts");
   });
 
+  it("shows actionable Worker Health diagnostics without inventing unavailable queue lease fields", () => {
+    const workerHealthStart = operationsPagesSource.indexOf("export function AdminWorkerHealth()");
+    const workerHealth = operationsPagesSource.slice(workerHealthStart);
+    expect(workerHealthStart).toBeGreaterThanOrEqual(0);
+    expect(workerHealth).toContain("Last attempt started");
+    expect(workerHealth).toContain("Pending backlog");
+    expect(workerHealth).toContain("Oldest pending job age since creation");
+    expect(workerHealth).toContain("Safe error code");
+    expect(workerHealth).toContain("not persisted by this queue");
+    expect(workerHealth).toContain("Unavailable");
+    expect(workerHealth).toContain("adminOperations.requeueDeadQualificationJob");
+    expect(workerHealth).toContain("No generic force-complete action exists.");
+    expect(workerHealth).not.toContain("forceComplete");
+  });
+
   it("gives manual payout review one Trade Settings owner and keeps it off finance and settlement routes", () => {
     const payoutRoutes = tradeRoutes.filter((route) => route.id === "trade-manual-payouts");
     expect(payoutRoutes).toHaveLength(1);

@@ -23,6 +23,8 @@ export const WORKER_HEALTH_REGISTRY = [
 type WorkerKey = typeof WORKER_HEALTH_REGISTRY[number]["key"];
 type PersistedStatus = "running" | "healthy" | "degraded";
 export type DerivedWorkerStatus = PersistedStatus | "stale" | "not_started";
+export type SafeWorkerErrorCode = "POLICY_DISABLED" | "INVALID_SOURCE" | "TIMEOUT" | "DATABASE_CONFLICT" | "DATABASE_UNAVAILABLE" | "PERMISSION_DENIED" | "WORKER_ERROR";
+const qualificationLeaseTtlMs = 5 * 60_000;
 
 const instanceId = randomUUID();
 let persistenceWarningLogged = false;
@@ -38,6 +40,20 @@ export function sanitizeWorkerErrorMessage(error: unknown): string {
     .replace(/\bsk-[A-Za-z0-9_-]{16,}\b/g, "[credential-redacted]")
     .replace(/[\r\n\t]/g, " ")
     .slice(0, 1000);
+}
+
+/** Map potentially sensitive free-text errors to a small, stable diagnostic vocabulary. */
+export function safeWorkerErrorCode(error: unknown): SafeWorkerErrorCode | null {
+  if (error == null) return null;
+  const message = error instanceof Error ? error.message : String(error);
+  if (!message.trim()) return null;
+  if (/global tier policy is off/i.test(message)) return "POLICY_DISABLED";
+  if (/source ledger|qualifying attribution|qualification source/i.test(message) && /invalid|no longer|missing|not prove|does not/i.test(message)) return "INVALID_SOURCE";
+  if (/permission|access denied|unauthori[sz]ed/i.test(message)) return "PERMISSION_DENIED";
+  if (/deadlock|serialization failure|lock wait timeout/i.test(message)) return "DATABASE_CONFLICT";
+  if (/timed? out|timeout|etimedout/i.test(message)) return "TIMEOUT";
+  if (/database|connection|econn|enotfound|socket|unavailable/i.test(message)) return "DATABASE_UNAVAILABLE";
+  return "WORKER_ERROR";
 }
 
 export function deriveWorkerHealthStatus(
@@ -139,7 +155,20 @@ export type DeadQualificationJob = {
   sourceLedgerId: number;
   attempts: number;
   lastError: string | null;
+  lastErrorCode: SafeWorkerErrorCode | null;
   updatedAt: string | null;
+};
+
+export type QualificationQueueDiagnostics = {
+  backlog: number;
+  oldestPendingCreatedAt: string | null;
+  oldestPendingAgeMs: number | null;
+  oldestProcessingLease: {
+    leaseOwner: null;
+    lockedAt: string | null;
+    expiresAt: string | null;
+    stale: boolean | null;
+  } | null;
 };
 
 export type WorkerHealthSummary = {
@@ -152,14 +181,18 @@ export type WorkerHealthSummary = {
     staleAfterMs: number;
     instanceId: string;
     status: DerivedWorkerStatus;
+    healthRecordAvailable: boolean;
     heartbeatAt: string | null;
+    lastAttemptAt: string | null;
     lastSuccessAt: string | null;
     lastFailureAt: string | null;
     lastDurationMs: number | null;
     consecutiveFailures: number;
     lastError: string | null;
+    lastErrorCode: SafeWorkerErrorCode | null;
   }>;
   qualificationQueue: { pending: number; processing: number; completed: number; dead: number; total: number } | null;
+  qualificationQueueDiagnostics: QualificationQueueDiagnostics | null;
   deadQualificationJobs: DeadQualificationJob[] | null;
 };
 
@@ -167,6 +200,32 @@ function iso(value: Date | string | null | undefined): string | null {
   if (value == null) return null;
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+/** Derive age and the queue's existing second-aligned five-minute reclaim threshold from persisted timestamps. */
+export function deriveQualificationQueueDiagnostics(
+  input: { backlog: number; oldestPendingCreatedAt: Date | string | null | undefined; processingCount: number; oldestProcessingLockedAt: Date | string | null | undefined } | null,
+  nowMs = Date.now(),
+): QualificationQueueDiagnostics | null {
+  if (!input) return null;
+  const oldestPendingCreatedAt = iso(input.oldestPendingCreatedAt);
+  const pendingMs = oldestPendingCreatedAt ? Date.parse(oldestPendingCreatedAt) : Number.NaN;
+  const oldestProcessingLockedAt = iso(input.oldestProcessingLockedAt);
+  const lockedMs = oldestProcessingLockedAt ? Date.parse(oldestProcessingLockedAt) : Number.NaN;
+  const hasPendingTimestamp = Number.isFinite(pendingMs) && pendingMs <= nowMs;
+  const hasLeaseTimestamp = Number.isFinite(lockedMs);
+  const lease = input.processingCount <= 0 ? null : {
+    leaseOwner: null as null,
+    lockedAt: oldestProcessingLockedAt,
+    expiresAt: hasLeaseTimestamp ? new Date(lockedMs + qualificationLeaseTtlMs).toISOString() : null,
+    stale: hasLeaseTimestamp ? lockedMs < Math.floor(nowMs / 1_000) * 1_000 - qualificationLeaseTtlMs : null,
+  };
+  return {
+    backlog: input.backlog,
+    oldestPendingCreatedAt,
+    oldestPendingAgeMs: hasPendingTimestamp ? nowMs - pendingMs : null,
+    oldestProcessingLease: lease,
+  };
 }
 
 export async function getWorkerHealthSummary(): Promise<WorkerHealthSummary> {
@@ -189,12 +248,15 @@ export async function getWorkerHealthSummary(): Promise<WorkerHealthSummary> {
       staleAfterMs,
       instanceId: row.instanceId.slice(0, 8),
       status: deriveWorkerHealthStatus({ status: row.status, heartbeatAt: row.heartbeatAt }, staleAfterMs, now),
+      healthRecordAvailable: true,
       heartbeatAt: iso(row.heartbeatAt),
+      lastAttemptAt: iso(row.startedAt),
       lastSuccessAt: iso(row.lastSuccessAt),
       lastFailureAt: iso(row.lastFailureAt),
       lastDurationMs: row.lastDurationMs == null ? null : Number(row.lastDurationMs),
       consecutiveFailures: Number(row.consecutiveFailures ?? 0),
       lastError: row.lastError ? sanitizeWorkerErrorMessage(row.lastError) : null,
+      lastErrorCode: safeWorkerErrorCode(row.lastError),
     };
   });
   for (const definition of WORKER_HEALTH_REGISTRY) {
@@ -207,17 +269,21 @@ export async function getWorkerHealthSummary(): Promise<WorkerHealthSummary> {
         staleAfterMs: definition.staleAfterMs,
         instanceId: instanceId.slice(0, 8),
         status: "not_started",
+        healthRecordAvailable: false,
         heartbeatAt: null,
+        lastAttemptAt: null,
         lastSuccessAt: null,
         lastFailureAt: null,
         lastDurationMs: null,
         consecutiveFailures: 0,
         lastError: null,
+        lastErrorCode: null,
       });
     }
   }
 
   let qualificationQueue: WorkerHealthSummary["qualificationQueue"] = null;
+  let qualificationQueueDiagnostics: WorkerHealthSummary["qualificationQueueDiagnostics"] = null;
   let deadQualificationJobs: WorkerHealthSummary["deadQualificationJobs"] = null;
   try {
     const grouped = await db.select({
@@ -230,6 +296,18 @@ export async function getWorkerHealthSummary(): Promise<WorkerHealthSummary> {
       qualificationQueue[item.status] = count;
       qualificationQueue.total += count;
     }
+    const [pendingTiming] = await db.select({
+      oldestPendingCreatedAt: sql<Date | null>`min(${tradingTierQualificationJobs.createdAt})`,
+    }).from(tradingTierQualificationJobs).where(eq(tradingTierQualificationJobs.status, "pending"));
+    const [processingTiming] = await db.select({
+      oldestProcessingLockedAt: sql<Date | null>`min(${tradingTierQualificationJobs.lockedAt})`,
+    }).from(tradingTierQualificationJobs).where(eq(tradingTierQualificationJobs.status, "processing"));
+    qualificationQueueDiagnostics = deriveQualificationQueueDiagnostics({
+      backlog: qualificationQueue.pending,
+      oldestPendingCreatedAt: pendingTiming?.oldestPendingCreatedAt,
+      processingCount: qualificationQueue.processing,
+      oldestProcessingLockedAt: processingTiming?.oldestProcessingLockedAt,
+    }, now);
     const deadRows = await db.select({
       id: tradingTierQualificationJobs.id,
       userId: tradingTierQualificationJobs.userId,
@@ -245,15 +323,17 @@ export async function getWorkerHealthSummary(): Promise<WorkerHealthSummary> {
       sourceLedgerId: Number(row.sourceLedgerId),
       attempts: Number(row.attempts),
       lastError: row.lastError ? sanitizeWorkerErrorMessage(row.lastError) : null,
+      lastErrorCode: safeWorkerErrorCode(row.lastError),
       updatedAt: iso(row.updatedAt),
     }));
   } catch {
     // Keep worker-health rows available while making a missing or unavailable queue explicit.
     qualificationQueue = null;
+    qualificationQueueDiagnostics = null;
     deadQualificationJobs = null;
   }
 
-  return { generatedAt: new Date(now).toISOString(), workers, qualificationQueue, deadQualificationJobs };
+  return { generatedAt: new Date(now).toISOString(), workers, qualificationQueue, qualificationQueueDiagnostics, deadQualificationJobs };
 }
 
 export async function requeueDeadQualificationJob(input: { jobId: number; adminId: number; reason: string }) {

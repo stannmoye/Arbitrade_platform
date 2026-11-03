@@ -3,6 +3,7 @@ import { parse as parseCookieHeader } from "cookie";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { listAdminTradeAuditHistory } from "./db";
 import { countCompanyReferences, findCompanyReferencesBySymbol, getCompanyReferenceById, getCompanyReferenceSummary, getRandomCompanyReference, searchCompanyReferences } from "./modules/company-catalogue-reference";
 import { createCompanySpotlightDisplayGuard, parseCompanyCatalogueAdminState } from "./modules/company-spotlight-rotation";
 import { z } from "zod";
@@ -586,6 +587,25 @@ export const appRouter = router({
     sendCustomerEmail: adminProcedure.input(z.object({ userId: z.number().int().positive(), subject: z.string().trim().min(3).max(160), body: z.string().trim().min(1).max(8000) })).mutation(({ ctx, input }) => enqueueAdminMessage(input.userId, input.subject, input.body, `admin:${ctx.user.id}:${Date.now()}:${input.userId}`)),
     customers: adminProcedure.query(() => listAdminCustomers()),
     audit: adminProcedure.query(() => listAdminAuditEvents()),
+    tradeAuditHistory: adminProcedure.input(z.object({
+      actorUserId: z.number().int().positive().max(2_147_483_647).optional(),
+      fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      key: z.string().trim().min(1).max(160).optional(),
+      entityType: z.string().trim().min(1).max(80).optional(),
+      entityId: z.string().trim().min(1).max(128).optional(),
+      package: z.string().trim().min(1).max(100).optional(),
+      scope: z.enum(["global", "package", "record"]).optional(),
+      cursor: z.string().regex(/^[A-Za-z0-9_-]{1,200}$/).optional(),
+      pageSize: z.number().int().min(1).max(100).default(50),
+    }).strict()
+      .refine(input => [input.fromDate, input.toDate].every(value => {
+        if (!value) return true;
+        const date = new Date(`${value}T00:00:00.000Z`);
+        return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+      }), { message: "Dates must be valid UTC calendar dates." })
+      .refine(input => !input.fromDate || !input.toDate || input.fromDate <= input.toDate, { message: "Start date must not follow end date." })
+    ).query(({ input }) => listAdminTradeAuditHistory(input)),
     ledgerActivity: adminProcedure.input(z.object({
       userId: z.number().int().positive(),
       utcDay: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
