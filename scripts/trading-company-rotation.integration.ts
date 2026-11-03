@@ -237,7 +237,7 @@ try {
   // Two independent worker invocations race on the exact same user:offer:quotaDay.
   // Only one may claim the durable cursor and persist the company snapshot.
   const duplicateDelivery = makeDelivery(offerIds[0]!, mainPackage);
-  const duplicateKey = `${userId}:${offerIds[0]}:${quotaDay}`;
+  const duplicateKey = `${userId}:${offerIds[0]}`;
   const [duplicateA, duplicateB] = await Promise.all([
     ensurePopupDeliveries([duplicateDelivery]),
     ensurePopupDeliveries([duplicateDelivery]),

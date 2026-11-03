@@ -97,7 +97,7 @@ async function clickStableNavigationTarget(page, locator) {
     // viewport to Playwright's hit-target check after the rail reflows. Keep
     // normal pointer validation first; only this navigation helper may use a
     // forced pointer click, and only after an independent DOM geometry check.
-    if (!(error instanceof Error) || !/outside the viewport/i.test(error.message)) throw error;
+    if (!(error instanceof Error) || !/outside(?: of)? the viewport/i.test(error.message)) throw error;
     const safelyClickable = await locator.evaluate(element => {
       const rect = element.getBoundingClientRect();
       const style = getComputedStyle(element);
