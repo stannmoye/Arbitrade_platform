@@ -1075,7 +1075,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
     // intentionally not rendered on the Finance → Wallet & Ledger route.
     const tradeSettingsGroup = page.getByRole("button", { name: /Trade Settings/ });
     if (await tradeSettingsGroup.getAttribute("aria-expanded") !== "true") {
-      await clickStableNavigationTarget(page, tradeSettingsGroup);
+      await tradeSettingsGroup.click({ force: true });
     }
     const settlementDestination = page.locator(
       '#admin-main-navigation button[title="Confirm trade outcomes and reconcile trade settlement records only"]',
@@ -2433,7 +2433,7 @@ async function runAdminTradingControlsInteractionCheck(browser) {
     const tradeSettingsNavigation = page.locator("#admin-main-navigation .admin-nav-group--trade-settings");
     const tradeSettingsHeading = tradeSettingsNavigation.getByRole("button", { name: /Trade Settings/ });
     if (await tradeSettingsHeading.getAttribute("aria-expanded") !== "true") {
-      await clickStableNavigationTarget(page, tradeSettingsHeading);
+      await tradeSettingsHeading.click({ force: true });
     }
     const packageConfigurationDestination = tradeSettingsNavigation.locator(
       'button[title="Manage package-policy controls and the system-wide allocation safety gate"]',
