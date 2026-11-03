@@ -27,14 +27,15 @@ fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
 
 async function waitForStableViewportTarget(page, locator, { timeout = 10000 } = {}) {
   await locator.waitFor({ state: "visible", timeout });
-  // The admin rail owns its own vertical scroll; locator.scrollIntoViewIfNeeded()
-  // can leave a target outside that container's visible region when the rail is
+  // The admin rail owns its own scroll; locator.scrollIntoViewIfNeeded() can
+  // leave a target outside that container's visible region when the rail is
   // sticky or flex-sized. Move the nearest scrollable ancestor explicitly first.
   await locator.evaluate(element => {
     let ancestor = element.parentElement;
     while (ancestor) {
       const style = getComputedStyle(ancestor);
-      const canScroll = /(auto|scroll)/.test(style.overflowY) && ancestor.scrollHeight > ancestor.clientHeight;
+      const canScroll = (/(auto|scroll)/.test(style.overflowY) && ancestor.scrollHeight > ancestor.clientHeight) ||
+        (/(auto|scroll)/.test(style.overflowX) && ancestor.scrollWidth > ancestor.clientWidth);
       if (canScroll) {
         const target = element.getBoundingClientRect();
         const container = ancestor.getBoundingClientRect();
@@ -43,6 +44,11 @@ async function waitForStableViewportTarget(page, locator, { timeout = 10000 } = 
           ancestor.scrollTop += target.top - container.top - padding;
         } else if (target.bottom > container.bottom - padding) {
           ancestor.scrollTop += target.bottom - container.bottom + padding;
+        }
+        if (target.left < container.left + padding) {
+          ancestor.scrollLeft += target.left - container.left - padding;
+        } else if (target.right > container.right - padding) {
+          ancestor.scrollLeft += target.right - container.right + padding;
         }
         break;
       }
@@ -53,8 +59,9 @@ async function waitForStableViewportTarget(page, locator, { timeout = 10000 } = 
   const deadline = Date.now() + timeout;
   let previous = await locator.boundingBox();
   while (Date.now() < deadline) {
-    const viewportHeight = await page.evaluate(() => window.innerHeight);
-    if (!previous || previous.y < 0 || previous.y + previous.height > viewportHeight) {
+    const viewport = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+    if (!previous || previous.x < 0 || previous.x + previous.width > viewport.width ||
+      previous.y < 0 || previous.y + previous.height > viewport.height) {
       await locator.scrollIntoViewIfNeeded();
       previous = await locator.boundingBox();
       continue;
@@ -70,7 +77,26 @@ async function waitForStableViewportTarget(page, locator, { timeout = 10000 } = 
 
 async function clickStableNavigationTarget(page, locator) {
   await waitForStableViewportTarget(page, locator);
-  await locator.click();
+  try {
+    await locator.click();
+  } catch (error) {
+    // Fixed/sticky rails can report a valid, visible button as outside the
+    // viewport to Playwright's hit-target check after the rail reflows. Keep
+    // normal pointer validation first; only this navigation helper may use a
+    // forced pointer click, and only after an independent DOM geometry check.
+    if (!(error instanceof Error) || !/outside the viewport/i.test(error.message)) throw error;
+    const safelyClickable = await locator.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return element.isConnected &&
+        style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity) > 0 &&
+        !element.hasAttribute("disabled") && element.getAttribute("aria-disabled") !== "true" &&
+        rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.bottom > 0 &&
+        rect.left < window.innerWidth && rect.top < window.innerHeight;
+    });
+    if (!safelyClickable) throw error;
+    await locator.click({ force: true });
+  }
 }
 
 async function runAdminAppearanceInteractionCheck(browser) {
