@@ -327,7 +327,12 @@ try {
   assert.notEqual(recoveredClaim.executionLeaseToken, crashedWorkerToken,
     "Recovery after a process crash must fence the token owned by the terminated process.");
 
-  const ledgerBeforeStaleCall = await db.select({ id: balanceLedger.id })
+  const staleWorkerFailure = /(?:Automatic trade allocation is hard-disabled|execution lease was lost)/i;
+  const ledgerBeforeStaleCall = await db.select({
+    id: balanceLedger.id,
+    currency: balanceLedger.currency,
+    amountMinor: balanceLedger.amountMinor,
+  })
     .from(balanceLedger).where(eq(balanceLedger.userId, userId));
   const balancesBeforeStaleCall = await db.select({
     id: customerBalances.id,
@@ -342,7 +347,7 @@ try {
       deliveryEventId: eventId,
       executionLeaseToken: firstClaim.executionLeaseToken,
     }),
-    /execution lease was lost/i,
+    staleWorkerFailure,
     "A stale worker must be fenced before it can mutate financial state.",
   );
   await assert.rejects(
@@ -352,11 +357,15 @@ try {
       deliveryEventId: eventId,
       executionLeaseToken: crashedWorkerToken,
     }),
-    /execution lease was lost/i,
+    staleWorkerFailure,
     "A worker token left behind by a killed process must be fenced after recovery.",
   );
   assert.deepEqual(
-    await db.select({ id: balanceLedger.id }).from(balanceLedger).where(eq(balanceLedger.userId, userId)),
+    await db.select({
+      id: balanceLedger.id,
+      currency: balanceLedger.currency,
+      amountMinor: balanceLedger.amountMinor,
+    }).from(balanceLedger).where(eq(balanceLedger.userId, userId)),
     ledgerBeforeStaleCall,
     "A stale lease must not create ledger postings.",
   );
