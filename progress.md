@@ -1,3 +1,15 @@
+## 2026-11-03 — Server Trade Settings scope-validation checkpoint
+
+- Working branch: `feat/trade-settings-ownership-registry`, based on `main` `59c425414b981bc2fd8720119f2d4b650b97ab15`.
+- Added `server/trade-settings-scope.ts` with a shared server validator for global delivery-gate fields and wired strict schemas plus validation into `createTradingPackage` and `updateTradingPackage`.
+- Package Settings mutations now reject `enabled` and `automaticDelivery` with an explicit owner-route error; those fields belong to Package Configuration. This prevents accidental cross-scope writes at the router boundary.
+- Added `server/trade-settings-scope.test.ts`. The existing package-policy switch persistence remains compatible for now; moving those values to the canonical global settings source is intentionally deferred to the migration checkpoint rather than silently changing storage in this step.
+- Validation: `pnpm check` passed; full Vitest suite passed with 927 tests passed and 17 skipped; `git diff --check` passed.
+- No schema migration, database write, deployment, worker behavior, wallet operation, financial execution or settlement behavior changed.
+- Next safe action: design the forward-only canonical global settings migration, including strictest-safety precedence, conflict diagnostics, compatibility-read window and immutable audit/version behavior.
+
+---
+
 ## 2026-11-03 — Package Configuration and Package Settings route checkpoint
 
 - Working branch: `feat/trade-settings-ownership-registry`, based on `main` `59c425414b981bc2fd8720119f2d4b650b97ab15`.

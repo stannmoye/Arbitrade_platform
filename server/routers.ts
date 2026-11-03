@@ -30,6 +30,7 @@ import { localIdentityService } from "./_core/localIdentityService";
 import { createHeartbeatJob, deleteHeartbeatJob, listHeartbeatJobs, updateHeartbeatJob } from "./_core/heartbeat";
 import { getWorkerHealthSummary, requeueDeadQualificationJob } from "./_core/workerHealth";
 import { getSystemDiagnosticsReport } from "./_core/systemDiagnostics";
+import { assertPackageTermsPayload } from "./trade-settings-scope";
 
 async function getCustomerApprovedCompanyReferences(
   filters: Parameters<typeof searchCompanyReferences>[0] = {},
@@ -444,12 +445,12 @@ export const appRouter = router({
       startsAt: z.string().datetime().nullable(),
       expiresAt: z.string().datetime().nullable(),
       enabled: z.boolean(),
-    }).refine(input => !input.startsAt || !input.expiresAt || Date.parse(input.expiresAt) > Date.parse(input.startsAt), {
+    }).strict().refine(input => !input.startsAt || !input.expiresAt || Date.parse(input.expiresAt) > Date.parse(input.startsAt), {
       message: "Package expiry must be later than its start time",
       path: ["expiresAt"],
-    })).mutation(({ ctx, input }) => createAdminTradingPackage(ctx.user.id, {
+    })).mutation(({ ctx, input }) => { assertPackageTermsPayload(input); return createAdminTradingPackage(ctx.user.id, {
       ...input, startsAt:input.startsAt?new Date(input.startsAt):null, expiresAt:input.expiresAt?new Date(input.expiresAt):null,
-    })),
+    }); }),
     updateTradingPackage: adminProcedure.input(z.object({
       id: z.number().int().positive(),
       reason: z.string().trim().min(5).max(500),
@@ -462,12 +463,12 @@ export const appRouter = router({
       startsAt: z.string().datetime().nullable(),
       expiresAt: z.string().datetime().nullable(),
       enabled: z.boolean(),
-    }).refine(input => !input.startsAt || !input.expiresAt || Date.parse(input.expiresAt) > Date.parse(input.startsAt), {
+    }).strict().refine(input => !input.startsAt || !input.expiresAt || Date.parse(input.expiresAt) > Date.parse(input.startsAt), {
       message: "Package expiry must be later than its start time",
       path: ["expiresAt"],
-    })).mutation(({ ctx, input }) => updateAdminTradingPackage(ctx.user.id, {
+    })).mutation(({ ctx, input }) => { assertPackageTermsPayload(input); return updateAdminTradingPackage(ctx.user.id, {
       ...input, startsAt:input.startsAt?new Date(input.startsAt):null, expiresAt:input.expiresAt?new Date(input.expiresAt):null,
-    })),
+    }); }),
     communicationSettings: adminProcedure.query(() => getAdminCommunicationSettings()),
     updateCommunicationSettings: adminProcedure.input(communicationSettingsInput).mutation(async ({ ctx, input }) => {
       const errors = validateCommunicationSettingsInput(input);
