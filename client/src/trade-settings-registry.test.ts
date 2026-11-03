@@ -24,6 +24,20 @@ describe("Trade Settings ownership registry", () => {
     }
   });
 
+  it("declares exactly one navigation owner for every registered setting", () => {
+    const tradeSettings = adminNavigationGroups.find((group) => group.id === "trade-settings");
+    const owners = new Map<string, string[]>();
+    for (const item of tradeSettings?.items ?? []) {
+      for (const key of item.ownerKeys ?? []) {
+        owners.set(key, [...(owners.get(key) ?? []), item.id]);
+      }
+    }
+    for (const setting of tradeSettingRegistry) {
+      expect(owners.get(setting.key)).toEqual([expect.any(String)]);
+    }
+    expect(owners.size).toBe(tradeSettingRegistry.length);
+  });
+
   it("keeps carry-forward explicitly read-only until its state machine exists", () => {
     const carryForward = tradeSettingRegistry.find((setting) => setting.key === "trade.package.carryForward");
     expect(carryForward).toMatchObject({ editable: false, auditPolicy: "read-only", saveMutation: "none" });

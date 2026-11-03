@@ -174,6 +174,8 @@ export const tradeSettingRegistry = [
   },
 ] satisfies readonly TradeSettingDefinition[];
 
+export type TradeSettingKey = (typeof tradeSettingRegistry)[number]["key"];
+
 export function getTradeSettingDefinition(key: string) {
   return tradeSettingRegistry.find((setting) => setting.key === key);
 }

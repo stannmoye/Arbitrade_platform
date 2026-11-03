@@ -1,3 +1,14 @@
+## 2026-11-03 — Trade Settings navigation ownership wiring checkpoint
+
+- Working branch: `feat/trade-settings-ownership-registry`, based on `main` `59c425414b981bc2fd8720119f2d4b650b97ab15`.
+- Added compile-time `ownerKeys` metadata to the canonical admin navigation. The existing Trade Settings screens now declare the registry keys they own for tier terms, package policy, global timing, retry/carry-forward status, and global delivery gates.
+- Added a contract test requiring exactly one navigation owner for every registered setting. This prevents a future editor/action from being added to a second route without a failing test.
+- No screen behavior, mutation, database schema, worker behavior, wallet operation, financial execution or settlement behavior changed.
+- Validation: `pnpm check` passed; focused navigation/registry tests passed; repository suite remained 925 passed and 17 skipped; `git diff --check` passed.
+- Next safe action: introduce explicit Package Configuration and Package Settings route/page ownership and server-side scope validation, then begin the forward-only schema/migration checkpoint. Do not claim the full blueprint is complete yet.
+
+---
+
 ## 2026-11-02 — Trade Settings single-owner registry checkpoint
 
 - Working branch: `feat/trade-settings-ownership-registry`, based on GitHub `main` commit `59c425414b981bc2fd8720119f2d4b650b97ab15`; checkpoint head before this handoff update: `a0eaaf2e`.
