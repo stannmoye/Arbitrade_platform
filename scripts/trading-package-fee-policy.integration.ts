@@ -2,6 +2,25 @@ import { eq } from "drizzle-orm";
 import { closeDbPool, getDb, getPackageFeeHistory, getPackageFeePolicies, updatePackageFeePolicy } from "../server/db";
 import { packages, tradingPackageFeePolicyVersions, v5AuditEvents } from "../drizzle/schema";
 
+const EFFECTIVE_DELAY_MS = 1_000;
+const READ_BACK_TIMEOUT_MS = 10_000;
+const READ_BACK_POLL_MS = 25;
+
+async function waitForActivePolicy(packageId: number, version: number) {
+  const deadline = Date.now() + READ_BACK_TIMEOUT_MS;
+  while (true) {
+    const policies = await getPackageFeePolicies();
+    const policy = policies.find((row) => row.packageId === packageId);
+    if (policy?.activeVersion === version && policy.latestVersion === version && policy.scheduled === false) return policy;
+    if (Date.now() >= deadline) throw new Error(`Package fee policy version ${version} did not become active before the read-back deadline.`);
+    await new Promise((resolve) => setTimeout(resolve, Math.min(READ_BACK_POLL_MS, Math.max(1, deadline - Date.now()))));
+  }
+}
+
+function nextEffectiveAt() {
+  return new Date(Date.now() + EFFECTIVE_DELAY_MS).toISOString();
+}
+
 async function main() {
   if (process.env.RUN_DISPOSABLE_PACKAGE_FEE_INTEGRATION !== "1") {
     throw new Error("Refusing to run: set RUN_DISPOSABLE_PACKAGE_FEE_INTEGRATION=1 only for a disposable test database.");
@@ -26,7 +45,7 @@ async function main() {
     try {
       await updatePackageFeePolicy({
         packageId, expectedVersion: 1, feeRateBps: 1500, roundingMode: "half_up",
-        effectiveAt: new Date(Date.now() + 5_000).toISOString(), reason: "Must be rejected before initialization",
+        effectiveAt: nextEffectiveAt(), reason: "Must be rejected before initialization",
       }, 2_147_000_001);
     } catch (error) {
       positiveVersionRejected = error instanceof Error && error.message.includes("not configured");
@@ -34,15 +53,15 @@ async function main() {
     if (!positiveVersionRejected) throw new Error("Positive expected version was accepted for an unconfigured package.");
     const initialized = await updatePackageFeePolicy({
       packageId, expectedVersion: 0, feeRateBps: 1500, roundingMode: "half_up",
-      effectiveAt: new Date(Date.now() - 1_000).toISOString(), reason: "Disposable admin initialization",
+      effectiveAt: nextEffectiveAt(), reason: "Disposable admin initialization",
     }, 2_147_000_001);
     const initialAuditReference = `trading-package-fee-policy:${packageId}:1`;
     auditReferences.push(initialAuditReference);
     if (initialized.version !== 1 || initialized.feeRateBps !== 1500 || initialized.roundingMode !== "half_up" || initialized.source !== "admin_initial" || initialized.reason !== "Disposable admin initialization") {
       throw new Error("Admin-initialized package fee policy did not pass fresh read-back.");
     }
-    const initial = (await getPackageFeePolicies()).find((row) => row.packageId === packageId);
-    if (!initial || initial.packageName !== packageName || initial.feeRateBps !== 1500 || initial.version !== 1 || initial.source !== "admin_initial") {
+    const initial = await waitForActivePolicy(packageId, 1);
+    if (initial.packageName !== packageName || initial.feeRateBps !== 1500 || initial.version !== 1 || initial.source !== "admin_initial") {
       throw new Error("Package fee policy initial read failed.");
     }
     const initialAudit = (await db.select().from(v5AuditEvents).where(eq(v5AuditEvents.reference, initialAuditReference)).limit(1))[0];
@@ -52,12 +71,20 @@ async function main() {
 
     const updated = await updatePackageFeePolicy({
       packageId, expectedVersion: 1, feeRateBps: 2375, roundingMode: "half_even",
-      effectiveAt: new Date(Date.now() - 1_000).toISOString(), reason: "Disposable integration update",
+      effectiveAt: nextEffectiveAt(), reason: "Disposable integration update",
     }, 2_147_000_001);
     const auditReference = `trading-package-fee-policy:${packageId}:2`;
     auditReferences.push(auditReference);
     if (updated.version !== 2 || updated.feeRateBps !== 2375 || updated.roundingMode !== "half_even" || updated.changedBy !== "2147000001") {
       throw new Error("Updated package fee policy did not pass fresh read-back.");
+    }
+    const scheduled = (await getPackageFeePolicies()).find((row) => row.packageId === packageId);
+    if (!scheduled || scheduled.activeVersion !== 1 || scheduled.latestVersion !== 2 || scheduled.scheduled !== true || scheduled.feeRateBps !== 1500) {
+      throw new Error("Future package fee policy was not exposed as scheduled while the initial policy remained active.");
+    }
+    const activeUpdated = await waitForActivePolicy(packageId, 2);
+    if (activeUpdated.feeRateBps !== 2375 || activeUpdated.roundingMode !== "half_even" || activeUpdated.source !== "admin_update") {
+      throw new Error("Updated package fee policy did not become the active read-back policy.");
     }
     const history = await getPackageFeeHistory(packageId);
     if (history.length !== 2 || history[0].version !== 2 || history[1].version !== 1) {
