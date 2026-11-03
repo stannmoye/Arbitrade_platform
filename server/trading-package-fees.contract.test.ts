@@ -91,11 +91,12 @@ describe("package-specific fee administration and immutable snapshots", () => {
     expect(db).toContain("version:activePolicy?.version??null");
     expect(db).toContain("resolvePackageFeePolicyWrite(current?Number(current.version):null,input.expectedVersion)");
     expect(router).not.toContain("updateTradeFeePolicy: adminProcedure");
-    const ui = read("../client/src/components/AdminOperationsPages.tsx");
+    const ui = read("../client/src/components/AdminPackageFeeEditor.tsx");
+    const historyUi = read("../client/src/components/AdminOperationsPages.tsx");
     expect(ui).toContain("policy.activePolicy.feeRateBps");
-    expect(ui).toContain("policy.latestPolicy.feeRateBps");
-    expect(ui).toContain("policy.latestVersion");
-    expect(ui).toContain("Legacy global fee settings are read-only");
+    expect(ui).toContain("latest?.feeRateBps");
+    expect(ui).toContain("policy.latestPolicyVersion");
+    expect(historyUi).toContain("Legacy global fee settings are read-only");
   });
 
   it("makes legacy global policy writes fail closed at both the API and DB helper boundaries", () => {

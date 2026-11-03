@@ -15,9 +15,12 @@ describe("customer opportunity popup retry and visibility gates", () => {
   it("does not mark an offer as seen before all display gates pass", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    const gate = component.indexOf("if(!isOfferCurrent(offer)||!canShow()||popupRef.current)");
-    const markSeen = component.indexOf("seen.current.add(offerId)");
-    const commitPopup = component.indexOf("setPopup(offer)");
+    const displayStart = component.indexOf("const display=()=>", component.indexOf("const showOffer=(offer:any)=>"));
+    const displayEnd = component.indexOf("const locks=", displayStart);
+    const displayBody = component.slice(displayStart, displayEnd);
+    const gate = displayBody.indexOf("if(!isOfferCurrent(offer)||!canShow()||popupRef.current)");
+    const markSeen = displayBody.indexOf("seen.current.add(offerId)");
+    const commitPopup = displayBody.indexOf("setPopup(offer)");
     expect(gate).toBeGreaterThanOrEqual(0);
     expect(markSeen).toBeGreaterThan(gate);
     expect(commitPopup).toBeGreaterThan(markSeen);
@@ -41,7 +44,7 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain("const canShow=()=>Boolean(delivery?.enabled&&policy)");
     expect(component).toContain("attemptNext(opportunityData?.offers||[])");
     expect(component).toContain("window.setInterval(()=>attemptNext(opportunityData?.offers||[]),5000)");
-    expect(component).toContain("offer.popupEligible===true");
+    expect(component).toContain("current.popupEligible===true");
     expect(component).toContain('String(offer.offerStatus||"").toLowerCase()==="open"');
   });
 
@@ -82,7 +85,8 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(delivery).toContain("currencyScale:Number(currencyRows.find");
     expect(delivery).toContain("currencySymbol:String(currencyRows.find");
     expect(delivery).toContain('popupEligible:row.offerStatus==="open"');
-    expect(delivery).toContain('["delivered","received","rendered","failed"].includes(String(row.deliveryStatus))');
+    expect(delivery).toContain('["queued","in_progress","retry_wait","delivered","received","rendered"].includes(String(row.deliveryStatus))');
+    expect(delivery).not.toContain('["delivered","received","rendered","failed"].includes(String(row.deliveryStatus))');
     expect(delivery).toContain("a refreshed customer portal can retry rendering and status recording");
   });
 

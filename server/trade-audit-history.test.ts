@@ -65,7 +65,7 @@ describe("Trade Settings audit history query", () => {
   it("uses a narrow action allowlist, bounded scans, an exact continuation probe and a descending composite keyset", () => {
     const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
     const start = source.indexOf("export async function listAdminTradeAuditHistory(");
-    const end = source.indexOf("const TRADE_FEE_SETTING_KEYS", start);
+    const end = source.indexOf("export async function getTradeFeePolicy()", start);
     const implementation = source.slice(start, end);
     expect(implementation).toContain("inArray(v5AuditEvents.action, [...TRADE_SETTINGS_AUDIT_ACTIONS])");
     expect(implementation).toContain("scanLimit = 1000");

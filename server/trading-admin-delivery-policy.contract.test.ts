@@ -3,17 +3,18 @@ import { describe, expect, it } from "vitest";
 
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const policyEditor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
+const retryEditor = readFileSync(new URL("../client/src/components/AdminDeliveryRetryPolicy.tsx", import.meta.url), "utf8");
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
 const staticGuide = readFileSync(new URL("../client/public/trade-admin-guide.html", import.meta.url), "utf8");
 
 describe("administrator Trading delivery policy controls", () => {
-  it("keeps timing, retry, concurrency and reward eligibility fields in the tier editor", () => {
+  it("keeps tier timing, financial retry, concurrency and reward fields in the tier editor while delivery retry has one owner", () => {
     for (const field of [
       "dailyPopupTarget", "schedulingPeriod", "minIntervalSeconds", "maxIntervalSeconds",
       "popupDisplayTargetSeconds", "completionDisplaySeconds", "postCompletionIntervalSeconds",
-      "maxPendingDeliveries", "maxDeliveryAttempts", "maxTradeAttemptsPerDay",
+      "maxPendingDeliveries", "maxTradeAttemptsPerDay",
       "tradeRetryDelaySeconds", "maxSuccessfulTradesPerDay", "maxConcurrentActiveTrades",
       "minSettlementDelaySeconds", "maxSettlementDelaySeconds",
       "minimumRewardBps", "maxDailyRewardMinor", "maxRewardPerTradeMinor", "closePolicy",
@@ -24,6 +25,12 @@ describe("administrator Trading delivery policy controls", () => {
     }
     expect(app).toContain("trpc.adminOperations.globalTradeControls.useQuery");
     expect(app).toContain("trpc.adminOperations.updateGlobalTradeControl.useMutation");
+    expect(app).toContain('section==="tradeRetryPolicy"&&<Suspense');
+    expect(app).toContain("<AdminDeliveryRetryPolicy/>");
+    expect(policyEditor).not.toContain("maxDeliveryAttempts");
+    expect(retryEditor).toContain("Maximum delivery attempts");
+    expect(retryEditor).toContain("Delivery-specific retry intervals (seconds)");
+    expect(retryEditor).toContain("api.updateDeliveryRetryPolicy.useMutation()");
     expect(app).toContain("minimumPayoutRateBps:x.minimumPayoutRateBps??null");
     expect(app).toContain('companyRotationCountryNames:x.companyRotationCountryNames??""');
     expect(app).not.toContain('{ key: "enabled", label: "Tier policy" }');
@@ -88,9 +95,11 @@ describe("administrator Trading delivery policy controls", () => {
     expect(database).toContain("packagePolicyVersionSnapshot:snapshotVersion");
   });
 
-  it("keeps the static admin guide honest about inactive delivery caps and legacy display repair", () => {
-    expect(staticGuide).toContain("not enforced by the delivery worker");
-    expect(staticGuide).toContain("does not read this field");
+  it("keeps the static admin guide honest about enforced pending caps and shared delivery retries", () => {
+    expect(staticGuide).toContain("per-customer/per-package pending-delivery cap is enforced");
+    expect(staticGuide).not.toContain("not enforced by the delivery worker");
+    expect(staticGuide).not.toContain("does not read this field");
+    expect(staticGuide).toContain("Shared delivery retry policy");
     expect(staticGuide).toContain("not silently migrated");
     expect(staticGuide).toContain("1–86,400 seconds");
   });

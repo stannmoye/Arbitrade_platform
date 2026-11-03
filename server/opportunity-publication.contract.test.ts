@@ -40,7 +40,7 @@ describe("reviewed opportunity publication contracts", () => {
     expect(allowlist).toContain('"trading_opportunity_published"');
     expect(database).toContain('entityType === "opportunity_offer"');
     const historyStart = database.indexOf("export async function listAdminTradeAuditHistory(");
-    const historyEnd = database.indexOf("const TRADE_FEE_SETTING_KEYS", historyStart);
+    const historyEnd = database.indexOf("export async function getTradeFeePolicy()", historyStart);
     const history = database.slice(historyStart, historyEnd);
     expect(history).toContain("inArray(v5AuditEvents.action, [...TRADE_SETTINGS_AUDIT_ACTIONS])");
     expect(history).not.toMatch(/\.insert\(|\.update\(|\.delete\(/);

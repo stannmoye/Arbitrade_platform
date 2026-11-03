@@ -186,17 +186,21 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <div class="field"><b>Expanded pop-up display duration</b><span>Supported range: 1–86,400 seconds (1 second–24 hours). Older saved values above one day are not silently migrated; lower and save them before publishing further tier-policy changes. This is presentation-only and must not cancel an active trade.</span></div>
 <div class="field"><b>Completed card display duration</b><span>How long a completed result card remains visible.</span></div>
 <div class="field"><b>Interval after completion</b><span>Extra waiting time after completion before another delivery is considered.</span></div>
-<div class="field"><b>Maximum pending deliveries</b><span>Stored and range-validated setting (0–1,000), but it is not enforced by the delivery worker. Zero is not a runtime no-delivery switch; validation rejects a positive daily target when this value is zero.</span></div>
+<div class="field"><b>Maximum pending deliveries</b><span>The per-customer/per-package pending-delivery cap is enforced by runtime admission (0–1,000). It counts queued, in-progress and retry-wait informational deliveries; zero blocks new pending deliveries. Delivered, dismissed, failed and expired rows do not count.</span></div>
+</div>
+<h3>Shared delivery retry policy</h3>
+<div class="field-list">
+<div class="field"><b>Retries &amp; Carry-Forward</b><span>One shared admin-owned policy controls delivery retry attempts and delivery-specific intervals. No per-tier delivery-attempt override or interval is prefilled. Temporary retry remains unavailable until a valid shared policy is explicitly saved.</span></div>
 </div>
 <h3>Trade retry and concurrency limits</h3>
 <div class="field-list">
-<div class="field"><b>Maximum delivery attempts</b><span>Stored and range-validated (1–20), but the current delivery worker does not read this field. Retries follow the separate per-opportunity policy; changing this value has no current effect.</span></div>
 <div class="field"><b>Maximum trade attempts per day</b><span>Daily cap on automatic trade attempts.</span></div>
 <div class="field"><b>Trade retry delay (seconds)</b><span>Wait between eligible technical retry attempts. Current input accepts 5–3,600 seconds.</span></div>
 <div class="field"><b>Maximum successful trades per day</b><span>Daily cap on successful trades for the tier.</span></div>
 <div class="field"><b>Maximum concurrent active trades</b><span>How many active trades may overlap under the policy.</span></div>
 <div class="field"><b>Require previous trade settlement</b><span>If Yes, wait for the previous trade to settle before allowing another one. If No, use the configured concurrency cap.</span></div>
 <div class="field"><b>Minimum / maximum settlement delay</b><span>Lower and upper settlement timing bounds, in seconds.</span></div>
+<div class="field"><b>Financial safety boundary</b><span>Automatic trading, automatic result determination and automatic fund allocation are hard-disabled. Ledger posting is permitted only after administrator confirmation.</span></div>
 </div>
 <h3>Package badge</h3>
 <div class="field-list">
@@ -352,7 +356,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <li><strong>Set capital limits that customers can actually meet.</strong> Keep the minimum and maximum coherent. Remember that the current tier policy editor expresses these capital bounds in whole USD units.</li>
 <li><strong>Set complete rate and duration bounds.</strong> Both ends of each range must be present. Keep configured rates and durations within the approved terms and system limits.</li>
 <li><strong>Make customer display clear.</strong> Use a short badge label and a matching built-in style. Keep popup display time separate from package duration and trade duration.</li>
-<li><strong>Review retry settings carefully.</strong> The stored per-tier maximum-delivery-attempt field is not currently consumed by the delivery worker; do not rely on it to cap retries. Carry-forward is not currently available.</li>
+<li><strong>Review retry settings carefully.</strong> Configure delivery attempts and intervals only through the single shared Retries &amp; Carry-Forward page; do not confuse them with per-tier trade retry timing. No retry schedule is prefilled. Carry-forward remains disabled unless the backend explicitly reports a supported policy.</li>
 <li><strong>Check settlement and fee rules.</strong> Confirm the fee basis and rounding method. Require evidence before confirming actual settlement.</li>
 <li><strong>Test the global pause.</strong> Confirm that pausing blocks new allocations but does not stop existing settlement or reconciliation.</li>
 <li><strong>Check Worker Health and delivery reports.</strong> Make sure the server records heartbeats and successful cycles. Investigate stale, degraded or dead-lettered items before enabling more volume.</li>

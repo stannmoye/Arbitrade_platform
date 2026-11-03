@@ -7,6 +7,8 @@ const operationsUi = readFileSync(new URL("../client/src/components/AdminOperati
 const serverDb = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const serverRouters = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const policyEditor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
+const packageFeeEditor = readFileSync(new URL("../client/src/components/AdminPackageFeeEditor.tsx", import.meta.url), "utf8");
+const retryEditor = readFileSync(new URL("../client/src/components/AdminDeliveryRetryPolicy.tsx", import.meta.url), "utf8");
 
 
 describe("Administrator company catalogue navigation and pagination", () => {
@@ -191,9 +193,12 @@ describe("Trading fee-policy navigation", () => {
     const item = navigation.match(/id: "trade-fees-earnings", target: "([^"]+)"/);
     expect(item?.[1]).toBe("transactionReview");
     expect(adminApp).toContain("{section===\"transactionReview\"&&<AdminTransactionReview focus={focus as \"ledger\"|\"capital\"|\"fees\"|\"reconciliation\"|undefined}/>}");
-    expect(operationsUi).toContain("trpc.adminOperations.packageFeePolicies.useQuery");
-    expect(operationsUi).toContain("policy.activePolicy.feeRateBps");
-    expect(operationsUi).toContain("policy.latestVersion");
+    expect(adminApp).toContain("feeApi.packageFeePolicies.useQuery");
+    expect(adminApp).toContain("<AdminPackageFeeEditor");
+    expect(packageFeeEditor).toContain("policy.activePolicy.feeRateBps");
+    expect(packageFeeEditor).toContain("latest?.feeRateBps");
+    expect(packageFeeEditor).toContain("policy.latestPolicyVersion");
+    expect(operationsUi).not.toContain("packageFeePolicies.useQuery");
     expect(operationsUi).not.toContain("updateTradeFeePolicy.useMutation");
   });
 });
@@ -238,11 +243,15 @@ describe("Trading retry-policy navigation", () => {
   it("opens retry controls in the shared policy editor and states the current retry-window boundary", () => {
     const item = navigation.match(/id: "trade-retries", target: "([^"]+)"/);
     expect(item?.[1]).toBe("tradeRetryPolicy");
-    expect(adminApp).toContain('{section==="tradeRetryPolicy"&&<AdminPackages focus="retries"/>}');
+    expect(adminApp).toContain('{section==="tradeRetryPolicy"&&<Suspense');
+    expect(adminApp).toContain("<AdminDeliveryRetryPolicy/>");
+    expect(retryEditor).toContain("one shared delivery-retry owner");
+    expect(retryEditor).toContain("Maximum delivery attempts");
+    expect(retryEditor).toContain("Delivery-specific retry intervals (seconds)");
+    expect(retryEditor).toContain("Carry-forward remains disabled unless the backend explicitly reports");
     expect(policyEditor).toContain("value={row.maxTradeAttemptsPerDay}");
     expect(policyEditor).toContain("value={row.tradeRetryDelaySeconds}");
-    expect(policyEditor).toContain("Carry-forward across daily windows is not enabled. A retry window that expires is marked failed for review.");
-    expect(policyEditor).toContain('show("quotas")');
+    expect(policyEditor).not.toContain("maxDeliveryAttempts");
   });
 });
 

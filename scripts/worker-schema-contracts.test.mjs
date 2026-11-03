@@ -203,12 +203,13 @@ describe("worker schema contracts", () => {
 
   it("keeps the standalone mining and portal campaign migrations covered by the standard journal bridge", async () => {
     const root = new URL("../", import.meta.url);
-    const [journalText, mainSql, miningSql, portalSql, portalRunner, popupLifecycleSql, deliveryDiagnosticsSql, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration] = await Promise.all([
+    const [journalText, mainSql, miningSql, portalSql, portalRunner, runtimeSchema, popupLifecycleSql, deliveryDiagnosticsSql, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration] = await Promise.all([
       readFile(new URL("drizzle/meta/_journal.json", root), "utf8"),
       readFile(new URL("drizzle/0062_worker_runtime_tables.sql", root), "utf8"),
       readFile(new URL("drizzle/0048_pending_boost_rewards.sql", root), "utf8"),
       readFile(new URL("drizzle/0055_notification_campaign_delivery_tracking.sql", root), "utf8"),
       readFile(new URL("scripts/apply-portal-migrations.mjs", root), "utf8"),
+      readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
       readFile(new URL("drizzle/0022_popup_lifecycle_reporting.sql", root), "utf8"),
       readFile(new URL("drizzle/0052_delivery_diagnostics.sql", root), "utf8"),
       readFile(new URL("drizzle/0089_trading_popup_policy_ranges.sql", root), "utf8"),
@@ -268,6 +269,9 @@ describe("worker schema contracts", () => {
     ]);
     expect(portalRunner).toContain('"0101_package_fee_policy_versions.sql"');
     expect(runtimeSchema).toContain('drizzle/0101_package_fee_policy_versions.sql');
+    expect(portalRunner).toContain('"0102_opportunity_delivery_retry_lifecycle.sql"');
+    expect(runtimeSchema).toContain("async function ensureDeliveryLifecycle(db)");
+    expect(runtimeSchema).toContain("opportunity_delivery_idempotency");
     expect(portalRunner).toContain('"0076_trading_admin_policy_read_repair.sql"');
     expect(portalRunner).toContain('"0077_trading_package_catalogue_schema_repair.sql"');
     expect(portalRunner).toContain('"0078_trading_customer_package_subscription_repair.sql"');
@@ -295,7 +299,7 @@ describe("worker schema contracts", () => {
     // 0048 and 0055 remain authoritative standalone/portal-chain sources.
     // The journaled 0062 bridge intentionally provides their worker tables to
     // deployments that run only Drizzle's standard migration path.
-    for (const table of Object.keys(WORKER_SCHEMA_CONTRACTS).filter((name) => !["trading_tier_qualification_jobs", "opportunity_popup_events", "opportunity_delivery_events", "trade_positions", "admin_wallet_adjustment_idempotency"].includes(name))) {
+    for (const table of Object.keys(WORKER_SCHEMA_CONTRACTS).filter((name) => !["trading_tier_qualification_jobs", "opportunity_popup_events", "opportunity_delivery_events", "trade_positions", "admin_wallet_adjustment_idempotency", "trading_package_fee_policy_versions", "opportunity_delivery_idempotency"].includes(name))) {
       expect(mainSql).toContain(table);
     }
     for (const column of WORKER_SCHEMA_CONTRACTS.mining_pending_boost_rewards.columns) {

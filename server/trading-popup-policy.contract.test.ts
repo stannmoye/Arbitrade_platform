@@ -41,9 +41,10 @@ describe("administrator-configured Trading pop-up policy", () => {
   });
 
   it("rotates the brand-reference catalogue with a durable per-customer cursor and idempotent event key", () => {
-    expect(lifecycle).toContain('"trading.companyRotation." + item.userId + "." + item.packageName');
+    expect(lifecycle).toContain('const stateKey = "trading.companyRotation." + item.userId + "." + item.packageId');
+    expect(lifecycle).toContain('const legacyStateKey = "trading.companyRotation." + item.userId + "." + item.packageName');
     expect(lifecycle).toContain("SELECT settingValue FROM app_settings WHERE settingKey=? FOR UPDATE");
-    expect(lifecycle).toContain("SELECT id FROM opportunity_popup_events WHERE eventKey=? LIMIT 1 FOR UPDATE");
+    expect(lifecycle).toContain("SELECT popupEventId FROM opportunity_delivery_idempotency WHERE userId=? AND offerId=? LIMIT 1 FOR UPDATE");
     expect(lifecycle).toContain("await connection.commit()");
     expect(lifecycle).toContain("await connection.rollback()");
     expect(lifecycle).toContain("companyReferenceOnly");

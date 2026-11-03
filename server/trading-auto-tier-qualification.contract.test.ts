@@ -273,9 +273,10 @@ describe("Automatic Trading tier qualification", () => {
     expect(routerSource).toContain("createAdminTradingPackage(ctx.user.id");
     expect(databaseSource).toContain('action:"trading_package_created"');
     expect(customerAppSource).toContain("New administrator-managed tier");
-    expect(customerAppSource).toContain('trpc.adminOperations.createTradingPackage.useMutation');
+    expect(customerAppSource).toContain('const feeApi=trpc.adminOperations as any;');
+    expect(customerAppSource).toContain('feeApi.createTradingPackage.useMutation');
     expect(customerAppSource).toContain('minimumQualifyingBalanceUsdMinor:"",durationMonths:"",opportunitiesPerDay:""');
-    expect(customerAppSource).toContain('startsAt:"",expiresAt:"",reason:"",enabled:true}');
+    expect(customerAppSource).toContain('startsAt:"",expiresAt:"",reason:"",initialFeePercent:"",initialFeeRoundingMode:"half_up" as FeeRoundingMode,initialFeeReason:"",enabled:true}');
     expect(customerAppSource).toContain('maxPopupsPerDay:0,maxActiveInvestments:0');
     expect(customerAppSource).toContain("New tiers are enabled when created.");
     expect(databaseSource).toContain("const DEFAULT_NEW_TIER_POLICY = {");
