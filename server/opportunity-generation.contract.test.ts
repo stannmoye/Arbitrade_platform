@@ -8,6 +8,7 @@ const migration = readFileSync(new URL("../drizzle/0103_automatic_opportunity_ge
 const migration104 = readFileSync(new URL("../drizzle/0104_catalogue_native_opportunity_generation.sql", import.meta.url), "utf8");
 const journal = readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8");
 const admin = readFileSync(new URL("../client/src/components/AdminOpportunityTemplates.tsx", import.meta.url), "utf8");
+const customerPortal = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const customerQueryStart = db.indexOf("export async function listCustomerOpportunities(");
 const customerQueryEnd = db.indexOf("export async function claimAutoTradeCycleCustomers(", customerQueryStart);
 const customerQuery = db.slice(customerQueryStart, customerQueryEnd);
@@ -59,6 +60,11 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(journal).toContain('"tag": "0103_automatic_opportunity_generation_templates"');
     expect(journal).toContain('"tag": "0104_catalogue_native_opportunity_generation"');
     expect(migration104).toContain("MODIFY COLUMN");
+  });
+
+  it("shows catalogue company identity instead of the BRAND display sentinel in customer popup headings", () => {
+    expect(customerPortal).toContain('String(popup.companyDisplayName||popup.symbol||"Opportunity")+" opportunity notice"');
+    expect(customerPortal).toContain('popup.companyDisplayName||popup.symbol||"Company unavailable"');
   });
 
   it("revalidates pinned companies when popup persistence occurs and expires generated assignments safely", () => {

@@ -547,12 +547,12 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   const sufficientBalance=balanceStatus==="sufficient";
   const closesAt=new Date(popup.closesAt);
   const closesLabel=Number.isFinite(closesAt.getTime())?closesAt.toLocaleString():"Unavailable";
-  const heading=String(popup.symbol||"Opportunity")+" opportunity notice";
+  const heading=String(popup.companyDisplayName||popup.symbol||"Opportunity")+" opportunity notice";
 
   if(minimized)return <div className="opportunity-popup-dock" role="region" aria-label="Minimized opportunity alert" aria-live="polite">
     <div className="opportunity-popup-dock__content">
       <strong>{insufficientBalance?"Missed — insufficient balance":sufficientBalance?"Opportunity available":"Opportunity status unavailable"}</strong>
-      <span>{popup.companyDisplayName?String(popup.companyDisplayName)+" · ":""}{String(popup.symbol||"Opportunity")} · Closes: {closesLabel}</span>
+      <span>{String(popup.companyDisplayName||popup.symbol||"Opportunity")} · Closes: {closesLabel}</span>
       {insufficientBalance&&<span>Required: {requiredMoney} · Available: {availableMoney} · Shortfall: {shortfallMoney}</span>}
     </div>
     <div className="opportunity-popup-dock__actions">
@@ -569,7 +569,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
     {popup.badgeLabel&&<span className={"trading-package-badge trading-package-badge--"+(["neutral","blue","purple","gold","green"].includes(popup.badgeStyle)?popup.badgeStyle:"neutral")}>{popup.badgeLabel}</span>}
     {popup.companyDisplayName&&<div className="trading-opportunity-identity popup-company-reference"><CompanyReferenceLogo name={String(popup.companyDisplayName)} logoUrl={popup.companyLogoUrl||null}/><div><strong>{popup.companyDisplayName}</strong></div></div>}
     <h3>{heading}</h3>
-    <p>Opportunity {popup.id} · {popup.symbol||"Reference unavailable"}</p>
+    <p>Opportunity {popup.id} · {popup.companyDisplayName||popup.symbol||"Company unavailable"}</p>
     {insufficientBalance?<section className="opportunity-balance-status opportunity-balance-status--insufficient" role="status">
       <strong>Missed — insufficient balance</strong>
       <div className="opportunity-balance-values">
