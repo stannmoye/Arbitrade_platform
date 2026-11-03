@@ -1035,3 +1035,14 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 - **Cleanup / safety:** Test users and audit rows were removed, both test triggers were dropped, and the original policy version was restored to 1. Only a sandbox-local disposable database was used; no production database, merge, or deployment.
 - **Hosted status:** Exact-head MySQL 8.4/MariaDB 11.4 CI has not run; no PR is open, and the workflow is gated to `main` pushes/PRs.
 - **Next safe action:** Proceed to the next discrete blueprint acceptance item: end-to-end global OFF and missing/malformed policy states, still using a disposable database. Keep financial execution locked OFF.
+
+
+### 2026-11-03 — Global OFF and fail-closed runtime checkpoint
+- **Repository / branch:** `stannmoye/Arbitrade_platform` / `feat/trade-settings-admin-blueprint`.
+- **Base branch SHA:** `main` at `59c425414b981bc2fd8720119f2d4b650b97ab15`.
+- **Implementation commit:** `9d6e7f119a4104e4114a0c7d6420303c3757a2c7` (`test(trading): cover global policy fail-closed delivery`).
+- **Checkpoint:** Extended `scripts/trading-popup-delivery.integration.ts`, already run by the existing MySQL 8.4/MariaDB 11.4 worker integration workflow. With a realistic qualified customer, active package, balance, and newly published opportunity, it verifies (1) informational popup delivery OFF with tier master ON, (2) tier master OFF, (3) malformed canonical settings, and (4) missing canonical settings. No blocked state creates a new popup event or quota event. Tier-off/missing/malformed states pause the qualification worker before it claims work, and `ensureAutomaticTradingTierEntitlements` refuses to reconcile entitlements. The fixture temporarily enables the baseline delivery gates and restores the original global-control row in `finally`.
+- **Validation:** Runtime integration command `DATABASE_URL=<loopback disposable URL> pnpm exec tsx scripts/trading-popup-delivery.integration.ts` passed all four global states on MariaDB 10.11. `pnpm check`, `pnpm build`, and `git diff --check` passed. Full suite: 121 files passed, 4 skipped; 947 tests passed, 22 skipped.
+- **Safety / cleanup:** Financial execution remained hard-disabled; balance and ledger checks stayed unchanged and no trade rows were created. Synthetic user, package, policy, currency, offers, popups, and delivery rows were removed. The original canonical global policy was restored exactly. Only the sandbox-local disposable DB was used.
+- **Hosted status:** The workflow now exercises this script in its existing database matrix, but exact-head GitHub CI has not run because no PR is open and the workflow is gated to `main` pushes/PRs. No PR, merge, production migration, or deployment.
+- **Next safe action:** Validate timing/runtime bounds and ensure per-tier editor payloads cannot reintroduce removed global fields. Continue one discrete checkpoint at a time; keep financial execution locked OFF.
