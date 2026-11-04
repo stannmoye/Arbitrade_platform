@@ -55,6 +55,7 @@ let packageId: number | undefined;
 let subscriptionId: number | undefined;
 let offerId: number | undefined;
 let rollbackRetryOfferId: number | undefined;
+let concurrentOfferId: number | undefined;
 let rawConnection: Awaited<ReturnType<typeof mysql.createConnection>> | undefined;
 let rollbackTriggerName: string | undefined;
 let blockedOfferId: number | undefined;
@@ -442,6 +443,39 @@ const balanceBefore = await db.select({
     .from(appSettings).where(eq(appSettings.settingKey, rotationKey)).limit(1);
   assert.notEqual(String(rotationAfterRetryRows[0]?.settingValue), rotationBeforeFailure,
     "A successful retry must consume exactly one rotation position.");
+  const beforeRetryState = JSON.parse(rotationBeforeFailure);
+  const afterRetryState = JSON.parse(String(rotationAfterRetryRows[0]?.settingValue));
+  assert.equal(Number(afterRetryState.requestCount), Number(beforeRetryState.requestCount) + 1,
+    "A successful retry must advance the durable rotation counter exactly once.");
+
+  // Two simultaneous worker cycles for the same customer must serialize on
+  // the generation lock, return the same open opportunity, and consume only
+  // one additional rotation position.
+  await db.update(opportunityOffers).set({ status: "closed" }).where(eq(opportunityOffers.id, rollbackRetryOfferId));
+  const concurrentStartRows = await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, rotationKey)).limit(1);
+  const concurrentStartState = JSON.parse(String(concurrentStartRows[0]?.settingValue || "{}"));
+  const concurrentCycles = await Promise.all([
+    listCustomerOpportunities(userId, {
+      workerCycle: true, consumeDelivery: false, automaticGenerationEnabled: true,
+      generationBatchId: `rotation-concurrent-a-${token}`,
+    }),
+    listCustomerOpportunities(userId, {
+      workerCycle: true, consumeDelivery: false, automaticGenerationEnabled: true,
+      generationBatchId: `rotation-concurrent-b-${token}`,
+    }),
+  ]);
+  const concurrentIds = concurrentCycles.map(cycle => Number(cycle.generatedOpportunityId));
+  assert.ok(concurrentIds.every(id => Number.isSafeInteger(id) && id > 0),
+    "Both concurrent cycles must resolve to a persisted opportunity.");
+  assert.equal(concurrentIds[0], concurrentIds[1],
+    "Concurrent cycles for one customer must reuse the same generated opportunity.");
+  concurrentOfferId = concurrentIds[0];
+  const concurrentEndRows = await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, rotationKey)).limit(1);
+  const concurrentEndState = JSON.parse(String(concurrentEndRows[0]?.settingValue || "{}"));
+  assert.equal(Number(concurrentEndState.requestCount), Number(concurrentStartState.requestCount) + 1,
+    "Concurrent retries must consume one rotation position, never two.");
 
   assert.deepEqual(
     await db.select({
@@ -563,7 +597,7 @@ const balanceBefore = await db.select({
           await rawConnection.query(`DROP TRIGGER IF EXISTS ${rollbackTriggerName}`);
           rollbackTriggerName = undefined;
         }
-        for (const fixtureOfferId of [offerId, blockedOfferId, rollbackRetryOfferId]) {
+        for (const fixtureOfferId of [offerId, blockedOfferId, rollbackRetryOfferId, concurrentOfferId]) {
           if (userId !== undefined && fixtureOfferId !== undefined) {
             await db.delete(opportunityGenerationAssignments).where(eq(opportunityGenerationAssignments.offerId, fixtureOfferId));
             await db.delete(opportunityDeliveryIdempotency).where(and(
