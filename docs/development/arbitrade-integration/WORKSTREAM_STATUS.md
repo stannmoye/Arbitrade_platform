@@ -4,7 +4,7 @@
 **Default branch checkpoint:** `main` at `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`  
 **Window 6 branch:** `feat/stage-6-opportunity-worker-observability`  
 **Window 6 implementation head with executed CI:** `962ae780e62e44ded236454040302afe9c5241e4`  
-**Window 6 latest documentation head:** `9a6a506dfc4865555e4fd6e56e588e5aec935174`  
+**Window 6 documentation:** Verification matrix, ownership, dependencies, API/database contracts and handoff are maintained on the PR branch; see the current PR head for the latest documentation commit.  
 **Window 6 PR:** [#279](https://github.com/stannmoye/Arbitrade_platform/pull/279) — open, draft, not merged.
 
 ## Window 1 — Company Catalogue & Automatic Company Rotation
