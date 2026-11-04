@@ -46,9 +46,13 @@ Existing generation infrastructure reused:
 
 Owns the existing delivery lifecycle and customer portal. The handoff requires `deliveryLeaseToken` for first render of an `in_progress` event and uses the same token for `received`/`rendered` acknowledgements. A follow-on fix supports retry after a render failure reported after `received`. No migration, queue or new delivery worker is added. Window 3 keeps generated company identity immutable and does not add a delivery path.
 
-## Window 6 — Assignment confirmation pending
+## Window 6 — Testing, Monitoring & Production Readiness
 
-The exact Window 6 implementation responsibility and branch were not confirmed in this repository inspection. Window 3 does not claim ownership of the worker-health registry and will coordinate any required changes after the assignment is supplied.
+**PR:** [#279](https://github.com/stannmoye/Arbitrade_platform/pull/279)  
+**Branch/head:** `feat/stage-6-opportunity-worker-observability` / `975b3edea82ec877fad0652fb98a3312e70321e2`  
+**Implementation CI checkpoint documented by Window 6:** `962ae780e62e44ded236454040302afe9c5241e4`.
+
+Window 6 owns durable worker-health classification. Its contract expects `runAutoTradeCycle` to return an aggregate `customerFailures` count; Window 3 now exposes `customerFailures: failures` from its existing durable generation batch failure counter, without returning customer IDs or raw error text in the worker result. Window 6 adds `degradedWhen` classification to the existing `trading-opportunities` monitor and a disposable-database health integration. Reconcile shared `server/db.ts`, `server/_core/index.ts` and `server/_core/workerHealth.ts` changes; do not create another registry.
 
 ## Window 7 — Final Integration
 
