@@ -64,7 +64,7 @@ Observed existing owners/paths:
 
 **Validation status:** The existing-state retry regression tests and new database integration assertions are committed but have not been executed. Exact-head CI, local test execution, disposable MySQL/MariaDB execution and authenticated browser acceptance remain pending; none are claimed. Blitz authenticated acceptance remains outstanding.
 
-**Latest Window 4 commits:** `57b4919593dfab243d1b11cdb29e9f0aa9111770`, `fc7dcae22fa5f7028c29e3b7c7b7395ae28c7bb8`, `a489434ba9ea7c9de22134ec995af7dd7daf8149`, `b3ac0c0ebd3f32ff81bb0cb00531936f3b1a05af`, `1c856641328ffa09d22fd22c65867ebff36d6932`, `0c43f3b830d9031485f019309458542126713185`, `354124942fa5d18f7b3635fa57f3aa48077caf91`, `52271560d94ba508d7f8583d8ed60e2b6a470ff9`, `6c37caa5222f876e9752075532515cb8bd53de6d`.
+**Latest Window 4 commits:** `57b4919593dfab243d1b11cdb29e9f0aa9111770`, `fc7dcae22fa5f7028c29e3b7c7b7395ae28c7bb8`, `a489434ba9ea7c9de22134ec995af7dd7daf8149`, `b3ac0c0ebd3f32ff81bb0cb00531936f3b1a05af`, `1c856641328ffa09d22fd22c65867ebff36d6932`, `0c43f3b830d9031485f019309458542126713185`, `354124942fa5d18f7b3635fa57f3aa48077caf91`, `52271560d94ba508d7f8583d8ed60e2b6a470ff9`, `6c37caa5222f876e9752075532515cb8bd53de6d`, `e082e833f5849155bbcf690e7e485554f4347a67`.
 
 **Dependency:** PR #278 must be integrated before this dependent PR can be merged into `main`.
 
