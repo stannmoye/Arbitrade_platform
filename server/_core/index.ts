@@ -334,6 +334,9 @@ async function startServer() {
           const outstandingTrades = await countOutstandingTrades();
           const opportunities = await ensureMarketDrivenOpportunities(new Date());
           return { ...cycle, outstandingTrades, opportunities };
+        }, {
+          degradedWhen: result => result.customerFailures > 0,
+          degradedMessage: result => `Customer opportunity sub-cycle failures: ${result.customerFailures}`,
         });
         tradeCycleConsecutiveFailures = 0;
         tradeCycleRetryAfterMs = 0;
