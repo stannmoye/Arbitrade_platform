@@ -4,7 +4,7 @@
 **Prepared:** 2026-11-04  
 **Workstream 3 PR:** [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278)  
 **Branch:** `feat/automatic-template-opportunities`  
-**Code head inspected:** `b69227ae0bef8d5481209fea875d4f7519e4e2a4`
+**Code head inspected:** `78244cde599201ccc32014eea3a6f9996fee6907`
 
 ## What Window 3 hands off
 
@@ -68,7 +68,7 @@ For each candidate, it:
 - Skips the candidate when either its subscription entitlement or package-wide cap is exhausted, then continues to the next eligible subscription.
 - Persists the selected entitlement quota, effective package quota and quota-window start in the immutable assignment snapshot.
 
-The disposable-database regression scenario has multiple active subscriptions across two packages. It establishes exactly three assignments against the first package and sets its effective daily cap to three, while a second package has a separate one-assignment allowance. The next worker cycle must skip the exhausted first package, persist its new assignment against the second package/subscription, record both selected limits as one in the immutable snapshot, leave the first package at three assignments, and give the second package exactly one assignment. This verifies actual database selection behavior rather than only source text or a helper function.
+The disposable-database regression scenario has multiple active subscriptions across two packages. It establishes exactly three assignments against the first package and sets its effective daily cap to three, while a second package has a separate one-assignment allowance. The second subscription's start and expiry timestamps are anchored to the test's captured `now` value, not wall-clock time at fixture insertion, so slower MySQL setup cannot make the subscription appear not-yet-active. The next worker cycle must skip the exhausted first package, persist its new assignment against the second package/subscription, record both selected limits as one in the immutable snapshot, leave the first package at three assignments, and give the second package exactly one assignment. This verifies actual database selection behavior rather than only source text or a helper function.
 
 ## Window 3 — Failed-integration diagnosis and rollback test correction
 
@@ -76,4 +76,4 @@ The failing Trading opportunity worker concurrency and recovery integration jobs
 
 The regression now explicitly captures and asserts the nested database error chain contains forced_rotation_generation_failure, then retains the existing checks that the rotation cursor is unchanged and no partial offer remains. It drops the trigger and retries generation; the successful retry must advance the durable rotation counter exactly once. The failure injection and rollback assertions are retained, not skipped or relaxed.
 
-Exact final correction head `b69227ae0bef8d5481209fea875d4f7519e4e2a4` was verified by GitHub Actions run [41786032852](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41786032852): MySQL 8.4 and MariaDB 11.4 both passed the opportunity worker concurrency and recovery integration. The full required exact-head workflow set also passed: [workflow run list](https://github.com/stannmoye/Arbitrade_platform/actions/runs?head_sha=b69227ae0bef8d5481209fea875d4f7519e4e2a4). The production source workflow passed TypeScript, automated tests, installer/migration contract tests and production build. These CI results do not constitute authenticated Blitz staging acceptance or production deployment.
+The original quota regression fixture was made deterministic in commit `78244cde599201ccc32014eea3a6f9996fee6907`: its second subscription now uses the integration's captured clock. On that exact commit, the opportunity worker concurrency and recovery integration passed on both MySQL 8.4 and MariaDB 11.4 ([run 41786743846](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41786743846)). The complete required workflow set is being rerun against the final documentation commit; use the final exact-head workflow evidence rather than earlier runs. These CI results do not constitute authenticated Blitz staging acceptance or production deployment.
