@@ -15,7 +15,8 @@ describe("opportunity delivery lifecycle migration and state boundaries", () => 
   });
   it("terminalizes only surplus legacy delivery-only rows, with a stable explicit error code", async () => {
     const migration = await read("../drizzle/0102_opportunity_delivery_retry_lifecycle.sql");
-    expect(migration).toContain("MIN(`id`) AS `canonicalId`");
+    expect(migration).toContain("COALESCE(MIN(CASE WHEN `deliveryStatus` IN ('queued','in_progress','retry_wait')");
+    expect(migration).toContain("SET d.`popupEventId`=e.`id`");
     expect(migration).toContain("e.`id`<>duplicates.`canonicalId`");
     expect(migration).toContain("e.`tradeId` IS NULL");
     expect(migration).toContain("e.`eventStatus` NOT IN ('TRADED','SETTLED')");
