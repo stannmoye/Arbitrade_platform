@@ -51,7 +51,6 @@ export default function AdminPackageFeeEditor({ packageId, policy, policyQueryLo
   }, [latest, dirty]);
   const rateBps = parseFeePercentToBps(percent);
   const effectiveIso = parseFutureLocalDateTime(effectiveAt);
-  const effectiveAtValid = Boolean(effectiveIso);
   const validationErrors = validatePackageFeeDraft({ feeRateBps: rateBps, roundingMode: rounding, effectiveAt: effectiveIso, reason });
   const save = async () => {
     if (!canEdit || (policy && !latest)) {
