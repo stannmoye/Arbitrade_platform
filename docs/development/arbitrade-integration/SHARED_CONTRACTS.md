@@ -62,8 +62,8 @@ No opportunity-generation, publishing or delivery operation may initiate real-mo
 
 - Use `server/modules/package-opportunity-policy.ts` as the canonical typed policy row, package patch allowlist, new-package defaults and package-isolated resolver.
 - Existing package policy rows are preserved. New package policy rows receive the package-level opportunity defaults; explicitly saved zero values and omitted existing values must remain unchanged.
-- Package-level delivery, rotation, randomization and burst toggles remain editable through the authorized package policy path. The global delivery master remains a separate control and must also be valid/enabled.
-- `automaticTradingEnabled` is never editable and always resolves to false. No package default may enable real-money execution, customer-fund allocation or settlement.
+- Global tier-policy, informational popup delivery, company rotation, randomized timing and burst delivery are global masters owned by Package Configuration and saved through the audited `adminOperations.updateGlobalTradeControl` mutation. Migration 0105 defaults these safe informational masters ON only for an untouched migration-created global policy; a saved administrator decision is preserved. The legacy per-package boolean placeholders are not editable through the package-policy patch API.
+- The package-policy patch allowlist excludes global master flags, `automaticTradingEnabled`, and settlement-guard fields. `automaticTradingEnabled` remains false and real-money execution, customer-fund allocation and settlement remain outside this architecture.
 - Schedule targets and timing defaults must be checked against the product's requested package-specific cadence before declaring new-package scheduling complete; the current default policy still has zero hourly/daily generation targets.
 
 ## Window 5 admin-settings contract
