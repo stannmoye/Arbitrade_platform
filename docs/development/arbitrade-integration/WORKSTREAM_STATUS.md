@@ -4,7 +4,8 @@
 **Main checkpoint:** 0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b  
 **Window 1 company contract branch:** feat/workstream-1-company-catalogue-rotation-contract  
 **Window 3 branch:** workstream/3-automatic-opportunity-engine  
-**Window 3 PR:** [#286](https://github.com/stannmoye/Arbitrade_platform/pull/286), draft, stacked on PR #278
+**Window 3 PR:** [#286](https://github.com/stannmoye/Arbitrade_platform/pull/286), draft, stacked on PR #278  
+**Window 3 exact head:** `b6cbd5eb2fe1ba81c9409ddbb53936cc24c0341c`
 
 ## Window 1 — Company Catalogue & Automatic Company Rotation
 
@@ -43,7 +44,9 @@ Existing generation infrastructure reused:
 - Existing customer/package rotation transaction.
 - Existing opportunity delivery lifecycle handoff.
 
-**Validation:** Source changes and test contracts are committed to this branch. Local test commands and database-backed MySQL/MariaDB execution have not been run in this connector-only session. Exact-head CI and disposable-database migration tests remain required.
+**Stage 1 rotation verification:** The generation/delivery MySQL integration scenario now explicitly checks that two concurrent cycles commit exactly one rotation request, that the committed cursor matches the immutable assignment, that a forced SQL failure after rotation selection leaves the cursor byte-for-byte unchanged, and that a successful retry advances the cursor by exactly one and matches its assignment. The failure path is injected with a real `BEFORE INSERT` database trigger; the prerequisite-failure path also verifies rollback after company selection. These assertions are committed at `b6cbd5eb2fe1ba81c9409ddbb53936cc24c0341c`.
+
+**Validation:** The new exact-head commit has no workflow run or combined status recorded yet. Local test commands and database-backed MySQL/MariaDB execution have not been run in this connector-only session. Therefore Stage 1's database assertions are implemented but not yet verified as passing; exact-head MySQL 8.4 and MariaDB 11.4 workflow results remain required.
 
 ## Window 4 — Opportunity Delivery & Customer Portal
 
