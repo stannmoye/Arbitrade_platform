@@ -47,3 +47,64 @@
 ## Financial boundary
 
 No opportunity-generation, publishing or delivery operation may initiate real-money execution, customer fund allocation, result determination, automatic settlement, or wallet/ledger mutation. Do not weaken authorization, audit, or existing financial guards.
+
+
+## Package configuration field contract — Window 2
+
+The package editor has two distinct persisted records. Values below describe schema/create defaults; they do not backfill or overwrite valid existing rows.
+
+### Package terms (packages)
+
+| Setting | Type | New-package default | Validation and persistence |
+| --- | --- | --- | --- |
+| **id** | integer | Database-generated | Stable package identity; never regenerated for an existing package. |
+| **name** | string (1–80) | Required by admin | Trimmed, unique; renames update the matching policy row in the same transaction. |
+| **minimumQualifyingBalanceUsdMinor** | positive integer | 10,000 | USD minor units; 1–2,147,483,647; saved with optimistic termsVersion. |
+| **durationMonths** | integer | 1 | 1–1,200 calendar months. |
+| **opportunitiesPerDay** | integer | 6 | 1–10,000; this is the tier entitlement contribution, not the operational delivery cap. |
+| **maxPopupsPerDay** | integer | 0 | 0–10,000; zero delegates to the configured admin delivery cap. |
+| **maxActiveInvestments** | integer | 0 | 0–10,000; zero means no package-specific cap. |
+| **enabled** | boolean | true | Package lifecycle/eligibility switch; disable/enable changes are audited and versioned. |
+| **startsAt, expiresAt** | nullable timestamps | null | If both exist, expiry must be later than start. |
+
+### Package opportunity policy (opportunity_package_policies)
+
+The new-package defaults below are centralized in DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY. Integer percentage values are basis points (100 bps = 1%). The policy editor submits partial patches; omitted fields retain the current locked database value. Defaults are used only when a new package is created. A read never creates or repairs a missing row.
+
+| Setting | Type | New-policy default | Validation |
+| --- | --- | --- | --- |
+| **badgeLabel** | nullable string | null | Trimmed; maximum 40 characters. |
+| **badgeStyle** | enum | neutral | neutral, blue, purple, gold, green. |
+| **minimumPayoutRateBps / maximumPayoutRateBps** | nullable integers | 200 / 300 | Both set or both null; 0–5,000; minimum ≤ maximum. Enabled informational delivery requires both and minimum ≥ 1. |
+| **minimumTradeDurationSeconds / maximumTradeDurationSeconds** | nullable integers | 300 / 900 | Both set or both null; 10–86,400 seconds; minimum ≤ maximum. Enabled informational delivery requires both. |
+| **maxPopupsPerDay** | integer | 10 | 1–1,000; package-specific hard operational ceiling. |
+| **maxVisibleOffers** | integer | 3 | 1–10,000. |
+| **minimumTradeUnits / maximumTradeUnits** | integers | 1,000 / 100,000 | Positive safe integers; minimum ≤ maximum. |
+| **minHourlyTarget / normalHourlyTarget** | integers | 0 / 0 | 0–100; minimum ≤ normal; normal × 24 cannot exceed a non-zero daily popup ceiling. |
+| **marketInfluenceBps** | integer | 0 | 0–10,000. |
+| **maxBurstSize** | integer | 3 | 0–100; the separate burst enable switch is not package-patchable. |
+| **dailyPopupTarget** | integer | 0 | 0–10,000; a positive target requires at least one pending-delivery slot. |
+| **schedulingPeriod** | enum | rolling_24h | rolling_24h or calendar_day. |
+| **minIntervalSeconds / maxIntervalSeconds** | integers | 45 / 3,600 | Each 0–604,800; minimum ≤ maximum. |
+| **popupDisplayTargetSeconds** | integer | 120 | 1–86,400. |
+| **completionDisplaySeconds** | integer | 8 | 1–3,600. |
+| **postCompletionIntervalSeconds** | integer | 30 | 0–604,800. |
+| **maxPendingDeliveries** | integer | 3 | 0–1,000; must be positive when daily popup target is positive. |
+| **maxTradeAttemptsPerDay** | integer | 0 | 0–10,000; technical financial-attempt control remains inactive while execution is hard-disabled. |
+| **tradeRetryDelaySeconds** | integer | 30 | 5–3,600. |
+| **maxSuccessfulTradesPerDay** | integer | 0 | 0–10,000; cannot exceed a positive maximum-attempt value. |
+| **maxConcurrentActiveTrades** | integer | 1 | 1–1,000; no automatic execution is enabled by this setting. |
+| **minSettlementDelaySeconds / maxSettlementDelaySeconds** | integers | 900 / 900 | Each 900–604,800; minimum ≤ maximum. These are not an automatic settlement trigger. |
+| **minimumRewardBps** | integer | 0 | 0–10,000. |
+| **maxDailyRewardMinor / maxRewardPerTradeMinor** | integers | 0 / 0 | 0–2,147,483,647; a positive per-trade cap cannot exceed a positive daily cap. |
+| **companyRotationCountryNames** | nullable text | null | Maximum 2,000 input characters; normalized country names. |
+| **companyRotationRepeatPolicy** | enum | avoid_until_exhausted | avoid_until_exhausted or allow_repeats. |
+| **closePolicy** | enum | after_completion | after_completion or after_final_display; final-display policy requires positive completion display seconds. |
+
+### Global masters and persistence metadata (not package patch fields)
+
+- enabled, automaticDelivery, companyRotationEnabled, burstEnabled, and automaticTradingEnabled are deliberately absent from the package patch allowlist. Their global-control ownership must remain separate.
+- New policy rows contain OFF compatibility placeholders for global master switches. A package being enabled does not by itself enable global delivery.
+- automaticTradingEnabled is forcibly persisted as false. The financial execution guard remains hard-disabled.
+- policyVersion, updatedBy, updatedAt, and database id are server-owned. Each successful policy save increments policyVersion, stores actor/time, and writes previous/next policy values to the existing audit stream in the same transaction.
+- Existing valid package terms and policy values are preserved. Invalid patches are rejected with a field/package-specific error. A missing policy row is not silently defaulted by a read; it is surfaced as a configuration error and must be explicitly reconciled.
