@@ -116,6 +116,10 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(transactionReturn).toBeGreaterThan(rotationCommit);
     expect(generator).toContain("rotationStateKey=stateKey;");
     expect(generator).toContain("nextRotationState=selection.state;");
+    expect(generator).toContain("for(let attempt=0;attempt<4;attempt++)");
+    expect(generator).toContain("ER_LOCK_DEADLOCK");
+    expect(generator).toContain("ER_LOCK_WAIT_TIMEOUT");
+    expect(generator).toContain("if(!retryable||attempt===3)throw error;");
     expect(generator).not.toContain("await tx.update(appSettings).set({settingValue:JSON.stringify(selection.state)");
   });
 
