@@ -40,9 +40,10 @@ describe("worker schema contracts", () => {
 
   it("bridges and verifies the Mining customer-package base table before workers start", async () => {
     const root = new URL("../", import.meta.url);
-    const [runtimeSchema, miningMigration] = await Promise.all([
+    const [runtimeSchema, miningMigration, startupWrapper] = await Promise.all([
       readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
       readFile(new URL("drizzle/0036_crypto_mining_portal.sql", root), "utf8"),
+      readFile(new URL("scripts/start-with-diagnostics.mjs", root), "utf8"),
     ]);
     expect(runtimeSchema).toContain('drizzle/0036_crypto_mining_portal.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, miningPortalMigration)");
@@ -50,6 +51,9 @@ describe("worker schema contracts", () => {
     expect(miningMigration).toContain("CREATE TABLE IF NOT EXISTS mining_customer_packages");
     expect(runtimeSchema.indexOf("await executeCompatibleMigrationSql(db, miningPortalMigration)"))
       .toBeLessThan(runtimeSchema.indexOf("await assertWorkerSchemaContracts(db)"));
+    expect(startupWrapper).toContain('runPhase("worker-runtime-schema-repair", ["scripts/ensure-worker-runtime-schema.mjs"])');
+    expect(startupWrapper.indexOf('runPhase("worker-runtime-schema-repair"'))
+      .toBeLessThan(startupWrapper.indexOf('runPhase("worker-runtime-schema-preflight"'));
   });
 
   it("creates and validates the durable Trading tier queue in the runtime schema bridge", async () => {
