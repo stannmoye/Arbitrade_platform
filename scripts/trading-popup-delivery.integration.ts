@@ -19,7 +19,7 @@ import {
   users,
 } from "../drizzle/schema";
 import { parseTradeGlobalControlPolicy, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, type TradeGlobalControlPolicy } from "../server/trading-global-policy";
-import { updatePopupDeliveryStatus } from "../server/opportunityLifecycle";
+import { ensurePopupDeliveries, updatePopupDeliveryStatus } from "../server/opportunityLifecycle";
 
 const db = await getDb();
 if (!db) {
@@ -334,6 +334,41 @@ const balanceBefore = await db.select({
   assert.equal(deliveryRows.length, 1, "The delivery quota ledger must be persisted exactly once.");
   assert.equal(deliveryRows[0]?.quotaDay, quotaDay);
   assert.equal(deliveryRows[0]?.status, "pending");
+
+  // The first popup is still queued, so a second admission at a package
+  // pending limit of one must be rejected with a durable diagnostic result.
+  const capacityOfferId = 2_000_000_000 + Number.parseInt(token.slice(0, 5), 16) % 100_000_000;
+  const capacitySkip = await ensurePopupDeliveries([{
+    userId,
+    offerId: capacityOfferId,
+    quotaDay,
+    packageId,
+    packageName,
+    maxPendingDeliveries: 1,
+    symbol: "CAPACITY",
+    currency,
+    minimumMinor: 10_000,
+    expectedRewardBps: 250,
+    configuredProfitRateBps: 250,
+    configuredDurationSeconds: 600,
+    configuredPopupDisplaySeconds: 120,
+    packagePolicyVersionSnapshot: 1,
+    policyVersion: 1,
+    durationSeconds: 600,
+    badgeLabel: null,
+    packageBadgeLabel: null,
+    badgeStyle: "neutral",
+    companyRotationEnabled: false,
+    companyRotationCountryNames: "",
+    companyRotationRepeatPolicy: "avoid_until_exhausted",
+    balanceAvailableMinor: 100_000,
+    balanceStatus: "sufficient",
+  }]);
+  const capacitySkipKey = `${userId}:${capacityOfferId}`;
+  assert.equal(capacitySkip.has(capacitySkipKey), false,
+    "Pending capacity must not create a second popup.");
+  assert.deepEqual(capacitySkip.skipped, [{ key: capacitySkipKey, reason: "PENDING_DELIVERY_LIMIT" }],
+    "Pending-capacity rejection must carry a structured reason.");
 
   const customerRead = await listCustomerOpportunities(userId);
   assert.equal(customerRead.delivery.enabled, true);
