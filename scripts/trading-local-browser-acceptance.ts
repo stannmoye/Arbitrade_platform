@@ -175,6 +175,7 @@ export async function verifyCustomerPopupInBrowser(input: {
   password: string;
   expectedCompanyName?: string | null;
   expectedOpportunityId?: number;
+  waitForRenderedAcknowledgement?: () => Promise<void>;
 }) {
   const { browser, page } = await launchAuthenticatedPage(
     input.baseUrl,
@@ -221,6 +222,7 @@ export async function verifyCustomerPopupInBrowser(input: {
         .getByText(input.expectedCompanyName, { exact: false })
         .first()
         .waitFor();
+    await input.waitForRenderedAcknowledgement?.();
     const text = await alert.innerText();
     await alert.getByRole("button", { name: "Dismiss notification" }).click();
     await alert.waitFor({ state: "hidden", timeout: 10_000 });

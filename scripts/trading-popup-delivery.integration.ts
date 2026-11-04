@@ -438,6 +438,21 @@ const balanceBefore = await db.select({
       password: userPassword,
       expectedCompanyName: customerRead.offers[0]?.companyDisplayName,
       expectedOpportunityId: Number(customerRead.offers[0]?.offerId),
+      waitForRenderedAcknowledgement: async () => {
+        const deadline = Date.now() + 15_000;
+        while (Date.now() < deadline) {
+          const rows = await db.select({
+            eventStatus: opportunityPopupEvents.eventStatus,
+            deliveryStatus: opportunityPopupEvents.deliveryStatus,
+          }).from(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id)));
+          if (rows[0]?.deliveryStatus === "rendered") return;
+          if (rows[0]?.eventStatus === "DISMISSED") {
+            throw new Error("The popup was dismissed before its rendered delivery acknowledgement reached the database.");
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        throw new Error("The real customer popup did not persist a rendered delivery acknowledgement within 15 seconds.");
+      },
     });
     const afterBrowserDismissal = await db.select({
       eventStatus: opportunityPopupEvents.eventStatus,
