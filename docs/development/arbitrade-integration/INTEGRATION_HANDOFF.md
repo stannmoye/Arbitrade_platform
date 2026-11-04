@@ -10,7 +10,7 @@
 - Base: `main` at `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`.
 - Reuses the existing 1,811-record source catalogue, current admin allowlist, package rotation controls, rotation cursor storage and opportunity snapshot fields.
 - Corrects production initialization so the logo mapping and stable company IDs are authoritative; ticker/exchange workbooks are optional enrichment and missing or incomplete workbook data cannot block startup or selection.
-- Adds isolated production-loader fixture tests for absent ticker files and partial ticker enrichment, plus explicit empty-pool no-fallback coverage.
+- Adds isolated production-loader fixture tests for absent ticker files and partial ticker enrichment, including a subprocess import of the actual production module using an isolated 1,811-row mapping with no ticker files present; also covers empty-pool no-fallback.
 - No database migration is required: no schema or persisted data shape changes were made. Existing app settings, company IDs, cursor values and opportunity snapshots remain untouched.
 - Adds explicit brand-only selection regression coverage and a documented internal service contract.
 - No database migration, table, API endpoint or financial execution behavior is added.
@@ -23,7 +23,7 @@ Use the existing `buildCompanySpotlightPool` and `nextCompanySpotlight` exports.
 
 1. Review PR changes and ensure no catalogue/logo/customer/history data is deleted.
 2. Confirm the production loader uses stable ID/name/logo identity and treats ticker/exchange metadata as optional enrichment.
-3. Run `pnpm exec vitest run server/modules/company-catalogue-reference.test.ts server/modules/company-spotlight-rotation.test.ts server/modules/company-spotlight-rotation.contract.test.ts`.
+3. Run `pnpm exec vitest run server/modules/company-catalogue-reference.test.ts server/modules/company-spotlight-rotation.test.ts server/modules/company-spotlight-rotation.contract.test.ts`; the catalogue suite now also imports the production module in a child process with all ticker files absent.
 4. Run `pnpm exec tsx scripts/trading-company-rotation.integration.ts` against disposable MySQL 8.4 and MariaDB 11.4 databases.
 5. Verify all 1,811 source records and local logo paths remain intact.
 6. Confirm exact-head CI on the corrected commit. CI is automated verification, not live production verification. No production migration or deployment is authorized by this handoff.
