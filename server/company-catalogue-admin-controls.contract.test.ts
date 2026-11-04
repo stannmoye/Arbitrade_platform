@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { isCompanySpotlightDisplayAllowed, parseCompanyCatalogueAdminState } from "./modules/company-spotlight-rotation";
+import { decodeCompanyCatalogueSelection, encodeCompanyCatalogueSelection } from "../shared/company-catalogue-selection";
 
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
@@ -16,6 +17,8 @@ describe("administrator company catalogue bulk controls", () => {
     expect(router).toContain('z.enum(["verified", "unverified", "archived", "restored", "disabled", "enabled"])');
     expect(router).toContain("reason: z.string().trim().min(8).max(500)");
     expect(router).toContain(".max(1811)");
+    expect(router).toContain("selectionBitmap: z.string().length(304).optional()");
+    expect(router).toContain("decodeCompanyCatalogueSelection(input.selectionBitmap)");
   });
 
   it("serializes status changes and writes an audit event with actor, reason and selected IDs", () => {
@@ -38,7 +41,7 @@ describe("administrator company catalogue bulk controls", () => {
     expect(catalogue).toContain("case-specific reason");
     expect(catalogue).toContain("reason.length < 8 || reason.length > 500");
     expect(catalogue).toContain("8–500 characters");
-    expect(catalogue).toContain("await updateStatus.mutateAsync({ ids, status, reason })");
+    expect(catalogue).toContain("await updateStatus.mutateAsync({ selectionBitmap: encodeCompanyCatalogueSelection(ids), status, reason })");
     expect(catalogue).toContain('applyStatus("restored")');
     expect(catalogue).not.toContain("Administrator archived selected catalogue records.");
     expect(ownership).toContain("archive revokes customer approval while verification remains separate from enablement");
@@ -46,6 +49,17 @@ describe("administrator company catalogue bulk controls", () => {
     expect(router).toContain("updateCompanyCatalogueAdminState({ ...input, ids, updatedBy: ctx.user.id })");
     expect(database).toContain("reason,");
     expect(database).toContain('reason,\n      reference: `company-catalogue:${input.status}:${updatedAt}`');
+  });
+
+  it("encodes every catalogue selection into a compact, validated bitset", () => {
+    const allIds = Array.from({ length: 1811 }, (_, index) => `logo-brand-${String(index + 1).padStart(4, "0")}`);
+    const allBitmap = encodeCompanyCatalogueSelection(allIds);
+    expect(allBitmap).toHaveLength(304);
+    expect(decodeCompanyCatalogueSelection(allBitmap)).toEqual(allIds);
+    const sparseIds = [allIds[0]!, allIds[17]!, allIds[1810]!];
+    expect(decodeCompanyCatalogueSelection(encodeCompanyCatalogueSelection(sparseIds))).toEqual(sparseIds);
+    expect(() => decodeCompanyCatalogueSelection("A".repeat(304))).toThrow();
+    expect(() => encodeCompanyCatalogueSelection(["logo-brand-9999"])).toThrow();
   });
 
   it("keeps a full 1,811-ID status snapshot within the app-settings TEXT limit", () => {
