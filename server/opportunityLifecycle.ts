@@ -377,14 +377,14 @@ export async function runOpportunityRetention() {
       );
       await connection.execute(
         `UPDATE opportunity_offers SET status='closed'
-         WHERE assignedUserId IS NOT NULL AND generationTemplateId IS NOT NULL AND status='open' AND closesAt<=UTC_TIMESTAMP()`,
+         WHERE assignedUserId IS NOT NULL AND generationKey IS NOT NULL AND status='open' AND closesAt<=UTC_TIMESTAMP()`,
       );
       await connection.execute(
         `UPDATE opportunity_popup_events p
          INNER JOIN opportunity_offers o ON o.id=p.offerId
          SET p.deliveryStatus='expired',p.expiredAt=COALESCE(p.expiredAt,UTC_TIMESTAMP()),p.deliveryRetryAfter=NULL,
              p.deliveryLeaseToken=NULL,p.deliveryLeaseExpiresAt=NULL,p.lastErrorCode='OPPORTUNITY_EXPIRED',p.updatedAt=CURRENT_TIMESTAMP
-         WHERE o.assignedUserId IS NOT NULL AND o.generationTemplateId IS NOT NULL AND o.closesAt<=UTC_TIMESTAMP()
+         WHERE o.assignedUserId IS NOT NULL AND o.generationKey IS NOT NULL AND o.closesAt<=UTC_TIMESTAMP()
            AND p.deliveryStatus IN ('queued','in_progress','retry_wait')
            AND p.eventStatus NOT IN ('TRADED','SETTLED','WITHDRAWN')`,
       );
@@ -392,7 +392,7 @@ export async function runOpportunityRetention() {
         `UPDATE opportunity_delivery_events e
          INNER JOIN opportunity_offers o ON o.id=e.offerId
          SET e.status='expired',e.lastErrorCode='OPPORTUNITY_EXPIRED',e.expiresAt=COALESCE(e.expiresAt,UTC_TIMESTAMP())
-         WHERE o.assignedUserId IS NOT NULL AND o.generationTemplateId IS NOT NULL AND o.closesAt<=UTC_TIMESTAMP()
+         WHERE o.assignedUserId IS NOT NULL AND o.generationKey IS NOT NULL AND o.closesAt<=UTC_TIMESTAMP()
            AND e.status='pending'`,
       );
       const [popupResult] = await connection.execute<any>("DELETE FROM opportunity_popup_events WHERE deliveredAt < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR) AND deliveryStatus NOT IN ('queued','in_progress','retry_wait') AND eventStatus NOT IN ('DELIVERED','NOTICED','OPENED')");
