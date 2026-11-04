@@ -89,3 +89,31 @@ export const DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY = {
   closePolicy: "after_completion",
   policyVersion: 1,
 } as const satisfies Omit<OpportunityPackagePolicyRow, "id" | "packageName" | "updatedBy" | "updatedAt">;
+
+/**
+ * Merge one package's persisted policy with its own partial edit. A row for a
+ * different package is rejected rather than being silently reused.
+ */
+export function resolveEffectivePackageOpportunityPolicy(
+  packageName: string,
+  current: OpportunityPackagePolicyRow | null | undefined,
+  supplied: Partial<OpportunityPackagePolicyRow>,
+  updatedBy: number,
+) {
+  if (!packageName.trim()) throw new Error("Package name is required");
+  if (current && current.packageName !== packageName) {
+    throw new Error("Saved opportunity policy belongs to a different package");
+  }
+  if (supplied.packageName !== undefined && supplied.packageName !== packageName) {
+    throw new Error("Opportunity policy update targets a different package");
+  }
+  return {
+    ...DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY,
+    ...(current ?? {}),
+    ...supplied,
+    packageName,
+    updatedBy,
+    // Informational opportunity delivery never enables unattended execution.
+    automaticTradingEnabled: false,
+  };
+}
