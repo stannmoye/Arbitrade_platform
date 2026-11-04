@@ -9,7 +9,7 @@
 | 3 | Automatic Opportunity Generation Engine | Own non-financial generation orchestration, scheduling, durable batch lifecycle, generation persistence coordination, idempotent recovery and generation diagnostics. Consume Window 1 and Window 2 contracts. | Does not own catalogue/rotation, package policy editing, popup delivery internals, customer financial execution, fund allocation, or settlement. |
 | 4 | Opportunity Delivery & Customer Portal | Consume persisted generated opportunities through the existing delivery lifecycle; own delivery dispatch, lease/retry/acknowledgement and customer presentation handoff. | Does not create a competing generator, company selector, or package-policy owner. |
 | 5 | Pending explicit assignment confirmation | Owner must record exact responsibility, paths, interfaces and exclusions from its assigned prompt. | Do not infer ownership. |
-| 6 | Testing, Monitoring & Production Readiness | Own verification, durable worker-health/diagnostic presentation and production-readiness evidence. | Does not duplicate generation, company selection, package policy, or delivery services. |
+| 6 | Pending explicit assignment confirmation | Confirm the exact responsibility from Window 6's assigned prompt before assigning shared-file ownership. | Do not infer ownership from the window number or existing worker-health code. |
 | 7 | Final Integration & Verification | Compare all six implementation branches; reconcile shared files/contracts/migrations; run exact-head verification and make the integration/merge decision. | Does not replace implementation ownership or merge unverified work. |
 
 ## Window 3 implementation boundary
