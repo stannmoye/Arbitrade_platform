@@ -18,7 +18,7 @@ This directory is the shared integration contract for six implementation workstr
 6. **Persistence:** persist the customer-specific offer, generation assignment, package-policy snapshot, company identity snapshot and unique generation key transactionally. A retry must reuse the existing assignment and must not reroll terms or advance rotation twice.
 7. **Delivery:** pass persisted offers into the existing opportunity-delivery lifecycle. Enforce the existing delivery idempotency, pending-delivery limits, retries and lease/fencing behaviour. Do not build a second popup delivery worker.
 8. **Customer display:** return only offers assigned to the authenticated customer and eligible under their active server-owned package entitlement. Company display comes from the saved offer/delivery snapshot and current catalogue approval checks.
-9. **Monitoring and recovery:** expose persisted generation batches, assignment outcomes, package breakdown and failures through the existing admin monitoring surface. Keep errors visible and bounded; recover through durable state.
+9. **Monitoring and recovery:** expose persisted generation batches, assignment outcomes, package breakdown and failures through the existing admin monitoring surface. Keep errors visible and bounded; recover through durable state. The existing worker-health registry must classify partial customer-cycle failures as degraded even when the outer worker completes normally; current-process health drives live diagnostics while historical process rows remain available for investigation.
 
 ## Workstream 1 implementation boundary
 
