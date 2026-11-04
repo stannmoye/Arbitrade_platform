@@ -127,6 +127,8 @@ export type CompanyCatalogueLoaderPaths = {
   mappingPath?: string;
   tickerSnapshotPath?: string;
   tickerPartsDirectory?: string;
+  /** Test-only fixture size override; production defaults to the preserved 1,811 source rows. */
+  expectedRecordCount?: number;
 };
 
 type TickerEnrichment = {
@@ -138,7 +140,10 @@ type TickerEnrichment = {
   whyNoRealTicker: string;
 };
 
-function loadLogoMapping(mappingPath = resolve(process.cwd(), "client/public/assets/company-logo-source/logo-mapping.csv")): LogoMappingRow[] {
+function loadLogoMapping(
+  mappingPath = resolve(process.cwd(), "client/public/assets/company-logo-source/logo-mapping.csv"),
+  expectedRecordCount = 1811,
+): LogoMappingRow[] {
   const lines = readFileSync(mappingPath, "utf8").replace(/^\uFEFF/, "").split(/\r?\n/).filter(Boolean);
   if (lines.length < 2) throw new Error("The company logo mapping is missing or empty.");
   const headers = parseCsvRow(lines[0]!);
@@ -155,7 +160,7 @@ function loadLogoMapping(mappingPath = resolve(process.cwd(), "client/public/ass
     if (filenames.has(normalizedFilename)) throw new Error("Duplicate logo filename in company logo mapping: " + row.filename);
     filenames.add(normalizedFilename);
   }
-  if (!rows.length) throw new Error("The company logo mapping contains no usable company records.");
+  if (rows.length !== expectedRecordCount) throw new Error("Expected " + expectedRecordCount + " mapped company records, found " + rows.length + ".");
   return rows;
 }
 
@@ -238,7 +243,7 @@ function classifyTicker(status: string): CompanyReferenceRecord["tickerClassific
  * Workbook values are merged only when available and are not required for a valid record.
  */
 export function loadCompanyReferenceCatalogue(paths: CompanyCatalogueLoaderPaths = {}): CompanyReferenceRecord[] {
-  const mapping = loadLogoMapping(paths.mappingPath);
+  const mapping = loadLogoMapping(paths.mappingPath, paths.expectedRecordCount ?? 1811);
   const tickerSnapshot = loadTickerSnapshot(paths.tickerSnapshotPath, paths.tickerPartsDirectory);
   return mapping.map((row, index) => {
     const tickerData = tickerSnapshot.get(index + 1);
