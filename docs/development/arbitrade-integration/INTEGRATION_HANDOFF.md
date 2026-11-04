@@ -23,3 +23,9 @@ Use the existing `buildCompanySpotlightPool` and `nextCompanySpotlight` exports.
 3. Run `pnpm exec tsx scripts/trading-company-rotation.integration.ts` against disposable MySQL 8.4 and MariaDB 11.4 databases.
 4. Verify the 1,811-row mapping and all local logo paths remain intact.
 5. Confirm exact-head CI before merging. No production migration or deployment is authorized by this handoff.
+
+## Pull request
+- Draft PR: https://github.com/stannmoye/Arbitrade_platform/pull/283
+- Target: `main`
+- Latest validated branch head before this handoff metadata update: `32282f8b07b79abcc539f2af6f6cec4508de36b2`.
+- PR is intentionally unmerged. Exact-head CI has not been run by this workstream.
