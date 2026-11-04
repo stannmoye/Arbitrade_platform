@@ -35,12 +35,12 @@
 
 | Dependency | Existing owner / source | Required behaviour | Integration check |
 | --- | --- | --- | --- |
-| Package policy contract | Window 2 PR #284; `package-opportunity-policy.ts` | Centralize new-package defaults, patch allowlist and package-isolated resolver; preserve omitted existing fields. | Test package A/B isolation, invalid package mismatch, editable package flags, and hard-false financial execution. |
+| Package policy contract | Window 2 PR #284; `package-opportunity-policy.ts` | Centralize new-package defaults, package-owned patch allowlist and package-isolated resolver; preserve omitted existing fields and keep global master toggles out of the package mutation. | Test package A/B isolation, invalid package mismatch, explicit zero preservation, package-policy validation, global master exclusion and hard-false financial execution. |
 | Generation consumer | Window 3 | Read the selected package's persisted policy without duplicating defaults or changing global masters. | Verify package-specific terms and timing snapshots on integrated generation path. |
 
 ## Window 5 admin-settings dependencies
 
-- Reuse the existing settings and fee/retry mutations; Window 5 changes client validation and feedback only.
+- Reuse the existing settings and fee/retry mutations; Window 5 changes client validation and feedback only. Global informational delivery, company rotation, randomized timing, burst and tier-policy masters are owned by Package Configuration and must remain editable through the existing audited global-control mutation.
 - Preserve the current/historical worker-health table changes in `AdminOperationsPages.tsx` when merging Window 5's global timing hydration fix.
 - Run client validation tests plus authorized save/read-back, invalid-value rejection, role denial, refresh persistence and mobile/desktop browser checks.
 
