@@ -4,7 +4,7 @@
 **Prepared:** 2026-11-04  
 **Workstream 3 PR:** [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278)  
 **Branch:** `feat/automatic-template-opportunities`  
-**Code head inspected:** `ca9796a461f3e279857c512fcc90f1c3a87423a2`
+**Code head inspected:** `b69227ae0bef8d5481209fea875d4f7519e4e2a4`
 
 ## What Window 3 hands off
 
@@ -39,7 +39,7 @@ Key implementation files include:
 
 ## Merge and deployment boundary
 
-Window 1 has not merged to `main` and has not deployed the branch. Window 7 owns the final integration decision. Do not deploy or apply migrations to production as part of integration verification. The user’s separate financial boundary remains in force.
+PR #278 (Window 3) remains open, draft and unmerged; this handoff does not authorize a merge or deployment. Window 7 owns the independent integration decision. Do not deploy or apply migrations to production as part of integration verification. The user’s separate financial boundary remains in force.
 
 
 ## Window 3 — Company rotation transaction safety and rollback regression
@@ -76,4 +76,4 @@ The failing Trading opportunity worker concurrency and recovery integration jobs
 
 The regression now explicitly captures and asserts the nested database error chain contains forced_rotation_generation_failure, then retains the existing checks that the rotation cursor is unchanged and no partial offer remains. It drops the trigger and retries generation; the successful retry must advance the durable rotation counter exactly once. The failure injection and rollback assertions are retained, not skipped or relaxed.
 
-Exact-head MySQL 8.4 and MariaDB 11.4 results must be taken from GitHub Actions after the final correction commit. Do not treat the earlier failing run or source inspection as passing database evidence.
+Exact final correction head `b69227ae0bef8d5481209fea875d4f7519e4e2a4` was verified by GitHub Actions run [41786032852](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41786032852): MySQL 8.4 and MariaDB 11.4 both passed the opportunity worker concurrency and recovery integration. The full required exact-head workflow set also passed: [workflow run list](https://github.com/stannmoye/Arbitrade_platform/actions/runs?head_sha=b69227ae0bef8d5481209fea875d4f7519e4e2a4). The production source workflow passed TypeScript, automated tests, installer/migration contract tests and production build. These CI results do not constitute authenticated Blitz staging acceptance or production deployment.
