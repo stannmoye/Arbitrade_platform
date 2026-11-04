@@ -112,7 +112,7 @@ export const appRouter = router({
     updateAdminState: adminProcedure.input(z.object({
       // Keep legacy ID-array clients compatible while current clients send a compact
       // 1,811-bit selection bitmap (304 base64 characters) through restrictive proxies.
-      ids: z.array(z.string().regex(/^logo-brand-\\d{4}$/)).min(1).max(1811).optional(),
+      ids: z.array(z.string().regex(/^logo-brand-\d{4}$/)).min(1).max(1811).optional(),
       selectionBitmap: z.string().length(304).optional(),
       status: z.enum(["verified", "unverified", "archived", "restored", "disabled", "enabled"]),
       reason: z.string().trim().min(8).max(500),
