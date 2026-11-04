@@ -3224,7 +3224,9 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
   const db=await getDb();if(!db)throw new Error("Database is not available");
   const activeSubscriptionIds=input.eligibleSubscriptions.map(row=>row.subscriptionId).filter(id=>Number.isSafeInteger(id)&&id>0);
   if(!activeSubscriptionIds.length)return null;
-  return db.transaction(async tx=>{
+  for(let attempt=0;attempt<4;attempt++){
+    try{
+      return await db.transaction(async tx=>{
     const generationLockKey=`trading.opportunityGenerator.${input.userId}`;
     await tx.insert(appSettings).values({settingKey:generationLockKey,settingValue:"",updatedBy:input.userId})
       .onDuplicateKeyUpdate({set:{settingKey:generationLockKey}});
@@ -3441,7 +3443,19 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       packageSnapshotJson:JSON.stringify(snapshot),status:"generated",generatedAt:input.now,assignedAt:input.now,expiresAt:closesAt,
     });
     return offerId;
-  });
+      });
+    }catch(error){
+      const failure=error as {code?:string;errno?:number;cause?:{code?:string;errno?:number}};
+      const code=failure.code||failure.cause?.code;
+      const errno=Number(failure.errno??failure.cause?.errno??0);
+      const retryable=code==="ER_LOCK_DEADLOCK"||code==="ER_LOCK_WAIT_TIMEOUT"||errno===1213||errno===1205;
+      if(!retryable||attempt===3)throw error;
+      // The failed transaction has rolled back before retrying, so no rotation
+      // cursor or assignment can be consumed by a transient lock conflict.
+      await new Promise(resolve=>setTimeout(resolve,20*(attempt+1)+crypto.randomInt(0,25)));
+    }
+  }
+  return null;
 }
 
 const OPPORTUNITY_GENERATION_CONTROL_KEY="trade.opportunityGeneration.control";
