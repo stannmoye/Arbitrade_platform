@@ -30,6 +30,11 @@ Implemented in this branch:
 - Adds unit and generation-contract regression coverage.
 - Strictly validates company-neutral sentinel metadata; rejects extra fields, altered display identity, and non-null company references.
 - Exposes aggregate `customerFailures` from the persisted generation-batch failure count for Window 6's degraded-worker classification.
+- Enforces daily generation quota inside the locked generation transaction using the subscription's saved entitlement, package allowance, package/policy popup caps and daily target.
+- Resolves the quota window from the selected package policy (calendar day or rolling 24 hours), counts both subscription and customer/package assignments, and snapshots the applied limits.
+- Skips exhausted quota candidates before rotation selection; quota reads, rotation cursor, offer and assignment writes remain in one transaction.
+
+**Outstanding verification blockers:** source-level quota/transaction assertions have been added but have not been run. No genuine MySQL 8.4 or MariaDB 11.4 generation integration has been executed; concurrency, failure-injection rollback/recovery, idempotency, independent package policy selection and immutable snapshot persistence remain unverified. No exact-head CI run is currently recorded.
 
 Existing generation infrastructure reused:
 - Customer/package generation lock and unique generation key.
