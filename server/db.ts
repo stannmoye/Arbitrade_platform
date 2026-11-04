@@ -3260,14 +3260,14 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         minimumPayoutRateBps:opportunityPackagePolicies.minimumPayoutRateBps,maximumPayoutRateBps:opportunityPackagePolicies.maximumPayoutRateBps,
         minimumTradeDurationSeconds:opportunityPackagePolicies.minimumTradeDurationSeconds,maximumTradeDurationSeconds:opportunityPackagePolicies.maximumTradeDurationSeconds,
         popupDisplayTargetSeconds:opportunityPackagePolicies.popupDisplayTargetSeconds,maxPendingDeliveries:opportunityPackagePolicies.maxPendingDeliveries,
-        companyRotationEnabled:opportunityPackagePolicies.companyRotationEnabled,companyRotationCountryNames:opportunityPackagePolicies.companyRotationCountryNames,
+        companyRotationCountryNames:opportunityPackagePolicies.companyRotationCountryNames,
         companyRotationRepeatPolicy:opportunityPackagePolicies.companyRotationRepeatPolicy,badgeLabel:opportunityPackagePolicies.badgeLabel,
       }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
         .innerJoin(opportunityPackagePolicies,eq(opportunityPackagePolicies.packageName,packages.name))
         .where(and(eq(customerPackageSubscriptions.id,candidate.subscriptionId),eq(customerPackageSubscriptions.userId,input.userId),
           eq(customerPackageSubscriptions.status,"active"),sql`${customerPackageSubscriptions.activationKey} LIKE 'auto-tier:%'`,
           lte(customerPackageSubscriptions.startsAt,input.now),or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,input.now)),
-          eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,input.now)),or(isNull(packages.expiresAt),gt(packages.expiresAt,input.now))).limit(1).for("update"))[0];
+          eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,input.now)),or(isNull(packages.expiresAt),gt(packages.expiresAt,input.now)))).limit(1).for("update"))[0];
       if(row&&hasConfiguredTradingOfferPolicy(row)){selectedSubscription=row;selectedPolicy=row;break;}
     }
     if(!selectedSubscription||!selectedPolicy)return null;
