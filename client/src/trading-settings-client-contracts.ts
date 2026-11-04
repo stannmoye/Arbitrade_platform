@@ -178,3 +178,93 @@ export function parseDeliveryIntervals(input: string): number[] | null {
   if (seconds.length > 20 || seconds.some((value) => !Number.isSafeInteger(value) || value < 5 || value > 3_600)) return null;
   return seconds;
 }
+
+
+export type GlobalTradeTimingFormValues = {
+  settlementMinutes: number;
+  creditDelaySeconds: number;
+  cooldownSeconds: number;
+  nextPopupFormulaDelaySeconds: number;
+  popupCooldownSeconds: number;
+  popupDisplaySeconds: number;
+  popupPreAlertSeconds: number;
+  popupJitterSeconds: number;
+  popupMaxPerHour: number;
+  marketRefreshIntervalMinutes: number;
+  blockUntilSettled: boolean;
+};
+
+/**
+ * Hydrate the global timing editor without treating valid numeric zeroes as
+ * missing values. Zero is meaningful for several delay/cooldown settings.
+ */
+export function normalizeGlobalTradeTimingSettings(value: unknown): GlobalTradeTimingFormValues {
+  const settings = isRecord(value) ? value : {};
+  const boundedIntegerOrDefault = (key: string, fallback: number, minimum: number, maximum: number) => {
+    const raw = settings[key];
+    if (raw === null || raw === undefined || raw === "") return fallback;
+    const parsed = Number(raw);
+    return Number.isSafeInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : fallback;
+  };
+  return {
+    settlementMinutes: Math.ceil(boundedIntegerOrDefault("settlementDelaySeconds", 900, 900, 604_800) / 60),
+    creditDelaySeconds: boundedIntegerOrDefault("creditDelaySeconds", 0, 0, 604_800),
+    cooldownSeconds: boundedIntegerOrDefault("cooldownSeconds", 30, 0, 604_800),
+    nextPopupFormulaDelaySeconds: boundedIntegerOrDefault("nextPopupFormulaDelaySeconds", 30, 0, 604_800),
+    popupCooldownSeconds: boundedIntegerOrDefault("popupCooldownSeconds", 45, 0, 604_800),
+    popupDisplaySeconds: boundedIntegerOrDefault("popupDisplaySeconds", 8, 1, 3_600),
+    popupPreAlertSeconds: boundedIntegerOrDefault("popupPreAlertSeconds", 4, 0, 3_600),
+    popupJitterSeconds: boundedIntegerOrDefault("popupJitterSeconds", 90, 0, 604_800),
+    popupMaxPerHour: boundedIntegerOrDefault("popupMaxPerHour", 12, 1, 10_000),
+    marketRefreshIntervalMinutes: boundedIntegerOrDefault("marketRefreshIntervalMinutes", 120, 1, 10_080),
+    blockUntilSettled: typeof settings.blockUntilSettled === "boolean" ? settings.blockUntilSettled : true,
+  };
+}
+
+
+/** Return actionable field errors before a package fee mutation can be submitted. */
+export function validatePackageFeeDraft(input: {
+  feeRateBps: number | null;
+  roundingMode: FeeRoundingMode | "";
+  effectiveAt: string | null;
+  reason: string;
+}): string[] {
+  const errors: string[] = [];
+  if (input.feeRateBps === null || !Number.isSafeInteger(input.feeRateBps) || input.feeRateBps < 0 || input.feeRateBps > 10_000) {
+    errors.push("Enter a fee rate from 0% to 100% in exact 0.01 percentage-point steps.");
+  }
+  if (!input.roundingMode) errors.push("Choose a fee rounding mode.");
+  if (!input.effectiveAt) errors.push("Choose a valid effective time in the future.");
+  const reasonLength = input.reason.trim().length;
+  if (reasonLength < 5 || reasonLength > 500) errors.push("Enter a reason containing 5–500 characters.");
+  return errors;
+}
+
+/** Mirror the server retry contract so invalid combinations are explained before submission. */
+export function validateDeliveryRetryDraft(input: {
+  policy: "none" | "temporary";
+  maxAttempts: number;
+  intervalsSeconds: number[] | null;
+  effectiveAt: string | null;
+  reason: string;
+  configured: boolean;
+}): string[] {
+  const errors: string[] = [];
+  if (!Number.isSafeInteger(input.maxAttempts) || input.maxAttempts < 1 || input.maxAttempts > 20) {
+    errors.push("Maximum delivery attempts must be a whole number from 1 to 20.");
+  }
+  if (input.intervalsSeconds === null) {
+    errors.push("Enter retry intervals as comma-separated whole seconds from 5 to 3,600.");
+  } else if (input.policy === "none" && (input.maxAttempts !== 1 || input.intervalsSeconds.length !== 0)) {
+    errors.push("No-retry policy requires exactly one initial attempt and no retry intervals.");
+  } else if (input.policy === "temporary") {
+    if (!input.configured) errors.push("Configure and confirm the shared retry policy before enabling temporary retries.");
+    if (input.intervalsSeconds.length !== input.maxAttempts - 1) {
+      errors.push("Enter exactly one retry interval for each retry attempt (maximum attempts minus one).");
+    }
+  }
+  if (!input.effectiveAt) errors.push("Choose a valid effective time.");
+  const reasonLength = input.reason.trim().length;
+  if (reasonLength < 5 || reasonLength > 500) errors.push("Enter a reason containing 5–500 characters.");
+  return errors;
+}
