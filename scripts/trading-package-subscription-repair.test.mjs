@@ -38,7 +38,7 @@ describe("Trading customer package subscription schema repair", () => {
     expect(entry.idx).toBe(entries.indexOf(entry));
     expect(entries[entry.idx - 1].tag).toBe("0077_trading_package_catalogue_schema_repair");
     expect(entries[entry.idx + 1].tag).toBe("0079_trade_settlement_timing_schema_repair");
-    const tailStart = entries.length - 19;
+    const tailStart = entries.length - 20;
     const tail = entries.slice(tailStart);
     expect(tail.map((item) => item.tag)).toEqual([
       "0086_trading_popup_policy_snapshots",
