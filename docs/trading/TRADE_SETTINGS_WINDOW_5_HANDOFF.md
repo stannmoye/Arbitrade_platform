@@ -51,7 +51,12 @@ The eight shared integration documents are being introduced by the parallel Wind
 
 ## Tests and acceptance
 
-Regression tests were added in `client/src/trading-delivery-policy-client-contracts.test.ts`; they have **not yet been executed in this session**. No test result is claimed.
+Regression tests were added in `client/src/trading-delivery-policy-client-contracts.test.ts`. The first PR CI run executed 1,142 tests successfully but failed one newly added source-wiring assertion because the human-readable interval validation text correctly lives in the shared validator rather than the editor component. The assertion was narrowed to verify the editor delegates to `validateDeliveryRetryDraft`; a second over-specific assertion was removed. The corrected assertions are committed, and exact-head CI is pending. No passing result is claimed for the corrected head.
+
+Latest CI findings and follow-up:
+- The first exact-head type-check and production build did not report an error before the test job stopped; the combined job failed because of the source-wiring assertion above. This is not recorded as a full build/type-check pass.
+- A separate mining regression workflow also failed on that same shared test assertion; it is not evidence of a mining product regression.
+- The unrelated application verification workflow failed; Window 7 should inspect its job logs independently before integration.
 
 Required exact-head checks:
 - Focused: `pnpm test -- client/src/trading-delivery-policy-client-contracts.test.ts`
