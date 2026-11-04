@@ -1,28 +1,24 @@
 # Integration Dependencies
 
-**Coordination baseline:** 2026-11-04
+**Updated:** 2026-11-04
 
-## Confirmed Workstream 1 dependencies
-
-| Dependency | Existing owner / source | Required behaviour | Integration check |
-| --- | --- | --- | --- |
-| Customer tier qualification | Existing qualification service and persisted package subscriptions; implementation owner outside WS1 | Generation consumes only active server-assigned eligible subscriptions. It must not create or infer qualification. | Qualifying credit/threshold and entitlement integration; no customer-selected tier. |
-| Package configuration | Existing package records and `opportunityPackagePolicies` | Read persisted package-specific bounds and policy versions; never hardcode terms or let templates override bounds. | Multiple package policies generate within their own saved bounds; snapshots remain stable. |
-| Company catalogue | Existing `companyCatalogueReference` source and `trade.companyCatalogue.adminState` | Use stable Logo IDs and current approved/enabled/non-archived records; preserve name/logo/country metadata. | 1,811-record integrity, status filtering, country filtering, rotation and restart tests. |
-| Company rotation | Existing `company-spotlight-rotation` module and saved per-customer/package cursor | Advance once per durable assignment, transactionally; respect repeat policy and filter fingerprint. | Concurrent generation, replay and restart do not duplicate or skip cursor advancement. |
-| Opportunity delivery | Existing `opportunityLifecycle.ts` and `opportunity-delivery-lifecycle` module | WS1 persists offers/assignments and passes them to existing delivery. Delivery owns queue, capacity, dispatch, retries and customer acknowledgement. | One delivery per user/offer; bounded capacity; retry/lease recovery; no wallet/ledger mutation. |
-| Admin visibility | Existing `adminOperations` procedures and `AdminOpportunityTemplates` UI | Expose generation control, batch/assignment monitor and optional template administration with audit/version checks. | Admin authorization, save/read-back, reason/version conflict, useful failure state. |
-| Final integration | Window 7 | Reconcile shared files and migrations, run exact-head checks and end-to-end acceptance. | Window 7 handoff checklist in `INTEGRATION_HANDOFF.md`. |
-
-## Other implementation windows
-
-The exact ownership map for Windows 2–6 must be supplied by those windows. Do not assign owners based on observed changed files or guess from architecture components. Each window must add its named owner, contract, changed paths, migration numbers and dependencies here.
+| Consumer | Provider / owner | Required contract | Integration verification |
+|---|---|---|---|
+| Window 3 generation | Window 1 company catalogue and rotation | parseCompanyCatalogueAdminState, buildCompanySpotlightPool, nextCompanySpotlight; stable Logo IDs, approval allowlist, country filters, durable customer/package cursor. Empty pool permits null company identity. | Brand-only selection; all statuses; country filters; empty pool; replay; transaction rollback; restart. |
+| Window 3 generation | Window 2 package policies | Active subscription and package-specific enabled state, quota, capital bounds, payout range, duration range, policy version and schedule. | 16 package policies remain independent; invalid policy fails closed; snapshots retain policy version. |
+| Window 4 delivery | Window 3 persisted generated offers | Customer-assigned open offers, generation key, package/company snapshots and durable assignment status. | Existing delivery worker consumes without a competing generator; delivery idempotency and lease/retry recovery remain intact. |
+| Window 3 generation | Existing database worker and batch infrastructure | Bounded round-robin customer scan, generation lock, durable batch status, stale-batch recovery and unique assignment key. | Repeated cycles, overlapping workers, restart, partial failure and retry. |
+| Window 3 generation | Window 6 monitoring | Existing worker-health registry and generation batch monitor. | Worker failure/degraded state and sanitized diagnostics visible without new health registry. |
+| All workstreams | Window 7 integration | Exact branch heads, shared-file conflict list, ordered migration journal, CI and authenticated acceptance evidence. | Final integrated-head verification and merge decision. |
 
 ## Known shared-file conflict hotspots
 
-- `server/db.ts`, `server/routers.ts`, `server/opportunityLifecycle.ts`
-- `drizzle/schema.ts`, `drizzle/meta/_journal.json`, ordered `drizzle/*.sql`
-- `client/src/App.tsx`, admin Trading components
-- `docs/TRADING_SYSTEM_SPECIFICATION.md`, `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md`, `progress.md`
+- server/db.ts: package policy reads, generation core, worker cycle and customer read path.
+- server/_core/index.ts: worker registration and lifecycle.
+- server/opportunityLifecycle.ts: delivery handoff and company validation.
+- drizzle/schema.ts, drizzle/meta/_journal.json, ordered migrations.
+- server/modules/company-spotlight-rotation.ts: Window 1-owned interface; do not fork or replace.
+- server/_core/workerHealth.ts: Window 6-owned monitoring; coordinate changes.
+- Admin/customer Trading components and canonical documentation.
 
-Any overlapping edit must be compared against both branch heads before cherry-picking or resolving. Never replace a whole file with an older branch copy.
+Do not replace whole files from stale branches. Compare exact branch heads and apply narrow reviewed changes.
