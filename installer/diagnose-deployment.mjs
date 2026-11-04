@@ -93,7 +93,7 @@ const start = String(packageJson?.scripts?.start || "");
 report("Production startup command", start.includes("scripts/start-with-diagnostics.mjs"),
   start.includes("scripts/start-with-diagnostics.mjs")
     ? "Supported startup wrapper is configured; guarded migrations run before startup and worker-schema contracts are checked read-only before the persistent production server."
-    : "Expected start script to use scripts/start-with-diagnostics.mjs so guarded migrations and worker-schema preflight run before the persistent server.");
+    : "Expected start script to use scripts/start-with-diagnostics.mjs so guarded migrations run before startup and worker-schema contracts are checked read-only before the persistent server.");
 report("Production build", await fileExists("dist/index.js"),
   await fileExists("dist/index.js") ? "dist/index.js exists." : "dist/index.js is missing; run pnpm build.");
 
