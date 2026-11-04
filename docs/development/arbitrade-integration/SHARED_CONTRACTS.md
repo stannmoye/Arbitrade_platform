@@ -30,6 +30,11 @@
 ## Delivery boundary
 
 - Generation persists the opportunity; the existing delivery lifecycle owns popup delivery state, idempotency, pending capacity, dispatch claims, retries and recovery.
+- Queue admission persists one `opportunity_popup_events` row and one `opportunity_delivery_idempotency` fence per customer/offer. It is not proof that the browser received or rendered the notice.
+- The authenticated customer opportunity read claims queued/retry-due dispatches through `claimPopupDeliveryDispatches(userId)`. A successful claim returns `deliveryStatus=in_progress` and a dispatch lease token; the customer payload must carry that token unchanged as `deliveryLeaseToken`.
+- Customer popup eligibility may accept `in_progress` only when a non-empty server-issued lease token is present. An unleased `in_progress` row, `queued`, `retry_wait`, and terminal statuses are not renderable. Previously acknowledged `delivered`, `received`, and `rendered` rows remain refresh-recoverable while the offer is open and unexpired.
+- The browser acknowledges `received`, then `rendered`, using the same event ID and lease token. The server verifies customer ownership, current offer status/expiry, in-progress state and lease-token equality; stale tokens cannot acknowledge or mutate another customer's event.
+- Retry/lease expiry uses the existing shared delivery retry policy and bounded lifecycle. Dismissed/expired deliveries are terminal and must not be resurrected.
 - Delivery state and presentation actions do not create financial effects.
 - Do not duplicate delivery queues, delivery idempotency keys or lifecycle workers.
 
