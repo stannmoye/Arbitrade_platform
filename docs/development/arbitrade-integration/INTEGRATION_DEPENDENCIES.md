@@ -36,3 +36,15 @@ The exact ownership map for Windows 2–6 must be supplied by those windows. Do 
 - `docs/TRADING_SYSTEM_SPECIFICATION.md`, `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md`, `progress.md`
 
 Any overlapping edit must be compared against both branch heads before cherry-picking or resolving. Never replace a whole file with an older branch copy.
+
+## Workstream 6 dependencies
+
+| Dependency | Workstream / existing owner | Required behaviour | Integration check |
+| --- | --- | --- | --- |
+| Opportunity cycle result | Window 1 generation worker / existing `runAutoTradeCycle` | Reuse the existing failure counter and expose aggregate `customerFailures` without customer identifiers or raw exception text. | Partial customer batch is observable as degraded while the remaining customer work continues. |
+| Durable worker health | Existing Worker Health & Recovery implementation (migration 0084) | Reuse `runMonitoredWorkerCycle`, `worker_health_registry`, admin diagnostics and sanitization. | Exact integrated-head tests verify aggregate failure classification and current-process status. |
+| Worker lifecycle and startup | Existing `server/_core/index.ts` registration | Preserve existing timer, bounded batch, retry/backoff and shutdown semantics. | Existing cycle recovery/concurrency contracts remain green. |
+| Current versus historical instances | Existing worker-health registry and System Diagnostics | Derive current scope from the process instance ID; keep history visible without counting old stale instances as current failures. | Unit tests cover filtering and ensure current degraded/not-started rows remain actionable. |
+| Final integration | Window 7 | Reconcile shared files and verify no duplicate monitor/table/API is introduced. | Run checks on the final integrated SHA. |
+
+The existing PR #261 is based on an older mainline checkpoint and is not merged wholesale. Its current-versus-historical worker-health behavior is being adapted onto the newer shared worker-health implementation to avoid replacing newer diagnostics fields and queue reporting.
