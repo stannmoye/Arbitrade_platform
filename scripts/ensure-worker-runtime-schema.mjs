@@ -9,6 +9,23 @@ import { assertWorkerSchemaContracts } from "./worker-schema-contracts.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 config({ path: resolve(root, ".env"), override: false });
 
+async function assertMiningCustomerPackagesTable(db) {
+  const requiredColumns = [
+    "id", "userId", "packageId", "packageVersionId", "status", "purchasedAt",
+    "startsAt", "expiresAt", "endedAt", "baseThsSnapshot", "boostBonusThsSnapshot",
+    "priceAmount", "priceAsset", "paymentAmount", "paymentAsset", "ledgerTransactionId",
+    "idempotencyKey", "termsSnapshot", "createdAt",
+  ];
+  const [rows] = await db.execute(
+    "SELECT column_name AS columnName FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='mining_customer_packages'",
+  );
+  const actual = new Set(rows.map(row => String(row.columnName)));
+  const missing = requiredColumns.filter(column => !actual.has(column));
+  if (missing.length) {
+    throw new Error(`Mining worker schema contract failed for mining_customer_packages; missing columns: ${missing.join(", ")}`);
+  }
+}
+
 async function hasColumn(db, table, column) {
   const [rows] = await db.execute(
     "SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1",
@@ -128,10 +145,20 @@ async function main() {
   let repairs = 0;
   try {
     if (process.argv.includes("--verify-only")) {
+      await assertMiningCustomerPackagesTable(db);
       const verified = await assertWorkerSchemaContracts(db);
-      console.log(`[worker-schema] PASS: read-only verification of ${verified.checkedTables} worker-critical table contracts.`);
+      console.log(`[worker-schema] PASS: read-only verification of ${verified.checkedTables} worker-critical table contracts plus the Mining customer-package table.`);
       return;
     }
+    // Blitz and other hosts may have completed the main Drizzle chain without
+    // applying the separate portal migration chain. MiningWorker directly reads
+    // mining_customer_packages, so bridge its canonical idempotent base migration
+    // before starting any worker. CREATE TABLE IF NOT EXISTS preserves existing
+    // customer-package rows and never resets the Mining catalogue or ledger.
+    const miningPortalMigration = await readFile(resolve(root, "drizzle/0036_crypto_mining_portal.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, miningPortalMigration);
+    await assertMiningCustomerPackagesTable(db);
+
     // This journaled bridge deliberately duplicates the worker-table DDL from the
     // standalone mining and portal migration files. It covers hosts that invoke a
     // different migration entry point; contract checks below detect shape drift.

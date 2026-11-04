@@ -122,6 +122,9 @@ async function main() {
   });
 
   await runPhase("main-database-migrations", ["scripts/guarded-main-migrate.mjs"]);
+  // Apply the idempotent additive worker-schema bridge before checking contracts.
+  // Verification alone cannot repair a Blitz database missing a worker-owned table.
+  await runPhase("worker-runtime-schema-repair", ["scripts/ensure-worker-runtime-schema.mjs"]);
   await runPhase("worker-runtime-schema-preflight", ["scripts/ensure-worker-runtime-schema.mjs", "--verify-only"]);
   await runPhase("application-server", ["--trace-uncaught", "--unhandled-rejections=strict", "dist/index.js"], {}, true);
 
