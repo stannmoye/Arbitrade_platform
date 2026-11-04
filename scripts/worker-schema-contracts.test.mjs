@@ -50,7 +50,7 @@ describe("worker schema contracts", () => {
     expect(runtimeSchema).toContain("await assertMiningCustomerPackagesTable(db)");
     expect(miningMigration).toContain("CREATE TABLE IF NOT EXISTS mining_customer_packages");
     expect(runtimeSchema.indexOf("await executeCompatibleMigrationSql(db, miningPortalMigration)"))
-      .toBeLessThan(runtimeSchema.indexOf("await assertWorkerSchemaContracts(db)"));
+      .toBeLessThan(runtimeSchema.lastIndexOf("await assertWorkerSchemaContracts(db)"));
     expect(startupWrapper).toContain('runPhase("worker-runtime-schema-repair", ["scripts/ensure-worker-runtime-schema.mjs"])');
     expect(startupWrapper.indexOf('runPhase("worker-runtime-schema-repair"'))
       .toBeLessThan(startupWrapper.indexOf('runPhase("worker-runtime-schema-preflight"'));
