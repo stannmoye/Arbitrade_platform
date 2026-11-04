@@ -20,7 +20,7 @@ WHERE e.`packageId` IS NULL;
 -- canonical event and terminalize only surplus rows with no linked/started trade.
 UPDATE `opportunity_popup_events` e
 JOIN (
-  SELECT `userId`,`offerId`,MIN(`id`) AS `canonicalId`
+  SELECT `userId`,`offerId`,COALESCE(MIN(CASE WHEN `deliveryStatus` IN ('queued','in_progress','retry_wait') AND `tradeId` IS NULL AND `eventStatus` NOT IN ('TRADED','SETTLED') AND `executionStatus` NOT IN ('RUNNING','SUCCEEDED') THEN `id` END),MIN(`id`)) AS `canonicalId`
   FROM `opportunity_popup_events`
   GROUP BY `userId`,`offerId`
   HAVING COUNT(*) > 1
@@ -67,14 +67,14 @@ INSERT INTO `opportunity_delivery_idempotency` (`userId`,`offerId`,`popupEventId
 SELECT e.`userId`,e.`offerId`,e.`id`,COALESCE(e.`packageId`,0),e.`packageName`,e.`createdAt`
 FROM `opportunity_popup_events` e
 JOIN (
-  SELECT `userId`,`offerId`,MIN(`id`) AS `canonicalId`
+  SELECT `userId`,`offerId`,COALESCE(MIN(CASE WHEN `deliveryStatus` IN ('queued','in_progress','retry_wait') AND `tradeId` IS NULL AND `eventStatus` NOT IN ('TRADED','SETTLED') AND `executionStatus` NOT IN ('RUNNING','SUCCEEDED') THEN `id` END),MIN(`id`)) AS `canonicalId`
   FROM `opportunity_popup_events` GROUP BY `userId`,`offerId`
 ) canonical ON canonical.`canonicalId`=e.`id`
 ON DUPLICATE KEY UPDATE `userId`=VALUES(`userId`);
 --> statement-breakpoint
 UPDATE `opportunity_delivery_idempotency` d
 JOIN `opportunity_popup_events` e ON e.`id`=d.`popupEventId`
-SET d.`packageId`=COALESCE(e.`packageId`,0),d.`packageName`=e.`packageName`;
+SET d.`popupEventId`=e.`id`,d.`packageId`=COALESCE(e.`packageId`,0),d.`packageName`=e.`packageName`;
 --> statement-breakpoint
 -- No interval/schedule is inferred. Retry remains disabled until an administrator
 -- explicitly configures a bounded schedule; the initial dispatch is still permitted.
