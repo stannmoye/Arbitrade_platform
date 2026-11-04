@@ -2,7 +2,7 @@
 
 **Updated:** 2026-11-04  
 **Window 3 branch:** workstream/3-automatic-opportunity-engine  
-**Base dependency:** Window 1 generation implementation from PR #278, branch feat/automatic-template-opportunities.
+**Base dependency:** Window 1 generation implementation from PR #278, branch feat/automatic-template-opportunities, base head b7567f4ae2b1c99342014925c5a667d1896fba21. Also reconcile the separate Window 1 company-selection contract branch feat/workstream-1-company-catalogue-rotation-contract.
 
 ## Window 3 implementation handoff
 
@@ -20,7 +20,7 @@ Window 3 extends the existing generator with a missing company-neutral path requ
 ### Integration instructions
 
 1. Integrate the Window 1 company contract and Window 2 package-policy interface without creating duplicate selectors or policy services.
-2. Review server/db.ts against Window 2 package-policy changes and Window 6 worker-failure monitoring changes; preserve their logic.
+2. Review server/db.ts against Window 2 package-policy changes and any Window 6 worker-health changes once that window's exact assignment/branch is confirmed; preserve their logic.
 3. Keep Window 4's existing delivery lifecycle as the sole delivery owner. A company-neutral offer must pass through the same existing delivery lifecycle.
 4. Verify generated offer and assignment rows persist with null company identity when the eligible company pool is empty; verify no template query or rotation cursor mutation occurs for that case.
 5. Verify the same generation key is idempotent and package policy terms are unchanged on retry/restart.
