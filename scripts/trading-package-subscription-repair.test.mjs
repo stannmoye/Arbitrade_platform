@@ -60,6 +60,7 @@ describe("Trading customer package subscription schema repair", () => {
       "0102_opportunity_delivery_retry_lifecycle",
       "0103_automatic_opportunity_generation_templates",
       "0104_catalogue_native_opportunity_generation",
+      "0105_default_on_global_information_delivery",
     ]);
     tail.forEach((item, offset) => {
       const index = tailStart + offset;
