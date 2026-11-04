@@ -4,11 +4,18 @@ const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 const STEP_SECONDS = 30;
 const DIGITS = 6;
 
+export function isValidTotpEncryptionKey(value: unknown): value is string {
+  if (typeof value !== "string" || !value) return false;
+  if (/^[a-f0-9]{64}$/i.test(value)) return true;
+  if (!/^[A-Za-z0-9+/]{43}=?$/.test(value)) return false;
+  const decoded = Buffer.from(value, "base64");
+  return decoded.length === 32 && decoded.toString("base64").replace(/=+$/, "") === value.replace(/=+$/, "");
+}
+
 function encryptionKey(): Buffer {
   const raw = process.env.TOTP_ENCRYPTION_KEY || "";
-  const key = /^[a-f0-9]{64}$/i.test(raw) ? Buffer.from(raw, "hex") : Buffer.from(raw, "base64");
-  if (key.length !== 32) throw new Error("TOTP_ENCRYPTION_KEY must be configured as a 32-byte hex or base64 key.");
-  return key;
+  if (!isValidTotpEncryptionKey(raw)) throw new Error("TOTP_ENCRYPTION_KEY must be configured as a valid 32-byte hex or base64 key.");
+  return /^[a-f0-9]{64}$/i.test(raw) ? Buffer.from(raw, "hex") : Buffer.from(raw, "base64");
 }
 
 export function encodeBase32(bytes: Buffer): string {
