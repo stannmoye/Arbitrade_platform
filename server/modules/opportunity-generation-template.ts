@@ -151,6 +151,35 @@ export function createUnattributedCatalogueOpportunityTemplate(
   };
 }
 
+function validateUnattributedCatalogueOpportunityTemplate(
+  input: unknown,
+): Omit<OpportunityGenerationTemplate, "companyReferenceId"> & { companyReferenceId: null } {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new Error("Company-neutral informational opportunity payload is required.");
+  }
+  const value = input as Record<string, unknown>;
+  const allowedFields = new Set([
+    "templateName", "companyReferenceId", "symbol", "venueFrom", "venueTo",
+    "currency", "minimumMinor", "sourceReference", "reviewNotes",
+  ]);
+  if (Object.keys(value).some((field) => !allowedFields.has(field))) {
+    throw new Error("Company-neutral informational opportunities cannot override package payout or duration settings.");
+  }
+  if (value.companyReferenceId !== null) {
+    throw new Error("Company-neutral informational opportunity must not contain a company reference.");
+  }
+  const canonical = createUnattributedCatalogueOpportunityTemplate(
+    Number(value.minimumMinor),
+    value.currency as OpportunityGenerationTemplateCurrency,
+  );
+  for (const field of ["templateName", "symbol", "venueFrom", "venueTo", "sourceReference", "reviewNotes"] as const) {
+    if (value[field] !== canonical[field]) {
+      throw new Error("Company-neutral informational opportunity contains non-canonical identity metadata.");
+    }
+  }
+  return canonical;
+}
+
 function assertBound(name: keyof OpportunityGenerationPackageBounds, value: unknown, minimum: number, maximum: number): asserts value is number {
   if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) {
     throw new RangeError(`${name} must be a configured safe integer from ${minimum} through ${maximum}.`);
@@ -178,10 +207,7 @@ export function selectOpportunityGenerationTerms(
 ): OpportunityGenerationTerms {
   const template = templateInput && typeof templateInput === "object" && !Array.isArray(templateInput)
     && (templateInput as Record<string, unknown>).companyReferenceId === null
-    ? createUnattributedCatalogueOpportunityTemplate(
-      Number((templateInput as Record<string, unknown>).minimumMinor),
-      (templateInput as Record<string, unknown>).currency as OpportunityGenerationTemplateCurrency,
-    )
+    ? validateUnattributedCatalogueOpportunityTemplate(templateInput)
     : validateOpportunityGenerationTemplate(templateInput);
   if (!packageBounds || typeof packageBounds !== "object") {
     throw new Error("Saved package payout and duration settings are required.");
