@@ -129,6 +129,8 @@ describe("automatic opportunity generation and package-aware customer delivery",
   it("blocks manual and bulk-import offer creation at the server API", () => {
     expect(router).toContain('createOffer: adminProcedure.input(z.unknown()).mutation(() => { throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Manual opportunity publication is retired.');
     expect(router).toContain('bulkCreateOffers: adminProcedure.input(z.unknown()).mutation(() => { throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Manual opportunity CSV import is retired.');
+    expect(router).toContain("saved company templates are optional display-term enrichment");
+    expect(router).toContain("a company template is not required");
     expect(db).toContain("assignedUserId:input.userId");
   });
 
