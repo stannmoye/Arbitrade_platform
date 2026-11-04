@@ -21,6 +21,7 @@ import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCo
 import { normalizeCompanyCatalogueActionReason, transitionCompanyCatalogueAdminState, type CompanyCatalogueStatusAction } from "./modules/company-catalogue-reference";
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
+import { DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY, PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS, type PackageOpportunityPolicyPatch } from "./modules/package-opportunity-policy";
 import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule, resolveTradingBurstLimit } from "./modules/trading-delivery-quota";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry, MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY } from "./modules/trade-execution-retry";
@@ -2762,28 +2763,6 @@ export async function listAdminTradingPackages() {
     throw new Error("Unable to load the Trading package catalogue. Check server logs for the underlying database error.");
   }
 }
-const DEFAULT_NEW_TIER_POLICY = {
-  badgeLabel:null,badgeStyle:"neutral",
-  minimumPayoutRateBps:200,maximumPayoutRateBps:300,
-  minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900,
-  companyRotationEnabled:false,companyRotationCountryNames:null,
-  companyRotationRepeatPolicy:"avoid_until_exhausted" as const,
-  maxPopupsPerDay:10,maxVisibleOffers:3,minimumTradeUnits:1000,maximumTradeUnits:100000,
-  minHourlyTarget:0,normalHourlyTarget:0,marketInfluenceBps:0,burstEnabled:false,maxBurstSize:3,
-  enabled:false,automaticDelivery:false,dailyPopupTarget:0,schedulingPeriod:"rolling_24h" as const,
-  minIntervalSeconds:45,maxIntervalSeconds:3600,randomizationEnabled:false,popupDisplayTargetSeconds:120,
-  completionDisplaySeconds:8,postCompletionIntervalSeconds:30,maxPendingDeliveries:3,
-  deliveryRetryPolicy:"temporary" as const,maxDeliveryAttempts:3,expiryHandling:"expire" as const,
-  duplicatePrevention:true,audioEnabled:true,audioSound:"soft-chime",automaticTradingEnabled:false,
-  maxTradeAttemptsPerDay:0,tradeRetryDelaySeconds:30,maxSuccessfulTradesPerDay:0,maxConcurrentActiveTrades:1,
-  requirePreviousSettlement:true,minSettlementDelaySeconds:900,maxSettlementDelaySeconds:900,
-  minimumRewardBps:0,allowedOpportunityTypes:null,maxDailyRewardMinor:0,rewardLimitCurrency:"USD",
-  dailyRewardWindow:"calendar_day" as const,maxRewardPerTradeMinor:0,unsettledRewardPolicy:"reserve" as const,
-  capReachedPolicy:"stop_new_trades" as const,settlementConfirmationState:"ledger_and_wallet" as const,
-  settlementRetryPolicy:"manual" as const,maxSettlementAttempts:3,closePolicy:"after_completion" as const,
-  policyVersion:1,
-} as const;
-
 export async function createAdminTradingPackage(createdBy:number,input:{
   name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
   opportunitiesPerDay:number; maxPopupsPerDay:number; maxActiveInvestments:number;
@@ -2814,7 +2793,7 @@ export async function createAdminTradingPackage(createdBy:number,input:{
       startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1,
     });
     const id=Number(inserted[0].insertId);
-    await tx.insert(opportunityPackagePolicies).values({packageName:name,updatedBy:createdBy,...DEFAULT_NEW_TIER_POLICY});
+    await tx.insert(opportunityPackagePolicies).values({packageName:name,updatedBy:createdBy,...DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY});
     await tx.insert(v5AuditEvents).values({
       actorUserId:createdBy,action:"trading_package_created",entityType:"trading_package",entityId:String(id),
       reason:auditReason,
@@ -3233,7 +3212,9 @@ export async function listPersistedOpportunityPackagePolicies() {
   if(missing.length) throw new Error("Trading tier opportunity policy is missing for: "+missing.join(", "));
   return matchingRows;
 }
-const TRADING_TIER_POLICY_PATCH_KEYS = new Set([
+const TRADING_TIER_POLICY_PATCH_KEYS = new Set<string>(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS);
+/* legacy allowlist moved to package-opportunity-policy.ts */
+const UNUSED_TRADING_TIER_POLICY_PATCH_KEYS = new Set([
   "maxPopupsPerDay", "maxVisibleOffers", "minimumTradeUnits", "maximumTradeUnits",
   "minHourlyTarget", "normalHourlyTarget", "marketInfluenceBps", "maxBurstSize",
   "dailyPopupTarget", "schedulingPeriod", "minIntervalSeconds", "maxIntervalSeconds",
@@ -3246,7 +3227,7 @@ const TRADING_TIER_POLICY_PATCH_KEYS = new Set([
   "maximumTradeDurationSeconds", "companyRotationCountryNames", "companyRotationRepeatPolicy",
   "closePolicy",
 ]);
-export async function updateOpportunityPackagePolicies(updatedBy:number, policies:any[], reason:string) {
+export async function updateOpportunityPackagePolicies(updatedBy:number, policies:PackageOpportunityPolicyPatch[], reason:string) {
   const auditReason=String(reason??"").trim();
   if(auditReason.length<5||auditReason.length>500) throw new Error("Provide an audit reason of 5–500 characters");
   const db=await getDb(); if(!db) throw new Error("Database is not available");
