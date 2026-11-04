@@ -3255,8 +3255,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         activationKey:customerPackageSubscriptions.activationKey,subscriptionStatus:customerPackageSubscriptions.status,
         startsAt:customerPackageSubscriptions.startsAt,expiresAt:customerPackageSubscriptions.expiresAt,
         packageEnabled:packages.enabled,packageStartsAt:packages.startsAt,packageExpiresAt:packages.expiresAt,
-        policyId:opportunityPackagePolicies.id,policyEnabled:opportunityPackagePolicies.enabled,
-        automaticDelivery:opportunityPackagePolicies.automaticDelivery,policyVersion:opportunityPackagePolicies.policyVersion,
+        policyId:opportunityPackagePolicies.id,policyVersion:opportunityPackagePolicies.policyVersion,
         minimumTradeUnits:opportunityPackagePolicies.minimumTradeUnits,maximumTradeUnits:opportunityPackagePolicies.maximumTradeUnits,
         minimumPayoutRateBps:opportunityPackagePolicies.minimumPayoutRateBps,maximumPayoutRateBps:opportunityPackagePolicies.maximumPayoutRateBps,
         minimumTradeDurationSeconds:opportunityPackagePolicies.minimumTradeDurationSeconds,maximumTradeDurationSeconds:opportunityPackagePolicies.maximumTradeDurationSeconds,
@@ -3268,8 +3267,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         .where(and(eq(customerPackageSubscriptions.id,candidate.subscriptionId),eq(customerPackageSubscriptions.userId,input.userId),
           eq(customerPackageSubscriptions.status,"active"),sql`${customerPackageSubscriptions.activationKey} LIKE 'auto-tier:%'`,
           lte(customerPackageSubscriptions.startsAt,input.now),or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,input.now)),
-          eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,input.now)),or(isNull(packages.expiresAt),gt(packages.expiresAt,input.now)),
-          eq(opportunityPackagePolicies.enabled,true),eq(opportunityPackagePolicies.automaticDelivery,true))).limit(1).for("update"))[0];
+          eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,input.now)),or(isNull(packages.expiresAt),gt(packages.expiresAt,input.now))).limit(1).for("update"))[0];
       if(row&&hasConfiguredTradingOfferPolicy(row)){selectedSubscription=row;selectedPolicy=row;break;}
     }
     if(!selectedSubscription||!selectedPolicy)return null;
@@ -3293,7 +3291,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     let rotationCycle:number|null=null;
     let rotationSequence:number|null=null;
     let poolFingerprint:string|null=null;
-    if(input.companyRotationEnabled&&Boolean(selectedPolicy.companyRotationEnabled)){
+    if(input.companyRotationEnabled){
       const stateKey=`trading.companyRotation.${input.userId}.${Number(selectedSubscription.packageId)}`;
       await tx.insert(appSettings).values({settingKey:stateKey,settingValue:"",updatedBy:input.userId})
         .onDuplicateKeyUpdate({set:{settingKey:stateKey}});
@@ -3363,7 +3361,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       currencyRateUsd:Number(currencyRow.usdRate),currencyRateUpdatedAt:currencyRow.updatedAt?new Date(currencyRow.updatedAt).toISOString():null,
       popupDisplayTargetSeconds:displaySeconds,badgeLabel:selectedPolicy.badgeLabel??null,
       badgeStyle:["neutral","blue","purple","gold","green"].includes(String((selectedPolicy as any).badgeStyle))?String((selectedPolicy as any).badgeStyle):"neutral",
-      companyRotationEnabled:Boolean(selectedPolicy.companyRotationEnabled),companyRotationCountryNames:String(selectedPolicy.companyRotationCountryNames||""),
+      companyRotationEnabled:Boolean(input.companyRotationEnabled),companyRotationCountryNames:String(selectedPolicy.companyRotationCountryNames||""),
       companyRotationRepeatPolicy:selectedPolicy.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
       maxPendingDeliveries:Number(selectedPolicy.maxPendingDeliveries||0),
       configuredPayout:true,payoutSemantics:terms.payoutSemantics,templateId:template?Number(template.id):null,templateVersion:template?Number(template.version):null,
