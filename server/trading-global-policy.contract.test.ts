@@ -15,7 +15,14 @@ const installerRunner = readFileSync(new URL("../installer/migration-recovery-st
 describe("global Trade master policy ownership and migration", () => {
   it("defaults safe informational delivery masters on only for an untouched migration-created policy", () => {
     for (const key of ["tierPolicyMasterEnabled", "informationalPopupDeliveryEnabled", "companyRotationEnabled", "randomizedTimingEnabled", "burstDeliveryEnabled"]) {
-      expect(migration105).toContain("'$."+key+"', JSON_EXTRACT('true', '$')");
+      expect(migration105).toContain("'$." + key + "', JSON_EXTRACT('true', '$')");
+    }
+    expect(migration105).toContain("`updatedBy` IS NULL");
+    expect(migration105).toContain("$.policyVersion");
+    expect(migration105).not.toContain("automaticTradingEnabled");
+    expect(journal.entries.some(entry => entry.tag === "0105_default_on_global_information_delivery")).toBe(true);
+  });
+
   it("assigns each global master exactly one global owner and keeps package lifecycle separate", () => {
     const masterKeys = [
       "trade.global.tierPolicyMasterEnabled",
