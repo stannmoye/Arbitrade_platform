@@ -90,7 +90,7 @@ export default function AdminCompanyCatalogue() {
       return;
     }
     setReasonError(null);
-    await updateStatus.mutateAsync({ selectionBitmap: encodeCompanyCatalogueSelection(ids), status, reason });
+    await updateStatus.mutateAsync({ ...encodeCompanyCatalogueSelection(ids), status, reason });
   };
 
   return <div className="arb-page portal-page admin-company-catalogue">
