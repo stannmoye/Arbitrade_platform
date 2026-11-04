@@ -351,6 +351,7 @@ jobs:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
           SESSION_SECRET: "ci-only-session-secret-not-for-production-000000"
           PASSWORD_PEPPER: "ci-only-password-pepper-not-for-production-000000"
+          TOTP_ENCRYPTION_KEY: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
           PUBLIC_APP_URL: "http://127.0.0.1:3000"
         run: node installer/run-install.mjs --fresh-install
       - name: Verify fresh install, admin, migration trackers, and cleanup
@@ -494,6 +495,7 @@ jobs:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
           SESSION_SECRET: "ci-only-session-secret-not-for-production-000000"
           PASSWORD_PEPPER: "ci-only-password-pepper-not-for-production-000000"
+          TOTP_ENCRYPTION_KEY: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
           PUBLIC_APP_URL: "http://127.0.0.1:3000"
         run: node installer/run-install.mjs --fresh-install
       - name: Verify fresh install, admin, migration trackers, and cleanup
