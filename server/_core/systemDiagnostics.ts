@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { sql } from "drizzle-orm";
 import { getDb } from "../db";
+import { isValidTotpEncryptionKey } from "../modules/totp";
 import { currentInstanceWorkerRows, getWorkerHealthSummary, sanitizeWorkerErrorMessage, type WorkerHealthSummary } from "./workerHealth";
 
 type CheckStatus = "pass" | "warning" | "fail" | "not_run";
@@ -180,7 +181,7 @@ function classifyWorkerChecks(workerHealth: WorkerHealthSummary, checks: Diagnos
 export async function getSystemDiagnosticsReport() {
   const generatedAt = new Date().toISOString();
   const checks: DiagnosticCheck[] = [];
-  const requiredEnv = ["DATABASE_URL", "SESSION_SECRET", "PASSWORD_PEPPER", "TOTP_ENCRYPTION_KEY"];
+  const requiredEnv = ["DATABASE_URL", "SESSION_SECRET", "PASSWORD_PEPPER"];
   const missingEnv = requiredEnv.filter((name) => !process.env[name]?.trim());
   checks.push(check(
     "runtime-required-secrets",
@@ -189,6 +190,16 @@ export async function getSystemDiagnosticsReport() {
     "Required runtime configuration",
     missingEnv.length ? `Missing: ${missingEnv.join(", ")}. Secret values are never included in this report.` : "All required runtime configuration variables are present; values are intentionally redacted.",
     missingEnv.length ? "Set missing values in the host's protected environment/secret manager and restart the service." : null,
+  ));
+
+  const totpKeyValid = isValidTotpEncryptionKey(process.env.TOTP_ENCRYPTION_KEY);
+  checks.push(check(
+    "runtime-totp-encryption-key",
+    "configuration",
+    totpKeyValid ? "pass" : "fail",
+    "Authenticator encryption key format",
+    totpKeyValid ? "A valid 32-byte hex or base64 key is configured; value is hidden." : "TOTP_ENCRYPTION_KEY is missing or invalid; existing authenticator secrets require the original key.",
+    totpKeyValid ? null : "Restore the original key from the protected environment backup. Do not generate a replacement for an existing installation.",
   ));
 
   const memory = process.memoryUsage();
