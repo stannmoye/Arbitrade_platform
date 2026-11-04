@@ -81,6 +81,15 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(lifecycle).toContain("e.status='expired'");
   });
 
+  it("expires catalogue-native generated offers and delivery rows without requiring a manual template", () => {
+    const retentionStart = lifecycle.indexOf("export async function runOpportunityRetention()");
+    const retention = lifecycle.slice(retentionStart);
+    expect(retentionStart).toBeGreaterThanOrEqual(0);
+    expect(retention).toContain("assignedUserId IS NOT NULL AND generationKey IS NOT NULL");
+    expect(retention.match(/generationKey IS NOT NULL/g) ?? []).toHaveLength(3);
+    expect(retention).not.toContain("generationTemplateId IS NOT NULL");
+  });
+
   it("offers administrator approval, reasoned pause/resume, and visible customer-specific assignment history", () => {
     expect(admin).toContain("Approve template");
     expect(admin).toContain("Pause automatic generation");
