@@ -50,6 +50,7 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(generator).toContain("companyDisplayName:company?.name??null");
     expect(generator).toContain("companyReferenceMetadataJson:companyMetadata?JSON.stringify(companyMetadata):null");
     expect(customerQuery).toContain("companyRotationEnabled:generatedOffer?Boolean(generationSnapshot.companyRotationEnabled&&offer.companyReferenceId):globalPolicy.companyRotationEnabled");
+    expect(lifecycle).toContain("} else if (item.companyRotationEnabled) {");
     expect(migration106).toContain("MODIFY COLUMN `companyReferenceId` VARCHAR(32) NULL");
     expect(schema).toContain('companyReferenceId: varchar("companyReferenceId", { length: 32 }),');
     expect(schema).not.toContain('companyReferenceId: varchar("companyReferenceId", { length: 32 }).notNull(),\n  configuredProfitRateBps');
