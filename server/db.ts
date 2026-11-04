@@ -3535,7 +3535,7 @@ export async function getOpportunityGenerationMonitor(){
       maxPopupsPerDay:policy.maxPopupsPerDay,maxVisibleOffers:policy.maxVisibleOffers,maxPendingDeliveries:policy.maxPendingDeliveries,
       minimumTradeUnits:policy.minimumTradeUnits,maximumTradeUnits:policy.maximumTradeUnits,
       ...(packageCounts.get(policy.packageName)||{generated:0,delivered:0,failed:0})})),
-    recentAssignments:assignments.map(row=>({...row,company:getCompanyReferenceById(row.companyReferenceId)||null}))};
+    recentAssignments:assignments.map(row=>({...row,company:row.companyReferenceId?getCompanyReferenceById(row.companyReferenceId)||null:null}))};
 }
 
 export async function listOpportunityPackagePolicies() {
