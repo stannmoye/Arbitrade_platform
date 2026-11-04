@@ -3277,18 +3277,19 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       if(row&&hasConfiguredTradingOfferPolicy(row)){
         let entitlementSnapshot:any={};
         try{entitlementSnapshot=JSON.parse(String(row.termsSnapshotJson||"{}"));}catch{entitlementSnapshot={};}
-        const effectiveEntitlementQuota=Number(entitlementSnapshot.opportunitiesPerDay??row.packageDailyOpportunityQuota);
+        const packageDailyQuota=Number(row.packageDailyOpportunityQuota);
+        const effectiveEntitlementQuota=Number(entitlementSnapshot.opportunitiesPerDay??packageDailyQuota);
         const customerDailyQuota=Number.isSafeInteger(effectiveEntitlementQuota)&&effectiveEntitlementQuota>0
           ?effectiveEntitlementQuota:0;
         const policyDailyQuota=Math.max(0,Math.trunc(Number(row.policyDailyOpportunityQuota)||0));
         const packagePopupQuotaValue=Number(entitlementSnapshot.maxPopupsPerDay??row.packageMaxPopupsPerDay);
         const packagePopupQuota=Math.max(0,Math.trunc(Number.isFinite(packagePopupQuotaValue)?packagePopupQuotaValue:0));
         const dailyTarget=Math.max(0,Math.trunc(Number(row.dailyPopupTarget)||0));
-        const policyCap=policyDailyQuota>0?Math.min(customerDailyQuota,policyDailyQuota):customerDailyQuota;
+        const policyCap=policyDailyQuota>0?Math.min(packageDailyQuota,policyDailyQuota):packageDailyQuota;
         const packageCap=packagePopupQuota>0?Math.min(policyCap,packagePopupQuota):policyCap;
-        const effectiveDailyQuota=customerDailyQuota>0
-          ?Math.min(packageCap,dailyTarget>0?dailyTarget:customerDailyQuota):0;
-        if(effectiveDailyQuota<=0)continue;
+        const effectiveDailyQuota=Number.isSafeInteger(packageDailyQuota)&&packageDailyQuota>0
+          ?Math.min(packageCap,dailyTarget>0?dailyTarget:packageDailyQuota):0;
+        if(customerDailyQuota<=0||effectiveDailyQuota<=0)continue;
         const candidateQuotaWindow=resolveTradingQuotaWindow(input.now,
           row.schedulingPeriod==="rolling_24h"?"rolling_24h":"calendar_day");
         // This customer lock serializes concurrent worker cycles. Enforce both the
