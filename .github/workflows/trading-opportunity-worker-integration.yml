@@ -75,6 +75,10 @@ jobs:
         run: node scripts/ensure-worker-runtime-schema.mjs
         env:
           DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_opportunity_worker_test
+      - name: Verify partial-batch failures persist as degraded worker health
+        run: pnpm exec tsx scripts/trading-worker-health.integration.ts
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_opportunity_worker_test
       - name: Exercise concurrent claims, lease recovery, fencing, and duplicate financial effects
         run: pnpm exec tsx scripts/trading-opportunity-worker.integration.ts
         env:
