@@ -3968,6 +3968,7 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
   // but suppress the automatic-execution pass for this cycle.
   const {customers,batchSize}=await claimAutoTradeCycleCustomers(input);
   let allocations=0;
+  let customerFailures=0;
   for(const customer of customers){
     try{
       const result=await listCustomerOpportunities(customer.id,{
@@ -3983,11 +3984,12 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
         if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] Automatic allocation notice failed after ledger commit.");
       }
     }catch(error){
+      customerFailures+=1;
       console.error("[AutoTrade] Customer cycle failed:",error instanceof Error?error.name:"UnknownError");
     }
   }
   return {
-    customers:customers.length,allocations,batchSize,
+    customers:customers.length,allocations,batchSize,customerFailures,
     ...(pausedUntilSettled?{pausedUntilSettled:true,outstandingTrades}:{}),
   };
 }
