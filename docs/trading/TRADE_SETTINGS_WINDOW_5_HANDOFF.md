@@ -1,9 +1,10 @@
 # Window 5 — Trade Settings Administration & Persistence Handoff
 
-**Status:** Implementation checkpoint; automated exact-head verification passed. Authenticated administrator save/read-back acceptance remains outstanding.
+**Status:** Implementation checkpoint; the ten-workflow suite passed on commit `9022aa1ed3a168007d7ffedabbabcbf221f60468`. A subsequent timing-hydration hardening change is awaiting its own CI run. Authenticated administrator save/read-back acceptance remains outstanding.
 **Branch:** `workstream/window-5-admin-trade-settings-persistence`
 **Base:** `main` at `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`
-**Verified implementation head before this documentation refresh:** `65557fa20f1beca9d4dd2fa437e02502fa8bab44`
+**Previously verified implementation head:** `9022aa1ed3a168007d7ffedabbabcbf221f60468`
+**Latest code head requiring CI:** `7a6c669663c6b9010bd970148b51d491b40f6229`
 
 ## Existing architecture retained
 
@@ -31,7 +32,8 @@ The canonical route map is documented in `TRADE_SETTINGS_ADMIN_BLUEPRINT_RECONCI
    - effective time and a 5–500 character audit reason are required.
 4. Both editors display accessible validation errors and use the existing green success / clear error feedback styles. Success is displayed only after mutation completion and fresh server read-back.
 5. Added regression contracts for valid and invalid fee/retry drafts and the visible feedback wiring.
-6. Retained the pre-existing branch change in `AdminOperationsPages.tsx`, including normalization of global timing settings so valid zero values are not silently replaced by defaults. Window 7 should review this file's complete diff in context with concurrent settings work.
+6. Retained the pre-existing branch change in `AdminOperationsPages.tsx`, including normalization of global timing settings so valid zero values are not silently replaced by defaults. The normalizer now also enforces the existing server API's integer/range constraints, replacing malformed, fractional and out-of-range stored values with safe defaults while preserving valid zeroes. Window 7 should review this file's complete diff in context with concurrent settings work.
+7. Added regression coverage for invalid persisted timing values, including negative, fractional and out-of-range values.
 
 ## Database and API impact
 
@@ -71,6 +73,8 @@ The application and mining suites reported 1,143 tests passed and 27 skipped (14
 Trading database integration jobs passed on MySQL 8.4 and MariaDB 11.4 where configured. Coverage included durable company rotation, worker concurrency/recovery, tier qualification, wallet idempotency/authorization, and settlement reconciliation. Customer portal browser recovery checks passed in the CI browser environment.
 
 Opportunity delivery integration confirmed persisted popup delivery and customer read-back, worker-cycle idempotency, and fail-closed conditions. It also confirmed no wallet/ledger mutation and no trade rows created by popup delivery; automatic financial execution remained disabled.
+
+The ten workflows above also passed on documentation commit `9022aa1ed3a168007d7ffedabbabcbf221f60468`. The later normalizer hardening and its regression test were committed as `3af5e7af924bb8a94a09bfd0d662653a8a94702e` and `7a6c669663c6b9010bd970148b51d491b40f6229`; those newer commits require a fresh exact-head CI run before integration.
 
 ## Remaining acceptance gap
 
