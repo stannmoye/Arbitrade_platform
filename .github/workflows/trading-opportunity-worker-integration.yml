@@ -1,4 +1,5 @@
 name: Trading opportunity worker concurrency and recovery integration
+# Stage 1 rotation rollback, concurrency, and retry checks run in the generation integration job.
 
 on:
   pull_request:
