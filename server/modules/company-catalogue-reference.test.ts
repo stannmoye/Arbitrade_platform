@@ -29,8 +29,8 @@ describe("production catalogue loader with optional ticker enrichment", () => {
       const mappingPath = resolve(root, "logo-mapping.csv");
       writeFileSync(mappingPath, [
         "company_name,domain,filename,detail_url,source_asset_url",
-        'Acme,acme.example,by-country/United States/acme.png,,,',
-        'Northstar,northstar.example,by-country/Canada/northstar.png,,,',
+        'Acme,acme.example,by-country/United States/acme.png,,',
+        'Northstar,northstar.example,by-country/Canada/northstar.png,,',
       ].join("\n"));
       const loaded = loadCompanyReferenceCatalogue({
         mappingPath,
@@ -54,7 +54,7 @@ describe("production catalogue loader with optional ticker enrichment", () => {
       mkdirSync(dataDirectory);
       writeFileSync(mappingPath, [
         "company_name,domain,filename,detail_url,source_asset_url",
-        'Acme,acme.example,by-country/United States/acme.png,,,',
+        'Acme,acme.example,by-country/United States/acme.png,,',
       ].join("\n"));
       const base = { v: 1, statuses: ["Public"], records: [[1, "ACME", "NYSE", 0]] };
       writeFileSync(resolve(root, "ticker.gz.b64"), gzipSync(Buffer.from(JSON.stringify(base))).toString("base64"));
@@ -80,7 +80,7 @@ describe("production catalogue loader with optional ticker enrichment", () => {
       const mappingPath = resolve(root, "logo-mapping.csv");
       writeFileSync(mappingPath, [
         "company_name,domain,filename,detail_url,source_asset_url",
-        'Brand only,brand.example,by-country/Unassigned/brand.png,,,',
+        'Brand only,brand.example,by-country/Unassigned/brand.png,,',
       ].join("\n"));
       const loaded = loadCompanyReferenceCatalogue({ mappingPath });
       expect(loaded).toHaveLength(1);
