@@ -56,6 +56,9 @@ describe("opportunity generation templates", () => {
     const terms = selectOpportunityGenerationTerms(generated, packageA, () => values.shift()!);
     expect(terms).toMatchObject({ companyReferenceId: null, configuredPayoutRateBps: 250, tradeDurationSeconds: 90 });
     expect(() => validateOpportunityGenerationTemplate(generated)).toThrow(/Company reference ID/);
+    expect(() => selectOpportunityGenerationTerms({ ...generated, expectedRewardBps: 999 }, packageA)).toThrow(/cannot override/);
+    expect(() => selectOpportunityGenerationTerms({ ...generated, templateName: "Unreviewed company" }, packageA)).toThrow(/non-canonical identity/);
+    expect(() => selectOpportunityGenerationTerms({ ...generated, companyReferenceId: "logo-brand-0991" }, packageA)).toThrow(/must not contain a company reference/);
   });
 
   it("rejects malformed catalogue identities", () => {
