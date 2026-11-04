@@ -64,6 +64,17 @@ Observed existing owners/paths:
 
 **Dependency:** PR #278 must be integrated before this dependent PR can be merged into `main`.
 
-## Windows 2, 3, 5 and 6
+## Window 6 — Testing, Monitoring & Production Readiness
 
-Status is pending each assigned owner’s own branch, commit, PR, changed-file list and exact-head test evidence. Do not mark a window complete from its assignment alone.
+- **Branch:** `feat/stage-6-opportunity-worker-observability`
+- **PR:** [#279](https://github.com/stannmoye/Arbitrade_platform/pull/279) — open, draft, not merged.
+- **Observed head:** `962ae780e62e44ded236454040302afe9c5241e4`.
+- **Implementation:** Partial customer sub-cycle failures are surfaced through the existing worker cycle result and mark the Trading opportunities worker degraded. Window 7 adapted this to the newer shared generation implementation by reusing its existing `failures` counter and exposing it as aggregate `customerFailures`; it did not add a second counter.
+- **Monitoring compatibility:** The existing worker-health registry remains authoritative. The older PR #261 branch is based on an older mainline checkpoint and cannot be merged wholesale; its current-versus-historical instance distinction has been ported into the newer worker-health summary, System Diagnostics and admin table/export surfaces.
+- **Database/API:** No Window 6 migration, new table, endpoint or customer API. Existing migration 0084 and admin-only monitoring paths are reused.
+- **Branch CI evidence:** 10 GitHub Actions workflows on PR #279 head `962ae780e62e44ded236454040302afe9c5241e4` returned completed/success. This is evidence for that branch head only, not for the combined Window 7 branch.
+- **Integrated validation:** Not yet executed. Exact final-head tests, type check, build, database integrations and browser acceptance remain required. No Blitz acceptance, production migration or deployment is claimed.
+
+## Windows 2, 3 and 5
+
+Status is pending each assigned owner’s own branch, commit, PR, changed-file list and exact-head test evidence. Their names and boundaries are not inferred from repository file changes.
