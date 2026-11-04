@@ -67,6 +67,25 @@ describe("package-scoped company spotlight rotation",()=>{
     expect(afterRestart.rotationCycle).toBe(uninterrupted.rotationCycle);
     expect(afterRestart.rotationSequence).toBe(uninterrupted.rotationSequence);
   });
+  it("selects approved brand-only records without requiring ticker or exchange data",()=>{
+    const brandOnly = COMPANY_REFERENCE_CATALOGUE.slice(0, 2).map(company => ({
+      ...company,
+      ticker: "",
+      symbol: "",
+      exchangeCode: "",
+      recordCompleteness: "brand-only" as const,
+    }));
+    const adminState = { verifiedIds: brandOnly.map(company => company.id), archivedIds: [] };
+    const pool = buildCompanySpotlightPool("", adminState, brandOnly);
+    expect(pool.map(company => company.id)).toEqual(brandOnly.map(company => company.id));
+    const selection = nextCompanySpotlight(pool, null, 13, "package-101", "avoid_until_exhausted");
+    expect(selection.company.recordCompleteness).toBe("brand-only");
+    expect(selection.company.ticker).toBe("");
+    expect(selection.company.exchangeCode).toBe("");
+    expect(selection.company.listingStatus).toBe("unverified");
+    expect(selection.company.requiresManualVerification).toBe(true);
+  });
+
   it("supports repeat mode without changing reference-only classification",()=>{
     const pool=COMPANY_REFERENCE_CATALOGUE.slice(0,8);
     const result=nextCompanySpotlight(pool,null,7,"Starter","allow_repeats");
