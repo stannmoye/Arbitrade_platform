@@ -106,6 +106,45 @@ describe("durable opportunity delivery lifecycle", () => {
     expect(acknowledgeDelivery({ state: dismissed.state, status: "received" }).changed).toBe(false);
   });
 
+  it("retries a render failure reported after the received acknowledgement", () => {
+    const first = claim(base, temporary, "received-lease");
+    expect(first.claimed).toBe(true);
+    if (!first.claimed) return;
+    const received = acknowledgeDelivery({ state: first.state, status: "received", leaseToken: "received-lease" });
+    expect(received.state.deliveryStatus).toBe("received");
+    const failedRender = failDeliveryAttempt({
+      state: received.state,
+      now,
+      errorCode: "POPUP_RENDER_FAILED",
+      retrySchedule: temporary,
+    });
+    expect(failedRender).toMatchObject({
+      terminal: false,
+      state: { deliveryStatus: "retry_wait", deliveryLeaseToken: null },
+    });
+    expect(failedRender.retryAt?.getTime()).toBe(now.getTime() + 30_000);
+    expect(claim(failedRender.state, temporary, "retry-lease", failedRender.retryAt!).claimed).toBe(true);
+  });
+
+  it("does not retry permanent failures after received acknowledgement", () => {
+    const first = claim(base, temporary, "received-lease");
+    expect(first.claimed).toBe(true);
+    if (!first.claimed) return;
+    const received = acknowledgeDelivery({ state: first.state, status: "received", leaseToken: "received-lease" });
+    const failedRender = failDeliveryAttempt({
+      state: received.state,
+      now,
+      errorCode: "PERMANENT_INVALID_POPUP",
+      retrySchedule: temporary,
+      permanent: true,
+    });
+    expect(failedRender).toMatchObject({
+      terminal: true,
+      retryAt: null,
+      state: { deliveryStatus: "failed", deliveryLeaseToken: null },
+    });
+  });
+
   it("has no wallet, ledger or trade effects", () => {
     expect(DELIVERY_FINANCIAL_EFFECTS).toBe(false);
     const retry = failDeliveryAttempt({ state: { ...base, deliveryStatus: "in_progress", deliveryAttemptCount: 1 }, now, errorCode: "TEMP", retrySchedule: temporary });
