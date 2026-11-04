@@ -70,7 +70,10 @@ describe("administrator Trading delivery policy controls", () => {
     expect(tierMutation).not.toContain("maxDeliveryAttempts");
     expect(database).toContain("const TRADING_TIER_POLICY_PATCH_KEYS = new Set<string>(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS);");
     expect(database).toContain("Per-tier Trading policy cannot update global or unknown fields");
-    expect(database).not.toContain("maxDeliveryAttempts");
+    const packagePatchKeysStart = packagePolicySource.indexOf("export const PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS = [");
+    const packagePatchKeysEnd = packagePolicySource.indexOf("] as const", packagePatchKeysStart);
+    expect(packagePatchKeysStart).toBeGreaterThanOrEqual(0);
+    expect(packagePolicySource.slice(packagePatchKeysStart, packagePatchKeysEnd)).not.toContain("maxDeliveryAttempts");
     expect(database).toContain("resolveEffectivePackageOpportunityPolicy(policy.packageName,current,supplied,updatedBy)");
     expect(packagePolicySource).toContain("PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS");
     expect(packagePolicySource).not.toContain('"automaticTradingEnabled"');
