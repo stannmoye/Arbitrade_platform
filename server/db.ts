@@ -3258,8 +3258,12 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         subscriptionId:customerPackageSubscriptions.id,packageId:packages.id,packageName:packages.name,
         activationKey:customerPackageSubscriptions.activationKey,subscriptionStatus:customerPackageSubscriptions.status,
         startsAt:customerPackageSubscriptions.startsAt,expiresAt:customerPackageSubscriptions.expiresAt,
+        termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
+        packageDailyOpportunityQuota:packages.opportunitiesPerDay,packageMaxPopupsPerDay:packages.maxPopupsPerDay,
         packageEnabled:packages.enabled,packageStartsAt:packages.startsAt,packageExpiresAt:packages.expiresAt,
         policyId:opportunityPackagePolicies.id,policyVersion:opportunityPackagePolicies.policyVersion,
+        policyDailyOpportunityQuota:opportunityPackagePolicies.maxPopupsPerDay,dailyPopupTarget:opportunityPackagePolicies.dailyPopupTarget,
+        schedulingPeriod:opportunityPackagePolicies.schedulingPeriod,
         minimumTradeUnits:opportunityPackagePolicies.minimumTradeUnits,maximumTradeUnits:opportunityPackagePolicies.maximumTradeUnits,
         minimumPayoutRateBps:opportunityPackagePolicies.minimumPayoutRateBps,maximumPayoutRateBps:opportunityPackagePolicies.maximumPayoutRateBps,
         minimumTradeDurationSeconds:opportunityPackagePolicies.minimumTradeDurationSeconds,maximumTradeDurationSeconds:opportunityPackagePolicies.maximumTradeDurationSeconds,
@@ -3272,7 +3276,41 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
           eq(customerPackageSubscriptions.status,"active"),sql`${customerPackageSubscriptions.activationKey} LIKE 'auto-tier:%'`,
           lte(customerPackageSubscriptions.startsAt,input.now),or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,input.now)),
           eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,input.now)),or(isNull(packages.expiresAt),gt(packages.expiresAt,input.now)))).limit(1).for("update"))[0];
-      if(row&&hasConfiguredTradingOfferPolicy(row)){selectedSubscription=row;selectedPolicy=row;break;}
+      if(row&&hasConfiguredTradingOfferPolicy(row)){
+        let entitlementSnapshot:any={};
+        try{entitlementSnapshot=JSON.parse(String(row.termsSnapshotJson||"{}"));}catch{entitlementSnapshot={};}
+        const packageDailyQuota=Number(row.packageDailyOpportunityQuota);
+        const entitlementQuotaValue=Number(entitlementSnapshot.opportunitiesPerDay??packageDailyQuota);
+        const customerDailyQuota=Number.isSafeInteger(entitlementQuotaValue)&&entitlementQuotaValue>0?entitlementQuotaValue:0;
+        const policyDailyQuota=Math.max(0,Math.trunc(Number(row.policyDailyOpportunityQuota)||0));
+        const packagePopupQuotaValue=Number(entitlementSnapshot.maxPopupsPerDay??row.packageMaxPopupsPerDay);
+        const packagePopupQuota=Math.max(0,Math.trunc(Number.isFinite(packagePopupQuotaValue)?packagePopupQuotaValue:0));
+        const dailyTarget=Math.max(0,Math.trunc(Number(row.dailyPopupTarget)||0));
+        const policyCap=policyDailyQuota>0?Math.min(packageDailyQuota,policyDailyQuota):packageDailyQuota;
+        const packageCap=packagePopupQuota>0?Math.min(policyCap,packagePopupQuota):policyCap;
+        const effectiveDailyQuota=Number.isSafeInteger(packageDailyQuota)&&packageDailyQuota>0
+          ?Math.min(packageCap,dailyTarget>0?dailyTarget:packageDailyQuota):0;
+        if(customerDailyQuota<=0||effectiveDailyQuota<=0)continue;
+        const candidateQuotaWindow=resolveTradingQuotaWindow(input.now,
+          row.schedulingPeriod==="rolling_24h"?"rolling_24h":"calendar_day");
+        // The customer generation lock serializes worker cycles. Count this
+        // subscription's entitlement and its package-wide cap before choosing
+        // the candidate, so an exhausted earlier package cannot starve a later one.
+        const subscriptionUsageRows=await tx.select({used:count()}).from(opportunityGenerationAssignments).where(and(
+          eq(opportunityGenerationAssignments.userId,input.userId),
+          eq(opportunityGenerationAssignments.packageSubscriptionId,Number(row.subscriptionId)),
+          gte(opportunityGenerationAssignments.generatedAt,candidateQuotaWindow.start)));
+        const packageUsageRows=await tx.select({used:count()}).from(opportunityGenerationAssignments).where(and(
+          eq(opportunityGenerationAssignments.userId,input.userId),
+          eq(opportunityGenerationAssignments.packageId,Number(row.packageId)),
+          gte(opportunityGenerationAssignments.generatedAt,candidateQuotaWindow.start)));
+        const subscriptionUsed=Number(subscriptionUsageRows[0]?.used||0);
+        const packageUsed=Number(packageUsageRows[0]?.used||0);
+        if(subscriptionUsed>=customerDailyQuota||packageUsed>=effectiveDailyQuota)continue;
+        selectedSubscription={...row,customerDailyQuota,effectiveDailyQuota,quotaWindowStart:candidateQuotaWindow.start};
+        selectedPolicy=row;
+        break;
+      }
     }
     if(!selectedSubscription||!selectedPolicy)return null;
 
@@ -3373,15 +3411,18 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       companyRotationEnabled:Boolean(input.companyRotationEnabled),companyRotationCountryNames:String(selectedPolicy.companyRotationCountryNames||""),
       companyRotationRepeatPolicy:selectedPolicy.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
       maxPendingDeliveries:Number(selectedPolicy.maxPendingDeliveries||0),
+      customerDailyQuota:Number(selectedSubscription.customerDailyQuota),
+      packageDailyOpportunityQuota:Number(selectedSubscription.effectiveDailyQuota),
+      quotaWindowStart:selectedSubscription.quotaWindowStart.toISOString(),
       configuredPayout:true,payoutSemantics:terms.payoutSemantics,templateId:template?Number(template.id):null,templateVersion:template?Number(template.version):null,
       sourceReference:terms.sourceReference,reviewNotes:terms.reviewNotes,companyReferenceId:company.id,companyRotation:companyMetadata,
       generatedAt:input.now.toISOString(),generationBatchId:input.batchId,
     };
     const priorAssignmentRows=await tx.select({value:count()}).from(opportunityGenerationAssignments)
       .where(and(eq(opportunityGenerationAssignments.userId,input.userId),eq(opportunityGenerationAssignments.packageSubscriptionId,Number(selectedSubscription.subscriptionId)),
-        gte(opportunityGenerationAssignments.generatedAt,input.quotaWindowStart)));
+        gte(opportunityGenerationAssignments.generatedAt,selectedSubscription.quotaWindowStart)));
     const sequence=Number(priorAssignmentRows[0]?.value||0)+1;
-    const generationKey=`auto:${input.userId}:${Number(selectedSubscription.subscriptionId)}:${input.quotaWindowStart.getTime()}:${sequence}`;
+    const generationKey=`auto:${input.userId}:${Number(selectedSubscription.subscriptionId)}:${selectedSubscription.quotaWindowStart.getTime()}:${sequence}`;
     if(generationKey.length>180)throw new Error("Automatic opportunity generation key exceeds the supported limit.");
     const offerInsert=await tx.insert(opportunityOffers).values({
       assignedUserId:input.userId,assignedPackageId:Number(selectedSubscription.packageId),
