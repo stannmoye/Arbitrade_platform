@@ -17,10 +17,13 @@ import {
   packages,
   tradePositions,
   balanceLedger,
+  v5AuditEvents,
   users,
 } from "../drizzle/schema";
 import { parseTradeGlobalControlPolicy, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, type TradeGlobalControlPolicy } from "../server/trading-global-policy";
 import { updatePopupDeliveryStatus } from "../server/opportunityLifecycle";
+import { passwordHash } from "../server/_core/localAuth";
+import { verifyAdminTradeSettingsInBrowser, verifyCustomerPopupInBrowser } from "./trading-local-browser-acceptance";
 
 const databaseUrlRaw = process.env.DATABASE_URL;
 if (!databaseUrlRaw) throw new Error("Trading popup delivery integration requires DATABASE_URL for a disposable migrated database.");
@@ -46,11 +49,16 @@ assert.ok(migratedExecutionPolicies.every(row => row.automaticTradingEnabled ===
 
 const token = crypto.randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase();
 const userEmail = `popup-delivery-${token.toLowerCase()}@example.invalid`;
+const userPassword = `Browser-${token}-customer!`;
+const adminEmail = `popup-admin-${token.toLowerCase()}@example.invalid`;
+const adminPassword = `Browser-${token}-admin!`;
+const browserAcceptanceBaseUrl = process.env.TRADING_BROWSER_ACCEPTANCE_BASE_URL;
 const currency = "USD";
 const packageName = `Popup QA ${token}`;
 const now = new Date();
 const quotaDay = now.toISOString().slice(0, 10);
 let userId: number | undefined;
+let adminId: number | undefined;
 let packageId: number | undefined;
 let subscriptionId: number | undefined;
 let offerId: number | undefined;
@@ -185,9 +193,21 @@ try {
     name: "Popup Delivery Integration Customer",
     email: userEmail,
     role: "user",
+    loginMethod: "integration",
+    passwordHash: passwordHash(userPassword),
     packageName,
   });
   userId = Number(userResult.insertId);
+
+  const [adminResult] = await db.insert(users).values({
+    openId: `popup-delivery-admin-${token}`,
+    name: "Popup Delivery Integration Administrator",
+    email: adminEmail,
+    role: "admin",
+    loginMethod: "integration",
+    passwordHash: passwordHash(adminPassword),
+  });
+  adminId = Number(adminResult.insertId);
 
   const usdCurrency = await db.select({
     code: currencyRegistry.code,
@@ -387,14 +407,57 @@ const balanceBefore = await db.select({
   assert.ok(customerRead.offers[0]?.deliveryLeaseToken,
     "A customer poll receives the dispatch fencing token used for acknowledgements.");
 
+  let browserAcceptance: { admin?: unknown; customer?: unknown } | null = null;
+  if (browserAcceptanceBaseUrl) {
+    const browserFailureTriggerName = `fail_browser_admin_save_${token.toLowerCase()}`;
+    let policyVersionBeforeBrowserFailure: number | undefined;
+    const adminResult = await verifyAdminTradeSettingsInBrowser({
+      baseUrl: browserAcceptanceBaseUrl,
+      email: adminEmail,
+      password: adminPassword,
+      beforeDatabaseFailure: async () => {
+        policyVersionBeforeBrowserFailure = (await getTradeGlobalControls()).policyVersion;
+        await rawConnection!.query(`DROP TRIGGER IF EXISTS \`${browserFailureTriggerName}\``);
+        await rawConnection!.query(`CREATE TRIGGER \`${browserFailureTriggerName}\` BEFORE INSERT ON \`v5_audit_events\` FOR EACH ROW BEGIN IF NEW.action='trade_global_control_updated' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced disposable browser save failure'; END IF; END`);
+      },
+      afterDatabaseFailure: async () => {
+        await rawConnection!.query(`DROP TRIGGER IF EXISTS \`${browserFailureTriggerName}\``);
+      },
+    });
+    const savedAdminPolicy = await getTradeGlobalControls();
+    assert.equal(savedAdminPolicy.available, true, "The authenticated Trade-settings browser Save must leave a readable database policy.");
+    for (const key of ["tierPolicyMasterEnabled", "informationalPopupDeliveryEnabled", "companyRotationEnabled", "randomizedTimingEnabled", "burstDeliveryEnabled", "requirePreviousSettlement"] as const) {
+      assert.equal(savedAdminPolicy[key], true, `The authenticated browser Save must persist ${key} independently.`);
+    }
+    assert.equal(savedAdminPolicy.policyVersion, policyVersionBeforeBrowserFailure,
+      "A failed browser Save must not commit its settings or policy-version increment.");
+    currentTestGlobalPolicy = savedAdminPolicy as TradeGlobalControlPolicy;
+    const customerResult = await verifyCustomerPopupInBrowser({
+      baseUrl: browserAcceptanceBaseUrl,
+      email: userEmail,
+      password: userPassword,
+      expectedCompanyName: customerRead.offers[0]?.companyDisplayName,
+      expectedOpportunityId: Number(customerRead.offers[0]?.offerId),
+    });
+    const afterBrowserDismissal = await db.select({
+      eventStatus: opportunityPopupEvents.eventStatus,
+      deliveryStatus: opportunityPopupEvents.deliveryStatus,
+    }).from(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id)));
+    assert.equal(afterBrowserDismissal[0]?.deliveryStatus, "rendered",
+      "The authenticated customer browser must persist a rendered delivery acknowledgement.");
+    assert.equal(afterBrowserDismissal[0]?.eventStatus, "DISMISSED",
+      "The customer dismissal acknowledgement must persist to the popup lifecycle row.");
+    browserAcceptance = { admin: adminResult, customer: customerResult };
+  }
+
   const activeLeaseToken = customerRead.offers[0]?.deliveryLeaseToken;
   assert.ok(activeLeaseToken, "The claimed delivery must retain a fencing token until acknowledgement.");
   await updatePopupDeliveryStatus(userId, Number(popupRows[0]?.id), "rendered", undefined, activeLeaseToken);
   const acknowledged = await db.select({ deliveryStatus: opportunityPopupEvents.deliveryStatus, eventStatus: opportunityPopupEvents.eventStatus })
     .from(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id)));
   assert.equal(acknowledged[0]?.deliveryStatus, "rendered");
-  assert.equal(acknowledged[0]?.eventStatus, "DELIVERED",
-    "A rendered acknowledgement must not determine offer/trade result state.");
+  assert.equal(acknowledged[0]?.eventStatus, browserAcceptance ? "DISMISSED" : "DELIVERED",
+    "A rendered acknowledgement or customer dismissal must remain informational and must not determine offer/trade result state.");
   await updatePopupDeliveryStatus(userId, Number(popupRows[0]?.id), "failed", "STALE_ACK", "stale-lease-token");
   assert.equal((await db.select({ deliveryStatus: opportunityPopupEvents.deliveryStatus }).from(opportunityPopupEvents)
     .where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id))))[0]?.deliveryStatus, "rendered",
@@ -860,6 +923,7 @@ const balanceBefore = await db.select({
     persistedPopupEvents: popupRows.length,
     persistedQuotaEvents: deliveryRows.length,
     customerReadReturnsPopup: true,
+    browserAcceptance,
     repeatedWorkerCycleIsIdempotent: true,
     globalOffAndFailClosedStates: ["popup-delivery-off", "tier-policy-off", "malformed-policy", "missing-policy"],
     automaticFinancialExecution: "disabled",
@@ -909,6 +973,10 @@ const balanceBefore = await db.select({
           await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.userId, userId));
           await db.delete(customerBalances).where(eq(customerBalances.userId, userId));
           await db.delete(users).where(eq(users.id, userId));
+        }
+        if (adminId !== undefined) {
+          await db.delete(v5AuditEvents).where(eq(v5AuditEvents.actorUserId, adminId));
+          await db.delete(users).where(eq(users.id, adminId));
         }
         if (secondPackageId !== undefined) {
           await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName + "Plus"));
