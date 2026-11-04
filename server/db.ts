@@ -388,8 +388,56 @@ export async function updatePackageFeePolicy(input:{packageId:number;expectedVer
 export async function getTradeSettlementPolicy() {
   const db = await getDb();
   const keys = [...TRADE_SETTLEMENT_POLICY_SETTING_KEYS, TRADE_SETTLEMENT_POLICY_VERSION_KEY];
-  const rows = db ? await db.select().from(appSettings).where(inArray(appSettings.settingKey, keys)) : [];
-  const settings = new Map(rows.map(row => [row.settingKey, row.settingValue]));
+  let rows = db ? await db.select().from(appSettings).where(inArray(appSettings.settingKey, keys)) : [];
+  let settings = new Map(rows.map(row => [row.settingKey, row.settingValue]));
+  const rawSettlementDelay = settings.get("trade.settlementDelaySeconds");
+  const parsedSettlementDelay = Number(rawSettlementDelay);
+
+  // Older Blitz databases can contain a stale/out-of-range global delay even
+  // though the current API only accepts 900–604800 seconds. Do not let one bad
+  // legacy setting crash every AutoTrade cycle. Repair only this invalid key to
+  // the documented 15-minute minimum, preserve every valid setting, and record
+  // the previous value in the immutable audit stream. Lock/recheck to make the
+  // repair safe when multiple app instances start at the same time.
+  if (db && rawSettlementDelay !== undefined && rawSettlementDelay !== null &&
+      (!Number.isSafeInteger(parsedSettlementDelay) || parsedSettlementDelay < 900 || parsedSettlementDelay > 604800)) {
+    await db.transaction(async tx => {
+      await tx.insert(appSettings).values({
+        settingKey: "trade.settlementDelaySeconds",
+        settingValue: "900",
+        updatedBy: null,
+      }).onDuplicateKeyUpdate({ set: { settingKey: "trade.settlementDelaySeconds" } });
+      const locked = (await tx.select().from(appSettings)
+        .where(eq(appSettings.settingKey, "trade.settlementDelaySeconds"))
+        .limit(1).for("update"))[0];
+      const lockedValue = locked?.settingValue;
+      const lockedNumber = Number(lockedValue);
+      if (lockedValue !== undefined && lockedValue !== null &&
+          (!Number.isSafeInteger(lockedNumber) || lockedNumber < 900 || lockedNumber > 604800)) {
+        const repairedAt = new Date();
+        await tx.update(appSettings).set({
+          settingValue: "900",
+          updatedBy: null,
+          updatedAt: repairedAt,
+        }).where(eq(appSettings.settingKey, "trade.settlementDelaySeconds"));
+        await tx.insert(v5AuditEvents).values({
+          actorUserId: null,
+          action: "trade_global_timing_policy_repaired",
+          entityType: "trade_global_timing_policy",
+          entityId: "settlement-review-delay",
+          reason: "Invalid persisted settlement review delay repaired to the documented safe minimum of 900 seconds during policy read.",
+          reference: `trade-global-timing-repair:${repairedAt.toISOString()}`,
+          metadataJson: JSON.stringify({
+            settingKey: "trade.settlementDelaySeconds",
+            previousValue: lockedValue,
+            repairedValue: "900",
+          }),
+        });
+      }
+    });
+    rows = await db.select().from(appSettings).where(inArray(appSettings.settingKey, keys));
+    settings = new Map(rows.map(row => [row.settingKey, row.settingValue]));
+  }
   const policy = normalizeTradeSettlementPolicy({
     delaySeconds: settings.get("trade.settlementDelaySeconds") ?? "900",
     creditDelaySeconds: settings.get("trade.creditDelaySeconds") ?? "0",
