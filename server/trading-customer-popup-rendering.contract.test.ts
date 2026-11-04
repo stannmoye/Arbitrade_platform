@@ -101,6 +101,14 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain("releaseDisplayLock.current=null");
   });
 
+  it("surfaces opportunity-feed failures instead of presenting them as a normal empty feed", () => {
+    expect(app).toContain("refetchInterval:3000");
+    expect(app).toContain("opportunityError={opportunityMeta.isError && !opportunityMeta.data}");
+    expect(app).toContain("Live opportunities could not be refreshed.");
+    expect(component).toContain("Live opportunity delivery status is temporarily unavailable.");
+    expect(component).toContain('role="status"');
+  });
+
   it("does not poll trade history for informational-only opportunity alerts", () => {
     expect(component).not.toContain("trpc.customer.trades.useQuery");
     expect(component).not.toContain("automaticTrade");
