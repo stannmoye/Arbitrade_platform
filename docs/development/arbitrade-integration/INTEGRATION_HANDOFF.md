@@ -12,7 +12,7 @@
 - Window 7 created `integration/window7-final` at the shared checkpoint and advanced it to Window 4's delivery handoff head `f77bada696e7c5373d9333b1316bdacbf8943c39` before adding reviewed integration commits.
 - The checkpoint is a descendant of the inspected main SHA and contains the substantial candidate generation implementation and migrations 0103–0105. It must be reviewed as part of the final PR; it is not already merged to main.
 - All integration work is committed to the dedicated branch. No direct changes have been made to `main`.
-- Draft integration PR #288 is open. At the last recorded check, code SHA `f093e1fb313b88ed2543bf09af6e3967311c1a5e` had 9/10 workflow groups successful and the production source build/test workflow still in progress. Documentation-only updates advanced the branch to `f754c64b74bacd33862cfcbbe0b87a00499c616f`; recheck the current head and its workflow results before review.
+- Draft integration PR #288 is open. Code SHA `f093e1fb313b88ed2543bf09af6e3967311c1a5e` completed all 10 workflow groups successfully, including the production source build/test and installer validation. Later documentation-only commits requeued workflows on the newer branch head; recheck the current head and its workflow results before review.
 
 ## 2. Ownership and branch handoffs
 
@@ -103,7 +103,7 @@ Before the integration PR can be marked ready:
 7. Run authenticated admin browser acceptance for global controls, per-package policies, every Save/read-back path, validation messages, mobile layout and current/historical worker health.
 8. Run authenticated customer browser acceptance for qualification, persisted opportunity creation, customer delivery, rendering, acknowledgement and duplicate suppression.
 9. Run installer/migration validation from a clean disposable database and an existing-upgrade database.
-10. Record the exact final SHA and workflow URLs. The integrated PR #288 currently has nine successful workflow groups on its latest code-test head; the production source build/test workflow is still running. CI alone does not establish Blitz acceptance or production readiness.
+10. Record the exact final SHA and workflow URLs. The integrated code/test head `f093e1fb313b88ed2543bf09af6e3967311c1a5e` completed all 10 workflow groups successfully. Documentation-only updates after that code/test head caused CI to be requeued; the latest branch head must also finish successfully before PR #288 is ready. CI alone does not establish Blitz acceptance or production readiness.
 
 ## 6. Safety and deployment boundary
 
