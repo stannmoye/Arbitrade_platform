@@ -3,7 +3,7 @@
 **Date:** 2026-11-04  
 **Repository:** `stannmoye/Arbitrade_platform`  
 **Integration branch:** `integration/window7-final`  
-**Target:** `main` (through a draft pull request only; no direct merge)
+**Target:** `main` through draft PR [#288](https://github.com/stannmoye/Arbitrade_platform/pull/288) only; no direct merge
 
 ## 1. Integration baseline
 
@@ -12,6 +12,7 @@
 - Window 7 created `integration/window7-final` at the shared checkpoint and advanced it to Window 4's delivery handoff head `f77bada696e7c5373d9333b1316bdacbf8943c39` before adding reviewed integration commits.
 - The checkpoint is a descendant of the inspected main SHA and contains the substantial candidate generation implementation and migrations 0103–0105. It must be reviewed as part of the final PR; it is not already merged to main.
 - All integration work is committed to the dedicated branch. No direct changes have been made to `main`.
+- Draft integration PR #288 is open. At the last recorded check, code SHA `f093e1fb313b88ed2543bf09af6e3967311c1a5e` had 9/10 workflow groups successful and the production source build/test workflow still in progress. Documentation-only updates advanced the branch to `f754c64b74bacd33862cfcbbe0b87a00499c616f`; recheck the current head and its workflow results before review.
 
 ## 2. Ownership and branch handoffs
 
@@ -102,7 +103,7 @@ Before the integration PR can be marked ready:
 7. Run authenticated admin browser acceptance for global controls, per-package policies, every Save/read-back path, validation messages, mobile layout and current/historical worker health.
 8. Run authenticated customer browser acceptance for qualification, persisted opportunity creation, customer delivery, rendering, acknowledgement and duplicate suppression.
 9. Run installer/migration validation from a clean disposable database and an existing-upgrade database.
-10. Record the exact final SHA and workflow URLs. CI alone does not establish Blitz acceptance or production readiness.
+10. Record the exact final SHA and workflow URLs. The integrated PR #288 currently has nine successful workflow groups on its latest code-test head; the production source build/test workflow is still running. CI alone does not establish Blitz acceptance or production readiness.
 
 ## 6. Safety and deployment boundary
 
@@ -114,8 +115,8 @@ Before the integration PR can be marked ready:
 ## 7. Current outstanding blockers
 
 - Window 3 ownership/branch confirmation for the generation engine.
-- Window 2 exact-head CI failures must be resolved and rerun.
+- Window 2 source PR #284 exact-head CI failures must be resolved/rerun; the integration branch has adapted the stale contract assertions and the integrated tests are passing so far.
 - Window 4 has no exact-head CI or authenticated browser evidence.
 - Window 5 installer validation and combined-head save/read-back browser checks remain.
 - Window 6 latest-head CI and exact combined-head monitoring tests remain.
-- Window 7 has not yet executed the integrated type check, test suite, build, database integrations or authenticated browser acceptance.
+- Window 7 has not run tests locally. GitHub Actions on PR #288 have completed the integrated database/recovery/verification groups successfully; production source build/test remains in progress, and authenticated browser acceptance remains outstanding.
