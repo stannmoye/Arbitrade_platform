@@ -214,7 +214,8 @@ describe("Trade settings draft validation", () => {
     expect(feeEditorSource).toContain("Check these fee settings before saving:");
     expect(feeEditorSource).toContain('messageKind === "error" ? "admin-ops-empty error" : "test-notice"');
     expect(retryEditorSource).toContain("Check these retry settings before saving:");
-    expect(retryEditorSource).toContain("maximum attempts minus one");
+    expect(retryEditorSource).toContain("validateDeliveryRetryDraft");
+    expect(retryEditorSource).toContain("exactly one interval per retry attempt");
     expect(retryEditorSource).toContain('messageKind === "error" ? "admin-ops-empty error" : "test-notice"');
   });
 });
