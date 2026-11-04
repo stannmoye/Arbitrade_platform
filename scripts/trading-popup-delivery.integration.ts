@@ -412,6 +412,11 @@ const balanceBefore = await db.select({
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced_rotation_generation_failure';
       END IF;
     END`);
+  // Remove the fixture's ordinary inter-delivery cooldown so the injected
+  // failure is guaranteed to reach the generation INSERT rather than returning
+  // early because the next delivery is not due yet.
+  await db.update(opportunityPackagePolicies).set({ minIntervalSeconds: 0, maxIntervalSeconds: 0 })
+    .where(eq(opportunityPackagePolicies.packageName, packageName));
   const offersBeforeFailure = await db.select({ id: opportunityOffers.id })
     .from(opportunityOffers).where(eq(opportunityOffers.assignedUserId, userId));
   await listCustomerOpportunities(userId, {
