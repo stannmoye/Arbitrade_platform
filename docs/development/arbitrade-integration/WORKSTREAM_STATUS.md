@@ -44,7 +44,7 @@ This is exact-head CI evidence for that code SHA. The coordination-document comm
 - No real-money execution, automatic customer fund allocation, or unattended financial settlement is enabled by this workstream.
 - A green workflow result is not proof that the hosted customer portal is currently showing pop-ups.
 
-## Windows 2–6
+## Windows 2–5
 
 Status is pending each assigned owner’s own branch, commit, PR, changed-file list and exact-head test evidence. Do not mark a window complete from its assignment alone.
 
@@ -52,6 +52,8 @@ Status is pending each assigned owner’s own branch, commit, PR, changed-file l
 ## Window 6 — Testing, Monitoring & Production Readiness
 
 **Branch:** `feat/stage-6-opportunity-worker-observability`  
+**Pull request:** [#279](https://github.com/stannmoye/Arbitrade_platform/pull/279) — open, draft, not merged.  
+**Current branch head at handoff:** `6f58f2ff995aa9353380edc1b332037c48b00062`.  
 **Implementation:** Partial customer opportunity-cycle failures are now counted in the existing `runAutoTradeCycle` result and mark the existing Trading opportunities worker-health record as degraded. The aggregate diagnostic contains only the failure count; customer identifiers and raw exception messages remain excluded. A stable `CUSTOMER_CYCLE_FAILURES` diagnostic code is added. No new worker, table, endpoint, API or migration is introduced.
 
 **Changed files:**
@@ -62,6 +64,6 @@ Status is pending each assigned owner’s own branch, commit, PR, changed-file l
 - `server/_core/workerHealth.test.ts`
 - Shared coordination documents in this directory.
 
-**Validation state:** Tests have been added but have not been executed in this connector session. Exact-head GitHub Actions, including frozen install, type check, full test suite and production build, are required before this workstream can be considered validated. No staging/Blitz browser acceptance, production migration or deployment is claimed.
+**Validation state:** Tests have been added but have not been executed in this connector session. The first exact-head GitHub workflow/status lookup returned no runs or status checks for `6f58f2ff995aa9353380edc1b332037c48b00062`; exact-head GitHub Actions, including frozen install, type check, full test suite and production build, remain required before this workstream can be considered validated. No staging/Blitz browser acceptance, production migration or deployment is claimed.
 
 **Integration note:** Workstream 1 also changes `server/db.ts` and may touch worker orchestration. Window 7 must reconcile both branch heads rather than taking either file wholesale.
