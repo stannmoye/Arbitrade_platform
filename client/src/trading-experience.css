@@ -656,6 +656,36 @@
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
+.customer-portal .portal-main .admin-ops-empty.error {
+  padding: 13px 15px;
+  border: 1px solid color-mix(in srgb, var(--trade-danger) 48%, var(--trade-border));
+  border-radius: 12px;
+  color: var(--arb-color-text, #f3f8fb);
+  background: color-mix(in srgb, var(--trade-danger) 11%, var(--trade-surface));
+}
+.customer-portal .customer-opportunity-feed-error {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 1250;
+  width: min(440px, calc(100vw - 32px));
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--trade-danger) 52%, var(--trade-border));
+  border-radius: 13px;
+  color: var(--arb-color-text, #f3f8fb);
+  background: color-mix(in srgb, var(--trade-danger) 16%, var(--trade-raised));
+  box-shadow: var(--trade-shadow);
+  font-size: 13px;
+  line-height: 1.5;
+}
+@media (max-width: 600px) {
+  .customer-portal .customer-opportunity-feed-error {
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: calc(100vw - 24px);
+  }
+}
+
 .customer-portal .opportunity-popup-dock {
   position: fixed;
   z-index: 1200;
