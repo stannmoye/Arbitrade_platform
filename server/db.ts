@@ -4085,15 +4085,15 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   }
   if(options.workerCycle===true&&globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&!formulaCooling&&remainingQuota>0){
     for(const offer of offerRows){
-      if(remainingQuota<=0) break;
+      if(remainingQuota<=0){ await recordGeneratedDeliverySkip(offer,"DELIVERY_CAPACITY_EXHAUSTED"); continue; }
       const offerId=Number(offer.id);
       if(deliveredOfferIds.has(offerId)||activePopupOfferIds.has(offerId)||tradeOfferIds.has(offerId)||missedOfferIds.has(offerId)) continue;
       const generationAssignment=generationAssignmentByOffer.get(offerId);
       const generatedOffer=Number(offer.assignedUserId)===userId&&Boolean(generationAssignment);
       let generationSnapshot:any=null;
       if(generatedOffer){
-        if(!generationAssignment||!["generated","delivered"].includes(String(generationAssignment.status)))continue;
-        try{generationSnapshot=JSON.parse(String(generationAssignment.packageSnapshotJson||"{}"));}catch{continue;}
+        if(!generationAssignment||!["generated","delivered"].includes(String(generationAssignment.status))){ await recordGeneratedDeliverySkip(offer,"ASSIGNMENT_NOT_DELIVERABLE"); continue; }
+        try{generationSnapshot=JSON.parse(String(generationAssignment.packageSnapshotJson||"{}"));}catch{ await recordGeneratedDeliverySkip(offer,"INVALID_PACKAGE_SNAPSHOT"); continue; }
         const minRate=Number(generationSnapshot.minimumPayoutRateBps),maxRate=Number(generationSnapshot.maximumPayoutRateBps);
         const minDuration=Number(generationSnapshot.minimumTradeDurationSeconds),maxDuration=Number(generationSnapshot.maximumTradeDurationSeconds);
         const savedPackageVersion=Number(generationSnapshot.policyVersion),savedPackageMinimum=Number(generationSnapshot.packageMinimumMinor),savedPackageMaximum=Number(generationSnapshot.packageMaximumMinor);
@@ -4105,16 +4105,16 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
           generationSnapshot.companyReferenceId!==offer.companyReferenceId||
           Number(offer.expectedRewardBps)!==Number(generationAssignment.configuredProfitRateBps)||Number(offer.durationSeconds)!==Number(generationAssignment.configuredDurationSeconds)||
           Number(offer.expectedRewardBps)<minRate||Number(offer.expectedRewardBps)>maxRate||Number(offer.durationSeconds)<minDuration||Number(offer.durationSeconds)>maxDuration||
-          Number(offer.minimumMinor)!==Number(generationSnapshot.minimumMinor))continue;
+          Number(offer.minimumMinor)!==Number(generationSnapshot.minimumMinor)){ await recordGeneratedDeliverySkip(offer,"PACKAGE_SNAPSHOT_MISMATCH"); continue; }
       }
       const currencyRow=currencyRows.find((row:any)=>String(row.code).toUpperCase()===String(offer.currency).toUpperCase());
-      if(!currencyRow) continue;
+      if(!currencyRow){ await recordGeneratedDeliverySkip(offer,"CURRENCY_NOT_ENABLED"); continue; }
       // The administrator's rate/duration bounds filter published opportunities.
       // They never synthesize a reward rate or reroll a duration.
       const publishedRewardBps=Number(offer.expectedRewardBps);
       const publishedDurationSeconds=Number(offer.durationSeconds);
       if(!Number.isSafeInteger(publishedRewardBps)||publishedRewardBps<0||publishedRewardBps>10000||
-         !Number.isSafeInteger(publishedDurationSeconds)||publishedDurationSeconds<10||publishedDurationSeconds>86400) continue;
+         !Number.isSafeInteger(publishedDurationSeconds)||publishedDurationSeconds<10||publishedDurationSeconds>86400){ await recordGeneratedDeliverySkip(offer,"INVALID_PUBLISHED_TERMS"); continue; }
       let selected:any=null;
       for(const candidate of eligibleSubscriptions){
         if(Number(offer.assignedPackageSubscriptionId)!==Number(candidate.subscriptionId)||Number(offer.assignedPackageId)!==Number(candidate.packageId)) continue;
@@ -4128,10 +4128,10 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         selected={subscription:candidate,configured:candidatePolicy,configuredMinimum,configuredMaximum,minimumMinor,terms};
         break;
       }
-      if(!selected) continue;
+      if(!selected){ await recordGeneratedDeliverySkip(offer,"PACKAGE_ENTITLEMENT_OR_QUOTA_UNAVAILABLE"); continue; }
       const subscription=selected.subscription;
       const configured=selected.configured;
-      if(!configured||!hasConfiguredTradingOfferPolicy(configured)) continue;
+      if(!configured||!hasConfiguredTradingOfferPolicy(configured)){ await recordGeneratedDeliverySkip(offer,"PACKAGE_POLICY_UNAVAILABLE"); continue; }
       if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(configured.maxBurstSize||0)})){
         await recordGeneratedDeliverySkip(offer,"BURST_LIMIT_REACHED");
         continue;
@@ -4142,9 +4142,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const configuredDurationSeconds=generatedOffer?Number(offer.configuredDurationSeconds):chooseInclusiveInteger(Number(configured.minimumTradeDurationSeconds),Number(configured.maximumTradeDurationSeconds));
       const savedBounds=generatedOffer?generationSnapshot:{minimumPayoutRateBps:configured.minimumPayoutRateBps,maximumPayoutRateBps:configured.maximumPayoutRateBps,minimumTradeDurationSeconds:configured.minimumTradeDurationSeconds,maximumTradeDurationSeconds:configured.maximumTradeDurationSeconds};
       if(!Number.isSafeInteger(configuredProfitRateBps)||configuredProfitRateBps<Number(savedBounds.minimumPayoutRateBps)||configuredProfitRateBps>Number(savedBounds.maximumPayoutRateBps)||
-        !Number.isSafeInteger(configuredDurationSeconds)||configuredDurationSeconds<Number(savedBounds.minimumTradeDurationSeconds)||configuredDurationSeconds>Number(savedBounds.maximumTradeDurationSeconds)) continue;
+        !Number.isSafeInteger(configuredDurationSeconds)||configuredDurationSeconds<Number(savedBounds.minimumTradeDurationSeconds)||configuredDurationSeconds>Number(savedBounds.maximumTradeDurationSeconds)){ await recordGeneratedDeliverySkip(offer,"PACKAGE_TERMS_OUTSIDE_POLICY"); continue; }
       const configuredPopupDisplaySeconds=generatedOffer?Number(generationSnapshot.popupDisplayTargetSeconds):Number(configured.popupDisplayTargetSeconds);
-      if(!Number.isSafeInteger(configuredPopupDisplaySeconds)||configuredPopupDisplaySeconds<1||configuredPopupDisplaySeconds>86400) continue;
+      if(!Number.isSafeInteger(configuredPopupDisplaySeconds)||configuredPopupDisplaySeconds<1||configuredPopupDisplaySeconds>86400){ await recordGeneratedDeliverySkip(offer,"INVALID_POPUP_DISPLAY_DURATION"); continue; }
       newlyEligible.push({...offer,packageId:Number(subscription.packageId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
         minimumMinor:selected.minimumMinor,packageMinimumTradeMinor:selected.configuredMinimum,packageMaximumTradeMinor:selected.configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
