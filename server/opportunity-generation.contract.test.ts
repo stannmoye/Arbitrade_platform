@@ -217,7 +217,11 @@ describe("automatic opportunity generation and package-aware customer delivery",
   });
 
   it("keeps quota checks, rotation cursor writes, offer persistence and assignment snapshots in one transaction", () => {
-    expect(generator).toContain("return db.transaction(async tx=>{");
+    expect(generator).toContain("for(let attempt=0;attempt<4;attempt++)");
+    expect(generator).toContain("ER_LOCK_DEADLOCK");
+    expect(generator).toContain("ER_LOCK_WAIT_TIMEOUT");
+    expect(generator).toContain("if(!retryable||attempt===3)throw error;");
+    expect(generator).toContain("return await db.transaction(async tx=>{");
     expect(generator).toContain("tx.update(appSettings).set({settingValue:JSON.stringify(selection.state)");
     expect(generator).toContain("tx.insert(opportunityOffers).values({");
     expect(generator).toContain("tx.insert(opportunityGenerationAssignments).values({");
