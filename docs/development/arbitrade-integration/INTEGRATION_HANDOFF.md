@@ -120,3 +120,42 @@ A package marked `TERMS_READY` has structurally valid saved terms only. It does 
 - Source-level migration and generator contract reviewed.
 - A Window 3 regression test now locks the 16-package seed count, missing-policy row backfill, explicit invalid-term disablement, exact package-name policy join, and no runtime-default fallback.
 - Live package/policy counts and values remain unverified until this read-only query is run against the target database.
+
+## Window 3 — required-correction review (2026-11-04)
+
+**Implementation branch:** `workstream/3-automatic-opportunity-engine`  
+**PR:** [#286](https://github.com/stannmoye/Arbitrade_platform/pull/286), stacked on Window 1 generation foundation PR #278.  
+**Do not merge independently. Window 7 owns final integration and approval.**
+
+### Daily quota enforcement added
+
+The generator now reads the active subscription's immutable `termsSnapshotJson`, the package's `opportunitiesPerDay`, and the exact-name package policy's `maxPopupsPerDay`. It computes the effective subscription/package cap and, while holding the existing per-customer generation lock and database transaction, counts that customer's existing generated assignments for both the selected subscription and package within the active quota window. Exhausted or zero-quota candidates are skipped before company rotation is advanced. The resulting assignment snapshot records the applied customer quota, package quota and quota-window start.
+
+The check is generation-side. It does not depend on customer UI or delivery admission. The per-customer lock serializes concurrent cycles for the same customer; the count and subsequent offer/assignment inserts share one transaction.
+
+### Rotation rollback and concurrency
+
+Rotation cursor updates, generated offer insertion and assignment snapshot insertion remain inside the same `db.transaction` callback. A thrown persistence error aborts that transaction, so the cursor write is expected to roll back with the offer/assignment. The customer-scoped `app_settings` row lock serializes concurrent generation attempts for that customer. A source-level regression assertion now checks this transaction boundary and ordering.
+
+**Not yet proven:** a genuine MySQL/MariaDB failure-injection test must demonstrate that a forced offer/assignment insert failure leaves the rotation cursor unchanged and that a subsequent retry reuses the next valid allocation. Source inspection is not a substitute for this database test.
+
+### Catalogue and delivery boundaries
+
+- Generation continues to use Window 1's approved brand catalogue and does not require ticker, symbol, exchange listing or market quote fields. The latest Window 1 loader correction is on PR #283; Window 7 must reconcile that exact branch into the integrated ancestry before final validation.
+- Window 3 does not replace Window 4's delivery worker, lease, retry, acknowledgement or customer rendering implementation. The existing `deliveryLeaseToken` is passed through the delivery response and acknowledgement path. Verify on the final integrated SHA that every `in_progress` response contains a non-empty server-issued lease token and the customer returns that exact token for `received`/`rendered` acknowledgements.
+- Financial execution remains separate. The generation transaction writes informational offers and generation assignments only. Preserve the hard-disabled `AUTOMATIC_FINANCIAL_EXECUTION_ENABLED` guard and do not introduce allocation, wallet/ledger mutation, transfer or unattended settlement.
+
+### Database integration evidence and remaining blocker
+
+A source-level test was added for quota selection/counting and for the shared transaction containing quota checks, rotation state, offer insertion and immutable assignment snapshot. These tests have **not yet been executed**.
+
+No genuine MySQL 8.4 or MariaDB 11.4 generation integration test has been run in this environment. Therefore the following remain unverified and are explicit handover blockers:
+- customer/package eligibility and independent package policy selection against real schemas;
+- catalogue company selection on both database engines;
+- repeated and concurrent worker idempotency;
+- forced transaction rollback and rotation recovery;
+- per-subscription and per-package daily quota boundaries under concurrent workers;
+- immutable snapshot persistence and replay;
+- migration application on both database engines.
+
+Do not report these checks as passed. Window 7 must run disposable-engine integrations on the exact integrated SHA and attach the logs/results. No production database migration or mutation is authorized by this handoff.
