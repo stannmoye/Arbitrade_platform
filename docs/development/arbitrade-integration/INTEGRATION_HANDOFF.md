@@ -35,6 +35,8 @@ GitHub Actions associated with implementation head `962ae780e62e44ded23645404030
 
 See `VERIFICATION_MATRIX.md` for exact workflow run links, per-component result, evidence scope and outstanding gates.
 
+**New durable-monitoring check:** Added `scripts/trading-worker-health.integration.ts` and a step in `.github/workflows/trading-opportunity-worker-integration.yml`. The script runs the production `runMonitoredWorkerCycle` with a synthetic partial-batch result against the disposable migrated database, then reads the current process health summary and asserts persisted `degraded`, `CUSTOMER_CYCLE_FAILURES`, aggregate-only diagnostic text and failure count. This verifies durable monitor persistence without invoking real trade execution or mutating customer/financial records. It is pending exact-head MySQL/MariaDB CI on commit `dbedf78b79ee1d9e061b78192827d9f76a08e520`.
+
 **Evidence limitations:** CI was run on the Window 6 branch, not on a final combined head containing all workstream PRs. The Vite preview browser test is not authenticated Blitz/staging acceptance. No production database, production deployment, production performance profile or live hosted runtime was tested.
 
 ## Current workstream/PR references
