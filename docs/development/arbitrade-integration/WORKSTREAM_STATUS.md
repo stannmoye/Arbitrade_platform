@@ -4,7 +4,7 @@
 **Repository:** `stannmoye/Arbitrade_platform`  
 **Initial main SHA:** `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`  
 **Window 7 branch:** `integration/window7-final`  
-**Integration state:** Staged, not merged to `main`; exact combined-head validation remains outstanding.
+**Integration state:** Draft integration PR [#288](https://github.com/stannmoye/Arbitrade_platform/pull/288) is open against `main`; not merged. Exact combined-head validation remains outstanding.
 
 Individual workstream CI results below belong to the named PR heads only. They are not evidence that the combined Window 7 branch passes.
 
@@ -65,6 +65,7 @@ Individual workstream CI results below belong to the named PR heads only. They a
 - **Branch:** `integration/window7-final`.
 - **Staged components:** Window 4 shared checkpoint; Window 1 catalogue contract/tests; Window 2 package-policy module/resolver; Window 5 admin settings changes; Window 6 monitoring changes; Window 1/Window 3 candidate generation code already present in the shared checkpoint.
 - **Temporary conflict-inspection PRs:** #281 and #282 were closed without merging. No changes were made directly to `main`.
-- **Tests executed by Window 7:** no local test runner, type check, production build, disposable database suite or authenticated browser acceptance has yet been executed in this window. GitHub Actions statuses above are from the individual workstream heads.
-- **Outstanding blockers:** Window 3 ownership confirmation; Window 2 failed CI rerun; Window 4 exact-head CI/browser acceptance; Window 5 installer validation and combined-head Save verification; Window 6 exact combined-head tests.
+- **Integrated CI:** code head `f093e1fb313b88ed2543bf09af6e3967311c1a5e` on PR #288 has 9 of 10 workflow groups completed successfully, including Verify application, Verify recovery, Mining regression, company rotation, tier qualification, worker concurrency/recovery, settlement reconciliation and wallet idempotency. Installer validation completed successfully. The production source build/test workflow remains in progress. A subsequent documentation-only commit advanced the branch to `f754c64b74bacd33862cfcbbe0b87a00499c616f`; it triggered one additional queued workflow. Recheck the latest branch head before marking CI complete.
+- **Local/hosted tests:** no local test runner, type check, production build, disposable database suite or authenticated browser acceptance was executed directly by Window 7. CI evidence is not Blitz acceptance.
+- **Outstanding blockers:** Window 3 ownership confirmation; Window 2 source PR #284 still has failed CI (integration-side stale contract assertions were corrected and passed in the integrated suite); final build/test completion; authenticated customer/admin browser acceptance; Blitz acceptance; and final Window 3 exact-head verification.
 - **Financial boundary:** no real-money execution, automatic customer-fund allocation, unattended settlement or fund transfers are introduced or enabled by this integration work.
