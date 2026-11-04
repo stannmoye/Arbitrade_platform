@@ -3380,17 +3380,16 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     const closesAt=new Date(input.now.getTime()+Math.max(86_400,terms.tradeDurationSeconds,displaySeconds)*1000);
     const rewardAt=new Date(input.now.getTime()+terms.tradeDurationSeconds*1000);
     const companyMetadata=company?{
+      // Rotation metadata records catalogue identity only. A brand record must
+      // never leak ticker, exchange, listing, sector, or market-research claims
+      // into an informational opportunity snapshot.
       rotationStateVersion:1,rotationCycle,rotationSequence,poolFingerprint,
       repeatPolicy:selectedPolicy.companyRotationRepeatPolicy,
-      ticker:company.ticker,symbol:company.symbol,exchangeCode:company.exchangeCode,
-      tickerResearchStatus:company.tickerResearchStatus,tickerSource:company.tickerSource,
-      parentTicker:company.parentTicker,whyNoRealTicker:company.whyNoRealTicker,
-      tickerClassification:company.tickerClassification,countryCode:company.countryCode,
-      countryName:company.countryName,domain:company.domain,logoSourceName:company.logoSourceName,
-      logoSourceUrl:company.logoSourceUrl,listingStatus:company.listingStatus,lastVerifiedAt:company.lastVerifiedAt,
-      requiresManualVerification:company.requiresManualVerification,sourceConfidence:company.sourceConfidence,
-      sector:company.sector,headquartersCountry:company.headquartersCountry,instrumentType:company.instrumentType,
-      recordCompleteness:company.recordCompleteness,adminCatalogueStatus:"verified",referenceOnly:true,
+      countryCode:company.countryCode??null,countryName:company.countryName??null,
+      domain:company.domain??null,logoSourceName:company.logoSourceName??null,
+      logoSourceUrl:company.logoSourceUrl??null,
+      instrumentType:"Brand",recordCompleteness:"brand-only",
+      adminCatalogueStatus:"verified",referenceOnly:true,
     }:null;
     const snapshot={
       packageId:Number(selectedSubscription.packageId),packageSubscriptionId:Number(selectedSubscription.subscriptionId),
@@ -4212,7 +4211,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         configuredDurationSeconds:Number(offer.configuredDurationSeconds),configuredPopupDisplaySeconds:Number(offer.configuredPopupDisplaySeconds),
         policyVersion:Number(offer.policyVersion||1),packagePolicyVersionSnapshot:Number(offer.packagePolicyVersionSnapshot||offer.policyVersion||1),
         durationSeconds:Number(offer.configuredDurationSeconds),badgeLabel:offer.badgeLabel??null,packageBadgeLabel:offer.packageBadgeLabel??null,badgeStyle:offer.badgeStyle||"neutral",
-        companyRotationEnabled:Boolean(offer.companyRotationEnabled),companyRotationCountryNames:String(offer.companyRotationCountryNames||""),
+        companyRotationEnabled:Boolean(offer.companyReferenceId&&offer.companyRotationEnabled),companyRotationCountryNames:String(offer.companyRotationCountryNames||""),
         companyRotationRepeatPolicy:offer.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
         companyReferenceId:offer.companyReferenceId??null,companyDisplayName:offer.companyDisplayName??null,companyLogoUrl:offer.companyLogoUrl??null,companyReferenceMetadataJson:offer.companyReferenceMetadataJson??null,
         balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
