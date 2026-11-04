@@ -135,7 +135,7 @@ The check is generation-side. It does not depend on customer UI or delivery admi
 
 ### Rotation rollback and concurrency
 
-Rotation cursor updates, generated offer insertion and assignment snapshot insertion remain inside the same `db.transaction` callback. A thrown persistence error aborts that transaction, so the cursor write is expected to roll back with the offer/assignment. The customer-scoped `app_settings` row lock serializes concurrent generation attempts for that customer. A source-level regression assertion now checks this transaction boundary and ordering.
+Rotation cursor updates, generated offer insertion and assignment snapshot insertion remain inside the same `db.transaction` callback. A thrown persistence error aborts that transaction, so the cursor write is expected to roll back with the offer/assignment. The customer-scoped `app_settings` row lock serializes concurrent generation attempts for that customer. MariaDB 11.4 exposed a deadlock during simultaneous lock-row upserts, so the generator now retries the complete transaction up to four attempts for MySQL/MariaDB deadlock and lock-wait-timeout errors. Each failed transaction is rolled back before retry; the generation key and reusable-open-offer check preserve idempotency. A source-level regression assertion checks the bounded retry and transaction boundary.
 
 **Not yet proven:** a genuine MySQL/MariaDB failure-injection test must demonstrate that a forced offer/assignment insert failure leaves the rotation cursor unchanged and that a subsequent retry reuses the next valid allocation. Source inspection is not a substitute for this database test.
 
