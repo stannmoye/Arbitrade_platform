@@ -597,6 +597,32 @@ const balanceBefore = await db.select({
     automaticGenerationEnabled: true,
     generationBatchId: `per-package-quota-selection-${token}`,
   });
+  console.log("PER_PACKAGE_QUOTA_SELECTION_DIAGNOSTICS " + JSON.stringify({
+    delivery: quotaSelectionCycle.delivery,
+    generatedOpportunityId: quotaSelectionCycle.generatedOpportunityId,
+    openOffers: await db.select({
+      id: opportunityOffers.id,
+      packageId: opportunityOffers.assignedPackageId,
+      subscriptionId: opportunityOffers.assignedPackageSubscriptionId,
+    }).from(opportunityOffers).where(and(
+      eq(opportunityOffers.assignedUserId, userId),
+      eq(opportunityOffers.status, "open"),
+    )),
+    firstPackageAssignments: await db.select({
+      id: opportunityGenerationAssignments.id,
+      generatedAt: opportunityGenerationAssignments.generatedAt,
+    }).from(opportunityGenerationAssignments).where(and(
+      eq(opportunityGenerationAssignments.userId, userId),
+      eq(opportunityGenerationAssignments.packageId, packageId),
+    )),
+    secondPackageAssignments: await db.select({
+      id: opportunityGenerationAssignments.id,
+      generatedAt: opportunityGenerationAssignments.generatedAt,
+    }).from(opportunityGenerationAssignments).where(and(
+      eq(opportunityGenerationAssignments.userId, userId),
+      eq(opportunityGenerationAssignments.packageId, secondPackageId),
+    )),
+  }));
   quotaSelectionOfferId = Number(quotaSelectionCycle.generatedOpportunityId);
   assert.ok(Number.isSafeInteger(quotaSelectionOfferId) && quotaSelectionOfferId > 0,
     "Generation must skip an exhausted package and continue to a package with remaining quota.");
