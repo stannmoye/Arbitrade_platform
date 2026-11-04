@@ -2,7 +2,7 @@
 
 **Coordination baseline:** 2026-11-04  
 **Repository:** `stannmoye/Arbitrade_platform`  
-**Current implementation reference:** Workstream 1 PR [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278), branch `feat/automatic-template-opportunities`.
+**Generation-engine candidate:** PR [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278), branch `feat/automatic-template-opportunities`; ownership confirmation with Window 3 is pending.
 
 ## Purpose
 
