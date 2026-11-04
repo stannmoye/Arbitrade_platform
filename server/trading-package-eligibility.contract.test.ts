@@ -79,8 +79,8 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(defaults).toContain("burstEnabled: false");
     expect(defaults).toContain("maxBurstSize: 3");
     expect(defaults).toContain("automaticTradingEnabled: false");
-    expect(defaults).toContain("requirePreviousSettlement:true");
-    expect(defaults).toContain("policyVersion:1");
+    expect(defaults).toContain("requirePreviousSettlement: true");
+    expect(defaults).toContain("policyVersion: 1");
     expect(router).toContain("globalTradeControls: adminProcedure.query(() => getTradeGlobalControls())");
   });
 
