@@ -3249,6 +3249,8 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
 
     let selectedSubscription:any=null;
     let selectedPolicy:any=null;
+    // Global administrator controls are the single owner of tier delivery and
+    // company-rotation switches. Legacy per-package boolean mirrors are not gates.
     for(const candidate of input.eligibleSubscriptions){
       const row=(await tx.select({
         subscriptionId:customerPackageSubscriptions.id,packageId:packages.id,packageName:packages.name,
