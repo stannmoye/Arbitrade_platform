@@ -3358,7 +3358,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     const currencyCode=template?String(template.currency):"USD";
     const currencyRows=await tx.select({code:currencyRegistry.code,scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,updatedAt:currencyRegistry.updatedAt})
       .from(currencyRegistry).where(and(eq(currencyRegistry.enabled,true),eq(currencyRegistry.code,currencyCode))).limit(1);
-    const currencyRow=currencyRows[0];if(!currencyRow)return null;
+    const currencyRow=currencyRows[0];if(!currencyRow)throw new Error("The generated opportunity currency is not enabled; generation transaction must roll back.");
     const packageMinimum=packageUsdUnitsToNativeMinor(Number(selectedPolicy.minimumTradeUnits),currencyCode,[currencyRow]);
     const packageMaximum=packageUsdUnitsToNativeMinor(Number(selectedPolicy.maximumTradeUnits),currencyCode,[currencyRow]);
     if(!Number.isSafeInteger(packageMinimum)||packageMinimum<=0||!Number.isSafeInteger(packageMaximum)||packageMaximum<packageMinimum)
