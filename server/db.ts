@@ -21,7 +21,7 @@ import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCo
 import { normalizeCompanyCatalogueActionReason, transitionCompanyCatalogueAdminState, type CompanyCatalogueStatusAction } from "./modules/company-catalogue-reference";
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
-import { PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS, resolveEffectivePackageOpportunityPolicy, type PackageOpportunityPolicyPatch } from "./modules/package-opportunity-policy";
+import { DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY, PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS, resolveEffectivePackageOpportunityPolicy, type PackageOpportunityPolicyPatch } from "./modules/package-opportunity-policy";
 import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule, resolveTradingBurstLimit } from "./modules/trading-delivery-quota";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry, MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY } from "./modules/trade-execution-retry";
@@ -3229,7 +3229,7 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
     if(unsupported.length) throw new Error(`Per-tier Trading policy cannot update global or unknown fields: ${unsupported.join(", ")}`);
     return policy;
   });
-  if(requested.some(policy=>policy.automaticTradingEnabled===true)) {
+  if(requested.some(policy=>(policy as Record<string,unknown>).automaticTradingEnabled===true)) {
     throw new Error("Automatic financial execution is disabled for all Trading package policies.");
   }
   await db.transaction(async tx=>{
