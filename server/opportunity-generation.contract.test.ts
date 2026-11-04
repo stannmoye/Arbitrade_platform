@@ -117,7 +117,7 @@ describe("automatic opportunity generation and package-aware customer delivery",
   it("uses global delivery masters instead of legacy per-package boolean mirrors", () => {
     expect(generator).not.toContain("eq(opportunityPackagePolicies.enabled,true)");
     expect(generator).not.toContain("eq(opportunityPackagePolicies.automaticDelivery,true)");
-    expect(generator).toContain("if(input.companyRotationEnabled){");
+    expect(generator).toContain("if(approvedPool.length>0&&input.companyRotationEnabled){");
     expect(generator).toContain("companyRotationEnabled:Boolean(input.companyRotationEnabled)");
   });
 
