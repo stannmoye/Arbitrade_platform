@@ -29,7 +29,7 @@ describe("Logo.dev brand-only static reference catalogue", () => {
 
   it("resolves every catalogue logo URL to an existing local image asset", () => {
     for (const company of COMPANY_REFERENCE_CATALOGUE) {
-      const relativeAssetPath = decodeURIComponent(company.logoUrl).replace(/^\\/+/, "");
+      const relativeAssetPath = decodeURIComponent(company.logoUrl).replace(/^\/+/, "");
       expect(existsSync(resolve(process.cwd(), "client/public", relativeAssetPath)), company.id).toBe(true);
     }
   });
