@@ -462,7 +462,8 @@ const balanceBefore = await db.select({
   ));
   assert.equal(deliveryRows.length, 1, "The delivery quota ledger must be persisted exactly once.");
   assert.equal(deliveryRows[0]?.quotaDay, quotaDay);
-  assert.equal(deliveryRows[0]?.status, "pending");
+  assert.equal(deliveryRows[0]?.status, "delivered",
+    "The quota-consumption ledger records the persisted popup admission; the separate popup event deliveryStatus remains queued until the customer poll claims it.");
 
   const customerRead = await listCustomerOpportunities(userId);
   assert.equal(customerRead.delivery.enabled, true);
