@@ -638,6 +638,20 @@ const balanceBefore = await db.select({
     ))).length, 1,
     "A failed offer insert must not persist a partial generation assignment.");
 
+  // Restore the original independent entitlement limits before the successful
+  // retry: the first subscription is already consumed, while its second copy
+  // still has one available opportunity. Keep cadence at zero so the retry
+  // tests rollback recovery rather than waiting for the next scheduled window.
+  await db.update(customerPackageSubscriptions).set({
+    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 1, maxPopupsPerDay: 0 }),
+  }).where(eq(customerPackageSubscriptions.id, subscriptionId));
+  await db.update(customerPackageSubscriptions).set({
+    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 1, maxPopupsPerDay: 0 }),
+  }).where(eq(customerPackageSubscriptions.id, subscriptionCopyId));
+  await db.update(packages).set({ opportunitiesPerDay: 2 }).where(eq(packages.id, packageId));
+  await db.update(opportunityPackagePolicies).set({ maxPopupsPerDay: 2 })
+    .where(eq(opportunityPackagePolicies.packageName, packageName));
+
   const retryCycle = await listCustomerOpportunities(userId, {
     workerCycle: true,
     consumeDelivery: false,
