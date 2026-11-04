@@ -706,6 +706,61 @@ const balanceBefore = await db.select({
   assert.ok(Number(independentSnapshot.configuredDurationSeconds) >= 700 && Number(independentSnapshot.configuredDurationSeconds) <= 800,
     "The second package must use its own saved duration range, not the first package's policy.");
 
+  // Exercise the database-backed company-neutral path, not only its pure
+  // template validator. Exhaust the current second-package offer, grant one
+  // additional persisted entitlement slot, and remove every approved display
+  // identity. Generation must remain informational and must not advance the
+  // previously saved company-rotation cursor.
+  await db.update(opportunityOffers).set({ status: "closed" }).where(eq(opportunityOffers.id, independentOfferId));
+  await db.update(packages).set({ opportunitiesPerDay: 2 }).where(eq(packages.id, secondPackageId));
+  await db.update(opportunityPackagePolicies).set({ maxPopupsPerDay: 2 })
+    .where(eq(opportunityPackagePolicies.packageName, packageName + "Plus"));
+  await db.update(customerPackageSubscriptions).set({
+    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 2, maxPopupsPerDay: 0 }),
+  }).where(eq(customerPackageSubscriptions.packageId, secondPackageId));
+  const secondRotationKey = `trading.companyRotation.${userId}.${secondPackageId}`;
+  const rotationBeforeNeutralRows = await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, secondRotationKey)).limit(1);
+  assert.equal(rotationBeforeNeutralRows.length, 1,
+    "The approved-company run must establish a durable rotation cursor before the empty-pool case.");
+  const rotationBeforeNeutral = String(rotationBeforeNeutralRows[0]?.settingValue);
+  await db.update(appSettings).set({
+    settingValue: JSON.stringify({ verifiedIds: [], archivedIds: [], disabledIds: [] }),
+    updatedAt: new Date(),
+  }).where(eq(appSettings.settingKey, catalogueStateKey));
+
+  const companyNeutralCycle = await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    automaticGenerationEnabled: true,
+    generationBatchId: `company-neutral-${token}`,
+  });
+  const companyNeutralOfferId = Number(companyNeutralCycle.generatedOpportunityId);
+  assert.ok(Number.isSafeInteger(companyNeutralOfferId) && companyNeutralOfferId > 0,
+    "Generation must continue with an informational opportunity when no company is approved.");
+  additionalOfferIds.push(companyNeutralOfferId);
+  const companyNeutralAssignment = (await db.select().from(opportunityGenerationAssignments)
+    .where(eq(opportunityGenerationAssignments.offerId, companyNeutralOfferId)))[0];
+  const companyNeutralOffer = (await db.select().from(opportunityOffers)
+    .where(eq(opportunityOffers.id, companyNeutralOfferId)))[0];
+  const companyNeutralSnapshot = JSON.parse(String(companyNeutralAssignment?.packageSnapshotJson || "{}"));
+  assert.equal(companyNeutralAssignment?.companyReferenceId, null,
+    "An empty approved pool must persist a NULL assignment company identity.");
+  assert.equal(companyNeutralOffer?.companyReferenceId, null,
+    "An empty approved pool must persist a NULL offer company identity.");
+  assert.equal(companyNeutralOffer?.companyDisplayName, null,
+    "An empty approved pool must not invent a company display name.");
+  assert.equal(companyNeutralOffer?.companyReferenceMetadataJson, null,
+    "An empty approved pool must not attach unapproved company metadata.");
+  assert.equal(companyNeutralAssignment?.templateId, null,
+    "Company-neutral generation must not attach a company-specific template.");
+  assert.equal(companyNeutralSnapshot.sourceReference, "company-catalogue:no-approved-company");
+  assert.equal(companyNeutralSnapshot.symbol, "BRAND");
+  const rotationAfterNeutralRows = await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, secondRotationKey)).limit(1);
+  assert.equal(String(rotationAfterNeutralRows[0]?.settingValue), rotationBeforeNeutral,
+    "An empty approved pool must not advance or rewrite the saved company-rotation cursor.");
+
   // Remove unrelated delivery cooldown as a competing gate so the next open
   // opportunity is eligible unless the global policy under test blocks it.
   await db.update(opportunityPackagePolicies).set({
