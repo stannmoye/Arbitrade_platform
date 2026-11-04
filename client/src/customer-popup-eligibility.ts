@@ -8,6 +8,7 @@ export function isFreshCustomerPopupCandidate(offer: Record<string, unknown>, no
   const deliveryStatus = String(offer.deliveryStatus ?? "").trim().toLowerCase();
   if (terminalEventStatuses.has(eventStatus) || !["DELIVERED", "NOTICED", "OPENED"].includes(eventStatus)) return false;
   if (!deliverableStatuses.has(deliveryStatus)) return false;
+  if (deliveryStatus === "in_progress" && (typeof offer.deliveryLeaseToken !== "string" || !offer.deliveryLeaseToken.trim())) return false;
   if (String(offer.offerStatus ?? "").trim().toLowerCase() !== "open") return false;
   const closesAt = new Date(offer.closesAt as string | Date).getTime();
   return Number.isFinite(closesAt) && closesAt > now;
