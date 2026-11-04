@@ -10,6 +10,10 @@ const BASE_URL = process.env.STAGE2_BASE_URL || "http://127.0.0.1:4173";
 const REPORT_PATH = path.resolve("artifacts/stage2-browser/payout-interactions.json");
 const THEMES = ["original", "midnight-premium", "clean-light", "emerald-finance", "aurora-modern", "gold-luxe"];
 
+function payoutPage(items) {
+  return { items: items.map(item => ({ ...item })), nextCursor: null, hasMore: false };
+}
+
 async function runAdminPayoutReview(browser) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.setDefaultTimeout(10000);
@@ -62,7 +66,7 @@ async function runAdminPayoutReview(browser) {
         } else if (procedure === "appearanceConfig") {
           data = { defaultTheme: "original", enabledThemes: THEMES, customerCanSelect: false };
         } else if (procedure === "adminOperations.payoutRequests") {
-          data = requests.map(item => ({ ...item }));
+          data = payoutPage(requests);
         } else if (procedure === "adminOperations.resolvePayoutRequest") {
           const current = requests.find(item => Number(item.id) === Number(input.requestId));
           if (!current || current.status !== "pending") {
@@ -101,22 +105,34 @@ async function runAdminPayoutReview(browser) {
 
     await page.goto(new URL("/ops-console-7f3a", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.getByRole("heading", { name: "Control centre" }).waitFor({ state: "visible", timeout: 15000 });
-    await page.locator(".admin-canonical-nav").getByRole("button", { name: /Wallet & Ledger/ }).click();
-    await page.getByRole("heading", { name: "Transaction review" }).waitFor({ state: "visible", timeout: 15000 });
+    const adminNavigation = page.locator(".admin-canonical-nav");
+    // Finance is collapsed on the overview; expand its canonical group before selecting the route.
+    await adminNavigation.getByRole("button", { name: /^Finance\b/ }).click();
+    await adminNavigation.getByRole("button", { name: /^Wallet & Ledger\b/ }).click();
+    await page.getByRole("heading", { name: "Wallet & Ledger" }).waitFor({ state: "visible", timeout: 15000 });
+    await adminNavigation.getByRole("button", { name: /^Trade Settings\b/ }).click();
+    await adminNavigation.getByRole("button", { name: /^Manual Payouts\b/ }).click();
+    await page.getByRole("heading", { name: "Manual Payouts" }).waitFor({ state: "visible", timeout: 15000 });
     await page.getByRole("heading", { name: "Customer payout requests" }).waitFor({ state: "visible", timeout: 10000 });
 
-    const pendingCount = page.getByText("2 pending", { exact: true });
+    const pendingCount = page.getByText("2 pending on this page", { exact: true });
     const payoutQueue = page.getByRole("region", { name: "Customer payout requests" });
     const firstVisible = await payoutQueue.getByText("payout-admin-paid-1", { exact: true }).isVisible().catch(() => false);
     const secondVisible = await payoutQueue.getByText("payout-admin-reject-1", { exact: true }).isVisible().catch(() => false);
-    record("admin transaction review loads pending payout queue",
+    record("admin manual payout queue loads both pending requests",
       await pendingCount.isVisible().catch(() => false) && firstVisible && secondVisible, {
         pendingCountVisible: await pendingCount.isVisible().catch(() => false), firstVisible, secondVisible,
       });
 
-    await page.getByLabel("External transfer reference for payout-admin-paid-1").fill("BANK-TRANSFER-VERIFIED-001");
     const paidRow = page.locator("tr").filter({ hasText: "payout-admin-paid-1" });
     const paidButton = paidRow.getByRole("button", { name: "Mark paid" });
+    const paidOperatorNote = page.getByLabel("Required operator note for payout-admin-paid-1");
+    await paidOperatorNote.fill("Independent external transfer verification completed.");
+    const paidDisabledWithoutReference = await paidButton.isDisabled();
+    await page.getByLabel("External transfer reference for payout-admin-paid-1").fill("BANK-TRANSFER-VERIFIED-001");
+    await paidOperatorNote.fill("");
+    const paidDisabledWithoutNote = await paidButton.isDisabled();
+    await paidOperatorNote.fill("Independent external transfer verification completed.");
     const paidEnabled = await paidButton.isEnabled();
     await paidButton.click();
     await page.locator(".admin-payout-history-head").waitFor({ state: "visible" });
@@ -124,14 +140,14 @@ async function runAdminPayoutReview(browser) {
     await paidHistoryRow.waitFor({ state: "visible", timeout: 10000 });
     await paidHistoryRow.getByText("paid", { exact: true }).waitFor({ state: "visible", timeout: 10000 });
     const paidReferenceVisible = await paidHistoryRow.getByText(/External: BANK-TRANSFER-VERIFIED-001/).isVisible().catch(() => false);
-    record("admin paid resolution requires and records external transfer reference",
-      paidEnabled && paidReferenceVisible && requests[0].status === "paid" && requests[0].externalReference === "BANK-TRANSFER-VERIFIED-001", {
-        paidEnabled, paidReferenceVisible, persistedMockStatus: requests[0].status,
+    record("admin paid resolution requires reference and operator note, then records paid status",
+      paidDisabledWithoutReference && paidDisabledWithoutNote && paidEnabled && paidReferenceVisible && requests[0].status === "paid" && requests[0].externalReference === "BANK-TRANSFER-VERIFIED-001", {
+        paidDisabledWithoutReference, paidDisabledWithoutNote, paidEnabled, paidReferenceVisible, persistedMockStatus: requests[0].status,
         externalReference: requests[0].externalReference,
       });
 
     const rejectRow = page.locator("tr").filter({ hasText: "payout-admin-reject-1" });
-    await page.getByLabel("Resolution note for payout-admin-reject-1").fill("Rejected for browser acceptance; no transfer was initiated.");
+    await page.getByLabel("Required operator note for payout-admin-reject-1").fill("Rejected for browser acceptance; no transfer was initiated.");
     const rejectButton = rejectRow.getByRole("button", { name: "Reject and release" });
     const rejectEnabled = await rejectButton.isEnabled();
     await rejectButton.click();
@@ -220,7 +236,7 @@ async function main() {
         } else if (procedure === "customer.payoutEligibility") {
           data = { allowed: true, reason: null };
         } else if (procedure === "customer.payoutRequests") {
-          data = requests.map(row => ({ ...row }));
+          data = payoutPage(requests);
         } else if (procedure === "customer.walletPreferences") {
           data = { tradingCurrency: "USD", swapCurrency: "USD", autoTopUpEnabled: false, withdrawalWhitelistEnabled: true };
         } else if (procedure === "customer.requestPayout") {
@@ -286,6 +302,8 @@ async function main() {
       const menuTrigger = page.getByRole("button", { name: "Open customer navigation" });
       await menuTrigger.waitFor({ state: "visible", timeout: 15000 });
       await menuTrigger.click();
+      // Wallet is a main-page destination surfaced by the resource drawer's accessible search.
+      await page.getByLabel("Search customer pages and resources").fill("Wallet");
       await page.locator(".customer-resource-nav").getByRole("button", { name: /^Wallet\b/ }).click();
       await page.getByRole("heading", { name: "Payout requests" }).waitFor({ state: "visible", timeout: 15000 });
 
