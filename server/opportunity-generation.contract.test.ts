@@ -7,6 +7,9 @@ const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../drizzle/0103_automatic_opportunity_generation_templates.sql", import.meta.url), "utf8");
 const migration104 = readFileSync(new URL("../drizzle/0104_catalogue_native_opportunity_generation.sql", import.meta.url), "utf8");
 const migration106 = readFileSync(new URL("../drizzle/0106_company_neutral_opportunity_assignments.sql", import.meta.url), "utf8");
+const packageCatalogueMigration = readFileSync(new URL("../drizzle/0069_trading_package_activation.sql", import.meta.url), "utf8");
+const packagePolicyAlignmentMigration = readFileSync(new URL("../drizzle/0081_trading_tier_policy_alignment.sql", import.meta.url), "utf8");
+const explicitTermsMigration = readFileSync(new URL("../drizzle/0089_trading_popup_policy_ranges.sql", import.meta.url), "utf8");
 const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
 const journal = readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8");
 const admin = readFileSync(new URL("../client/src/components/AdminOpportunityTemplates.tsx", import.meta.url), "utf8");
@@ -41,6 +44,21 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(generator).toContain("control.enabled!==true");
     expect(generator).toContain("The active package's saved capital bounds are invalid.");
     expect(generator).toContain("template?Number(template.id):null");
+  });
+
+  it("preserves the 16-tier catalogue, backfills missing policy rows, and fails closed on unapproved terms", () => {
+    const packageInsert = packageCatalogueMigration.match(/INSERT INTO `packages` \(`name`[\s\S]*?VALUES([\s\S]*?)ON DUPLICATE KEY UPDATE/i)?.[1] ?? "";
+    const seededNames = [...packageInsert.matchAll(/\('([^']+)',\d+,\d+,\d+,1,1\)/g)].map(match => match[1]);
+    expect(seededNames).toHaveLength(16);
+    expect(new Set(seededNames).size).toBe(16);
+    expect(packagePolicyAlignmentMigration).toContain("INSERT INTO `opportunity_package_policies` (`packageName`)");
+    expect(packagePolicyAlignmentMigration).toContain("LEFT JOIN `opportunity_package_policies` AS `opp` ON `opp`.`packageName` = `p`.`name`");
+    expect(packagePolicyAlignmentMigration).toContain("WHERE `opp`.`id` IS NULL");
+    expect(explicitTermsMigration).toContain("SET `enabled` = 0, `automaticDelivery` = 0, `automaticTradingEnabled` = 0");
+    expect(explicitTermsMigration).toContain("`minimumPayoutRateBps` IS NULL OR `maximumPayoutRateBps` IS NULL");
+    expect(generator).toContain(".innerJoin(opportunityPackagePolicies,eq(opportunityPackagePolicies.packageName,packages.name))");
+    expect(generator).toContain("hasConfiguredTradingOfferPolicy(row)");
+    expect(generator).not.toContain("DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY");
   });
 
   it("binds generation to the exact active package subscription and its persisted package policy", () => {
