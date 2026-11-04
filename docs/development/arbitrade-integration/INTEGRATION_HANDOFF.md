@@ -43,10 +43,10 @@ Window 1 has not merged to `main` and has not deployed the branch. Window 7 owns
 ## Window 2 — Package policy handoff
 
 - Pull request: [#284](https://github.com/stannmoye/Arbitrade_platform/pull/284) (open, draft, unmerged).
-- PR head at creation: `92224d32dd85bb8249f094df1e8dcd8afb815a0d`; the current PR head may advance with this handoff-document update.
+- Current PR head at handoff update: `5e65811d53d859c92c0ce5a4c8833ec98df4683f`.
 - Branch: `feat/window-2-package-opportunity-policy-contract`.
 - Baseline: `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`.
-- Implementation head at handoff preparation: `4c01348e193f9acd73c1d1f930fa15242948bc5f`.
+- Implementation head: `c6ce511e8b3ae12ed442eebb001c7ee8388bb823` (package-policy source/test correction); latest handoff documentation commit: `5e65811d53d859c92c0ce5a4c8833ec98df4683f`.
 - Reuses the existing `opportunity_package_policies` store; no schema or migration change.
 - Canonical policy contract/defaults/patch allowlist: `server/modules/package-opportunity-policy.ts`.
 - Persistence integration: `server/db.ts` now uses the typed patch contract, central allowlist and package-name-safe policy resolver. Existing row locking, validation, policy version increments, audit writes and package rename transaction remain in place.
