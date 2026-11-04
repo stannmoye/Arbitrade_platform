@@ -63,6 +63,11 @@ export default function AdminPackageFeeEditor({ packageId, policy, policyQueryLo
       setMessage(validationErrors[0]);
       return;
     }
+    if (!effectiveIso) {
+      setMessageKind("error");
+      setMessage("Choose a valid effective time in the future.");
+      return;
+    }
     setMessage("");
     setMessageKind("success");
     try {
