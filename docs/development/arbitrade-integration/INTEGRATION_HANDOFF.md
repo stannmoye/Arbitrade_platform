@@ -42,6 +42,8 @@ Window 1 has not merged to `main` and has not deployed the branch. Window 7 owns
 
 ## Window 2 — Package policy handoff
 
+- Pull request: [#284](https://github.com/stannmoye/Arbitrade_platform/pull/284) (open, draft, unmerged).
+- PR head at creation: `92224d32dd85bb8249f094df1e8dcd8afb815a0d`; the current PR head may advance with this handoff-document update.
 - Branch: `feat/window-2-package-opportunity-policy-contract`.
 - Baseline: `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`.
 - Implementation head at handoff preparation: `4c01348e193f9acd73c1d1f930fa15242948bc5f`.
