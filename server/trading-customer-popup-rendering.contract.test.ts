@@ -107,6 +107,8 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(app).toContain("Live opportunities could not be refreshed.");
     expect(component).toContain("Live opportunity delivery status is temporarily unavailable.");
     expect(component).toContain('role="status"');
+    expect(stylesheet).toContain(".customer-portal .customer-opportunity-feed-error");
+    expect(stylesheet).toContain(".customer-portal .portal-main .admin-ops-empty.error");
   });
 
   it("does not poll trade history for informational-only opportunity alerts", () => {
