@@ -3213,20 +3213,7 @@ export async function listPersistedOpportunityPackagePolicies() {
   return matchingRows;
 }
 const TRADING_TIER_POLICY_PATCH_KEYS = new Set<string>(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS);
-/* legacy allowlist moved to package-opportunity-policy.ts */
-const UNUSED_TRADING_TIER_POLICY_PATCH_KEYS = new Set([
-  "maxPopupsPerDay", "maxVisibleOffers", "minimumTradeUnits", "maximumTradeUnits",
-  "minHourlyTarget", "normalHourlyTarget", "marketInfluenceBps", "maxBurstSize",
-  "dailyPopupTarget", "schedulingPeriod", "minIntervalSeconds", "maxIntervalSeconds",
-  "popupDisplayTargetSeconds", "completionDisplaySeconds", "postCompletionIntervalSeconds",
-  "maxPendingDeliveries", "maxTradeAttemptsPerDay",
-  "tradeRetryDelaySeconds", "maxSuccessfulTradesPerDay", "maxConcurrentActiveTrades",
-  "minSettlementDelaySeconds", "maxSettlementDelaySeconds", "minimumRewardBps",
-  "maxDailyRewardMinor", "maxRewardPerTradeMinor", "badgeLabel", "badgeStyle",
-  "minimumPayoutRateBps", "maximumPayoutRateBps", "minimumTradeDurationSeconds",
-  "maximumTradeDurationSeconds", "companyRotationCountryNames", "companyRotationRepeatPolicy",
-  "closePolicy",
-]);
+
 export async function updateOpportunityPackagePolicies(updatedBy:number, policies:PackageOpportunityPolicyPatch[], reason:string) {
   const auditReason=String(reason??"").trim();
   if(auditReason.length<5||auditReason.length>500) throw new Error("Provide an audit reason of 5–500 characters");
