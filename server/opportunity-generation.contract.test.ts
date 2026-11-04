@@ -207,7 +207,9 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(generator).toContain("dailyTarget>0?dailyTarget:customerDailyQuota");
     expect(generator).toContain("eq(opportunityGenerationAssignments.packageSubscriptionId,Number(row.subscriptionId))");
     expect(generator).toContain("eq(opportunityGenerationAssignments.packageId,Number(row.packageId))");
-    expect(generator).toContain("gte(opportunityGenerationAssignments.generatedAt,input.quotaWindowStart)");
+    expect(generator).toContain("schedulingPeriod:opportunityPackagePolicies.schedulingPeriod");
+    expect(generator).toContain('row.schedulingPeriod==="rolling_24h"?"rolling_24h":"calendar_day"');
+    expect(generator).toContain("gte(opportunityGenerationAssignments.generatedAt,candidateQuotaWindow.start)");
     expect(generator).toContain("if(subscriptionUsed>=customerDailyQuota||packageUsed>=effectiveDailyQuota)continue;");
     expect(generator).toContain("customerDailyQuota:Number(selectedSubscription.customerDailyQuota)");
     expect(generator).toContain("packageDailyOpportunityQuota:Number(selectedSubscription.effectiveDailyQuota)");
