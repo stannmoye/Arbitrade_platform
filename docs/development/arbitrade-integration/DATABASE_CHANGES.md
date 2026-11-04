@@ -26,7 +26,7 @@
 - Preserves any saved administrator decision/version.
 - Does not change the automatic financial execution guard.
 
-All three migrations are represented in the Drizzle journal and schema on the Workstream 1 branch. The branch's migration sequence must be reconciled against every other workstream before integration.
+All three migrations are represented in the Drizzle journal and schema in the shared generation-engine candidate checkpoint used by PR #278. The generation code is assigned to Window 3 by the shared ownership map, although PR #278 labels it Window 1; Window 7 requires Window 3 confirmation and must reconcile this migration sequence against every other workstream before integration.
 
 ## Preservation and rollout rules
 
@@ -37,14 +37,14 @@ All three migrations are represented in the Drizzle journal and schema on the Wo
 - No production migration or deployment is claimed by this workstream.
 
 
-## Workstream 4 — Opportunity Delivery & Customer Portal
+## Window 4 — Opportunity Delivery & Customer Portal
 
 - **Schema changes:** none in this workstream increment. It reuses the existing `opportunity_popup_events`, `opportunity_delivery_idempotency`, `opportunity_delivery_events`, `opportunity_offers` and `app_settings` structures.
 - No new queue, table, index, migration, backfill, or destructive operation is introduced.
 - Window 7 must integrate Workstream 4 against the final combined schema after migrations 0103–0105 and run the existing guarded popup-delivery integration on disposable MySQL 8.4 and MariaDB 11.4 databases.
 - Existing packages, company catalogue entries/logos, customers, subscriptions and historical delivery records remain unchanged.
 
-## Workstream 6 — Testing, monitoring and readiness
+## Window 6 — Testing, monitoring and readiness
 
 - No database table, column, index, migration, journal entry or seed change is introduced by Window 6.
 - Window 6 reuses the existing `worker_health_registry` migration (0084) and durable monitoring implementation.
