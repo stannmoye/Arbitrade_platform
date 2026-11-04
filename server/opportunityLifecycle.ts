@@ -263,8 +263,11 @@ async function applyPopupLifecycle(userId: number, eventId: number, action: "not
   const column = timestamps[action];
   await withConnection(async connection => {
     if (action === "dismissed") {
-      await connection.execute(`UPDATE opportunity_popup_events SET ${column}=COALESCE(${column},CURRENT_TIMESTAMP), eventStatus='DISMISSED', deliveryStatus=CASE WHEN deliveryStatus IN ('queued','in_progress','retry_wait') THEN 'dismissed' ELSE deliveryStatus END, deliveryRetryAfter=NULL, deliveryLeaseToken=NULL, deliveryLeaseExpiresAt=NULL, updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=? AND eventStatus NOT IN ('TRADED','SETTLED') AND deliveryStatus<>'expired'`, [eventId, userId]);
+      await connection.execute(`UPDATE opportunity_popup_events SET ${column}=COALESCE(${column},CURRENT_TIMESTAMP), eventStatus='DISMISSED', deliveryStatus=CASE WHEN deliveryStatus IN ('queued','in_progress','retry_wait') THEN 'dismissed' ELSE deliveryStatus END, deliveryRetryAfter=NULL, deliveryLeaseToken=NULL, deliveryLeaseExpiresAt=NULL, updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=? AND eventStatus NOT IN ('TRADED','SETTLED','WITHDRAWN') AND deliveryStatus<>'expired'`, [eventId, userId]);
+    } else if (action === "noticed" || action === "opened") {
+      await connection.execute(`UPDATE opportunity_popup_events SET ${column}=COALESCE(${column},CURRENT_TIMESTAMP), eventStatus=?, updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=? AND eventStatus NOT IN ('TRADED','SETTLED','WITHDRAWN') AND deliveryStatus NOT IN ('failed','dismissed','expired')`, [statuses[action], eventId, userId]);
     } else {
+      // Server-owned terminal transitions must still allow TRADED -> SETTLED.
       await connection.execute(`UPDATE opportunity_popup_events SET ${column}=COALESCE(${column},CURRENT_TIMESTAMP), eventStatus=?, updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=? AND deliveryStatus NOT IN ('failed','dismissed','expired')`, [statuses[action], eventId, userId]);
     }
   });
