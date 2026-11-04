@@ -3065,6 +3065,7 @@ export async function getCustomerTradingEligibility(userId:number) {
   const now=new Date();
   const rows=await db.select({
     activationKey:customerPackageSubscriptions.activationKey,
+    packageId:customerPackageSubscriptions.packageId,
     termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
     dailyQuota:packages.opportunitiesPerDay,
     packageName:packages.name,
@@ -3095,6 +3096,7 @@ export async function getCustomerTradingEligibility(userId:number) {
   const activePackages=eligibleRows.map(row=>{
     const snapshot=snapshotFor(row);
     return {
+      id:Number(row.packageId),
       name:String(row.packageName),
       minimumQualifyingBalanceUsdMinor:Number(snapshot.minimumQualifyingBalanceUsdMinor??row.minimumQualifyingBalanceUsdMinor),
       durationMonths:Number(snapshot.durationMonths??row.durationMonths),
@@ -3151,7 +3153,8 @@ export async function previewNextCustomerCompanySpotlight(userId:number) {
   if(!globalPolicy.available||!globalPolicy.tierPolicyMasterEnabled||!globalPolicy.companyRotationEnabled) return null;
   const eligibility=await getCustomerTradingEligibility(userId);
   const packageName=String(eligibility.currentPackage?.name||"").trim();
-  if(!eligibility.eligible||!packageName) throw new Error("An active automatically assigned Trading tier is required for company spotlight preview.");
+  const packageId=Number(eligibility.currentPackage?.id);
+  if(!eligibility.eligible||!packageName||!Number.isSafeInteger(packageId)||packageId<=0) throw new Error("An active automatically assigned Trading tier is required for company spotlight preview.");
   const policies=await listPersistedOpportunityPackagePolicies();
   const policy=policies.find(row=>row.packageName===packageName);
   if(!policy) throw new Error("The active Trading tier has no saved company rotation policy.");
@@ -3162,7 +3165,7 @@ export async function previewNextCustomerCompanySpotlight(userId:number) {
   const catalogueState=parseCompanyCatalogueAdminState(catalogueRow?.settingValue??"{}");
   const pool=buildCompanySpotlightPool(String(policy.companyRotationCountryNames||""),catalogueState);
   if(!pool.length) return null;
-  const stateKey="trading.companyRotation."+userId+"."+packageName;
+  const stateKey="trading.companyRotation."+userId+"."+packageId;
   if(stateKey.length>120) throw new Error("Company rotation scope key exceeds the storage limit.");
 
   // Preview reads the next approved candidate but never creates a cursor row or advances
@@ -3172,7 +3175,7 @@ export async function previewNextCustomerCompanySpotlight(userId:number) {
   let priorState:CompanySpotlightState|null=null;
   try { const parsed=JSON.parse(String(row?.settingValue||"")); if(parsed&&typeof parsed==="object") priorState=parsed as CompanySpotlightState; } catch {}
   const repeatPolicy=String(policy.companyRotationRepeatPolicy||"avoid_until_exhausted") as "avoid_until_exhausted"|"allow_repeats";
-  const result=nextCompanySpotlight(pool,priorState,userId,packageName,repeatPolicy);
+  const result=nextCompanySpotlight(pool,priorState,userId,String(packageId),repeatPolicy);
   return {...result.company,adminCatalogueStatus:"verified" as const,referenceOnly:true as const,rotationCycle:result.rotationCycle,rotationSequence:result.rotationSequence,poolFingerprint:result.poolFingerprint,packageName,previewOnly:true as const};
 }
 
