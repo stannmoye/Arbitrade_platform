@@ -56,7 +56,6 @@ let subscriptionId: number | undefined;
 let offerId: number | undefined;
 let blockedOfferId: number | undefined;
 let secondPackageId: number | undefined;
-let secondSubscriptionId: number | undefined;
 let secondPolicyInserted = false;
 let secondPackageInserted = false;
 const additionalOfferIds: number[] = [];
@@ -291,7 +290,6 @@ try {
     qualifyingBalanceUsdMinor: 10000,
     packageTermsVersion: 1,
   });
-  secondSubscriptionId = Number(secondSubscriptionResult.insertId);
 
   await db.insert(customerBalances).values({
     userId,
