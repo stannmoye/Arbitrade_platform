@@ -51,8 +51,9 @@ export type PopupDeliveryResult = Map<string, number> & {
 };
 
 export async function ensurePopupDeliveries(deliveries: PopupDelivery[]): Promise<PopupDeliveryResult> {
-  const result = new Map<string, number>() as PopupDeliveryResult;
-  result.skipped = [];
+  const result = Object.assign(new Map<string, number>(), {
+    skipped: [] as PopupDeliveryResult["skipped"],
+  });
   if (!deliveries.length || !process.env.DATABASE_URL) return result;
   return withConnection(async connection => {
     deliveryLoop: for (const item of deliveries) {
