@@ -87,8 +87,10 @@ describe("Trading opportunity publication guidance", () => {
 describe("Admin opportunity publisher error handling", () => {
   it("makes retired manual publication routes fail explicitly instead of silently creating offers", () => {
     expect(routerSource).toContain("PRECONDITION_FAILED");
-    expect(routerSource).toContain("the worker generates customer-specific offers from qualifying packages");
+    expect(routerSource).toContain("Customer-specific opportunities are generated automatically from the approved company catalogue");
+    expect(routerSource).toContain("saved company templates are optional display-term enrichment");
     expect(routerSource).toContain("saved qualifying-package policy");
+    expect(routerSource).toContain("a company template is not required");
   });
 
   it("keeps the old CSV parser disconnected from the customer opportunity screen", () => {
