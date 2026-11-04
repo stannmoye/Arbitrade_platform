@@ -2,7 +2,7 @@ name: Trading opportunity worker concurrency and recovery integration
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/automatic-template-opportunities]
   push:
     branches: [main]
 
