@@ -8,7 +8,7 @@
 | Window 3 generation | Window 2 package policies | Active subscription and package-specific enabled state, quota, capital bounds, payout range, duration range, policy version and schedule. | 16 package policies remain independent; invalid policy fails closed; snapshots retain policy version. |
 | Window 4 delivery | Window 3 persisted generated offers | Customer-assigned open offers, generation key, package/company snapshots and durable assignment status. | Existing delivery worker consumes without a competing generator; delivery idempotency and lease/retry recovery remain intact. |
 | Window 3 generation | Existing database worker and batch infrastructure | Bounded round-robin customer scan, generation lock, durable batch status, stale-batch recovery and unique assignment key. | Repeated cycles, overlapping workers, restart, partial failure and retry. |
-| Window 3 generation | Window 6 monitoring | Existing worker-health registry and generation batch monitor. | Worker failure/degraded state and sanitized diagnostics visible without new health registry. |
+| Window 3 generation | Monitoring owner (Window 6 assignment to be confirmed) | Reuse the existing worker-health registry and generation batch monitor; do not create a second registry. | Confirm the designated owner and verify worker failure/degraded state and sanitized diagnostics. |
 | All workstreams | Window 7 integration | Exact branch heads, shared-file conflict list, ordered migration journal, CI and authenticated acceptance evidence. | Final integrated-head verification and merge decision. |
 
 ## Known shared-file conflict hotspots
