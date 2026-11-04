@@ -27,5 +27,5 @@ Use the existing `buildCompanySpotlightPool` and `nextCompanySpotlight` exports.
 ## Pull request
 - Draft PR: https://github.com/stannmoye/Arbitrade_platform/pull/283
 - Target: `main`
-- Latest implementation test commit: `cfe57982e3045800261da9e1da2cd44454ed941c`.
+- Latest implementation/test-fix commit: `458ca904e5c994809228fbe0937f43fe8f4706e2`.
 - PR is intentionally unmerged. Exact-head CI has not been run by this workstream.
