@@ -288,6 +288,8 @@ const balanceBefore = await db.select({
     "The generated duration must stay inside this customer's package-specific range.");
   assert.equal(generatedSnapshot.symbol, "BRAND",
     "Brand-only companies must not be represented as real ticker symbols.");
+  assert.equal(generatedSnapshot.companyRotationEnabled, true,
+    "The global company-rotation master must apply even while the legacy per-package copy is OFF.");
   assert.equal(firstCycle.autoTrades.length, 0,
     "The global server-side execution lock must prevent trades even if a stale package policy says automaticTradingEnabled=true.");
 
