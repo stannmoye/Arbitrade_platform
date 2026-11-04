@@ -14,7 +14,12 @@ describe("customer popup eligibility", () => {
     expect(isFreshCustomerPopupCandidate({
       ...baseOffer,
       deliveryStatus: "in_progress",
+      deliveryLeaseToken: "active-test-lease",
     }, now)).toBe(true);
+    expect(isFreshCustomerPopupCandidate({
+      ...baseOffer,
+      deliveryStatus: "in_progress",
+    }, now)).toBe(false);
   });
 
   it("continues to allow acknowledged delivery states", () => {
