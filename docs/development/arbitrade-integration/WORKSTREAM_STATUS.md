@@ -4,7 +4,6 @@
 **Main checkpoint:** 0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b  
 **Window 1 company contract branch:** feat/workstream-1-company-catalogue-rotation-contract  
 **Window 3 branch:** workstream/3-automatic-opportunity-engine  
-**Window 3 head:** 7ab86b66cd10bb7b2dbdf014d79a91c0b7141164  
 **Window 3 PR:** [#286](https://github.com/stannmoye/Arbitrade_platform/pull/286), draft, stacked on PR #278
 
 ## Window 1 — Company Catalogue & Automatic Company Rotation
