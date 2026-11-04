@@ -37,7 +37,7 @@ Do not run the fresh-VPS provisioning flow on a server with existing application
 
 ## Trading tier qualification worker: post-install verification
 
-The Trading tier qualification worker is designed to run inside the Node.js application process. On the supported production startup path, `pnpm start` runs the worker-runtime schema guard and then launches `dist/index.js`; the worker polls its durable database queue on its configured interval. **Do not create a cron job by default.** A second scheduler is unnecessary when the application service remains running.
+The Trading tier qualification worker is designed to run inside the Node.js application process. On the supported production startup path, `pnpm start` applies the tracked guarded migrations, performs read-only worker-schema contract checks, and then launches `dist/index.js`; the worker polls its durable database queue on its configured interval. **Do not create a cron job by default.** A second scheduler is unnecessary when the application service remains running.
 
 After the installer wizard and database migrations have completed:
 
