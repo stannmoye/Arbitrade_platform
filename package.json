@@ -34,7 +34,8 @@
     "db:plan-trade-recovery": "tsx scripts/plan-trade-recovery.ts",
     "db:collect-trade-recovery-evidence": "node scripts/collect-trade-recovery-evidence.mjs",
     "db:ensure-worker-schema": "node scripts/ensure-worker-runtime-schema.mjs",
-    "installer:verify-workers": "node installer/verify-worker-runtime.mjs"
+    "installer:verify-workers": "node installer/verify-worker-runtime.mjs",
+    "profile:worker-health": "node --expose-gc --import tsx scripts/profile-worker-health.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
