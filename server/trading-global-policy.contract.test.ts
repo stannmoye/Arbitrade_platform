@@ -143,15 +143,6 @@ describe("global Trade master policy ownership and migration", () => {
     expect(migration).not.toMatch(/UPDATE\s+`?opportunity_package_policies`?/i);
   });
 });
-)`);
-    }
-    expect(migration105).toContain("`updatedBy` IS NULL");
-    expect(migration105).toContain("$.policyVersion");
-    expect(migration105).not.toContain("automaticTradingEnabled");
-    expect(journal.entries.some(entry => entry.tag === "0105_default_on_global_information_delivery")).toBe(true);
-  });
-
-
   it("assigns each global master exactly one global owner and keeps package lifecycle separate", () => {
     const masterKeys = [
       "trade.global.tierPolicyMasterEnabled",
