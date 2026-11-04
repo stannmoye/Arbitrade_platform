@@ -15,11 +15,8 @@ describe("canonical package opportunity policy contract", () => {
     expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.maxIntervalSeconds).toBe(3600);
     expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.maxPendingDeliveries).toBe(3);
     expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.automaticTradingEnabled).toBe(false);
-    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.enabled).toBe(true);
-    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.automaticDelivery).toBe(true);
-    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.companyRotationEnabled).toBe(true);
-    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.randomizationEnabled).toBe(true);
-    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.burstEnabled).toBe(true);
+    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.enabled).toBe(false);
+    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.automaticDelivery).toBe(false);
   });
 
   it("keeps package edits isolated and preserves every omitted saved value", () => {
@@ -62,11 +59,9 @@ describe("canonical package opportunity policy contract", () => {
   });
 
   it("does not expose global masters or persistence metadata as package-editable fields", () => {
-    expect(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS).toContain("enabled");
-    expect(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS).toContain("automaticDelivery");
-    expect(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS).toContain("companyRotationEnabled");
-    expect(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS).toContain("randomizationEnabled");
-    expect(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS).toContain("burstEnabled");
+    expect(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS).not.toContain("enabled");
+    expect(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS).not.toContain("automaticDelivery");
+    expect(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS).not.toContain("companyRotationEnabled");
     expect(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS).not.toContain("automaticTradingEnabled");
     expect(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS).not.toContain("policyVersion");
     expect(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS).not.toContain("updatedBy");
