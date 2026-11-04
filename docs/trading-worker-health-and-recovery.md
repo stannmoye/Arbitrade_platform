@@ -19,7 +19,7 @@ The Trade Settings → **Worker Health & Recovery** page reads durable health ro
 - Mining reward processing and Mining price feeds.
 - Opportunity-popup retention and market-data refresh.
 
-Each cycle records an instance identifier, latest heartbeat, last successful run, last failed run, duration, consecutive failure count, and bounded sanitized error text. A read-time stale threshold distinguishes stale heartbeats from cycles that are still running. Rows from recent server instances remain visible for 24 hours so crashes and restarts can be investigated.
+Each cycle records an instance identifier, latest heartbeat, last successful run, last failed run, duration, consecutive failure count, and bounded sanitized error text. A read-time stale threshold distinguishes stale heartbeats from cycles that are still running. Rows from recent server instances remain visible for 24 hours so crashes and restarts can be investigated. Each row is marked as current-process or historical-process evidence. Only current-process rows contribute to live diagnostic classification; historical stale rows remain visible for investigation but do not create current-process failures. Synthesized `not_started` rows for registered workers in the current process remain actionable. The Trading opportunities worker also reports a partial customer batch as degraded when its aggregate `customerFailures` count is greater than zero, even if the outer batch loop completed; the aggregate health message contains only the count and uses the existing sanitized error-code path.
 
 ## Queue view and safety boundary
 
