@@ -4,7 +4,8 @@
 **Prepared:** 2026-11-04  
 **Workstream 1 PR:** [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278)  
 **Branch:** `feat/automatic-template-opportunities`  
-**Code head inspected:** `aa27d664475eaf40dd4ff3d3414b267e569484e9`
+**Latest PR head:** `b7567f4ae2b1c99342014925c5a667d1896fba21`  
+**Latest code/test head with recorded CI:** `2629baa75c1644b3771511a4b085b0085eca79fb`
 
 ## What Window 1 hands off
 
