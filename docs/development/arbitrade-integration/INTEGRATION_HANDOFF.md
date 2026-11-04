@@ -61,3 +61,62 @@ The existing PR #278 implementation was inspected before extending it:
 - The legacy market refresh path ensureMarketDrivenOpportunities still reports generationDisabled and creates zero opportunities on the inspected base. It must not be mistaken for the catalogue-native generation worker.
 - Generation currently shares some readiness/capacity calculations with customer delivery. Reconcile Window 2's package-policy contract and Window 4's delivery ownership before changing those gates; do not fork the policy or delivery services.
 - Window 1's new contract branch and Window 2's final package-policy branch must both be included in Window 7's integration comparison. Window 2's branch was not present in the branch listing during this work.
+
+
+## Window 3 — package-policy audit findings (2026-11-04)
+
+Migration history establishes the following without requiring a production database read:
+
+- `0069_trading_package_activation.sql` defines the canonical 16-package catalogue.
+- `0081_trading_tier_policy_alignment.sql` inserts a policy row for each existing package whose exact package name has no policy row. It preserves existing policy rows and their saved values.
+- `0089_trading_popup_policy_ranges.sql` adds explicit payout/duration bounds and disables policy rows whose bounds are absent or invalid. It does not assign administrator-approved payout or duration terms to the 16 packages.
+- Window 2's resolver preserves existing saved values on partial edits. Its new-package defaults are not a runtime fallback for existing tiers.
+- Window 3 selects a policy by exact `packages.name = opportunity_package_policies.packageName` match and fails closed when saved payout/duration terms are invalid. It does not synthesize missing terms.
+
+### Required read-only deployment audit
+
+Run this against a read-only connection to the target database before enabling customer delivery. It reports each existing package and its matching saved policy without modifying data:
+
+```sql
+SELECT
+  p.id AS package_id,
+  p.name AS package_name,
+  p.enabled AS package_enabled,
+  opp.id AS policy_id,
+  opp.policyVersion AS policy_version,
+  opp.minimumTradeUnits,
+  opp.maximumTradeUnits,
+  opp.minimumPayoutRateBps,
+  opp.maximumPayoutRateBps,
+  opp.minimumTradeDurationSeconds,
+  opp.maximumTradeDurationSeconds,
+  opp.maxPendingDeliveries,
+  CASE
+    WHEN opp.id IS NULL THEN 'MISSING_POLICY'
+    WHEN p.enabled <> 1 THEN 'PACKAGE_DISABLED'
+    WHEN opp.policyVersion IS NULL OR opp.policyVersion < 1 THEN 'INVALID_POLICY_VERSION'
+    WHEN opp.minimumTradeUnits IS NULL OR opp.maximumTradeUnits IS NULL
+      OR opp.minimumTradeUnits < 1 OR opp.maximumTradeUnits < opp.minimumTradeUnits THEN 'INVALID_CAPITAL_BOUNDS'
+    WHEN opp.minimumPayoutRateBps IS NULL OR opp.maximumPayoutRateBps IS NULL
+      OR opp.minimumPayoutRateBps < 1 OR opp.maximumPayoutRateBps < opp.minimumPayoutRateBps
+      OR opp.maximumPayoutRateBps > 5000 THEN 'INVALID_PAYOUT_BOUNDS'
+    WHEN opp.minimumTradeDurationSeconds IS NULL OR opp.maximumTradeDurationSeconds IS NULL
+      OR opp.minimumTradeDurationSeconds < 10
+      OR opp.maximumTradeDurationSeconds < opp.minimumTradeDurationSeconds
+      OR opp.maximumTradeDurationSeconds > 86400 THEN 'INVALID_DURATION_BOUNDS'
+    WHEN opp.maxPendingDeliveries < 1 THEN 'PENDING_DELIVERY_LIMIT_DISABLED'
+    ELSE 'TERMS_READY'
+  END AS audit_status
+FROM packages AS p
+LEFT JOIN opportunity_package_policies AS opp
+  ON opp.packageName = p.name
+ORDER BY p.id;
+```
+
+A package marked `TERMS_READY` has structurally valid saved terms only. It does not prove that an eligible customer subscription exists, global delivery masters are enabled, a worker is healthy, or a popup is visible in the hosted browser. Do not change policy rows based only on this report; missing or invalid payout/duration terms require an administrator-approved value for that package.
+
+### Stage 2 status
+
+- Source-level migration and generator contract reviewed.
+- A Window 3 regression test now locks the 16-package seed count, missing-policy row backfill, explicit invalid-term disablement, exact package-name policy join, and no runtime-default fallback.
+- Live package/policy counts and values remain unverified until this read-only query is run against the target database.
