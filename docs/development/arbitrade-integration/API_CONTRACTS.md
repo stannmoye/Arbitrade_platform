@@ -31,3 +31,11 @@ The generation-control migration default is ON for new installations. Existing a
 - Do not make customer clients select package, payout rate, duration or company outside server policy.
 - Any API changes by another workstream must be recorded here with router path, authorization class, input/output contract, idempotency and compatibility notes.
 - Exact generated output types should continue to be inferred from the existing tRPC router rather than copied into duplicate hand-maintained DTOs.
+
+## Workstream 6 monitoring contract
+
+- No new API procedure or public/customer API is introduced.
+- Existing admin-only Worker Health & Recovery and System Diagnostics surfaces remain the monitoring read paths.
+- The opportunity worker cycle result includes an aggregate `customerFailures` integer. It contains no customer identifiers or raw exception text and is consumed internally by the existing worker-health wrapper.
+- Existing admin authorization, error sanitization and unavailable-versus-empty semantics remain unchanged.
+- Worker health responses mark each row with `isCurrentInstance`; historical rows remain available for review, while live diagnostic classification uses current-process rows only.
