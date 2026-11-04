@@ -40,7 +40,11 @@ Existing generation infrastructure reused:
 
 ## Window 4 — Opportunity Delivery & Customer Portal
 
-Owns the existing delivery lifecycle and consumes persisted generated offers. Window 3 does not add a delivery worker or endpoint.
+**PR:** [#280](https://github.com/stannmoye/Arbitrade_platform/pull/280)  
+**Branch/head:** `feat/stage4-opportunity-delivery-contract` / `6981e176d49de86e1f18cba1736aca0ef621de51`  
+**Base:** `integration/window1-base-6d6d09b` at `6d6d09ba1a001c9c50e54f46a0d58dad83daff16`; this base is an ancestor of Window 1's current generation branch by two commits.
+
+Owns the existing delivery lifecycle and customer portal. The handoff requires `deliveryLeaseToken` for first render of an `in_progress` event and uses the same token for `received`/`rendered` acknowledgements. A follow-on fix supports retry after a render failure reported after `received`. No migration, queue or new delivery worker is added. Window 3 keeps generated company identity immutable and does not add a delivery path.
 
 ## Window 6 — Assignment confirmation pending
 
