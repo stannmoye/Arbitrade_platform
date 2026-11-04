@@ -10,7 +10,7 @@ import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modul
 import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostings, inspectWalletLedgerSnapshot } from "./modules/wallet-ledger-reconciliation";
 import { addCalendarMonths } from "./modules/calendar-months";
 import { validateOpportunityOfferClosure, validateOpportunityOfferPublication, type OpportunityOfferClosureInput, type OpportunityOfferPublicationInput } from "./modules/opportunity-publication";
-import { createCatalogueIdentityOpportunityTemplate, selectOpportunityGenerationTerms, validateOpportunityGenerationTemplate, type OpportunityGenerationTemplate } from "./modules/opportunity-generation-template";
+import { createCatalogueIdentityOpportunityTemplate, createUnattributedCatalogueOpportunityTemplate, selectOpportunityGenerationTerms, validateOpportunityGenerationTemplate, type OpportunityGenerationTemplate } from "./modules/opportunity-generation-template";
 import { assessOpportunityPackageCompatibility, type OpportunityPackageCompatibility } from "./modules/opportunity-package-compatibility";
 import { claimPopupDeliveryDispatches, ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
@@ -3287,13 +3287,12 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     // The existing brand catalogue is the generation source. Templates are optional
     // display-term overrides and must never shrink or gate the company rotation pool.
     const approvedPool=buildCompanySpotlightPool(String(selectedPolicy.companyRotationCountryNames||""),catalogueState);
-    if(!approvedPool.length)return null;
 
-    let company:any;
+    let company:any=null;
     let rotationCycle:number|null=null;
     let rotationSequence:number|null=null;
     let poolFingerprint:string|null=null;
-    if(input.companyRotationEnabled){
+    if(approvedPool.length>0&&input.companyRotationEnabled){
       const stateKey=`trading.companyRotation.${input.userId}.${Number(selectedSubscription.packageId)}`;
       await tx.insert(appSettings).values({settingKey:stateKey,settingValue:"",updatedBy:input.userId})
         .onDuplicateKeyUpdate({set:{settingKey:stateKey}});
@@ -3305,14 +3304,14 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         selectedPolicy.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted");
       company=selection.company;rotationCycle=selection.rotationCycle;rotationSequence=selection.rotationSequence;poolFingerprint=selection.poolFingerprint;
       await tx.update(appSettings).set({settingValue:JSON.stringify(selection.state),updatedBy:input.userId,updatedAt:input.now}).where(eq(appSettings.settingKey,stateKey));
-    }else{
+    }else if(approvedPool.length>0){
       company=approvedPool[crypto.randomInt(0,approvedPool.length)];
     }
-    // Load at most one override for the already-selected company. Do not lock or scan
-    // every approved template for every customer in a large generation batch.
-    const template=(await tx.select().from(opportunityGenerationTemplates)
+    // Templates may enrich an existing selected company only. An empty approved
+    // display pool produces a company-neutral informational opportunity.
+    const template=company?(await tx.select().from(opportunityGenerationTemplates)
       .where(and(eq(opportunityGenerationTemplates.status,"approved"),eq(opportunityGenerationTemplates.companyReferenceId,company.id)))
-      .orderBy(opportunityGenerationTemplates.id).limit(1).for("update"))[0]||null;
+      .orderBy(opportunityGenerationTemplates.id).limit(1).for("update"))[0]||null:null;
     // Approved templates are optional display-term overrides. Without one, build
     // terms directly from the catalogue name/logo identity; no ticker or exchange is needed.
     const currencyCode=template?String(template.currency):"USD";
@@ -3327,7 +3326,8 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       templateName:template.templateName,companyReferenceId:template.companyReferenceId,symbol:template.symbol,
       venueFrom:template.venueFrom,venueTo:template.venueTo,currency:template.currency,minimumMinor:packageMinimum,
       sourceReference:template.sourceReference,reviewNotes:template.reviewNotes,
-    }):createCatalogueIdentityOpportunityTemplate(company,packageMinimum,"USD");
+    }):company?createCatalogueIdentityOpportunityTemplate(company,packageMinimum,"USD")
+      :createUnattributedCatalogueOpportunityTemplate(packageMinimum,"USD");
     const terms=selectOpportunityGenerationTerms(normalized,{
       minimumPayoutRateBps:selectedPolicy.minimumPayoutRateBps==null?null:Number(selectedPolicy.minimumPayoutRateBps),
       maximumPayoutRateBps:selectedPolicy.maximumPayoutRateBps==null?null:Number(selectedPolicy.maximumPayoutRateBps),
@@ -3338,7 +3338,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     const displaySeconds=Math.max(1,Math.min(86400,Number(selectedPolicy.popupDisplayTargetSeconds||120)));
     const closesAt=new Date(input.now.getTime()+Math.max(86_400,terms.tradeDurationSeconds,displaySeconds)*1000);
     const rewardAt=new Date(input.now.getTime()+terms.tradeDurationSeconds*1000);
-    const companyMetadata={
+    const companyMetadata=company?{
       rotationStateVersion:1,rotationCycle,rotationSequence,poolFingerprint,
       repeatPolicy:selectedPolicy.companyRotationRepeatPolicy,
       ticker:company.ticker,symbol:company.symbol,exchangeCode:company.exchangeCode,
@@ -3350,7 +3350,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       requiresManualVerification:company.requiresManualVerification,sourceConfidence:company.sourceConfidence,
       sector:company.sector,headquartersCountry:company.headquartersCountry,instrumentType:company.instrumentType,
       recordCompleteness:company.recordCompleteness,adminCatalogueStatus:"verified",referenceOnly:true,
-    };
+    }:null;
     const snapshot={
       packageId:Number(selectedSubscription.packageId),packageSubscriptionId:Number(selectedSubscription.subscriptionId),
       packageName:String(selectedSubscription.packageName),policyVersion:Number(selectedPolicy.policyVersion||1),
@@ -3367,7 +3367,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       companyRotationRepeatPolicy:selectedPolicy.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
       maxPendingDeliveries:Number(selectedPolicy.maxPendingDeliveries||0),
       configuredPayout:true,payoutSemantics:terms.payoutSemantics,templateId:template?Number(template.id):null,templateVersion:template?Number(template.version):null,
-      sourceReference:terms.sourceReference,reviewNotes:terms.reviewNotes,companyReferenceId:company.id,companyRotation:companyMetadata,
+      sourceReference:terms.sourceReference,reviewNotes:terms.reviewNotes,companyReferenceId:company?.id??null,companyRotation:companyMetadata,
       generatedAt:input.now.toISOString(),generationBatchId:input.batchId,
     };
     const priorAssignmentRows=await tx.select({value:count()}).from(opportunityGenerationAssignments)
@@ -3379,8 +3379,8 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     const offerInsert=await tx.insert(opportunityOffers).values({
       assignedUserId:input.userId,assignedPackageId:Number(selectedSubscription.packageId),
       assignedPackageSubscriptionId:Number(selectedSubscription.subscriptionId),generationTemplateId:template?Number(template.id):null,generationKey,
-      companyReferenceId:company.id,companyDisplayName:company.name,companyLogoUrl:String(company.logoUrl||"").slice(0,500),
-      companyReferenceMetadataJson:JSON.stringify(companyMetadata),configuredProfitRateBps:terms.configuredPayoutRateBps,
+      companyReferenceId:company?.id??null,companyDisplayName:company?.name??null,companyLogoUrl:company?.logoUrl?String(company.logoUrl).slice(0,500):null,
+      companyReferenceMetadataJson:companyMetadata?JSON.stringify(companyMetadata):null,configuredProfitRateBps:terms.configuredPayoutRateBps,
       configuredDurationSeconds:terms.tradeDurationSeconds,packagePolicyVersionSnapshot:Number(selectedPolicy.policyVersion||1),
       symbol:terms.symbol,venueFrom:terms.venueFrom,venueTo:terms.venueTo,currency:terms.currency,minimumMinor,
       expectedRewardBps:terms.configuredPayoutRateBps,durationSeconds:terms.tradeDurationSeconds,
@@ -3394,7 +3394,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     await tx.insert(opportunityGenerationAssignments).values({
       generationKey,batchId:input.batchId,userId:input.userId,offerId,templateId:template?Number(template.id):null,templateVersion:template?Number(template.version):null,
       packageId:Number(selectedSubscription.packageId),packageSubscriptionId:Number(selectedSubscription.subscriptionId),packageName:String(selectedSubscription.packageName),
-      packagePolicyVersion:Number(selectedPolicy.policyVersion||1),companyReferenceId:company.id,
+      packagePolicyVersion:Number(selectedPolicy.policyVersion||1),companyReferenceId:company?.id??null,
       configuredProfitRateBps:terms.configuredPayoutRateBps,configuredDurationSeconds:terms.tradeDurationSeconds,
       packageSnapshotJson:JSON.stringify(snapshot),status:"generated",generatedAt:input.now,assignedAt:input.now,expiresAt:closesAt,
     });
