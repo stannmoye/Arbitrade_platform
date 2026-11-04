@@ -3502,6 +3502,7 @@ export async function saveOpportunityGenerationTemplate(adminId:number,input:{id
 export async function getOpportunityGenerationMonitor(){
   const db=await getDb();if(!db)return {available:false,control:await getOpportunityGenerationControl(),batches:[],today:{generated:0,delivered:0,failed:0},packageBreakdown:[],recentAssignments:[]};
   const control=await getOpportunityGenerationControl();
+  const globalPolicy=await getTradeGlobalControls();
   const dayStart=new Date();dayStart.setUTCHours(0,0,0,0);
   const [batches,assignments,todayGroups,todayBatchFailures,todayPackageGroups,policies]=await Promise.all([
     db.select().from(opportunityGenerationBatches).orderBy(desc(opportunityGenerationBatches.startedAt)).limit(20),
@@ -3527,7 +3528,8 @@ export async function getOpportunityGenerationMonitor(){
   for(const row of todayPackageGroups){const countRow=packageCounts.get(row.packageName)||{generated:0,delivered:0,failed:0};const total=Number(row.total||0);countRow.generated+=total;if(row.status==="delivered")countRow.delivered+=total;if(row.status==="failed")countRow.failed+=total;packageCounts.set(row.packageName,countRow);}
   return {available:true,control,batches,today:{generated:todayGenerated,delivered:todayByStatus.get("delivered")||0,failed:Number(todayBatchFailures[0]?.total||0)+(todayByStatus.get("failed")||0)},
     packageBreakdown:policies.map(policy=>({packageName:policy.packageName,packageEnabled:Boolean(policy.packageEnabled),dailyOpportunityAllowance:policy.dailyOpportunityAllowance,
-      policyEnabled:Boolean(policy.enabled),automaticDelivery:Boolean(policy.automaticDelivery),
+      policyEnabled:Boolean(globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled),
+      automaticDelivery:Boolean(globalPolicy.available&&globalPolicy.informationalPopupDeliveryEnabled),
       minimumPayoutRateBps:policy.minimumPayoutRateBps,maximumPayoutRateBps:policy.maximumPayoutRateBps,
       minimumTradeDurationSeconds:policy.minimumTradeDurationSeconds,maximumTradeDurationSeconds:policy.maximumTradeDurationSeconds,
       maxPopupsPerDay:policy.maxPopupsPerDay,maxVisibleOffers:policy.maxVisibleOffers,maxPendingDeliveries:policy.maxPendingDeliveries,
