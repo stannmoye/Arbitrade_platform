@@ -1,7 +1,7 @@
 # Company Catalogue & Rotation Selection Contract
 
 **Owner:** Workstream 1 — Company Catalogue & Automatic Company Rotation  
-**Status:** Runtime loader corrected to use stable brand identity independently of optional ticker enrichment; awaiting exact-head CI and Window 7 re-review  
+**Status:** Runtime loader corrected; 25/25 CI checks passed on validation commit `9692c380b4a69d4d2055ddeb11cc16c967f380d2`; Window 7 independent review pending  
 **Canonical implementation:** `server/modules/company-catalogue-reference.ts` and `server/modules/company-spotlight-rotation.ts`
 
 ## Purpose and boundary
@@ -124,4 +124,10 @@ The existing `server/opportunityLifecycle.ts` already demonstrates this transact
 
 ## Existing verification coverage
 
-Regression coverage includes the production loader invoked with isolated fixture paths and missing ticker workbook files, a subprocess importing the actual production module from an isolated 1,811-row mapping with all ticker files absent, partial ticker enrichment, the 1,811-record catalogue and local logo assets, stable IDs, admin approval, disabled/archived precedence, malformed-state fail-closed behavior, exact country filters, duplicate detection, repeat avoidance, cursor restart restoration, and no-fallback behavior for an empty eligible pool. Existing database rotation integration coverage runs in CI on MySQL 8.4 and MariaDB 11.4. CI results are automated verification only; they do not establish a live production deployment, production database upgrade or customer acceptance.
+Regression coverage includes the production loader invoked with isolated fixture paths and missing ticker workbook files; a subprocess importing the actual production module from an isolated copy of the genuine 1,811-row logo mapping with all ticker files absent; partial ticker enrichment; all 1,811 stable IDs and local logo assets; stable identity; admin approval; disabled/archived precedence; malformed-state fail-closed behavior; exact country filters; duplicate detection; repeat avoidance; cursor restart restoration; and no-fallback behavior for an empty eligible pool.
+
+The four focused loader tests are `loads stable-ID brand records from the actual loader when ticker workbook files are absent`, `initializes the production module with all 1,811 records when ticker files are entirely absent`, `keeps available ticker metadata as enrichment without requiring a complete workbook`, and `does not require ticker workbook rows to match the catalogue size or supplement count`.
+
+The initial failing CI runs exposed test-fixture defects: literal backslash-n separators produced an empty mapping during isolated module initialization, and a fixture without explicit missing ticker paths accidentally consumed the checked-in ticker snapshot. The tests now use actual newline separators, explicitly absent ticker paths, and a copy of the genuine checked-in mapping. The complete validation commit `9692c380b4a69d4d2055ddeb11cc16c967f380d2` passed all 25 GitHub Actions checks, including loader/application tests, TypeScript, production build, installer validation, browser recovery checks and MySQL 8.4 / MariaDB 11.4 database integration workflows. The application test job reported 146 test files passed / 5 skipped and 1,144 tests passed / 27 skipped; the trading recovery suite reported 31 test files and 176 tests passed. Skipped tests are not represented as executed.
+
+CI results are automated verification only; they do not establish a live production deployment, production database upgrade or customer acceptance. Window 7's independent review and acceptance remain required.
