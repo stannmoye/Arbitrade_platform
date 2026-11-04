@@ -37,9 +37,9 @@ Existing generation infrastructure reused:
 
 Owns the existing delivery lifecycle and consumes persisted generated offers. Window 3 does not add a delivery worker or endpoint.
 
-## Window 6 — Testing, Monitoring & Production Readiness
+## Window 6 — Assignment confirmation pending
 
-Owns worker-health and final readiness verification. Window 3 reuses existing generation batches and monitoring surfaces.
+The exact Window 6 implementation responsibility and branch were not confirmed in this repository inspection. Window 3 does not claim ownership of the worker-health registry and will coordinate any required changes after the assignment is supplied.
 
 ## Window 7 — Final Integration
 
