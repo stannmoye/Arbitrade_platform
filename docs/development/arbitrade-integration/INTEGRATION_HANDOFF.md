@@ -1,14 +1,16 @@
 # Window 7 — Integration Handoff
 
-**Prepared by:** Window 1 — Automatic Opportunity Generation  
+**Prepared by:** Window 3 — Automatic Opportunity Generation  
 **Prepared:** 2026-11-04  
-**Workstream 1 PR:** [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278)  
+**Workstream 3 PR:** [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278)  
 **Branch:** `feat/automatic-template-opportunities`  
-**Code head inspected:** `2629baa75c1644b3771511a4b085b0085eca79fb`
+**Code head inspected:** `ca9796a461f3e279857c512fcc90f1c3a87423a2`
 
-## What Window 1 hands off
+## What Window 3 hands off
 
-The branch implements catalogue-native automatic opportunity generation and keeps manual company templates optional. It uses the existing customer entitlement, package-policy, company-catalogue, company-rotation and opportunity-delivery infrastructure. The current PR contains 48 changed files and migrations 0103–0105.
+This branch owns the Window 3 automatic opportunity-generation implementation. It extends the existing customer entitlement, persisted package-policy, approved company-catalogue, company-rotation and opportunity-delivery infrastructure; it does not introduce a second generator or delivery lifecycle. Manual company templates remain optional display-term enrichment.
+
+Window 3 owns candidate subscription selection, per-subscription and per-package daily quota enforcement, the generation transaction, immutable package/company snapshots, generation idempotency, rotation commit/rollback safety, and the corresponding MySQL 8.4 / MariaDB 11.4 integration coverage. Window 1 retains ownership of the company catalogue and its approved-company rotation contract; Window 4 retains ownership of delivery admission, leases, acknowledgements and customer rendering.
 
 Key implementation files include:
 - `server/modules/opportunity-generation-template.ts`
@@ -40,7 +42,7 @@ Key implementation files include:
 Window 1 has not merged to `main` and has not deployed the branch. Window 7 owns the final integration decision. Do not deploy or apply migrations to production as part of integration verification. The user’s separate financial boundary remains in force.
 
 
-## Company rotation transaction safety — Stage 1 correction
+## Window 3 — Company rotation transaction safety and rollback regression
 
 At Window 3's Stage 1 correction, generation was found to persist the selected company rotation cursor before currency resolution and before the opportunity/assignment inserts. A later non-exceptional early return (for example, no enabled currency row) could therefore commit the cursor without a corresponding generated opportunity.
 
@@ -52,3 +54,26 @@ Regression coverage added:
 - Concurrent same-customer worker cycles asserting both calls reuse the same opportunity and advance the cursor only once.
 
 The integration scenario is part of `scripts/trading-popup-delivery.integration.ts` and is guarded to refuse non-loopback or non-disposable database names. Results must be evaluated from GitHub Actions for the exact final commit; source assertions are not database test evidence.
+
+
+## Window 3 — Per-package quota selection correction
+
+The generator now evaluates quota availability for every eligible subscription before selecting a candidate. The selection occurs inside the existing per-customer generation transaction and lock.
+
+For each candidate, it:
+- Reads the saved subscription entitlement quota and package daily allowance.
+- Applies the persisted package-policy popup cap and daily target.
+- Resolves the candidate package's own calendar-day or rolling-24-hour quota window.
+- Counts generation assignments for both the exact subscription and the customer/package pair in that window.
+- Skips the candidate when either its subscription entitlement or package-wide cap is exhausted, then continues to the next eligible subscription.
+- Persists the selected entitlement quota, effective package quota and quota-window start in the immutable assignment snapshot.
+
+The disposable-database regression scenario has multiple active subscriptions across two packages. It establishes exactly three assignments against the first package and sets its effective daily cap to three, while a second package has a separate one-assignment allowance. The next worker cycle must skip the exhausted first package, persist its new assignment against the second package/subscription, record both selected limits as one in the immutable snapshot, leave the first package at three assignments, and give the second package exactly one assignment. This verifies actual database selection behavior rather than only source text or a helper function.
+
+## Window 3 — Failed-integration diagnosis and rollback test correction
+
+The failing Trading opportunity worker concurrency and recovery integration jobs on MySQL 8.4 and MariaDB 11.4 both reached the deliberately injected forced_rotation_generation_failure trigger at the generated-offer INSERT. The generation transaction raised the expected database exception and rolled back. The integration script did not catch/assert that deliberate exception, so Node exited before the cursor and partial-write rollback assertions could run.
+
+The regression now explicitly captures and asserts the nested database error chain contains forced_rotation_generation_failure, then retains the existing checks that the rotation cursor is unchanged and no partial offer remains. It drops the trigger and retries generation; the successful retry must advance the durable rotation counter exactly once. The failure injection and rollback assertions are retained, not skipped or relaxed.
+
+Exact-head MySQL 8.4 and MariaDB 11.4 results must be taken from GitHub Actions after the final correction commit. Do not treat the earlier failing run or source inspection as passing database evidence.
