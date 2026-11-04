@@ -88,6 +88,13 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(lifecycle).toContain("e.status='expired'");
   });
 
+  it("uses global delivery masters instead of legacy per-package boolean mirrors", () => {
+    expect(generator).not.toContain("eq(opportunityPackagePolicies.enabled,true)");
+    expect(generator).not.toContain("eq(opportunityPackagePolicies.automaticDelivery,true)");
+    expect(generator).toContain("if(input.companyRotationEnabled){");
+    expect(generator).toContain("companyRotationEnabled:Boolean(input.companyRotationEnabled)");
+  });
+
   it("expires catalogue-native generated offers and delivery rows without requiring a manual template", () => {
     const retentionStart = lifecycle.indexOf("export async function runOpportunityRetention()");
     const retention = lifecycle.slice(retentionStart);
