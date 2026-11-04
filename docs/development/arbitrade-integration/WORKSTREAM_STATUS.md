@@ -12,7 +12,10 @@ Contract branch documents the existing catalogue and rotation interface. It pres
 
 ## Window 2 — Package Policies & Configuration
 
-Assigned to package-specific policies. Its current branch/interface was not available in the repository branch search at the time of this update. Window 3 must reconcile the final policy contract before integration; no replacement policy service is created here.
+**PR:** [#284](https://github.com/stannmoye/Arbitrade_platform/pull/284)  
+**Branch/head:** `feat/window-2-package-opportunity-policy-contract` / `3d794c64cd4f542d852ebf97dc18796014a5548b`
+
+Window 2 centralizes the typed package-policy write contract in `server/modules/package-opportunity-policy.ts` (`PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS`, `DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY`, `resolveEffectivePackageOpportunityPolicy`). Window 3 consumes only persisted `opportunity_package_policies` rows and validates saved bounds with `hasConfiguredTradingOfferPolicy`; it must not apply new-package defaults at generation time or create a second resolver. Reconcile the shared `server/db.ts` edit with Window 3's generation changes.
 
 ## Window 3 — Automatic Opportunity Generation Engine
 
