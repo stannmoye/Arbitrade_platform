@@ -9,6 +9,8 @@ import {
   packageFeeExpectedVersion,
   resolvePackageFeePolicy,
   normalizeGlobalTradeTimingSettings,
+  validateDeliveryRetryDraft,
+  validatePackageFeeDraft,
 } from "./trading-settings-client-contracts";
 
 const feeEditorSource = readFileSync(new URL("./components/AdminPackageFeeEditor.tsx", import.meta.url), "utf8");
@@ -170,5 +172,49 @@ describe("client Trading settings API contracts", () => {
     expect(retryEditorSource).toContain("activate a replacement immediately");
     expect(retryEditorSource).not.toContain("allocateCapital");
     expect(retryEditorSource).not.toContain("settleTrade");
+  });
+});
+
+
+describe("Trade settings draft validation", () => {
+  it("explains every invalid package fee field before a save can be submitted", () => {
+    expect(validatePackageFeeDraft({ feeRateBps: null, roundingMode: "", effectiveAt: null, reason: "  " })).toEqual([
+      "Enter a fee rate from 0% to 100% in exact 0.01 percentage-point steps.",
+      "Choose a fee rounding mode.",
+      "Choose a valid effective time in the future.",
+      "Enter a reason containing 5–500 characters.",
+    ]);
+    expect(validatePackageFeeDraft({ feeRateBps: 250, roundingMode: "half_up", effectiveAt: "2026-11-05T12:00:00.000Z", reason: "Approved fee change" })).toEqual([]);
+  });
+
+  it("requires one retry interval per retry attempt and explains no-retry constraints", () => {
+    const base = { effectiveAt: "2026-11-05T12:00:00.000Z", reason: "Approved retry change", configured: true };
+    expect(validateDeliveryRetryDraft({ ...base, policy: "temporary", maxAttempts: 4, intervalsSeconds: [30, 60], })).toContain(
+      "Enter exactly one retry interval for each retry attempt (maximum attempts minus one).",
+    );
+    expect(validateDeliveryRetryDraft({ ...base, policy: "none", maxAttempts: 3, intervalsSeconds: [], })).toContain(
+      "No-retry policy requires exactly one initial attempt and no retry intervals.",
+    );
+    expect(validateDeliveryRetryDraft({ ...base, policy: "temporary", maxAttempts: 3, intervalsSeconds: [30, 60], })).toEqual([]);
+  });
+
+  it("rejects malformed retry attempts, missing effective time, and missing audit reason", () => {
+    expect(validateDeliveryRetryDraft({
+      policy: "temporary", maxAttempts: 0, intervalsSeconds: [30], effectiveAt: null, reason: "", configured: false,
+    })).toEqual([
+      "Maximum delivery attempts must be a whole number from 1 to 20.",
+      "Configure and confirm the shared retry policy before enabling temporary retries.",
+      "Enter exactly one retry interval for each retry attempt (maximum attempts minus one).",
+      "Choose a valid effective time.",
+      "Enter a reason containing 5–500 characters.",
+    ]);
+  });
+
+  it("renders accessible inline validation and confirmed-save feedback in both editors", () => {
+    expect(feeEditorSource).toContain("Check these fee settings before saving:");
+    expect(feeEditorSource).toContain('messageKind === "error" ? "admin-ops-empty error" : "test-notice"');
+    expect(retryEditorSource).toContain("Check these retry settings before saving:");
+    expect(retryEditorSource).toContain("maximum attempts minus one");
+    expect(retryEditorSource).toContain('messageKind === "error" ? "admin-ops-empty error" : "test-notice"');
   });
 });
