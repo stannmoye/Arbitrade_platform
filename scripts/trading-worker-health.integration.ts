@@ -24,7 +24,7 @@ async function main() {
   assert.deepEqual(result, { processedCustomers: 2, customerFailures: 1 });
 
   const summary = await getWorkerHealthSummary();
-  const worker = summary.workers.find((item) => item.workerKey === "trading-opportunities" && item.instanceId === summary.workers.find((row) => row.workerKey === "trading-opportunities" && row.healthRecordAvailable)?.instanceId);
+  const worker = summary.workers.find((item) => item.workerKey === "trading-opportunities" && item.healthRecordAvailable);
   assert.ok(worker, "The current process must expose its persisted opportunity-worker health record.");
   assert.equal(worker.status, "degraded", "A partially failed batch must persist as degraded.");
   assert.equal(worker.lastErrorCode, "CUSTOMER_CYCLE_FAILURES");
