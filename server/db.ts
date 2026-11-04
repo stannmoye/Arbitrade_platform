@@ -3276,10 +3276,9 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       if(row&&hasConfiguredTradingOfferPolicy(row)){
         let entitlementSnapshot:any={};
         try{entitlementSnapshot=JSON.parse(String(row.termsSnapshotJson||"{}"));}catch{entitlementSnapshot={};}
-        const snapshotQuota=Number(entitlementSnapshot.opportunitiesPerDay);
-        const packageQuota=Number(row.packageDailyOpportunityQuota);
-        const customerDailyQuota=Number.isSafeInteger(snapshotQuota)&&snapshotQuota>0?snapshotQuota:
-          (Number.isSafeInteger(packageQuota)&&packageQuota>0?packageQuota:0);
+        const effectiveEntitlementQuota=Number(entitlementSnapshot.opportunitiesPerDay??row.packageDailyOpportunityQuota);
+        const customerDailyQuota=Number.isSafeInteger(effectiveEntitlementQuota)&&effectiveEntitlementQuota>0
+          ?effectiveEntitlementQuota:0;
         const policyDailyQuota=Number(row.policyDailyOpportunityQuota);
         const effectiveDailyQuota=customerDailyQuota>0&&Number.isSafeInteger(policyDailyQuota)&&policyDailyQuota>0
           ?Math.min(customerDailyQuota,policyDailyQuota):0;
