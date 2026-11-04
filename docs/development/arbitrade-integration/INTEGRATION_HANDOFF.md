@@ -1,82 +1,121 @@
-# Window 7 — Integration Handoff
+# Window 7 Integration Handoff
 
-**Prepared by:** Window 1 — Automatic Opportunity Generation  
-**Prepared:** 2026-11-04  
-**Workstream 1 PR:** [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278)  
-**Branch:** `feat/automatic-template-opportunities`  
-**Latest PR head:** `b7567f4ae2b1c99342014925c5a667d1896fba21`  
-**Latest code/test head with recorded CI:** `2629baa75c1644b3771511a4b085b0085eca79fb`
+**Date:** 2026-11-04  
+**Repository:** `stannmoye/Arbitrade_platform`  
+**Integration branch:** `integration/window7-final`  
+**Target:** `main` (through a draft pull request only; no direct merge)
 
-## What Window 1 hands off
+## 1. Integration baseline
 
-The branch implements catalogue-native automatic opportunity generation and keeps manual company templates optional. It uses the existing customer entitlement, package-policy, company-catalogue, company-rotation and opportunity-delivery infrastructure. The current PR contains 48 changed files and migrations 0103–0105.
+- Initial main commit inspected: `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`.
+- Shared implementation checkpoint: `6d6d09ba1a001c9c50e54f46a0d58dad83daff16`.
+- Window 7 created `integration/window7-final` at the shared checkpoint and advanced it to Window 4's delivery handoff head `f77bada696e7c5373d9333b1316bdacbf8943c39` before adding reviewed integration commits.
+- The checkpoint is a descendant of the inspected main SHA and contains the substantial candidate generation implementation and migrations 0103–0105. It must be reviewed as part of the final PR; it is not already merged to main.
+- All integration work is committed to the dedicated branch. No direct changes have been made to `main`.
 
-Key implementation files include:
-- `server/modules/opportunity-generation-template.ts`
-- `server/db.ts`
-- `server/opportunityLifecycle.ts`
-- `server/routers.ts`
-- `client/src/components/AdminOpportunityTemplates.tsx`
-- `drizzle/0103_automatic_opportunity_generation_templates.sql`
-- `drizzle/0104_catalogue_native_opportunity_generation.sql`
-- `drizzle/0105_default_on_global_information_delivery.sql`
+## 2. Ownership and branch handoffs
 
-## Required integration steps
+| Window | Responsibility | PR / branch | Integration state |
+| --- | --- | --- | --- |
+| 1 | Company catalogue and automatic rotation | PR #283 / `feat/workstream-1-company-catalogue-rotation-contract` | Contract, docs and regression tests staged. |
+| 2 | Package opportunity policies | PR #284 / `feat/window-2-package-opportunity-policy-contract` | Typed module and database resolver staged; source-contract tests adapted; source PR CI has failures that require owner rerun. |
+| 3 | Automatic opportunity generation | Candidate PR #278 / `feat/automatic-template-opportunities` | Candidate code is in the shared checkpoint, but PR #278 labels it Window 1. Window 3 must confirm its ownership/commit handoff. |
+| 4 | Opportunity delivery and customer portal | PR #280 / `feat/stage4-opportunity-delivery-contract` | Shared checkpoint plus delivery contract tests/docs staged. |
+| 5 | Admin Trade settings and persistence | PR #285 / `workstream/window-5-admin-trade-settings-persistence` | Client validation, zero-safe hydration and read-back feedback staged. |
+| 6 | Testing, monitoring and readiness | PR #279 / `feat/stage-6-opportunity-worker-observability` | Partial-cycle health and current/historical instance behaviour adapted to shared code. |
+| 7 | Final integration | This branch | Owns reconciliation, exact-head verification and final PR. |
 
-1. Inspect the latest `main`, all six implementation branches and open PRs immediately before integration.
-2. Obtain and record the exact Window 2, 3 and 5 ownership rows and PR heads. Window 6 is recorded below; its integration is staged in the shared branch.
-3. Compare all changes touching `server/db.ts`, `server/routers.ts`, `server/opportunityLifecycle.ts`, `drizzle/schema.ts`, `drizzle/meta/_journal.json`, `client/src/App.tsx` and canonical Trading documentation.
-4. Reconcile schema changes and preserve global migration order. Keep 0103, 0104 and 0105 in order unless a reviewed conflict requires a coordinated rebase.
-5. Verify generation consumes active server-assigned subscriptions and saved package policies; company selection uses current approved/enabled/non-archived IDs and saved country filters.
-6. Verify template absence does not block generation and that a template cannot override package bounds.
-7. Verify a generation replay returns/reuses the persisted assignment without rerolling terms or advancing rotation twice.
-8. Verify existing delivery lifecycle remains the only delivery owner and that capacity, idempotency, lease/retry and recovery semantics remain intact.
-9. Verify generation and delivery create no trade allocation, wallet change, ledger entry, result, or settlement.
-10. Run `pnpm install --frozen-lockfile`, `pnpm check`, `pnpm test`, `pnpm build`, migration validation and disposable MySQL 8.4 / MariaDB 11.4 integrations against the final integrated SHA.
-11. Run the required authenticated browser acceptance against a dedicated staging deployment with seeded eligible and ineligible customers. Do not substitute mocked browser tests for authenticated staging evidence.
-12. Report exact integrated SHA, workflow links/results, database engine versions, browser target SHA and any outstanding production rollout gates.
+The exact ownership map is maintained in `WORKSTREAM_OWNERSHIP.md`. Do not use a PR title/branch name to override that map.
 
-## Merge and deployment boundary
+## 3. Reconciled shared contracts
 
-Window 1 has not merged to `main` and has not deployed the branch. Window 7 owns the final integration decision. Do not deploy or apply migrations to production as part of integration verification. The user’s separate financial boundary remains in force.
+### Catalogue and company rotation (Window 1)
 
+- Preserve all 1,811 company catalogue records, stable Logo IDs and existing local logo assets.
+- Brand-only records are valid display identities; ticker, exchange, listing or market-data fields are not required.
+- Use `server/modules/company-spotlight-rotation.ts` as the canonical selector. The older ticker/recent-verification rotation path is not the informational opportunity selector.
+- Only currently admin-verified, enabled and non-archived catalogue entries enter the eligible pool. Disabled/archived state overrides stale verified IDs.
+- Country filtering and repeat avoidance are applied to the eligible pool; the per-customer/package cursor and company snapshot must persist atomically with opportunity creation.
+- Missing/malformed settings or an empty eligible pool fail closed; never fabricate a company identity.
 
-## Window 4 — Opportunity Delivery & Customer Portal handoff
+### Package policy (Window 2)
 
-- **Dependent implementation branch:** `feat/stage4-opportunity-delivery-contract` (based on Window 1 PR #278 head `6d6d09ba1a001c9c50e54f46a0d58dad83daff16`).
-- Window 4 reuses the existing durable delivery lifecycle and customer API/UI. It does not add a competing worker, queue, schema, migration, endpoint, retry setting or financial side effect.
-- The customer first-render handoff requires the server-issued dispatch lease token: `queued` is claimed as `in_progress`, the customer response carries `deliveryLeaseToken`, the UI accepts `in_progress` only with a non-empty token, and `received`/`rendered` acknowledgements return the same token.
-- Regression tests cover lease-gated client eligibility, propagation of the lease from the existing server dispatch claim, and acknowledgement with the same token.
-- **Merge order:** integrate Window 1 PR #278 first, then rebase/merge the Window 4 dependent PR. Do not merge the Window 4 branch directly to `main` while its base branch is unmerged.
-- **No migration:** Window 4 adds no database schema changes. Window 7 must run the existing popup delivery integration against the final combined migration chain on disposable MySQL 8.4 and MariaDB 11.4, plus authenticated browser acceptance for first display, refresh recovery, multi-tab locking, expiry and dismissal.
-- No Blitz deployment, production migration, financial execution, customer-fund allocation, or settlement is included in this handoff.
+- `server/modules/package-opportunity-policy.ts` is the canonical typed policy contract, default source, patch allowlist and package-isolated resolver.
+- Existing saved package policies are merged under the existing row lock; omitted fields and explicit zero values are preserved.
+- Global tier-policy, popup-delivery, company-rotation, randomized-timing and burst masters remain separately owned by Package Configuration and are saved through the existing audited `adminOperations.updateGlobalTradeControl` mutation.
+- Legacy per-package boolean placeholders are not exposed through the per-tier policy mutation.
+- `automaticTradingEnabled` remains excluded and hard-false. No financial execution, customer-fund allocation or settlement is enabled.
+- Current new-package policy defaults still contain zero generation targets (`minHourlyTarget`, `normalHourlyTarget`, `dailyPopupTarget`). Window 3 must reconcile these with the requested package-specific generation cadence before automatic scheduling can be declared complete.
 
+### Generation and publishing (Window 3 candidate)
 
-## Window 6 — Testing, Monitoring & Production Readiness handoff
+- The shared checkpoint contains the candidate generation worker, persisted opportunity lifecycle, batch records and migrations 0103–0105.
+- Generation consumes package and company contracts and hands persisted opportunities to the existing delivery lifecycle.
+- PR #278 is the candidate source but labels generation as Window 1. Window 3 must confirm the exact branch/commit and take ownership of the generation handoff before final integration.
+- Opportunity generation/publishing remains non-financial. Do not activate automatic execution or customer-fund movements.
 
-**Branch:** `feat/stage-6-opportunity-worker-observability`  
-**PR:** [#279](https://github.com/stannmoye/Arbitrade_platform/pull/279)  
-**Inspected head:** `962ae780e62e44ded236454040302afe9c5241e4`
+### Delivery (Window 4)
 
-### Integrated behaviour
+- Reuse the persisted customer-scoped delivery lifecycle, claims, leases/fencing, acknowledgements, retry and recovery.
+- Preserve customer read/render eligibility and duplicate suppression.
+- Do not create a second dispatcher, delivery table or queue.
+- PR #280's delivery-contract tests and handoff documentation are staged. No exact-head integration CI or authenticated browser acceptance is yet recorded.
 
-- Reuses the existing customer-cycle `failures` counter in `runAutoTradeCycle` and exposes it to monitoring as aggregate `customerFailures`.
-- The existing `runMonitoredWorkerCycle` accepts an optional result classifier and records partial outcomes as degraded.
-- The Trading opportunities worker uses that classifier and records a bounded aggregate message with the failed-customer count.
-- `CUSTOMER_CYCLE_FAILURES` is a stable sanitized diagnostic code.
-- Current worker rows are explicitly marked using the existing process instance ID. System Diagnostics classifies only current-process rows; historical rows remain visible in the admin UI and exports.
-- No new schema, migration, endpoint, customer-facing API or financial behaviour is introduced.
+### Admin settings (Window 5)
 
-### Integration checks for Window 7
+- Reuse existing admin settings mutations and authorization. Client-side validation supplements but does not replace server-side validation.
+- Preserve numeric zero when hydrating saved timing values; never use truthy fallback for saved numeric settings.
+- Save success is displayed only after fresh server read-back confirms all changed fields and a newer policy version.
+- Invalid retry and fee drafts are blocked with accessible field-level errors; failed read-back preserves the user's draft.
+- The Window 5 changes were merged into `AdminOperationsPages.tsx` without replacing Window 6's worker-health table/export changes.
 
-1. Verify the existing failure counter continues to process later customers and is exposed as aggregate `customerFailures` without adding a competing counter.
-2. Verify partial customer failure persists a degraded worker-health status even when the outer worker cycle resolves.
-3. Verify aggregate health messages contain no customer identifiers, account details or raw exception text.
-4. Verify current-process degraded and not-started workers remain actionable while historical stale rows do not inflate live diagnostics.
-5. Preserve existing timer, bounded batch, retry/backoff, idempotency, lease fencing, graceful shutdown and best-effort monitor persistence.
-6. Run exact-final-head unit/contract tests, `pnpm check`, `pnpm test`, `pnpm build`, disposable MySQL 8.4 and MariaDB 11.4 integrations, and authenticated staging browser acceptance.
-7. Do not claim Blitz/staging or production acceptance from CI alone.
+### Monitoring (Window 6)
 
-### Existing PR #261 coordination
+- Reuse migration 0084, `worker_health_registry`, `runMonitoredWorkerCycle`, System Diagnostics and the existing admin monitoring surfaces.
+- The existing generation loop's failure counter is exposed as aggregate `customerFailures`; no second counter is introduced.
+- A non-zero aggregate customer failure count marks the outer worker cycle degraded even if the batch completes.
+- Aggregate health messages contain only a count and sanitized stable code `CUSTOMER_CYCLE_FAILURES`; no customer identifiers, account details or raw exception text.
+- Worker rows include `isCurrentInstance`. Current-process rows drive live diagnostics; historical rows remain visible for investigation but do not inflate current health counts.
+- PR #261 is based on an older mainline checkpoint and is not merged wholesale. Its current/historical behaviour was reviewed and adapted to the newer shared worker-health data shape.
 
-PR #261's worker-health history correction was based on an older mainline SHA and diverges from the current integration checkpoint. Window 7 did not merge that stale branch. The current-versus-historical behavior was reviewed and adapted to the newer worker-health data shape so it preserves existing opportunity-delivery diagnostics and safe error-code fields. The adapted changes remain unvalidated until CI runs on the combined integration head.
+## 4. Shared files and conflicts resolved on this branch
+
+- `server/db.ts`: retained the existing generation loop and customer failure counter; integrated the canonical package policy resolver and typed patch allowlist; exposed the aggregate failure count to the worker monitor.
+- `server/_core/workerHealth.ts`: extended the existing monitor with optional partial-result degradation, stable safe error code and current-instance marking.
+- `server/_core/index.ts`: classified non-zero customer sub-cycle failures as degraded without changing worker scheduling.
+- `server/_core/systemDiagnostics.ts`: filters live diagnostic classification to current-process worker rows.
+- `client/src/components/AdminOperationsPages.tsx`: combined Window 5 zero-safe settings hydration with Window 6 current/historical health presentation and exports.
+- `server/routers.ts`: no new endpoint or schema mutation is introduced by the staged Window 2/5 changes; global master controls remain on the existing route.
+- `drizzle/schema.ts`, migration journal and seed catalogue: no new Window 2/4/5/6 schema or seed changes. Generation migrations 0103–0105 are part of the shared checkpoint and require integrated database verification.
+- Eight canonical coordination documents are maintained under `docs/development/arbitrade-integration/`; the Window 1 company-selection, Window 5 settings and Window 6 verification handoffs are also included under `docs/trading/`.
+
+## 5. Exact-head verification required
+
+Before the integration PR can be marked ready:
+
+1. Obtain Window 3's explicit confirmation of the generation branch/commit and reconcile its code attribution with PR #278.
+2. Rerun Window 2's failing exact-head workflows after its source-contract test corrections; inspect any remaining failures.
+3. Run the full type check, unit/contract suite and production build on the exact Window 7 head.
+4. Run disposable MySQL 8.4 and MariaDB 11.4 integration tests for migration ordering, company rotation, package policy isolation, opportunity generation/persistence, duplicate prevention, delivery lease fencing, partial customer failures and worker recovery.
+5. Verify all 1,811 catalogue records and local logos remain present and resolvable.
+6. Verify that the original 16 packages and existing customer/company/historical records remain intact; do not recreate or reseed over existing data.
+7. Run authenticated admin browser acceptance for global controls, per-package policies, every Save/read-back path, validation messages, mobile layout and current/historical worker health.
+8. Run authenticated customer browser acceptance for qualification, persisted opportunity creation, customer delivery, rendering, acknowledgement and duplicate suppression.
+9. Run installer/migration validation from a clean disposable database and an existing-upgrade database.
+10. Record the exact final SHA and workflow URLs. CI alone does not establish Blitz acceptance or production readiness.
+
+## 6. Safety and deployment boundary
+
+- No real-money trading execution, automatic customer-fund allocation, unattended financial settlement or customer-fund transfer is implemented or activated.
+- Do not weaken authorization, audit, idempotency, lease fencing, financial checks or migration safeguards.
+- No production database migration, Blitz deployment or live customer test is performed by this integration branch.
+- The final pull request targets `main` and remains draft until all six workstreams and exact-head verification are complete. Window 7 must not merge directly to `main`.
+
+## 7. Current outstanding blockers
+
+- Window 3 ownership/branch confirmation for the generation engine.
+- Window 2 exact-head CI failures must be resolved and rerun.
+- Window 4 has no exact-head CI or authenticated browser evidence.
+- Window 5 installer validation and combined-head save/read-back browser checks remain.
+- Window 6 latest-head CI and exact combined-head monitoring tests remain.
+- Window 7 has not yet executed the integrated type check, test suite, build, database integrations or authenticated browser acceptance.
