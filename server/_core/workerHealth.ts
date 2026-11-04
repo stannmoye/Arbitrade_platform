@@ -24,7 +24,7 @@ export const WORKER_HEALTH_REGISTRY = [
 type WorkerKey = typeof WORKER_HEALTH_REGISTRY[number]["key"];
 type PersistedStatus = "running" | "healthy" | "degraded";
 export type DerivedWorkerStatus = PersistedStatus | "stale" | "not_started";
-export type SafeWorkerErrorCode = "POLICY_DISABLED" | "INVALID_SOURCE" | "TIMEOUT" | "DATABASE_CONFLICT" | "DATABASE_UNAVAILABLE" | "PERMISSION_DENIED" | "WORKER_ERROR";
+export type SafeWorkerErrorCode = "POLICY_DISABLED" | "INVALID_SOURCE" | "TIMEOUT" | "DATABASE_CONFLICT" | "DATABASE_UNAVAILABLE" | "PERMISSION_DENIED" | "CUSTOMER_CYCLE_FAILURES" | "WORKER_ERROR";
 const qualificationLeaseTtlMs = 5 * 60_000;
 export const OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT = 500;
 const opportunityDeliverySettingKey = "trade.globalControls";
@@ -51,6 +51,7 @@ export function safeWorkerErrorCode(error: unknown): SafeWorkerErrorCode | null 
   const message = error instanceof Error ? error.message : String(error);
   if (!message.trim()) return null;
   if (/global tier policy is off/i.test(message)) return "POLICY_DISABLED";
+  if (/customer opportunity sub-cycle failures/i.test(message)) return "CUSTOMER_CYCLE_FAILURES";
   if (/source ledger|qualifying attribution|qualification source/i.test(message) && /invalid|no longer|missing|not prove|does not/i.test(message)) return "INVALID_SOURCE";
   if (/permission|access denied|unauthori[sz]ed/i.test(message)) return "PERMISSION_DENIED";
   if (/deadlock|serialization failure|lock wait timeout/i.test(message)) return "DATABASE_CONFLICT";
@@ -118,8 +119,18 @@ async function persistCycleEvent(workerKey: WorkerKey, event: CycleEvent): Promi
   }
 }
 
+/** A successful outer cycle may still contain failed per-customer work. */
+export type MonitoredWorkerCycleOptions<T> = {
+  degradedWhen?: (result: T) => boolean;
+  degradedMessage?: (result: T) => string;
+};
+
 /** Prevent overlapping timer ticks from repeating a long-running worker cycle. */
-export function runMonitoredWorkerCycle<T>(workerKey: WorkerKey, task: () => Promise<T>): Promise<T> {
+export function runMonitoredWorkerCycle<T>(
+  workerKey: WorkerKey,
+  task: () => Promise<T>,
+  options: MonitoredWorkerCycleOptions<T> = {},
+): Promise<T> {
   const current = inFlightCycles.get(workerKey);
   if (current) return current as Promise<T>;
   const cycle = (async () => {
@@ -127,7 +138,15 @@ export function runMonitoredWorkerCycle<T>(workerKey: WorkerKey, task: () => Pro
     await persistCycleEvent(workerKey, { status: "running" });
     try {
       const result = await task();
-      await persistCycleEvent(workerKey, { status: "healthy", durationMs: Math.max(0, Date.now() - startedAt) });
+      if (options.degradedWhen?.(result)) {
+        await persistCycleEvent(workerKey, {
+          status: "degraded",
+          durationMs: Math.max(0, Date.now() - startedAt),
+          errorMessage: options.degradedMessage?.(result) ?? "Worker cycle completed with partial failures",
+        });
+      } else {
+        await persistCycleEvent(workerKey, { status: "healthy", durationMs: Math.max(0, Date.now() - startedAt) });
+      }
       return result;
     } catch (error) {
       await persistCycleEvent(workerKey, {
