@@ -11,7 +11,7 @@ describe("TOTP encryption key validation", () => {
     expect(isValidTotpEncryptionKey(key)).toBe(true);
   });
 
-  it.each(["", "not-a-key", "a".repeat(63), "a".repeat(65), "A".repeat(43), "A".repeat(44)])(
+  it.each(["", "not-a-key", "a".repeat(63), "a".repeat(65), "A".repeat(43) + "!", "A".repeat(44)])(
     "rejects malformed or incorrectly sized key values",
     (key) => {
       expect(isValidTotpEncryptionKey(key)).toBe(false);
