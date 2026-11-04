@@ -242,9 +242,6 @@ export function loadCompanyReferenceCatalogue(paths: CompanyCatalogueLoaderPaths
   const tickerSnapshot = loadTickerSnapshot(paths.tickerSnapshotPath, paths.tickerPartsDirectory);
   return mapping.map((row, index) => {
     const tickerData = tickerSnapshot.get(index + 1);
-    if (tickerData?.companyName && tickerData.companyName.trim().toLowerCase() !== row.company_name.trim().toLowerCase()) {
-      // Misaligned optional enrichment is ignored for this ID; it cannot invalidate identity.
-    }
     const enrichment = tickerData?.companyName && tickerData.companyName.trim().toLowerCase() !== row.company_name.trim().toLowerCase()
       ? undefined
       : tickerData;
