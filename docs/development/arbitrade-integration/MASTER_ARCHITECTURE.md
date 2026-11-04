@@ -13,7 +13,7 @@
 5. **Scheduling and recovery (Window 3):** use the existing database-backed worker, durable batch records, bounded customer cursor, generation lock, unique generation key and persisted assignment snapshots. Replays reuse the existing assignment and do not reroll terms or advance company rotation twice.
 6. **Publishing handoff:** a generated opportunity is persisted as an open customer-assigned offer. Generation does not create a second publishing or customer-delivery queue.
 7. **Delivery (Window 4):** the existing opportunity-delivery lifecycle owns popup admission, pending capacity, dispatch leases, retries, acknowledgements and customer-facing delivery.
-8. **Monitoring (Window 6):** expose generation batch outcomes and worker health through existing monitoring surfaces. Do not create a parallel health registry.
+8. **Monitoring:** expose generation batch outcomes and worker health through the existing monitoring surfaces. The designated owner and any shared-file changes must be confirmed from Window 6's exact assignment; do not create a parallel health registry.
 9. **Final integration (Window 7):** reconcile all six workstreams, ordered migrations, exact-head checks and authenticated acceptance.
 
 ## Company-neutral generation
