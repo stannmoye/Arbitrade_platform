@@ -3209,7 +3209,7 @@ function hasConfiguredTradingOfferPolicy(policy:any):boolean {
 }
 
 type AutomaticOpportunityGenerationInput={
-  userId:number;batchId:string;now:Date;quotaWindowStart:Date;
+  userId:number;batchId:string;now:Date;
   eligibleSubscriptions:Array<{subscriptionId:number;packageId:number;packageName:string}>;
   companyRotationEnabled:boolean;
 };
@@ -4098,7 +4098,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&
     !formulaCooling&&remainingQuota>0&&!hasUsableAssignedOffer){
     generatedOpportunityId=await generateAutomaticCustomerOpportunity({
-      userId,batchId:options.generationBatchId,now,quotaWindowStart:quotaWindow.start,
+      userId,batchId:options.generationBatchId,now,
       eligibleSubscriptions:eligibleSubscriptions.map(subscription=>({subscriptionId:Number(subscription.subscriptionId),packageId:Number(subscription.packageId),packageName:String(subscription.packageName)})),
       companyRotationEnabled:Boolean(globalPolicy.companyRotationEnabled),
     });
