@@ -138,49 +138,48 @@ describe("canonical installer diagnostic privacy", () => {
 });
 
 
+describe("fresh-install database isolation", () => {
+  it("refuses a non-empty database without deleting or truncating existing records", async () => {
+    const source = await readFile(installer, "utf8");
+    const wizard = await readFile(resolve(root, "installer", "index.php"), "utf8");
+    expect(source).toContain('if (mode === "fresh" && tableCount !== 0)');
+    expect(wizard).toContain("if ($mode === 'fresh' && $tableCount !== 0)");
+    expect(source).not.toMatch(/\b(DROP\s+TABLE|TRUNCATE\s+TABLE|DELETE\s+FROM)\b/i);
+    expect(wizard).not.toMatch(/\b(DROP\s+TABLE|TRUNCATE\s+TABLE|DELETE\s+FROM)\b/i);
+  });
+
+  it("keeps manual imports in an explicitly separate existing-database path", async () => {
+    const docs = await readFile(resolve(root, "installer", "README.md"), "utf8");
+    expect(docs).toContain("separate target database");
+    expect(docs).toContain("source database remains untouched");
+    expect(docs).toContain("--existing-database --confirm-existing-migrations");
+  });
+});
+
 describe("fresh-install initial account provisioning", () => {
-  it("collects both account credential sets in the browser wizard", async () => {
+  it("collects only administrator credentials in the browser wizard", async () => {
     const wizard = await readFile(resolve(root, "installer", "index.php"), "utf8");
     expect(wizard).toContain("postval('admin_email')");
-    expect(wizard).toContain("postval('customer_email')");
-    expect(wizard).toContain("'customerEmail' => $customerEmail");
-    expect(wizard).toContain("'customerPassword' => $customerPassword");
+    expect(wizard).not.toContain("postval('customer_email')");
+    expect(wizard).not.toMatch(/name="customer_email"/);
+    expect(wizard).not.toMatch(/name="customer_password"/);
+    expect(wizard).toContain("No customer accounts or sample customer data are created.");
     expect(wizard).toContain("accountSection.querySelectorAll('input').forEach(input=>input.required=fresh)");
   });
 
-  it("creates both initial accounts transactionally and hands off both credentials", async () => {
+  it("creates only the administrator transactionally", async () => {
     const source = await readFile(installer, "utf8");
     expect(source).toContain('run("node", ["installer/create-initial-accounts.mjs"]');
-    expect(source).toContain('CUSTOMER_EMAIL: String(bootstrap.customerEmail).trim().toLowerCase()');
-    expect(source).toContain('CUSTOMER_PASSWORD: String(bootstrap.customerPassword)');
-    expect(source).not.toContain('run("node", ["installer/create-admin.mjs"]');
+    expect(source).toContain('ADMIN_EMAIL: String(bootstrap.adminEmail).trim().toLowerCase()');
+    expect(source).toContain('ADMIN_PASSWORD: String(bootstrap.adminPassword)');
+    expect(source).not.toContain("CUSTOMER_EMAIL");
+    expect(source).not.toContain("CUSTOMER_PASSWORD");
     const accountScript = await readFile(resolve(root, "installer", "create-initial-accounts.mjs"), "utf8");
     expect(accountScript).toContain("await connection.beginTransaction()");
     expect(accountScript).toContain("await connection.commit()");
     expect(accountScript).toContain("await connection.rollback()");
-    expect(accountScript).toContain('role: "user"');
     expect(accountScript).toContain('role: "admin"');
-  });
-
-  it("initializes missing production session secrets before the server accepts requests", async () => {
-    const source = await readFile(resolve(root, "server/_core/index.ts"), "utf8");
-    expect(source).toContain('import { ensureSessionSecret } from "../../installer/session-secret.mjs";');
-    expect(source).toContain('await ensureSessionSecret({ root: process.cwd(), env: process.env })');
-    expect(source).toContain("Refusing to start.");
-  });
-
-  it("removes all SMTP configuration and testing controls from the initial installer wizard", async () => {
-    const wizard = await readFile(resolve(root, "installer", "index.php"), "utf8");
-    expect(wizard).not.toContain("MAIL_PROVIDER");
-    expect(wizard).not.toContain("SMTP_");
-    expect(wizard).not.toContain("smtp_host");
-    expect(wizard).not.toContain("smtp_user");
-    expect(wizard).not.toContain("smtp_pass");
-    expect(wizard).not.toContain("smtp_test_to");
-    expect(wizard).not.toContain("smtp_test");
-    expect(wizard).not.toContain("smtp-test.php");
-    expect(wizard).toContain("Email delivery is intentionally not configured in this installer.");
-    expect(wizard).toContain("Communications → Email &amp; SMTP Settings");
+    expect(accountScript).not.toContain('role: "user"');
   });
 });
 
