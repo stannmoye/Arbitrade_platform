@@ -3932,6 +3932,12 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   let generationAssignments=offerRows.length?await db.select().from(opportunityGenerationAssignments)
     .where(and(eq(opportunityGenerationAssignments.userId,userId),inArray(opportunityGenerationAssignments.offerId,offerRows.map(row=>Number(row.id))))):[];
   let generationAssignmentByOffer=new Map(generationAssignments.map(row=>[Number(row.offerId),row]));
+  const recordGeneratedDeliverySkip=async(offer:any,reason:string)=>{
+    const assignment=generationAssignmentByOffer.get(Number(offer.id));
+    if(!assignment||String(assignment.status)!=="generated") return;
+    await db.update(opportunityGenerationAssignments).set({failureReason:"DELIVERY_SKIPPED:"+reason})
+      .where(and(eq(opportunityGenerationAssignments.id,Number(assignment.id)),eq(opportunityGenerationAssignments.status,"generated")));
+  };
   const tradeHistory=await listTrades(userId);
   const tradeOfferIds=new Set(tradeHistory.map((row:any)=>Number(row.offerId)));
   const missedHistory=await listMissedOpportunities(userId);
@@ -4069,6 +4075,14 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       generationAssignmentByOffer=new Map(generationAssignments.map(row=>[Number(row.offerId),row]));
     }
   }
+  const deliveryAdmissionPauseReason=!globalPolicy.available||!globalPolicy.tierPolicyMasterEnabled||!globalPolicy.informationalPopupDeliveryEnabled
+    ?"GLOBAL_DELIVERY_DISABLED"
+    :formulaCooling?"SCHEDULE_COOLDOWN"
+    :remainingQuota<=0?(deliveryCapacity.dailyRemaining<=0?"DAILY_QUOTA_EXHAUSTED":deliveryCapacity.visibleRemaining<=0?"VISIBLE_CAPACITY_EXHAUSTED":"DELIVERY_CAPACITY_EXHAUSTED")
+    :null;
+  if(options.workerCycle===true&&deliveryAdmissionPauseReason){
+    for(const offer of offerRows) await recordGeneratedDeliverySkip(offer,deliveryAdmissionPauseReason);
+  }
   if(options.workerCycle===true&&globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&!formulaCooling&&remainingQuota>0){
     for(const offer of offerRows){
       if(remainingQuota<=0) break;
@@ -4118,7 +4132,10 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const subscription=selected.subscription;
       const configured=selected.configured;
       if(!configured||!hasConfiguredTradingOfferPolicy(configured)) continue;
-      if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(configured.maxBurstSize||0)})) break;
+      if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(configured.maxBurstSize||0)})){
+        await recordGeneratedDeliverySkip(offer,"BURST_LIMIT_REACHED");
+        break;
+      }
       // Select one administrator-configured rate and duration exactly once. The
       // selection is persisted with the popup and reused by retries/trade allocation.
       const configuredProfitRateBps=generatedOffer?Number(offer.configuredProfitRateBps):chooseInclusiveInteger(Number(configured.minimumPayoutRateBps),Number(configured.maximumPayoutRateBps));
