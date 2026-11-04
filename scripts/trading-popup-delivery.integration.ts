@@ -46,6 +46,7 @@ let packageId: number | undefined;
 let subscriptionId: number | undefined;
 let offerId: number | undefined;
 let blockedOfferId: number | undefined;
+let capacityOfferId: number | undefined;
 const catalogueStateKey = "trade.companyCatalogue.adminState";
 let originalCompanyCatalogueStateRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
 let originalGlobalControlRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
@@ -337,7 +338,29 @@ const balanceBefore = await db.select({
 
   // The first popup is still queued, so a second admission at a package
   // pending limit of one must be rejected with a durable diagnostic result.
-  const capacityOfferId = 2_000_000_000 + Number.parseInt(token.slice(0, 5), 16) % 100_000_000;
+  capacityOfferId = 2_000_000_000 + Number.parseInt(token.slice(0, 5), 16) % 100_000_000;
+  await db.insert(opportunityGenerationAssignments).values({
+    generationKey: `capacity-skip:${token}`,
+    batchId: `capacity-skip-${token}`,
+    userId,
+    offerId: capacityOfferId,
+    templateId: null,
+    templateVersion: null,
+    packageId,
+    packageSubscriptionId: subscriptionId,
+    packageName,
+    packagePolicyVersion: 1,
+    companyReferenceId: "logo-brand-0001",
+    configuredProfitRateBps: 250,
+    configuredDurationSeconds: 600,
+    packageSnapshotJson: JSON.stringify(generatedSnapshot),
+    status: "generated",
+    failureReason: null,
+    generatedAt: new Date(),
+    assignedAt: null,
+    deliveredAt: null,
+    expiresAt: new Date(Date.now() + 60 * 60_000),
+  });
   const capacitySkip = await ensurePopupDeliveries([{
     userId,
     offerId: capacityOfferId,
@@ -369,6 +392,10 @@ const balanceBefore = await db.select({
     "Pending capacity must not create a second popup.");
   assert.deepEqual(capacitySkip.skipped, [{ key: capacitySkipKey, reason: "PENDING_DELIVERY_LIMIT" }],
     "Pending-capacity rejection must carry a structured reason.");
+  const capacityAssignment = await db.select({ failureReason: opportunityGenerationAssignments.failureReason })
+    .from(opportunityGenerationAssignments).where(eq(opportunityGenerationAssignments.offerId, capacityOfferId));
+  assert.equal(capacityAssignment[0]?.failureReason, "DELIVERY_SKIPPED:PENDING_DELIVERY_LIMIT",
+    "The generated assignment must retain the pending-capacity skip reason for operator diagnostics.");
 
   const customerRead = await listCustomerOpportunities(userId);
   assert.equal(customerRead.delivery.enabled, true);
@@ -527,7 +554,7 @@ const balanceBefore = await db.select({
       await restoreOriginalCompanyCatalogueState();
     } finally {
       try {
-        for (const fixtureOfferId of [offerId, blockedOfferId]) {
+        for (const fixtureOfferId of [offerId, blockedOfferId, capacityOfferId]) {
           if (userId !== undefined && fixtureOfferId !== undefined) {
             await db.delete(opportunityGenerationAssignments).where(eq(opportunityGenerationAssignments.offerId, fixtureOfferId));
             await db.delete(opportunityDeliveryIdempotency).where(and(
