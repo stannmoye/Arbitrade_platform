@@ -58,7 +58,7 @@ describe("production catalogue loader with optional ticker enrichment", () => {
       for (let index = 1; index <= 1811; index++) {
         rows.push(`Brand ${index},brand-${index}.example,by-country/Unassigned/brand-${index}.png,,`);
       }
-      writeFileSync(resolve(mappingDirectory, "logo-mapping.csv"), rows.join("\\n"));
+      writeFileSync(resolve(mappingDirectory, "logo-mapping.csv"), rows.join("\n"));
 
       const modulePath = resolve(process.cwd(), "server/modules/company-catalogue-reference.ts");
       const loaderPath = resolve(process.cwd(), "node_modules/tsx/dist/loader.mjs");
@@ -113,7 +113,12 @@ describe("production catalogue loader with optional ticker enrichment", () => {
         "company_name,domain,filename,detail_url,source_asset_url",
         'Brand only,brand.example,by-country/Unassigned/brand.png,,',
       ].join("\n"));
-      const loaded = loadCompanyReferenceCatalogue({ mappingPath, expectedRecordCount: 1 });
+      const loaded = loadCompanyReferenceCatalogue({
+        mappingPath,
+        tickerSnapshotPath: resolve(root, "missing-ticker-snapshot.gz.b64"),
+        tickerPartsDirectory: resolve(root, "missing-ticker-parts"),
+        expectedRecordCount: 1,
+      });
       expect(loaded).toHaveLength(1);
       expect(loaded[0]?.tickerClassification).toBe("other");
       expect(loaded[0]?.tickerResearchStatus).toBe("Not supplied");
