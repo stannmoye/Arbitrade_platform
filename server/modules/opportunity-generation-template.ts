@@ -205,8 +205,15 @@ export function selectOpportunityGenerationTerms(
   packageBounds: OpportunityGenerationPackageBounds | null | undefined,
   sampler: InclusiveIntegerSampler = defaultSampler,
 ): OpportunityGenerationTerms {
-  const template = templateInput && typeof templateInput === "object" && !Array.isArray(templateInput)
-    && (templateInput as Record<string, unknown>).companyReferenceId === null
+  const candidate = templateInput && typeof templateInput === "object" && !Array.isArray(templateInput)
+    ? templateInput as Record<string, unknown>
+    : null;
+  // Keep routing a company-neutral sentinel through its strict validator even
+  // when a caller tampers with companyReferenceId. Otherwise the modified
+  // sentinel could fall through to the company-specific template validator.
+  const isCompanyNeutral = candidate?.companyReferenceId === null
+    || candidate?.sourceReference === "company-catalogue:no-approved-company";
+  const template = isCompanyNeutral
     ? validateUnattributedCatalogueOpportunityTemplate(templateInput)
     : validateOpportunityGenerationTemplate(templateInput);
   if (!packageBounds || typeof packageBounds !== "object") {
