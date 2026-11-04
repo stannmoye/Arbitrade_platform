@@ -24,9 +24,13 @@ export function encodeCompanyCatalogueSelection(ids: readonly string[]): { ids: 
     const index = number - 1;
     bytes[index >> 3] = bytes[index >> 3]! | (1 << (index & 7));
   }
+  // Keep small selections as ordinary IDs; use the bitmap only when it is smaller.
+  const normalizedIds = [...seen].sort((left, right) => left - right)
+    .map(number => "logo-brand-" + String(number).padStart(4, "0"));
+  if (JSON.stringify(normalizedIds).length <= BASE64_LENGTH) return { ids: normalizedIds };
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
+  return { selectionBitmap: btoa(binary) };
 }
 
 export function decodeCompanyCatalogueSelection(bitmap: string): string[] {
