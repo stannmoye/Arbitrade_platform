@@ -433,7 +433,7 @@ const balanceBefore = await db.select({
   // Remove the fixture's ordinary inter-delivery cooldown so the injected
   // failure is guaranteed to reach the generation INSERT rather than returning
   // early because the next delivery is not due yet.
-  await db.update(opportunityPackagePolicies).set({ minIntervalSeconds: 0, maxIntervalSeconds: 0 })
+  await db.update(opportunityPackagePolicies).set({ minIntervalSeconds: 0, maxIntervalSeconds: 0, postCompletionIntervalSeconds: 0 })
     .where(eq(opportunityPackagePolicies.packageName, packageName));
   // The acknowledged first delivery is no longer a scheduling predecessor for
   // this isolated generation-transaction scenario.
@@ -597,7 +597,7 @@ const balanceBefore = await db.select({
     automaticGenerationEnabled: true,
     generationBatchId: `per-package-quota-selection-${token}`,
   });
-  console.log("PER_PACKAGE_QUOTA_SELECTION_DIAGNOSTICS " + JSON.stringify({
+  if (!quotaSelectionCycle.generatedOpportunityId) console.error("PER_PACKAGE_QUOTA_SELECTION_DIAGNOSTICS " + JSON.stringify({
     delivery: quotaSelectionCycle.delivery,
     generatedOpportunityId: quotaSelectionCycle.generatedOpportunityId,
     openOffers: await db.select({
