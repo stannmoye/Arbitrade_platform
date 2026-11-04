@@ -43,6 +43,23 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(generator).toContain("template?Number(template.id):null");
   });
 
+  it("binds generation to the exact active package subscription and its persisted package policy", () => {
+    expect(generator).toContain("eq(opportunityPackagePolicies.packageName,packages.name)");
+    expect(generator).toContain("eq(customerPackageSubscriptions.id,candidate.subscriptionId)");
+    expect(generator).toContain("eq(customerPackageSubscriptions.userId,input.userId)");
+    expect(generator).toContain('eq(customerPackageSubscriptions.status,"active")');
+    expect(generator).toContain("hasConfiguredTradingOfferPolicy(row)");
+    expect(generator).toContain("if(!selectedSubscription||!selectedPolicy)return null;");
+    expect(generator).toContain("minimumPayoutRateBps:selectedPolicy.minimumPayoutRateBps==null?null:Number(selectedPolicy.minimumPayoutRateBps)");
+    expect(generator).toContain("maximumPayoutRateBps:selectedPolicy.maximumPayoutRateBps==null?null:Number(selectedPolicy.maximumPayoutRateBps)");
+    expect(generator).toContain("minimumTradeDurationSeconds:selectedPolicy.minimumTradeDurationSeconds==null?null:Number(selectedPolicy.minimumTradeDurationSeconds)");
+    expect(generator).toContain("maximumTradeDurationSeconds:selectedPolicy.maximumTradeDurationSeconds==null?null:Number(selectedPolicy.maximumTradeDurationSeconds)");
+    expect(generator).toContain("packageSubscriptionId:Number(selectedSubscription.subscriptionId)");
+    expect(generator).toContain("packageId:Number(selectedSubscription.packageId)");
+    expect(generator).toContain("packagePolicyVersion:Number(selectedPolicy.policyVersion||1)");
+    expect(generator).not.toContain("DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY");
+  });
+
   it("continues generation without an approved company identity and persists the absence explicitly", () => {
     expect(generator).not.toContain("if(!approvedPool.length)return null");
     expect(generator).toContain("createUnattributedCatalogueOpportunityTemplate(packageMinimum,\"USD\")");
