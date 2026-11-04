@@ -561,14 +561,26 @@ const balanceBefore = await db.select({
   assert.ok(rotationBeforeRows[0], "The first generation must persist a durable company rotation cursor.");
   const rotationBeforeFailure = String(rotationBeforeRows[0].settingValue);
 
-  // Disable only the fixture's inter-delivery cooldown so this immediate
-  // second worker cycle reaches generation. The test is about transaction
-  // rollback, not cadence enforcement; no completed trade exists to impose a
-  // post-completion delay.
+  // Remove delivery cadence and quota gates for this one rollback attempt.
+  // Cadence and quota behavior are covered independently above and in contract
+  // tests; this scenario must reach company selection and the SQL failure.
   await db.update(opportunityPackagePolicies).set({
     minIntervalSeconds: 0,
     maxIntervalSeconds: 0,
+    postCompletionIntervalSeconds: 0,
+    maxPopupsPerDay: 5,
   }).where(eq(opportunityPackagePolicies.packageName, packageName));
+  await db.update(packages).set({ opportunitiesPerDay: 5 }).where(eq(packages.id, packageId));
+  await db.update(customerPackageSubscriptions).set({
+    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 5, maxPopupsPerDay: 0 }),
+  }).where(eq(customerPackageSubscriptions.userId, userId));
+  await db.update(opportunityOffers).set({ status: "closed" })
+    .where(and(eq(opportunityOffers.assignedUserId, userId), eq(opportunityOffers.assignedPackageId, packageId)));
+  assert.equal((await db.select({ id: opportunityOffers.id }).from(opportunityOffers).where(and(
+    eq(opportunityOffers.assignedUserId, userId),
+    eq(opportunityOffers.assignedPackageId, packageId),
+    eq(opportunityOffers.status, "open"),
+  ))).length, 0, "The rollback attempt must not be short-circuited by an existing open assignment.");
 
   // A missing generation prerequisite after company selection must throw and
   // roll back, not return normally and commit the already-updated rotation row.
