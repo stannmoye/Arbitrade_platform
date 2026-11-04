@@ -52,7 +52,7 @@ Owns the existing delivery lifecycle and customer portal. The handoff requires `
 **PR:** [#285](https://github.com/stannmoye/Arbitrade_platform/pull/285)  
 **Branch/head:** `workstream/window-5-admin-trade-settings-persistence` / `65557fa20f1beca9d4dd2fa437e02502fa8bab44`
 
-Owns the Trade administration settings interface and reliable settings persistence. It shares admin/router and package-policy UI surfaces with other workstreams; it does not own the generation transaction, generation batches, generation keys or customer opportunity persistence. Reconcile shared files against Window 2 and Window 3 rather than replacing them wholesale.
+Owns the Trade administration settings interface and save UX. The current PR #285 changed client components and client contract tests only; it did not change server/db.ts, server/routers.ts or database migrations. Verify the UI's existing save/read-back endpoints against the final integrated backend. It does not own the generation transaction, generation batches, generation keys or customer opportunity persistence.
 
 ## Window 6 — Testing, Monitoring & Production Readiness
 
