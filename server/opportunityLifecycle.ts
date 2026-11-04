@@ -256,7 +256,7 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
   });
 }
 
-export async function updatePopupLifecycle(userId: number, eventId: number, action: "noticed" | "opened" | "dismissed" | "withdrawn" | "traded" | "settled") {
+async function applyPopupLifecycle(userId: number, eventId: number, action: "noticed" | "opened" | "dismissed" | "withdrawn" | "traded" | "settled") {
   if (!process.env.DATABASE_URL) return;
   const timestamps: Record<string, string> = { noticed: "noticedAt", opened: "openedAt", dismissed: "dismissedAt", withdrawn: "withdrawnAt", traded: "tradedAt", settled: "settledAt" };
   const statuses: Record<string, string> = { noticed: "NOTICED", opened: "OPENED", dismissed: "DISMISSED", withdrawn: "WITHDRAWN", traded: "TRADED", settled: "SETTLED" };
@@ -270,11 +270,17 @@ export async function updatePopupLifecycle(userId: number, eventId: number, acti
   });
 }
 
+/** Customer acknowledgement may change presentation state only; terminal outcomes are server-owned. */
+export async function updatePopupLifecycle(userId: number, eventId: number, action: "noticed" | "opened" | "dismissed") {
+  if (!["noticed", "opened", "dismissed"].includes(action)) throw new Error("Customer popup lifecycle action is not permitted.");
+  return applyPopupLifecycle(userId, eventId, action);
+}
+
 export async function updatePopupLifecycleForOffer(userId: number, offerId: number, action: "traded" | "settled") {
   if (!process.env.DATABASE_URL) return;
   await withConnection(async connection => {
     const [rows] = await connection.query<any[]>("SELECT id FROM opportunity_popup_events WHERE userId=? AND offerId=? ORDER BY deliveredAt DESC LIMIT 1", [userId, offerId]);
-    if (rows[0]) await updatePopupLifecycle(userId, Number(rows[0].id), action);
+    if (rows[0]) await applyPopupLifecycle(userId, Number(rows[0].id), action);
   });
 }
 
