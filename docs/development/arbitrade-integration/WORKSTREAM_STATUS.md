@@ -3,7 +3,7 @@
 **Last inspected:** 2026-11-04  
 **Repository main:** `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`  
 **Workstream 1 branch:** `feat/automatic-template-opportunities`  
-**Workstream 1 code head inspected:** `aa27d664475eaf40dd4ff3d3414b267e569484e9`  
+**Workstream 1 code head inspected:** `2629baa75c1644b3771511a4b085b0085eca79fb`  
 **Pull request:** [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278) — open, draft, not merged.
 
 ## Window 1 — Automatic Opportunity Generation
@@ -35,7 +35,7 @@ At code head `aa27d664475eaf40dd4ff3d3414b267e569484e9`, the repository returned
 9. Installer validation
 10. Build and test production source
 
-This is exact-head CI evidence for that code SHA. The coordination-document commit that follows it has not yet been validated by CI at the time of writing.
+This is exact-head CI evidence for that earlier code SHA. On the current code head `2629baa75c1644b3771511a4b085b0085eca79fb`, 24 of 25 GitHub checks have completed successfully with no failures; the remaining local-preview customer-portal browser recovery check is still installing Playwright Chromium. The API-copy correction and both regression-contract updates are included in this current head.
 
 ## Not established by this status
 
