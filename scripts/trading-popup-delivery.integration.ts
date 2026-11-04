@@ -515,6 +515,30 @@ const balanceBefore = await db.select({
     .from(appSettings).where(eq(appSettings.settingKey, rotationKey)).limit(1);
   assert.ok(rotationBeforeRows[0], "The first generation must persist a durable company rotation cursor.");
   const rotationBeforeFailure = String(rotationBeforeRows[0].settingValue);
+
+  // A missing generation prerequisite after company selection must throw and
+  // roll back, not return normally and commit the already-updated rotation row.
+  await db.update(currencyRegistry).set({ enabled: false }).where(eq(currencyRegistry.code, currency));
+  let missingCurrencyFailure: unknown;
+  try {
+    await listCustomerOpportunities(userId, {
+      workerCycle: true,
+      consumeDelivery: false,
+      automaticGenerationEnabled: true,
+      generationBatchId: `missing-currency-${token}`,
+    });
+  } catch (error) {
+    missingCurrencyFailure = error;
+  } finally {
+    await db.update(currencyRegistry).set({ enabled: true }).where(eq(currencyRegistry.code, currency));
+  }
+  assert.match(String(missingCurrencyFailure), /currency is not enabled/,
+    "A missing currency prerequisite after rotation selection must fail the generation transaction.");
+  const rotationAfterMissingCurrencyRows = await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, rotationKey)).limit(1);
+  assert.equal(String(rotationAfterMissingCurrencyRows[0]?.settingValue), rotationBeforeFailure,
+    "A normal-return prerequisite failure must not commit a company rotation advance.");
+
   rollbackTriggerName = `fail_generation_${token.toLowerCase()}`;
   await rawConnection!.query(`CREATE TRIGGER ${rollbackTriggerName} BEFORE INSERT ON opportunity_offers
     FOR EACH ROW BEGIN
