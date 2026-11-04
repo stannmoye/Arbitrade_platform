@@ -50,7 +50,7 @@ Window 1 has not merged to `main` and has not deployed the branch. Window 7 owns
 - Reuses the existing `opportunity_package_policies` store; no schema or migration change.
 - Canonical policy contract/defaults/patch allowlist: `server/modules/package-opportunity-policy.ts`.
 - Persistence integration: `server/db.ts` now uses the typed patch contract, central allowlist and package-name-safe policy resolver. Existing row locking, validation, policy version increments, audit writes and package rename transaction remain in place.
-- Tests: `server/package-opportunity-policy.contract.test.ts` covers defaults, partial update preservation, cross-package isolation and immutable/global field exclusions. Not executed locally; require CI on the exact PR head.
+- Tests: `server/package-opportunity-policy.contract.test.ts` covers defaults, partial update preservation, cross-package isolation and immutable/global field exclusions. `server/trading-package-eligibility.contract.test.ts` was updated to assert the centralized defaults/resolver instead of the removed inline constant/assignment. Tests have not been executed locally; corrected-head CI is queued/in progress and must pass before integration.
 
 ### Window 7 integration checks
 
