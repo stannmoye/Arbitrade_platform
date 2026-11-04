@@ -18,9 +18,11 @@ The generation-control migration default is ON for new installations. Existing a
 
 ## Existing customer operations
 
-- `customer.opportunities` is the authenticated customer read path for the customer's own offers and persisted delivery summary.
-- `customer.popupDeliveryStatus` acknowledges delivery/render/failure state using the authenticated customer context and optional dispatch lease token.
-- Existing popup lifecycle actions remain the owner for notice/open/dismiss/withdraw/display state. These actions must not create financial effects.
+- `customer.opportunities` is the protected authenticated-customer read path for only that customer’s offers and persisted delivery summary. The server evaluates active server-assigned subscriptions, current package policy, open/unexpired offers, quota/capacity, and persisted delivery state; the client cannot choose a package or opportunity.
+- For normal customer reads (not background worker cycles), the existing path claims queued/retry-due dispatches and returns the event ID, current dispatch status and server-issued lease token as `deliveryLeaseToken`. The token is scoped to that customer/event and must be forwarded unchanged.
+- `customer.popupDeliveryStatus` accepts `{ eventId, status: received|rendered|failed, errorCode?, leaseToken? }`. A lease token is operationally required for a state change; the server also checks authenticated customer ownership, lease equality, current offer status and expiry. Missing/stale tokens are no-ops, not acknowledgements.
+- Existing `customer.popupLifecycle` actions remain the owner for noticed/opened/dismissed/withdrawn/traded/settled presentation/lifecycle state. These actions must not create financial effects.
+- The customer alert may display an `in_progress` dispatch only when the response includes a non-empty `deliveryLeaseToken`; after rendering it acknowledges `received` and `rendered` with that token. Persisted delivered/received/rendered notices can be recovered on refresh while still open and eligible.
 
 ## Contract stability
 
