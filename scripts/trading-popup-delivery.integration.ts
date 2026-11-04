@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import mysql from "mysql2/promise";
 import { and, eq } from "drizzle-orm";
 import { closeDbPool, ensureAutomaticTradingTierEntitlements, getDb, getTradeGlobalControls, listCustomerOpportunities, runTradingTierQualificationWorkerCycle } from "../server/db";
 import {
@@ -21,9 +22,17 @@ import {
 import { parseTradeGlobalControlPolicy, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, type TradeGlobalControlPolicy } from "../server/trading-global-policy";
 import { updatePopupDeliveryStatus } from "../server/opportunityLifecycle";
 
+const databaseUrlRaw = process.env.DATABASE_URL;
+if (!databaseUrlRaw) throw new Error("Trading popup delivery integration requires DATABASE_URL for a disposable migrated database.");
+const databaseUrl = new URL(databaseUrlRaw);
+const databaseName = decodeURIComponent(databaseUrl.pathname.replace(/^\\/+/, ""));
+if (!new Set(["localhost", "127.0.0.1", "::1"]).has(databaseUrl.hostname) ||
+    !/(?:test|testing|integration|disposable|ci)/i.test(databaseName)) {
+  throw new Error("Refusing company-rotation integration against a non-loopback or non-disposable database.");
+}
 const db = await getDb();
 if (!db) {
-  throw new Error("Trading popup delivery integration requires DATABASE_URL to point to a disposable migrated database.");
+  throw new Error("Trading popup delivery integration cannot connect to its disposable migrated database.");
 }
 
 const migratedExecutionPolicies = await db.select({
@@ -45,6 +54,9 @@ let userId: number | undefined;
 let packageId: number | undefined;
 let subscriptionId: number | undefined;
 let offerId: number | undefined;
+let rollbackRetryOfferId: number | undefined;
+let rawConnection: Awaited<ReturnType<typeof mysql.createConnection>> | undefined;
+let rollbackTriggerName: string | undefined;
 let blockedOfferId: number | undefined;
 const catalogueStateKey = "trade.companyCatalogue.adminState";
 let originalCompanyCatalogueStateRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
@@ -99,6 +111,14 @@ async function restoreOriginalGlobalPolicy() {
 }
 
 try {
+  rawConnection = await mysql.createConnection({
+    host: databaseUrl.hostname,
+    port: Number(databaseUrl.port || 3306),
+    user: decodeURIComponent(databaseUrl.username),
+    password: decodeURIComponent(databaseUrl.password),
+    database: databaseName,
+    timezone: "Z",
+  });
   const [globalControlRow] = await db.select({
     settingValue: appSettings.settingValue,
     updatedBy: appSettings.updatedBy,
@@ -376,6 +396,53 @@ const balanceBefore = await db.select({
       eq(opportunityDeliveryEvents.offerId, offerId),
     ))).length, 1);
 
+  // Inject a database failure after rotation selection but before opportunity
+  // persistence. The transaction must leave the durable rotation cursor intact.
+  const rotationKey = `trading.companyRotation.${userId}.${packageId}`;
+  const rotationBeforeRows = await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, rotationKey)).limit(1);
+  assert.ok(rotationBeforeRows[0], "Successful generation must persist its durable rotation cursor.");
+  const rotationBeforeFailure = String(rotationBeforeRows[0].settingValue);
+  await db.update(opportunityOffers).set({ status: "closed" }).where(eq(opportunityOffers.id, offerId));
+  rollbackTriggerName = `fail_rotation_generation_${token.toLowerCase()}`;
+  await rawConnection!.query(`CREATE TRIGGER ${rollbackTriggerName} BEFORE INSERT ON opportunity_offers
+    FOR EACH ROW BEGIN
+      IF NEW.generationKey LIKE 'auto:%' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced_rotation_generation_failure';
+      END IF;
+    END`);
+  const offersBeforeFailure = await db.select({ id: opportunityOffers.id })
+    .from(opportunityOffers).where(eq(opportunityOffers.assignedUserId, userId));
+  await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    automaticGenerationEnabled: true,
+    generationBatchId: `rotation-rollback-${token}`,
+  });
+  await rawConnection!.query(`DROP TRIGGER IF EXISTS ${rollbackTriggerName}`);
+  rollbackTriggerName = undefined;
+  const rotationAfterFailureRows = await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, rotationKey)).limit(1);
+  assert.equal(String(rotationAfterFailureRows[0]?.settingValue), rotationBeforeFailure,
+    "A failed offer insert must not consume a company rotation position.");
+  assert.equal((await db.select({ id: opportunityOffers.id })
+    .from(opportunityOffers).where(eq(opportunityOffers.assignedUserId, userId))).length, offersBeforeFailure.length,
+    "A failed generation transaction must not leave a partial opportunity.");
+
+  const retryCycle = await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    automaticGenerationEnabled: true,
+    generationBatchId: `rotation-rollback-retry-${token}`,
+  });
+  rollbackRetryOfferId = Number(retryCycle.generatedOpportunityId);
+  assert.ok(Number.isSafeInteger(rollbackRetryOfferId) && rollbackRetryOfferId > 0,
+    "Generation must recover after the injected database failure.");
+  const rotationAfterRetryRows = await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, rotationKey)).limit(1);
+  assert.notEqual(String(rotationAfterRetryRows[0]?.settingValue), rotationBeforeFailure,
+    "A successful retry must consume exactly one rotation position.");
+
   assert.deepEqual(
     await db.select({
       availableMinor: customerBalances.availableMinor,
@@ -492,7 +559,11 @@ const balanceBefore = await db.select({
       await restoreOriginalCompanyCatalogueState();
     } finally {
       try {
-        for (const fixtureOfferId of [offerId, blockedOfferId]) {
+        if (rollbackTriggerName && rawConnection) {
+          await rawConnection.query(`DROP TRIGGER IF EXISTS ${rollbackTriggerName}`);
+          rollbackTriggerName = undefined;
+        }
+        for (const fixtureOfferId of [offerId, blockedOfferId, rollbackRetryOfferId]) {
           if (userId !== undefined && fixtureOfferId !== undefined) {
             await db.delete(opportunityGenerationAssignments).where(eq(opportunityGenerationAssignments.offerId, fixtureOfferId));
             await db.delete(opportunityDeliveryIdempotency).where(and(
@@ -526,6 +597,7 @@ const balanceBefore = await db.select({
           await db.delete(packages).where(eq(packages.id, packageId));
         }
       } finally {
+        if (rawConnection) await rawConnection.end();
         await closeDbPool();
       }
     }
