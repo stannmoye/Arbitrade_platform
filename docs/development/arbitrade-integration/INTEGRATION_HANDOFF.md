@@ -1,40 +1,33 @@
 # Window 7 — Integration Handoff
 
-**Prepared by:** Window 1 — Automatic Opportunity Generation  
-**Prepared:** 2026-11-04  
-**Workstream 1 PR:** [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278)  
-**Branch:** `feat/automatic-template-opportunities`  
-**Code head inspected:** `2629baa75c1644b3771511a4b085b0085eca79fb`
+**Updated:** 2026-11-04  
+**Window 3 branch:** workstream/3-automatic-opportunity-engine  
+**Base dependency:** Window 1 generation implementation from PR #278, branch feat/automatic-template-opportunities.
 
-## What Window 1 hands off
+## Window 3 implementation handoff
 
-The branch implements catalogue-native automatic opportunity generation and keeps manual company templates optional. It uses the existing customer entitlement, package-policy, company-catalogue, company-rotation and opportunity-delivery infrastructure. The current PR contains 48 changed files and migrations 0103–0105.
+Window 3 extends the existing generator with a missing company-neutral path required by Window 1's new company-selection contract.
 
-Key implementation files include:
-- `server/modules/opportunity-generation-template.ts`
-- `server/db.ts`
-- `server/opportunityLifecycle.ts`
-- `server/routers.ts`
-- `client/src/components/AdminOpportunityTemplates.tsx`
-- `drizzle/0103_automatic_opportunity_generation_templates.sql`
-- `drizzle/0104_catalogue_native_opportunity_generation.sql`
-- `drizzle/0105_default_on_global_information_delivery.sql`
+### Exact changes
 
-## Required integration steps
+- server/modules/opportunity-generation-template.ts: adds createUnattributedCatalogueOpportunityTemplate; generation terms allow a nullable company reference while admin-managed templates still require a valid Logo ID.
+- server/db.ts: no longer aborts generation when the approved company pool is empty; skips rotation and template lookup in that case; persists null company identity and avoids resolving null IDs in the admin monitor.
+- drizzle/schema.ts: makes only opportunity_generation_assignments.companyReferenceId nullable; the company template table remains strict.
+- drizzle/0106_company_neutral_opportunity_assignments.sql: forward migration to align the assignment column with the company-neutral contract.
+- drizzle/meta/_journal.json: registers migration 0106 after 0105.
+- server/modules/opportunity-generation-template.test.ts and server/opportunity-generation.contract.test.ts: cover neutral term selection and nullable persistence.
 
-1. Inspect the latest `main`, all six implementation branches and open PRs immediately before integration.
-2. Obtain and record the exact Window 2–6 ownership rows and PR heads. They are not inferred in this handoff.
-3. Compare all changes touching `server/db.ts`, `server/routers.ts`, `server/opportunityLifecycle.ts`, `drizzle/schema.ts`, `drizzle/meta/_journal.json`, `client/src/App.tsx` and canonical Trading documentation.
-4. Reconcile schema changes and preserve global migration order. Keep 0103, 0104 and 0105 in order unless a reviewed conflict requires a coordinated rebase.
-5. Verify generation consumes active server-assigned subscriptions and saved package policies; company selection uses current approved/enabled/non-archived IDs and saved country filters.
-6. Verify template absence does not block generation and that a template cannot override package bounds.
-7. Verify a generation replay returns/reuses the persisted assignment without rerolling terms or advancing rotation twice.
-8. Verify existing delivery lifecycle remains the only delivery owner and that capacity, idempotency, lease/retry and recovery semantics remain intact.
-9. Verify generation and delivery create no trade allocation, wallet change, ledger entry, result, or settlement.
-10. Run `pnpm install --frozen-lockfile`, `pnpm check`, `pnpm test`, `pnpm build`, migration validation and disposable MySQL 8.4 / MariaDB 11.4 integrations against the final integrated SHA.
-11. Run the required authenticated browser acceptance against a dedicated staging deployment with seeded eligible and ineligible customers. Do not substitute mocked browser tests for authenticated staging evidence.
-12. Report exact integrated SHA, workflow links/results, database engine versions, browser target SHA and any outstanding production rollout gates.
+### Integration instructions
 
-## Merge and deployment boundary
+1. Integrate the Window 1 company contract and Window 2 package-policy interface without creating duplicate selectors or policy services.
+2. Review server/db.ts against Window 2 package-policy changes and Window 6 worker-failure monitoring changes; preserve their logic.
+3. Keep Window 4's existing delivery lifecycle as the sole delivery owner. A company-neutral offer must pass through the same existing delivery lifecycle.
+4. Verify generated offer and assignment rows persist with null company identity when the eligible company pool is empty; verify no template query or rotation cursor mutation occurs for that case.
+5. Verify the same generation key is idempotent and package policy terms are unchanged on retry/restart.
+6. Validate migration 0106 after 0105 on MySQL 8.4 and MariaDB 11.4, including upgrade with historical non-null assignments.
+7. Run pnpm install --frozen-lockfile, pnpm check, focused generation tests, pnpm test, pnpm build, migration validation and existing worker/delivery integrations on the final integrated SHA.
+8. Run authenticated customer/admin browser acceptance on a dedicated staging deployment. CI alone does not prove hosted pop-up display.
 
-Window 1 has not merged to `main` and has not deployed the branch. Window 7 owns the final integration decision. Do not deploy or apply migrations to production as part of integration verification. The user’s separate financial boundary remains in force.
+## Safety and rollout
+
+No wallet/ledger, trade execution, customer-fund allocation, result determination or settlement behavior is added or enabled. No production migration, deployment, or hosted acceptance is claimed by this branch. Window 7 owns final integration and merge authority.
