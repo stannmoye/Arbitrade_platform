@@ -3172,8 +3172,12 @@ export async function previewNextCustomerCompanySpotlight(userId:number) {
   // production state. The worker assigns the company inside the opportunity transaction.
   const row=(await db.select({settingValue:appSettings.settingValue})
     .from(appSettings).where(eq(appSettings.settingKey,stateKey)).limit(1))[0];
+  const legacyStateKey="trading.companyRotation."+userId+"."+packageName;
+  const legacyRow=!row?.settingValue&&legacyStateKey!==stateKey
+    ? (await db.select({settingValue:appSettings.settingValue}).from(appSettings).where(eq(appSettings.settingKey,legacyStateKey)).limit(1))[0]
+    : undefined;
   let priorState:CompanySpotlightState|null=null;
-  try { const parsed=JSON.parse(String(row?.settingValue||"")); if(parsed&&typeof parsed==="object") priorState=parsed as CompanySpotlightState; } catch {}
+  try { const parsed=JSON.parse(String(row?.settingValue||legacyRow?.settingValue||"")); if(parsed&&typeof parsed==="object") priorState=parsed as CompanySpotlightState; } catch {}
   const repeatPolicy=String(policy.companyRotationRepeatPolicy||"avoid_until_exhausted") as "avoid_until_exhausted"|"allow_repeats";
   const result=nextCompanySpotlight(pool,priorState,userId,String(packageId),repeatPolicy);
   return {...result.company,adminCatalogueStatus:"verified" as const,referenceOnly:true as const,rotationCycle:result.rotationCycle,rotationSequence:result.rotationSequence,poolFingerprint:result.poolFingerprint,packageName,previewOnly:true as const};
