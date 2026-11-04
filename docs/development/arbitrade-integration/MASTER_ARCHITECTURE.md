@@ -2,7 +2,7 @@
 
 **Coordination baseline:** 2026-11-04  
 **Repository:** `stannmoye/Arbitrade_platform`  
-**Current implementation reference:** Workstream 1 PR [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278), branch `feat/automatic-template-opportunities`.
+**Current implementation reference:** Window 3 PR [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278), branch `feat/automatic-template-opportunities`.
 
 ## Purpose
 
@@ -20,9 +20,9 @@ This directory is the shared integration contract for six implementation workstr
 8. **Customer display:** return only offers assigned to the authenticated customer and eligible under their active server-owned package entitlement. Company display comes from the saved offer/delivery snapshot and current catalogue approval checks.
 9. **Monitoring and recovery:** expose persisted generation batches, assignment outcomes, package breakdown and failures through the existing admin monitoring surface. Keep errors visible and bounded; recover through durable state.
 
-## Workstream 1 implementation boundary
+## Window 1 and Window 3 ownership boundary
 
-Workstream 1 owns automatic information-opportunity generation and the generation-to-delivery handoff. Its current implementation is in PR #278. It does not own the independent delivery lifecycle, package qualification engine, global Trade policy editor, financial allocation, settlement, or final merge.
+Window 1 owns the Company Catalogue and Automatic Company Rotation, including the approved-company catalogue and the existing rotation contract/state. Window 3 owns Automatic Opportunity Generation and its generation-to-delivery handoff; its implementation is in PR #278. Window 3 consumes Window 1's catalogue and rotation contracts and does not own the independent delivery lifecycle, package qualification engine, global Trade policy editor, financial allocation, settlement, or final integration. Window 7 owns final cross-workstream integration and verification.
 
 ## Financial and data boundary
 

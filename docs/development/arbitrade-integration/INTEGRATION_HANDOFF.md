@@ -4,7 +4,7 @@
 **Prepared:** 2026-11-04  
 **Workstream 3 PR:** [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278)  
 **Branch:** `feat/automatic-template-opportunities`  
-**Code/test head verified:** `0a618706b2cdab2778ca6ef95c70f7dde55564d2`
+**Latest verified code/test SHA (before this documentation-only correction):** `26bc9054ab0b4f43617131b3aa2290d9a12479ed`
 
 ## What Window 3 hands off
 
@@ -84,6 +84,22 @@ The regression now explicitly captures and asserts the nested database error cha
 
 On later test commit `a844e517ced41049b0167ec70d4a0a62239caed6`, the MySQL job exposed a separate fixture issue: `formulaCooling` was true and `formulaReadyAt` was one second ahead, so generation never reached subscription selection. The fixture had left a post-completion interval active; MySQL's second-precision timestamp boundary made that scheduling gate observable. Commit `69da1a6052435795ab27c0d629d8dad009cf2f59` disables all cadence intervals in the isolated rollback scenario. It does not weaken quota assertions. The deterministic clock correction from commit `78244cde599201ccc32014eea3a6f9996fee6907` remains in place.
 
-On exact code/test head `0a618706b2cdab2778ca6ef95c70f7dde55564d2`, all ten required workflow groups passed. The worker integration ([run 41787906677](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41787906677)) passed on MySQL 8.4 and MariaDB 11.4, including quota selection, all-exhausted, both-available, retry, concurrency and rollback coverage. Other exact-head workflow results: [Build and test production source — 41787906708](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41787906708); [company rotation — 41787906744](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41787906744); [tier qualification — 41787906751](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41787906751); [settlement reconciliation — 41787906591](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41787906591); [administrator wallet idempotency — 41787906900](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41787906900); [trading recovery — 41787906692](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41787906692); [mining regression — 41787906776](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41787906776); [application verification — 41787906596](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41787906596); and [installer validation — 41787906592](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41787906592). The build workflow reports TypeScript, 148 test files / 1,161 tests passed (5 files / 27 tests skipped), 31 additional test files / 176 tests passed, production build, and customer-portal real-browser recovery checks.
+### Exact-head CI evidence — latest code/test SHA before this documentation-only correction
 
-These results certify only code/test SHA `0a618706b2cdab2778ca6ef95c70f7dde55564d2`. Any later handoff-only commit must be evaluated using the workflows attached to that exact final PR head; do not reuse these older SHA results as final-head certification. No authenticated Blitz production acceptance or deployment is claimed.
+All ten required workflow groups passed on exact code/test SHA `26bc9054ab0b4f43617131b3aa2290d9a12479ed`:
+- [Build and test production source — run 41788526517](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526517) — TypeScript, 148 test files / 1,161 tests passed (5 files / 27 tests skipped), 31 additional test files / 176 tests passed, production build and customer-portal real-browser recovery checks.
+- [Trading opportunity worker concurrency and recovery integration — run 41788526516](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526516) — MySQL 8.4 and MariaDB 11.4 both passed, including quota selection, all-exhausted, both-available, retry, concurrency and rollback coverage.
+- [Trading company rotation durable allocation database integration — run 41788526528](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526528) — passed.
+- [Trading tier qualification database integration — run 41788526478](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526478) — passed.
+- [Trading settlement reconciliation database integration — run 41788526483](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526483) — passed.
+- [Trading administrator wallet idempotency integration — run 41788526547](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526547) — passed.
+- [Verify Arbitrade trading recovery changes — run 41788526474](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526474) — passed.
+- [Mining regression checks — run 41788526555](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526555) — passed.
+- [Verify application — run 41788526482](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526482) — passed.
+- [Installer validation — run 41788526479](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526479) — passed.
+
+### Earlier code/test evidence — superseded
+
+The preceding code/test SHA `0a618706b2cdab2778ca6ef95c70f7dde55564d2` also passed its workflow set ([worker integration run 41787906677](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41787906677)); it is older than `26bc9054ab0b4f43617131b3aa2290d9a12479ed` and is not the latest code/test evidence. The exact-head links above certify only `26bc9054ab0b4f43617131b3aa2290d9a12479ed`.
+
+This is a documentation-only ownership correction after the verified code/test SHA; no application, migration or test code is changed here. The workflow evidence above is not represented as running on the later documentation-only commit. Window 7 should review that documentation commit separately. No authenticated Blitz production acceptance or deployment is claimed.

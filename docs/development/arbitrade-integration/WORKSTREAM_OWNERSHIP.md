@@ -6,17 +6,17 @@
 
 | Window | Workstream | Owned responsibility | Explicit exclusions |
 | --- | --- | --- | --- |
-| 1 | Automatic Opportunity Generation | Remove the unnecessary per-company approved-template prerequisite; generate customer/package-specific opportunities from the approved existing catalogue; preserve package terms and company rotation; persist generation assignments and snapshots; hand persisted offers to the existing delivery lifecycle. | Does not own qualification, delivery worker internals, global Trade settings UI, financial execution/allocation/settlement, or final integration. |
+| 1 | Company Catalogue and Automatic Company Rotation | Own the company catalogue, approved-company identity and filtering contract, and the existing durable automatic company-rotation contract/state. | Does not own opportunity-generation candidate selection, quota enforcement, offer/assignment persistence, delivery internals, financial execution/allocation/settlement, or final integration. |
+| 3 | Automatic Opportunity Generation | Generate customer/package-specific opportunities from eligible server-assigned subscriptions and the approved catalogue; enforce subscription and package quotas; persist offers, assignments and snapshots transactionally; invoke Window 1's catalogue/rotation contracts; hand persisted offers to the existing delivery lifecycle. | Does not own the catalogue or standalone rotation service, package qualification, delivery worker internals, financial execution/allocation/settlement, or final integration. |
 | 7 | Final Integration and Verification | Compare all six implementation branches; resolve shared-file/schema/API conflicts; verify migration order and contracts; run exact-head checks and integrated acceptance; report readiness. | Does not replace the implementation ownership of Windows 1–6. |
 
 ## Workstream slots requiring confirmation from their assigned windows
 
-The assignment prompts for Windows 2–6 are not present in this repository snapshot or in Workstream 1's handoff. Their names and boundaries are intentionally not guessed. Each owner must replace its row with the exact assigned scope and explicit exclusions before Window 7 integrates.
+Window 3 ownership is confirmed by its assigned Stage 3 scope and PR #278. The assignment prompts for Windows 2, 4, 5 and 6 are not present in this repository snapshot; their names and boundaries are intentionally not guessed. Each assigned owner must document its exact scope and explicit exclusions before Window 7 integrates.
 
 | Window | Workstream name | Owner must document |
 | --- | --- | --- |
 | 2 | Pending owner confirmation | Exact scope, owned paths/services, interfaces, exclusions |
-| 3 | Pending owner confirmation | Exact scope, owned paths/services, interfaces, exclusions |
 | 4 | Pending owner confirmation | Exact scope, owned paths/services, interfaces, exclusions |
 | 5 | Pending owner confirmation | Exact scope, owned paths/services, interfaces, exclusions |
 | 6 | Pending owner confirmation | Exact scope, owned paths/services, interfaces, exclusions |

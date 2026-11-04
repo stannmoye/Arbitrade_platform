@@ -2,48 +2,53 @@
 
 **Last inspected:** 2026-11-04  
 **Repository main:** `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`  
-**Workstream 1 branch:** `feat/automatic-template-opportunities`  
-**Workstream 1 code head inspected:** `2629baa75c1644b3771511a4b085b0085eca79fb`  
+**Window 3 branch:** `feat/automatic-template-opportunities`
+**Latest code/test SHA verified:** `26bc9054ab0b4f43617131b3aa2290d9a12479ed`
 **Pull request:** [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278) — open, draft, not merged.
 
-## Window 1 — Automatic Opportunity Generation
+## Window 1 — Company Catalogue and Automatic Company Rotation
 
-**Implementation state:** Implemented on PR #278; ready for Window 7 integration review.
+Window 1 owns the company catalogue, approved-company identity/filtering contract, and existing durable automatic company-rotation contract/state. Window 1 does not own Automatic Opportunity Generation.
 
-Observed scope in the branch:
-- Customer-specific generation from the existing approved company catalogue without a one-template-per-company prerequisite.
-- Brand-only catalogue-native identity with no fabricated ticker or venue.
-- Optional approved template enrichment for the selected company.
-- Package-specific persisted capital, payout-rate and duration bounds.
-- Durable customer/package generation lock, unique generation key, assignment and package/company snapshots.
-- Existing company rotation integration and delivery lifecycle handoff.
-- Admin generation control, batch/assignment monitoring and audit/version checks.
-- Migrations 0103, 0104 and 0105.
+## Window 3 — Automatic Opportunity Generation
+
+**Implementation state:** Implemented in PR #278. The quota and database-integration corrections passed the exact-head workflow set on the code/test SHA above. Window 3's ownership documentation is being aligned in a separate documentation-only correction; final handover approval remains with Window 7.
+
+Observed Window 3 scope in PR #278:
+- Generate opportunities for eligible server-assigned customer subscriptions using the approved company catalogue.
+- Enforce each subscription's saved entitlement quota and the applicable package-wide quota before candidate selection.
+- Preserve package terms and company identity/rotation snapshots; persist generation assignments transactionally and idempotently.
+- Hand persisted offers to the existing delivery lifecycle; do not create a parallel delivery worker.
+- Keep automatic financial execution hard-disabled.
 
 ### Exact-head GitHub Actions evidence
 
-At code head `aa27d664475eaf40dd4ff3d3414b267e569484e9`, the repository returned 10 pull-request workflow runs, all `completed/success`:
+All ten workflow groups completed successfully on code/test SHA `26bc9054ab0b4f43617131b3aa2290d9a12479ed`:
 
-1. Trading settlement reconciliation database integration
-2. Trading tier qualification database integration
-3. Trading administrator wallet idempotency integration
-4. Trading company rotation durable allocation database integration
-5. Trading opportunity worker concurrency and recovery integration
-6. Verify Arbitrade trading recovery changes
-7. Mining regression checks
-8. Verify application
-9. Installer validation
-10. Build and test production source
+1. [Trading settlement reconciliation database integration — run 41788526483](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526483)
+2. [Trading tier qualification database integration — run 41788526478](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526478)
+3. [Trading administrator wallet idempotency integration — run 41788526547](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526547)
+4. [Trading company rotation durable allocation database integration — run 41788526528](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526528)
+5. [Trading opportunity worker concurrency and recovery integration — run 41788526516](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526516). MySQL 8.4 and MariaDB 11.4 both passed.
+6. [Verify Arbitrade trading recovery changes — run 41788526474](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526474)
+7. [Mining regression checks — run 41788526555](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526555)
+8. [Verify application — run 41788526482](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526482)
+9. [Installer validation — run 41788526479](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526479)
+10. [Build and test production source — run 41788526517](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41788526517)
 
-This is exact-head CI evidence for that earlier code SHA. On the current code head `2629baa75c1644b3771511a4b085b0085eca79fb`, 24 of 25 GitHub checks have completed successfully with no failures; the remaining local-preview customer-portal browser recovery check is still installing Playwright Chromium. The API-copy correction and both regression-contract updates are included in this current head.
+This exact-head workflow evidence applies to code/test SHA `26bc9054ab0b4f43617131b3aa2290d9a12479ed`. A later documentation-only ownership correction is not represented by these run SHAs; Window 7 should assess the final documentation commit separately and must not attribute these older run results to that later commit.
+
+## Window 7 — Final Integration and Verification
+
+Window 7 owns cross-workstream reconciliation, migration ordering, exact-head integration checks, hosted acceptance and the final handover/merge decision. Window 3 has not been officially handed over until Window 7 completes its review.
+
+## Windows 2, 4, 5 and 6
+
+Their precise assigned scopes and statuses are not inferred here. Each assigned owner must provide its own branch, commit, PR, changed-file list and exact-head test evidence before integration.
 
 ## Not established by this status
 
-- No authenticated customer/admin browser acceptance against Blitz or another deployed environment is claimed.
+- No authenticated customer/admin acceptance against Blitz or another deployed environment is claimed.
 - No production database migration or deployment is claimed.
-- No real-money execution, automatic customer fund allocation, or unattended financial settlement is enabled by this workstream.
+- No real-money execution, automatic customer-fund allocation, or unattended financial settlement is enabled by this workstream.
 - A green workflow result is not proof that the hosted customer portal is currently showing pop-ups.
-
-## Windows 2–6
-
-Status is pending each assigned owner’s own branch, commit, PR, changed-file list and exact-head test evidence. Do not mark a window complete from its assignment alone.
