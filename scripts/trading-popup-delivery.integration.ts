@@ -544,6 +544,15 @@ const balanceBefore = await db.select({
   assert.ok(rotationBeforeRows[0], "The first generation must persist a durable company rotation cursor.");
   const rotationBeforeFailure = String(rotationBeforeRows[0].settingValue);
 
+  // The first assignment intentionally consumes the original one-opportunity
+  // entitlement. Raise only that subscription's test entitlement so this
+  // second attempt reaches company selection and the missing-currency failure
+  // can genuinely exercise transaction rollback rather than returning early
+  // because the fixture has exhausted its quota.
+  await db.update(customerPackageSubscriptions).set({
+    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 2, maxPopupsPerDay: 0 }),
+  }).where(eq(customerPackageSubscriptions.id, Number(generatedAssignments[0]?.packageSubscriptionId)));
+
   // A missing generation prerequisite after company selection must throw and
   // roll back, not return normally and commit the already-updated rotation row.
   await db.update(currencyRegistry).set({ enabled: false }).where(eq(currencyRegistry.code, currency));
