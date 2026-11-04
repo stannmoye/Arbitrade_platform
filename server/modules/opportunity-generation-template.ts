@@ -26,7 +26,8 @@ export type OpportunityGenerationPackageBounds = {
   maximumTradeDurationSeconds: number | null;
 };
 
-export type OpportunityGenerationTerms = OpportunityGenerationTemplate & {
+export type OpportunityGenerationTerms = Omit<OpportunityGenerationTemplate, "companyReferenceId"> & {
+  companyReferenceId: string | null;
   configuredPayoutRateBps: number;
   tradeDurationSeconds: number;
   payoutSemantics: "configured_payout_not_market_earned_profit";
@@ -124,6 +125,61 @@ export function createCatalogueIdentityOpportunityTemplate(
   };
 }
 
+/**
+ * Creates a valid informational opportunity identity when the current approved
+ * company-display pool is empty. This is not a synthetic company and carries no
+ * company reference, ticker, exchange, market quote, or execution claim.
+ */
+export function createUnattributedCatalogueOpportunityTemplate(
+  minimumMinor: number,
+  currency: OpportunityGenerationTemplateCurrency = "USD",
+): Omit<OpportunityGenerationTemplate, "companyReferenceId"> & { companyReferenceId: null } {
+  if (!Number.isSafeInteger(minimumMinor) || minimumMinor <= 0) {
+    throw new Error("Package minimum amount must be a positive safe integer in native minor units.");
+  }
+  if (!CURRENCIES.has(currency)) throw new Error("Catalogue opportunity currency is not supported.");
+  return {
+    templateName: "Informational opportunity",
+    companyReferenceId: null,
+    symbol: "BRAND",
+    venueFrom: "Informational",
+    venueTo: "Informational",
+    currency,
+    minimumMinor,
+    sourceReference: "company-catalogue:no-approved-company",
+    reviewNotes: "No currently approved company identity was available. This informational opportunity is not associated with a company, ticker, exchange, market quote, or actual trade.",
+  };
+}
+
+function validateUnattributedCatalogueOpportunityTemplate(
+  input: unknown,
+): Omit<OpportunityGenerationTemplate, "companyReferenceId"> & { companyReferenceId: null } {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new Error("Company-neutral informational opportunity payload is required.");
+  }
+  const value = input as Record<string, unknown>;
+  const allowedFields = new Set([
+    "templateName", "companyReferenceId", "symbol", "venueFrom", "venueTo",
+    "currency", "minimumMinor", "sourceReference", "reviewNotes",
+  ]);
+  if (Object.keys(value).some((field) => !allowedFields.has(field))) {
+    throw new Error("Company-neutral informational opportunities cannot override package payout or duration settings.");
+  }
+  if (value.companyReferenceId !== null) {
+    throw new Error("Company-neutral informational opportunity must not contain a company reference.");
+  }
+  const canonical = createUnattributedCatalogueOpportunityTemplate(
+    Number(value.minimumMinor),
+    value.currency as OpportunityGenerationTemplateCurrency,
+  );
+  for (const field of ["templateName", "symbol", "venueFrom", "venueTo", "sourceReference", "reviewNotes"] as const) {
+    if (value[field] !== canonical[field]) {
+      throw new Error("Company-neutral informational opportunity contains non-canonical identity metadata.");
+    }
+  }
+  return canonical;
+}
+
 function assertBound(name: keyof OpportunityGenerationPackageBounds, value: unknown, minimum: number, maximum: number): asserts value is number {
   if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) {
     throw new RangeError(`${name} must be a configured safe integer from ${minimum} through ${maximum}.`);
@@ -149,7 +205,10 @@ export function selectOpportunityGenerationTerms(
   packageBounds: OpportunityGenerationPackageBounds | null | undefined,
   sampler: InclusiveIntegerSampler = defaultSampler,
 ): OpportunityGenerationTerms {
-  const template = validateOpportunityGenerationTemplate(templateInput);
+  const template = templateInput && typeof templateInput === "object" && !Array.isArray(templateInput)
+    && (templateInput as Record<string, unknown>).companyReferenceId === null
+    ? validateUnattributedCatalogueOpportunityTemplate(templateInput)
+    : validateOpportunityGenerationTemplate(templateInput);
   if (!packageBounds || typeof packageBounds !== "object") {
     throw new Error("Saved package payout and duration settings are required.");
   }

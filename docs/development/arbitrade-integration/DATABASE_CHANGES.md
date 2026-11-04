@@ -1,37 +1,25 @@
 # Database Changes
 
-**Coordination baseline:** 2026-11-04  
-**Workstream 1 reference:** PR #278, head `aa27d664475eaf40dd4ff3d3414b267e569484e9`.
+**Updated:** 2026-11-04
 
-## Workstream 1 migration sequence
+## Existing generation migrations
 
-### Migration 0103 — `0103_automatic_opportunity_generation_templates.sql`
+Workstream 1's existing PR #278 introduces migrations 0103–0105 for generated offer assignment columns, generation templates/batches/assignments, catalogue-native template provenance and default informational delivery controls. These migrations must remain ordered and be reconciled by Window 7 with all workstream migration changes.
 
-- Adds customer/package assignment, generation key, company identity, configured payout/duration and package policy snapshot columns to existing `opportunity_offers`.
-- Adds unique generation-key and lookup indexes.
-- Creates `opportunity_generation_templates` for optional reviewed company-specific display-term enrichment.
-- Creates `opportunity_generation_batches` for durable batch status and diagnostics.
-- Creates `opportunity_generation_assignments` for customer/package generation provenance, selected terms, snapshots and lifecycle status.
-- Seeds `trade.opportunityGeneration.control` ON only when absent; duplicate-key handling preserves an existing administrator decision.
+## Window 3 migration 0106
 
-### Migration 0104 — `0104_catalogue_native_opportunity_generation.sql`
+### 0106_company_neutral_opportunity_assignments.sql
 
-- Makes `opportunity_generation_assignments.templateId` and `templateVersion` nullable so catalogue-native generation does not require a manual template.
-- Updates only the untouched migration-default reason text. Administrator-edited values are preserved.
-- Does not rewrite company catalogue, packages, customer assignments, wallet, ledger or settlement records.
-
-### Migration 0105 — `0105_default_on_global_information_delivery.sql`
-
-- Enables the informational delivery-related global controls only for the untouched migration-created `trade.globalControls` row (`updatedBy IS NULL`, policy version 1).
-- Preserves any saved administrator decision/version.
-- Does not change the automatic financial execution guard.
-
-All three migrations are represented in the Drizzle journal and schema on the Workstream 1 branch. The branch's migration sequence must be reconciled against every other workstream before integration.
+- Changes only opportunity_generation_assignments.companyReferenceId from NOT NULL to NULL.
+- Allows an informational opportunity to be generated when the Window 1 approved-display pool is empty.
+- Existing company IDs and historical assignments remain unchanged.
+- Company identity on opportunity_offers was already nullable; this migration aligns the assignment snapshot with that existing contract.
+- No package, customer, wallet, ledger, trade, execution, result or settlement data is changed.
 
 ## Preservation and rollout rules
 
-- Do not drop or rebuild existing package, company, logo, customer, wallet, ledger, trade or historical opportunity tables.
-- Do not import a replacement company catalogue or require re-entry of the existing 16 packages / 1,811 company identities.
-- Apply only forward migrations through the repository's supported migration runners. Never run a fresh-install reset against a populated database.
-- Before production rollout, Window 7 must verify 0103–0105 against the final merged migration journal on disposable MySQL 8.4 and MariaDB 11.4 databases, then validate upgrade compatibility from the supported prior schema.
-- No production migration or deployment is claimed by this workstream.
+- Preserve all 16 existing packages, 1,811 catalogue identities and logos, customer records, historical opportunities and snapshots.
+- Do not drop, rebuild, truncate or reseed existing business tables.
+- Apply forward migrations only through supported migration runners.
+- Window 7 must validate the combined ordered journal and migration 0106 on disposable MySQL 8.4 and MariaDB 11.4 databases, including upgrade from the supported pre-0106 schema.
+- No production migration or deployment is claimed by Window 3.

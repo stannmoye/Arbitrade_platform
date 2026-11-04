@@ -2,14 +2,41 @@ name: Trading opportunity worker concurrency and recovery integration
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/automatic-template-opportunities]
   push:
-    branches: [main]
+    branches: [main, workstream/3-automatic-opportunity-engine]
 
 permissions:
   contents: read
 
 jobs:
+  generation-source-checks:
+    name: Generation source checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: TypeScript validation
+        run: pnpm check
+      - name: Generation and delivery contract regression tests
+        run: pnpm exec vitest run server/opportunity-generation.contract.test.ts server/modules/opportunity-generation-template.test.ts server/trading-opportunity-worker.contract.test.ts
+      - name: Production build
+        run: pnpm build
+
   opportunity-worker:
     name: Opportunity worker lifecycle on ${{ matrix.database }}
     runs-on: ubuntu-latest

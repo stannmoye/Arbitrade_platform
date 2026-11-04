@@ -524,7 +524,7 @@ export const opportunityGenerationAssignments = mysqlTable("opportunity_generati
   packageSubscriptionId: int("packageSubscriptionId").notNull(),
   packageName: varchar("packageName", { length: 80 }).notNull(),
   packagePolicyVersion: int("packagePolicyVersion").notNull(),
-  companyReferenceId: varchar("companyReferenceId", { length: 32 }).notNull(),
+  companyReferenceId: varchar("companyReferenceId", { length: 32 }),
   configuredProfitRateBps: int("configuredProfitRateBps").notNull(),
   configuredDurationSeconds: int("configuredDurationSeconds").notNull(),
   packageSnapshotJson: longtext("packageSnapshotJson").notNull(),

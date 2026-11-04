@@ -10,7 +10,7 @@ import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modul
 import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostings, inspectWalletLedgerSnapshot } from "./modules/wallet-ledger-reconciliation";
 import { addCalendarMonths } from "./modules/calendar-months";
 import { validateOpportunityOfferClosure, validateOpportunityOfferPublication, type OpportunityOfferClosureInput, type OpportunityOfferPublicationInput } from "./modules/opportunity-publication";
-import { createCatalogueIdentityOpportunityTemplate, selectOpportunityGenerationTerms, validateOpportunityGenerationTemplate, type OpportunityGenerationTemplate } from "./modules/opportunity-generation-template";
+import { createCatalogueIdentityOpportunityTemplate, createUnattributedCatalogueOpportunityTemplate, selectOpportunityGenerationTerms, validateOpportunityGenerationTemplate, type OpportunityGenerationTemplate } from "./modules/opportunity-generation-template";
 import { assessOpportunityPackageCompatibility, type OpportunityPackageCompatibility } from "./modules/opportunity-package-compatibility";
 import { claimPopupDeliveryDispatches, ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
@@ -3209,7 +3209,7 @@ function hasConfiguredTradingOfferPolicy(policy:any):boolean {
 }
 
 type AutomaticOpportunityGenerationInput={
-  userId:number;batchId:string;now:Date;quotaWindowStart:Date;
+  userId:number;batchId:string;now:Date;
   eligibleSubscriptions:Array<{subscriptionId:number;packageId:number;packageName:string}>;
   companyRotationEnabled:boolean;
 };
@@ -3224,7 +3224,9 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
   const db=await getDb();if(!db)throw new Error("Database is not available");
   const activeSubscriptionIds=input.eligibleSubscriptions.map(row=>row.subscriptionId).filter(id=>Number.isSafeInteger(id)&&id>0);
   if(!activeSubscriptionIds.length)return null;
-  return db.transaction(async tx=>{
+  for(let attempt=0;attempt<4;attempt++){
+    try{
+      return await db.transaction(async tx=>{
     const generationLockKey=`trading.opportunityGenerator.${input.userId}`;
     await tx.insert(appSettings).values({settingKey:generationLockKey,settingValue:"",updatedBy:input.userId})
       .onDuplicateKeyUpdate({set:{settingKey:generationLockKey}});
@@ -3256,8 +3258,12 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         subscriptionId:customerPackageSubscriptions.id,packageId:packages.id,packageName:packages.name,
         activationKey:customerPackageSubscriptions.activationKey,subscriptionStatus:customerPackageSubscriptions.status,
         startsAt:customerPackageSubscriptions.startsAt,expiresAt:customerPackageSubscriptions.expiresAt,
+        termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
+        packageDailyOpportunityQuota:packages.opportunitiesPerDay,packageMaxPopupsPerDay:packages.maxPopupsPerDay,
         packageEnabled:packages.enabled,packageStartsAt:packages.startsAt,packageExpiresAt:packages.expiresAt,
         policyId:opportunityPackagePolicies.id,policyVersion:opportunityPackagePolicies.policyVersion,
+        policyDailyOpportunityQuota:opportunityPackagePolicies.maxPopupsPerDay,dailyPopupTarget:opportunityPackagePolicies.dailyPopupTarget,
+        schedulingPeriod:opportunityPackagePolicies.schedulingPeriod,
         minimumTradeUnits:opportunityPackagePolicies.minimumTradeUnits,maximumTradeUnits:opportunityPackagePolicies.maximumTradeUnits,
         minimumPayoutRateBps:opportunityPackagePolicies.minimumPayoutRateBps,maximumPayoutRateBps:opportunityPackagePolicies.maximumPayoutRateBps,
         minimumTradeDurationSeconds:opportunityPackagePolicies.minimumTradeDurationSeconds,maximumTradeDurationSeconds:opportunityPackagePolicies.maximumTradeDurationSeconds,
@@ -3270,7 +3276,42 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
           eq(customerPackageSubscriptions.status,"active"),sql`${customerPackageSubscriptions.activationKey} LIKE 'auto-tier:%'`,
           lte(customerPackageSubscriptions.startsAt,input.now),or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,input.now)),
           eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,input.now)),or(isNull(packages.expiresAt),gt(packages.expiresAt,input.now)))).limit(1).for("update"))[0];
-      if(row&&hasConfiguredTradingOfferPolicy(row)){selectedSubscription=row;selectedPolicy=row;break;}
+      if(row&&hasConfiguredTradingOfferPolicy(row)){
+        let entitlementSnapshot:any={};
+        try{entitlementSnapshot=JSON.parse(String(row.termsSnapshotJson||"{}"));}catch{entitlementSnapshot={};}
+        const packageDailyQuota=Number(row.packageDailyOpportunityQuota);
+        const effectiveEntitlementQuota=Number(entitlementSnapshot.opportunitiesPerDay??packageDailyQuota);
+        const customerDailyQuota=Number.isSafeInteger(effectiveEntitlementQuota)&&effectiveEntitlementQuota>0
+          ?effectiveEntitlementQuota:0;
+        const policyDailyQuota=Math.max(0,Math.trunc(Number(row.policyDailyOpportunityQuota)||0));
+        const packagePopupQuotaValue=Number(entitlementSnapshot.maxPopupsPerDay??row.packageMaxPopupsPerDay);
+        const packagePopupQuota=Math.max(0,Math.trunc(Number.isFinite(packagePopupQuotaValue)?packagePopupQuotaValue:0));
+        const dailyTarget=Math.max(0,Math.trunc(Number(row.dailyPopupTarget)||0));
+        const policyCap=policyDailyQuota>0?Math.min(packageDailyQuota,policyDailyQuota):packageDailyQuota;
+        const packageCap=packagePopupQuota>0?Math.min(policyCap,packagePopupQuota):policyCap;
+        const effectiveDailyQuota=Number.isSafeInteger(packageDailyQuota)&&packageDailyQuota>0
+          ?Math.min(packageCap,dailyTarget>0?dailyTarget:packageDailyQuota):0;
+        if(customerDailyQuota<=0||effectiveDailyQuota<=0)continue;
+        const candidateQuotaWindow=resolveTradingQuotaWindow(input.now,
+          row.schedulingPeriod==="rolling_24h"?"rolling_24h":"calendar_day");
+        // This customer lock serializes concurrent worker cycles. Enforce both the
+        // subscription entitlement and package policy inside this transaction,
+        // before company rotation is advanced or an assignment is persisted.
+        const subscriptionUsageRows=await tx.select({used:count()}).from(opportunityGenerationAssignments).where(and(
+          eq(opportunityGenerationAssignments.userId,input.userId),
+          eq(opportunityGenerationAssignments.packageSubscriptionId,Number(row.subscriptionId)),
+          gte(opportunityGenerationAssignments.generatedAt,candidateQuotaWindow.start)));
+        const packageUsageRows=await tx.select({used:count()}).from(opportunityGenerationAssignments).where(and(
+          eq(opportunityGenerationAssignments.userId,input.userId),
+          eq(opportunityGenerationAssignments.packageId,Number(row.packageId)),
+          gte(opportunityGenerationAssignments.generatedAt,candidateQuotaWindow.start)));
+        const subscriptionUsed=Number(subscriptionUsageRows[0]?.used||0);
+        const packageUsed=Number(packageUsageRows[0]?.used||0);
+        if(subscriptionUsed>=customerDailyQuota||packageUsed>=effectiveDailyQuota)continue;
+        selectedSubscription={...row,customerDailyQuota,effectiveDailyQuota,quotaWindowStart:candidateQuotaWindow.start};
+        selectedPolicy=row;
+        break;
+      }
     }
     if(!selectedSubscription||!selectedPolicy)return null;
 
@@ -3287,13 +3328,12 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     // The existing brand catalogue is the generation source. Templates are optional
     // display-term overrides and must never shrink or gate the company rotation pool.
     const approvedPool=buildCompanySpotlightPool(String(selectedPolicy.companyRotationCountryNames||""),catalogueState);
-    if(!approvedPool.length)return null;
 
-    let company:any;
+    let company:any=null;
     let rotationCycle:number|null=null;
     let rotationSequence:number|null=null;
     let poolFingerprint:string|null=null;
-    if(input.companyRotationEnabled){
+    if(approvedPool.length>0&&input.companyRotationEnabled){
       const stateKey=`trading.companyRotation.${input.userId}.${Number(selectedSubscription.packageId)}`;
       await tx.insert(appSettings).values({settingKey:stateKey,settingValue:"",updatedBy:input.userId})
         .onDuplicateKeyUpdate({set:{settingKey:stateKey}});
@@ -3305,20 +3345,20 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         selectedPolicy.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted");
       company=selection.company;rotationCycle=selection.rotationCycle;rotationSequence=selection.rotationSequence;poolFingerprint=selection.poolFingerprint;
       await tx.update(appSettings).set({settingValue:JSON.stringify(selection.state),updatedBy:input.userId,updatedAt:input.now}).where(eq(appSettings.settingKey,stateKey));
-    }else{
+    }else if(approvedPool.length>0){
       company=approvedPool[crypto.randomInt(0,approvedPool.length)];
     }
-    // Load at most one override for the already-selected company. Do not lock or scan
-    // every approved template for every customer in a large generation batch.
-    const template=(await tx.select().from(opportunityGenerationTemplates)
+    // Templates may enrich an existing selected company only. An empty approved
+    // display pool produces a company-neutral informational opportunity.
+    const template=company?(await tx.select().from(opportunityGenerationTemplates)
       .where(and(eq(opportunityGenerationTemplates.status,"approved"),eq(opportunityGenerationTemplates.companyReferenceId,company.id)))
-      .orderBy(opportunityGenerationTemplates.id).limit(1).for("update"))[0]||null;
+      .orderBy(opportunityGenerationTemplates.id).limit(1).for("update"))[0]||null:null;
     // Approved templates are optional display-term overrides. Without one, build
     // terms directly from the catalogue name/logo identity; no ticker or exchange is needed.
     const currencyCode=template?String(template.currency):"USD";
     const currencyRows=await tx.select({code:currencyRegistry.code,scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,updatedAt:currencyRegistry.updatedAt})
       .from(currencyRegistry).where(and(eq(currencyRegistry.enabled,true),eq(currencyRegistry.code,currencyCode))).limit(1);
-    const currencyRow=currencyRows[0];if(!currencyRow)return null;
+    const currencyRow=currencyRows[0];if(!currencyRow)throw new Error("The generated opportunity currency is not enabled; generation transaction must roll back.");
     const packageMinimum=packageUsdUnitsToNativeMinor(Number(selectedPolicy.minimumTradeUnits),currencyCode,[currencyRow]);
     const packageMaximum=packageUsdUnitsToNativeMinor(Number(selectedPolicy.maximumTradeUnits),currencyCode,[currencyRow]);
     if(!Number.isSafeInteger(packageMinimum)||packageMinimum<=0||!Number.isSafeInteger(packageMaximum)||packageMaximum<packageMinimum)
@@ -3327,7 +3367,8 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       templateName:template.templateName,companyReferenceId:template.companyReferenceId,symbol:template.symbol,
       venueFrom:template.venueFrom,venueTo:template.venueTo,currency:template.currency,minimumMinor:packageMinimum,
       sourceReference:template.sourceReference,reviewNotes:template.reviewNotes,
-    }):createCatalogueIdentityOpportunityTemplate(company,packageMinimum,"USD");
+    }):company?createCatalogueIdentityOpportunityTemplate(company,packageMinimum,"USD")
+      :createUnattributedCatalogueOpportunityTemplate(packageMinimum,"USD");
     const terms=selectOpportunityGenerationTerms(normalized,{
       minimumPayoutRateBps:selectedPolicy.minimumPayoutRateBps==null?null:Number(selectedPolicy.minimumPayoutRateBps),
       maximumPayoutRateBps:selectedPolicy.maximumPayoutRateBps==null?null:Number(selectedPolicy.maximumPayoutRateBps),
@@ -3338,7 +3379,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     const displaySeconds=Math.max(1,Math.min(86400,Number(selectedPolicy.popupDisplayTargetSeconds||120)));
     const closesAt=new Date(input.now.getTime()+Math.max(86_400,terms.tradeDurationSeconds,displaySeconds)*1000);
     const rewardAt=new Date(input.now.getTime()+terms.tradeDurationSeconds*1000);
-    const companyMetadata={
+    const companyMetadata=company?{
       rotationStateVersion:1,rotationCycle,rotationSequence,poolFingerprint,
       repeatPolicy:selectedPolicy.companyRotationRepeatPolicy,
       ticker:company.ticker,symbol:company.symbol,exchangeCode:company.exchangeCode,
@@ -3350,7 +3391,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       requiresManualVerification:company.requiresManualVerification,sourceConfidence:company.sourceConfidence,
       sector:company.sector,headquartersCountry:company.headquartersCountry,instrumentType:company.instrumentType,
       recordCompleteness:company.recordCompleteness,adminCatalogueStatus:"verified",referenceOnly:true,
-    };
+    }:null;
     const snapshot={
       packageId:Number(selectedSubscription.packageId),packageSubscriptionId:Number(selectedSubscription.subscriptionId),
       packageName:String(selectedSubscription.packageName),policyVersion:Number(selectedPolicy.policyVersion||1),
@@ -3366,21 +3407,24 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       companyRotationEnabled:Boolean(input.companyRotationEnabled),companyRotationCountryNames:String(selectedPolicy.companyRotationCountryNames||""),
       companyRotationRepeatPolicy:selectedPolicy.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
       maxPendingDeliveries:Number(selectedPolicy.maxPendingDeliveries||0),
+      customerDailyQuota:Number(selectedSubscription.customerDailyQuota),
+      packageDailyOpportunityQuota:Number(selectedSubscription.effectiveDailyQuota),
+      quotaWindowStart:selectedSubscription.quotaWindowStart.toISOString(),
       configuredPayout:true,payoutSemantics:terms.payoutSemantics,templateId:template?Number(template.id):null,templateVersion:template?Number(template.version):null,
-      sourceReference:terms.sourceReference,reviewNotes:terms.reviewNotes,companyReferenceId:company.id,companyRotation:companyMetadata,
+      sourceReference:terms.sourceReference,reviewNotes:terms.reviewNotes,companyReferenceId:company?.id??null,companyRotation:companyMetadata,
       generatedAt:input.now.toISOString(),generationBatchId:input.batchId,
     };
     const priorAssignmentRows=await tx.select({value:count()}).from(opportunityGenerationAssignments)
       .where(and(eq(opportunityGenerationAssignments.userId,input.userId),eq(opportunityGenerationAssignments.packageSubscriptionId,Number(selectedSubscription.subscriptionId)),
-        gte(opportunityGenerationAssignments.generatedAt,input.quotaWindowStart)));
+        gte(opportunityGenerationAssignments.generatedAt,selectedSubscription.quotaWindowStart)));
     const sequence=Number(priorAssignmentRows[0]?.value||0)+1;
-    const generationKey=`auto:${input.userId}:${Number(selectedSubscription.subscriptionId)}:${input.quotaWindowStart.getTime()}:${sequence}`;
+    const generationKey=`auto:${input.userId}:${Number(selectedSubscription.subscriptionId)}:${selectedSubscription.quotaWindowStart.getTime()}:${sequence}`;
     if(generationKey.length>180)throw new Error("Automatic opportunity generation key exceeds the supported limit.");
     const offerInsert=await tx.insert(opportunityOffers).values({
       assignedUserId:input.userId,assignedPackageId:Number(selectedSubscription.packageId),
       assignedPackageSubscriptionId:Number(selectedSubscription.subscriptionId),generationTemplateId:template?Number(template.id):null,generationKey,
-      companyReferenceId:company.id,companyDisplayName:company.name,companyLogoUrl:String(company.logoUrl||"").slice(0,500),
-      companyReferenceMetadataJson:JSON.stringify(companyMetadata),configuredProfitRateBps:terms.configuredPayoutRateBps,
+      companyReferenceId:company?.id??null,companyDisplayName:company?.name??null,companyLogoUrl:company?.logoUrl?String(company.logoUrl).slice(0,500):null,
+      companyReferenceMetadataJson:companyMetadata?JSON.stringify(companyMetadata):null,configuredProfitRateBps:terms.configuredPayoutRateBps,
       configuredDurationSeconds:terms.tradeDurationSeconds,packagePolicyVersionSnapshot:Number(selectedPolicy.policyVersion||1),
       symbol:terms.symbol,venueFrom:terms.venueFrom,venueTo:terms.venueTo,currency:terms.currency,minimumMinor,
       expectedRewardBps:terms.configuredPayoutRateBps,durationSeconds:terms.tradeDurationSeconds,
@@ -3394,12 +3438,24 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     await tx.insert(opportunityGenerationAssignments).values({
       generationKey,batchId:input.batchId,userId:input.userId,offerId,templateId:template?Number(template.id):null,templateVersion:template?Number(template.version):null,
       packageId:Number(selectedSubscription.packageId),packageSubscriptionId:Number(selectedSubscription.subscriptionId),packageName:String(selectedSubscription.packageName),
-      packagePolicyVersion:Number(selectedPolicy.policyVersion||1),companyReferenceId:company.id,
+      packagePolicyVersion:Number(selectedPolicy.policyVersion||1),companyReferenceId:company?.id??null,
       configuredProfitRateBps:terms.configuredPayoutRateBps,configuredDurationSeconds:terms.tradeDurationSeconds,
       packageSnapshotJson:JSON.stringify(snapshot),status:"generated",generatedAt:input.now,assignedAt:input.now,expiresAt:closesAt,
     });
     return offerId;
-  });
+      });
+    }catch(error){
+      const failure=error as {code?:string;errno?:number;cause?:{code?:string;errno?:number}};
+      const code=failure.code||failure.cause?.code;
+      const errno=Number(failure.errno??failure.cause?.errno??0);
+      const retryable=code==="ER_LOCK_DEADLOCK"||code==="ER_LOCK_WAIT_TIMEOUT"||errno===1213||errno===1205;
+      if(!retryable||attempt===3)throw error;
+      // The failed transaction has rolled back before retrying, so no rotation
+      // cursor or assignment can be consumed by a transient lock conflict.
+      await new Promise(resolve=>setTimeout(resolve,20*(attempt+1)+crypto.randomInt(0,25)));
+    }
+  }
+  return null;
 }
 
 const OPPORTUNITY_GENERATION_CONTROL_KEY="trade.opportunityGeneration.control";
@@ -3535,7 +3591,7 @@ export async function getOpportunityGenerationMonitor(){
       maxPopupsPerDay:policy.maxPopupsPerDay,maxVisibleOffers:policy.maxVisibleOffers,maxPendingDeliveries:policy.maxPendingDeliveries,
       minimumTradeUnits:policy.minimumTradeUnits,maximumTradeUnits:policy.maximumTradeUnits,
       ...(packageCounts.get(policy.packageName)||{generated:0,delivered:0,failed:0})})),
-    recentAssignments:assignments.map(row=>({...row,company:getCompanyReferenceById(row.companyReferenceId)||null}))};
+    recentAssignments:assignments.map(row=>({...row,company:row.companyReferenceId?getCompanyReferenceById(row.companyReferenceId)||null:null}))};
 }
 
 export async function listOpportunityPackagePolicies() {
@@ -4057,7 +4113,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&
     !formulaCooling&&remainingQuota>0&&!hasUsableAssignedOffer){
     generatedOpportunityId=await generateAutomaticCustomerOpportunity({
-      userId,batchId:options.generationBatchId,now,quotaWindowStart:quotaWindow.start,
+      userId,batchId:options.generationBatchId,now,
       eligibleSubscriptions:eligibleSubscriptions.map(subscription=>({subscriptionId:Number(subscription.subscriptionId),packageId:Number(subscription.packageId),packageName:String(subscription.packageName)})),
       companyRotationEnabled:Boolean(globalPolicy.companyRotationEnabled),
     });
@@ -4137,7 +4193,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         badgeLabel:(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel)==null?null:String(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel),
         packageBadgeLabel:(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel)==null?null:String(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel),
         badgeStyle:generatedOffer&&["neutral","blue","purple","gold","green"].includes(String(generationSnapshot.badgeStyle))?String(generationSnapshot.badgeStyle):["neutral","blue","purple","gold","green"].includes(String(configured.badgeStyle))?String(configured.badgeStyle):"neutral",
-        companyRotationEnabled:generatedOffer?Boolean(generationSnapshot.companyRotationEnabled):globalPolicy.companyRotationEnabled,
+        companyRotationEnabled:generatedOffer?Boolean(generationSnapshot.companyRotationEnabled&&offer.companyReferenceId):globalPolicy.companyRotationEnabled,
         companyRotationCountryNames:generatedOffer?String(generationSnapshot.companyRotationCountryNames||""):String(configured.companyRotationCountryNames||""),
         companyRotationRepeatPolicy:generatedOffer?generationSnapshot.companyRotationRepeatPolicy:configured.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
         companyReferenceId:offer.companyReferenceId??null,companyDisplayName:offer.companyDisplayName??null,companyLogoUrl:offer.companyLogoUrl??null,companyReferenceMetadataJson:offer.companyReferenceMetadataJson??null});
@@ -4390,7 +4446,7 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
     completedAt:new Date(),updatedAt:new Date(),
   }).where(eq(opportunityGenerationBatches.id,generationBatchId));
   return {
-    customers:customers.length,allocations,batchSize,generated,generationBatchId,generationControlEnabled:generationControl.available&&generationControl.enabled,
+    customers:customers.length,allocations,batchSize,generated,customerFailures:failures,generationBatchId,generationControlEnabled:generationControl.available&&generationControl.enabled,
     ...(pausedUntilSettled?{pausedUntilSettled:true,outstandingTrades}:{}),
   };
 }

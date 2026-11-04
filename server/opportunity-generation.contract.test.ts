@@ -6,6 +6,11 @@ const lifecycle = readFileSync(new URL("./opportunityLifecycle.ts", import.meta.
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../drizzle/0103_automatic_opportunity_generation_templates.sql", import.meta.url), "utf8");
 const migration104 = readFileSync(new URL("../drizzle/0104_catalogue_native_opportunity_generation.sql", import.meta.url), "utf8");
+const migration106 = readFileSync(new URL("../drizzle/0106_company_neutral_opportunity_assignments.sql", import.meta.url), "utf8");
+const packageCatalogueMigration = readFileSync(new URL("../drizzle/0069_trading_package_activation.sql", import.meta.url), "utf8");
+const packagePolicyAlignmentMigration = readFileSync(new URL("../drizzle/0081_trading_tier_policy_alignment.sql", import.meta.url), "utf8");
+const explicitTermsMigration = readFileSync(new URL("../drizzle/0089_trading_popup_policy_ranges.sql", import.meta.url), "utf8");
+const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
 const journal = readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8");
 const admin = readFileSync(new URL("../client/src/components/AdminOpportunityTemplates.tsx", import.meta.url), "utf8");
 const customerPortal = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
@@ -39,6 +44,51 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(generator).toContain("control.enabled!==true");
     expect(generator).toContain("The active package's saved capital bounds are invalid.");
     expect(generator).toContain("template?Number(template.id):null");
+  });
+
+  it("preserves the 16-tier catalogue, backfills missing policy rows, and fails closed on unapproved terms", () => {
+    const packageInsert = packageCatalogueMigration.match(/INSERT INTO `packages` \(`name`[\s\S]*?VALUES([\s\S]*?)ON DUPLICATE KEY UPDATE/i)?.[1] ?? "";
+    const seededNames = [...packageInsert.matchAll(/\('([^']+)',\d+,\d+,\d+,1,1\)/g)].map(match => match[1]);
+    expect(seededNames).toHaveLength(16);
+    expect(new Set(seededNames).size).toBe(16);
+    expect(packagePolicyAlignmentMigration).toContain("INSERT INTO `opportunity_package_policies` (`packageName`)");
+    expect(packagePolicyAlignmentMigration).toContain("LEFT JOIN `opportunity_package_policies` AS `opp` ON `opp`.`packageName` = `p`.`name`");
+    expect(packagePolicyAlignmentMigration).toContain("WHERE `opp`.`id` IS NULL");
+    expect(explicitTermsMigration).toContain("SET `enabled` = 0, `automaticDelivery` = 0, `automaticTradingEnabled` = 0");
+    expect(explicitTermsMigration).toContain("`minimumPayoutRateBps` IS NULL OR `maximumPayoutRateBps` IS NULL");
+    expect(generator).toContain(".innerJoin(opportunityPackagePolicies,eq(opportunityPackagePolicies.packageName,packages.name))");
+    expect(generator).toContain("hasConfiguredTradingOfferPolicy(row)");
+    expect(generator).not.toContain("DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY");
+  });
+
+  it("binds generation to the exact active package subscription and its persisted package policy", () => {
+    expect(generator).toContain("eq(opportunityPackagePolicies.packageName,packages.name)");
+    expect(generator).toContain("eq(customerPackageSubscriptions.id,candidate.subscriptionId)");
+    expect(generator).toContain("eq(customerPackageSubscriptions.userId,input.userId)");
+    expect(generator).toContain('eq(customerPackageSubscriptions.status,"active")');
+    expect(generator).toContain("hasConfiguredTradingOfferPolicy(row)");
+    expect(generator).toContain("if(!selectedSubscription||!selectedPolicy)return null;");
+    expect(generator).toContain("minimumPayoutRateBps:selectedPolicy.minimumPayoutRateBps==null?null:Number(selectedPolicy.minimumPayoutRateBps)");
+    expect(generator).toContain("maximumPayoutRateBps:selectedPolicy.maximumPayoutRateBps==null?null:Number(selectedPolicy.maximumPayoutRateBps)");
+    expect(generator).toContain("minimumTradeDurationSeconds:selectedPolicy.minimumTradeDurationSeconds==null?null:Number(selectedPolicy.minimumTradeDurationSeconds)");
+    expect(generator).toContain("maximumTradeDurationSeconds:selectedPolicy.maximumTradeDurationSeconds==null?null:Number(selectedPolicy.maximumTradeDurationSeconds)");
+    expect(generator).toContain("packageSubscriptionId:Number(selectedSubscription.subscriptionId)");
+    expect(generator).toContain("packageId:Number(selectedSubscription.packageId)");
+    expect(generator).toContain("packagePolicyVersion:Number(selectedPolicy.policyVersion||1)");
+    expect(generator).not.toContain("DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY");
+  });
+
+  it("continues generation without an approved company identity and persists the absence explicitly", () => {
+    expect(generator).not.toContain("if(!approvedPool.length)return null");
+    expect(generator).toContain("createUnattributedCatalogueOpportunityTemplate(packageMinimum,\"USD\")");
+    expect(generator).toContain("companyReferenceId:company?.id??null");
+    expect(generator).toContain("companyDisplayName:company?.name??null");
+    expect(generator).toContain("companyReferenceMetadataJson:companyMetadata?JSON.stringify(companyMetadata):null");
+    expect(customerQuery).toContain("companyRotationEnabled:generatedOffer?Boolean(generationSnapshot.companyRotationEnabled&&offer.companyReferenceId):globalPolicy.companyRotationEnabled");
+    expect(lifecycle).toContain("} else if (item.companyRotationEnabled) {");
+    expect(migration106).toContain("MODIFY COLUMN `companyReferenceId` VARCHAR(32) NULL");
+    expect(schema).toContain('companyReferenceId: varchar("companyReferenceId", { length: 32 }),');
+    expect(schema).not.toContain('companyReferenceId: varchar("companyReferenceId", { length: 32 }).notNull(),\n  configuredProfitRateBps');
   });
 
   it("persists one immutable customer/package/template assignment under a lock and unique idempotency key", () => {
@@ -104,7 +154,7 @@ describe("automatic opportunity generation and package-aware customer delivery",
   it("uses global delivery masters instead of legacy per-package boolean mirrors", () => {
     expect(generator).not.toContain("eq(opportunityPackagePolicies.enabled,true)");
     expect(generator).not.toContain("eq(opportunityPackagePolicies.automaticDelivery,true)");
-    expect(generator).toContain("if(input.companyRotationEnabled){");
+    expect(generator).toContain("if(approvedPool.length>0&&input.companyRotationEnabled){");
     expect(generator).toContain("companyRotationEnabled:Boolean(input.companyRotationEnabled)");
   });
 
@@ -145,4 +195,41 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(admin).toContain("Batch {batch.id}");
     expect(admin).toContain("Package breakdown · UTC day");
   });
+  it("enforces customer entitlement and package daily quotas transactionally before rotation allocation", () => {
+    expect(generator).toContain("termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson");
+    expect(generator).toContain("packageDailyOpportunityQuota:packages.opportunitiesPerDay");
+    expect(generator).toContain("policyDailyOpportunityQuota:opportunityPackagePolicies.maxPopupsPerDay");
+    expect(generator).toContain("packageMaxPopupsPerDay:packages.maxPopupsPerDay");
+    expect(generator).toContain("dailyPopupTarget:opportunityPackagePolicies.dailyPopupTarget");
+    expect(generator).toContain("const customerDailyQuota=");
+    expect(generator).toContain("const effectiveDailyQuota=");
+    expect(generator).toContain("policyDailyQuota>0?Math.min(packageDailyQuota,policyDailyQuota):packageDailyQuota");
+    expect(generator).toContain("dailyTarget>0?dailyTarget:packageDailyQuota");
+    expect(generator).toContain("eq(opportunityGenerationAssignments.packageSubscriptionId,Number(row.subscriptionId))");
+    expect(generator).toContain("eq(opportunityGenerationAssignments.packageId,Number(row.packageId))");
+    expect(generator).toContain("schedulingPeriod:opportunityPackagePolicies.schedulingPeriod");
+    expect(generator).toContain('row.schedulingPeriod==="rolling_24h"?"rolling_24h":"calendar_day"');
+    expect(generator).toContain("gte(opportunityGenerationAssignments.generatedAt,candidateQuotaWindow.start)");
+    expect(generator).toContain("if(subscriptionUsed>=customerDailyQuota||packageUsed>=effectiveDailyQuota)continue;");
+    expect(generator).toContain("customerDailyQuota:Number(selectedSubscription.customerDailyQuota)");
+    expect(generator).toContain("packageDailyOpportunityQuota:Number(selectedSubscription.effectiveDailyQuota)");
+    expect(generator).toContain("quotaWindowStart:selectedSubscription.quotaWindowStart.toISOString()");
+  });
+
+  it("keeps quota checks, rotation cursor writes, offer persistence and assignment snapshots in one transaction", () => {
+    expect(generator).toContain("for(let attempt=0;attempt<4;attempt++)");
+    expect(generator).toContain("ER_LOCK_DEADLOCK");
+    expect(generator).toContain("ER_LOCK_WAIT_TIMEOUT");
+    expect(generator).toContain("if(!retryable||attempt===3)throw error;");
+    expect(generator).toContain("return await db.transaction(async tx=>{");
+    expect(generator).toContain("tx.update(appSettings).set({settingValue:JSON.stringify(selection.state)");
+    expect(generator).toContain("tx.insert(opportunityOffers).values({");
+    expect(generator).toContain("tx.insert(opportunityGenerationAssignments).values({");
+    expect(generator).toContain('if(!currencyRow)throw new Error("The generated opportunity currency is not enabled; generation transaction must roll back.")');
+    expect(generator).not.toContain("const currencyRow=currencyRows[0];if(!currencyRow)return null;");
+    expect(generator).toContain("packageSnapshotJson:JSON.stringify(snapshot)");
+    expect(generator.indexOf("tx.update(appSettings).set({settingValue:JSON.stringify(selection.state)"))
+      .toBeLessThan(generator.indexOf("tx.insert(opportunityOffers).values({"));
+  });
+
 });
