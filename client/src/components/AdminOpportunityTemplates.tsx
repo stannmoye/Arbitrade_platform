@@ -136,7 +136,7 @@ export default function AdminOpportunityTemplates() {
         <div className="eyebrow">Package breakdown · UTC day</div><h3>Saved generation rules and assignment counts</h3>
         <div className="published-offers">
           {monitor.data?.packageBreakdown.map((row) => <article className="trade-history-row" key={row.packageName}>
-            <strong>{row.packageName}</strong><b>{row.packageEnabled && row.policyEnabled && row.automaticDelivery ? "Eligible controls ON" : "Paused / disabled"}</b>
+            <strong>{row.packageName}</strong><b>{row.packageEnabled && row.policyEnabled && row.automaticDelivery ? "Global delivery controls ON" : "Paused / disabled"}</b>
             <span>Daily entitlement {row.dailyOpportunityAllowance} · package delivery cap {row.maxPopupsPerDay}</span>
             <span>Return {row.minimumPayoutRateBps == null || row.maximumPayoutRateBps == null ? "Unavailable" : `${Number(row.minimumPayoutRateBps) / 100}%–${Number(row.maximumPayoutRateBps) / 100}%`}</span>
             <span>Duration {row.minimumTradeDurationSeconds ?? "?"}–{row.maximumTradeDurationSeconds ?? "?"} sec · pending {row.maxPendingDeliveries} · visible {row.maxVisibleOffers}</span>
