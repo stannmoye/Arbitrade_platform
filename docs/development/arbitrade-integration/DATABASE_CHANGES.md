@@ -43,3 +43,10 @@ All three migrations are represented in the Drizzle journal and schema on the Wo
 - No new queue, table, index, migration, backfill, or destructive operation is introduced.
 - Window 7 must integrate Workstream 4 against the final combined schema after migrations 0103–0105 and run the existing guarded popup-delivery integration on disposable MySQL 8.4 and MariaDB 11.4 databases.
 - Existing packages, company catalogue entries/logos, customers, subscriptions and historical delivery records remain unchanged.
+
+## Workstream 6 — Testing, monitoring and readiness
+
+- No database table, column, index, migration, journal entry or seed change is introduced by Window 6.
+- Window 6 reuses the existing `worker_health_registry` migration (0084) and durable monitoring implementation.
+- The opportunity worker reports an aggregate failed-customer count through its existing cycle result; the monitor records partial batch outcomes as degraded. This is application-level observability only.
+- The current-versus-historical worker-instance marker is derived from the existing persisted `instanceId`; it introduces no schema change.
