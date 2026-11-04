@@ -60,7 +60,9 @@ Observed existing owners/paths:
 
 **Database/API changes:** No new schema, migration or endpoint. Existing `customer.opportunities`, `customer.popupDeliveryStatus` and popup lifecycle routes remain authoritative.
 
-**Validation status:** Regression changes are committed in this branch; exact-head CI and disposable MySQL/MariaDB/browser execution must be recorded after the dependent PR is opened. Blitz authenticated acceptance remains outstanding and is not claimed.
+**Validation status:** Regression changes are committed in this branch. A focused lifecycle defect was found and fixed: a failure reported after the customer acknowledged `received` was passed to retry logic as `in_progress`, causing the helper to reject the transition. The handler now passes the persisted state and the retry helper supports `received` failures. New unit regressions cover retryable and permanent render failures. Exact-head CI, local test execution, disposable MySQL/MariaDB execution and browser acceptance remain pending; none are claimed. Blitz authenticated acceptance remains outstanding.
+
+**Latest Window 4 fix commits:** `d1f8a4a94d1ca4e3ecdfcab79be41f7e4e07c555`, `ec15ee922250a9da9fb1fecc02cf8a746e72aa07`, `3fa1e72c728605217be5c78692eb0c041b5e8100`.
 
 **Dependency:** PR #278 must be integrated before this dependent PR can be merged into `main`.
 
