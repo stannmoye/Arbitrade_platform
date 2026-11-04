@@ -27,7 +27,7 @@ The generation-control migration default is ON for new installations. Existing a
 ## Window 2 package-policy contract
 
 - The existing admin package-policy mutation remains the persistence API; Window 2 adds a typed package patch contract and canonical resolver without introducing a new procedure.
-- Package edits are isolated by package name and preserve omitted saved values. The allowlist includes package-level enablement, delivery, rotation, randomization and burst flags; `automaticTradingEnabled` remains excluded and hard-false.
+- Package edits are isolated by package name and preserve omitted saved values. The allowlist contains only package-owned opportunity terms, bounds, scheduling, quotas and display fields. Global tier-policy, popup-delivery, company-rotation, randomized-timing and burst masters are excluded and remain under the audited `adminOperations.updateGlobalTradeControl` mutation; `automaticTradingEnabled` and settlement-guard fields remain excluded.
 - Global delivery-master settings remain separate and cannot be changed through a package patch.
 
 ## Window 5 admin settings contract
