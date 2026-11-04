@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main, feat/automatic-template-opportunities]
   push:
-    branches: [main]
+    branches: [main, workstream/3-automatic-opportunity-engine]
 
 permissions:
   contents: read
