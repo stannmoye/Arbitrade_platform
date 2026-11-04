@@ -3,7 +3,7 @@
 **Last inspected:** 2026-11-04  
 **Repository main:** `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`  
 **Workstream 1 branch:** `feat/automatic-template-opportunities`  
-**Workstream 1 code head inspected:** `aa27d664475eaf40dd4ff3d3414b267e569484e9`  
+**Workstream 1 latest branch tip inspected:** `6d6d09ba1a001c9c50e54f46a0d58dad83daff16`  
 **Pull request:** [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278) — open, draft, not merged.
 
 ## Window 1 — Automatic Opportunity Generation
@@ -44,6 +44,26 @@ This is exact-head CI evidence for that code SHA. The coordination-document comm
 - No real-money execution, automatic customer fund allocation, or unattended financial settlement is enabled by this workstream.
 - A green workflow result is not proof that the hosted customer portal is currently showing pop-ups.
 
-## Windows 2–6
+## Window 4 — Opportunity Delivery & Customer Portal
+
+**Implementation state:** Existing delivery lifecycle and customer popup UI are reused; lease-gated first-render compatibility is present on Window 1 PR #278 and is covered by Window 4 regression tests in `feat/stage4-opportunity-delivery-contract`.
+
+Observed existing owners/paths:
+- `server/opportunityLifecycle.ts`: customer-scoped dispatch claim, lease fencing, retry and acknowledgement.
+- `server/modules/opportunity-delivery-lifecycle.ts` and `server/modules/opportunity-delivery-retry-policy.ts`: bounded delivery state machine and single retry-policy parser.
+- `server/db.ts`: eligibility, durable popup admission, customer read, and lease-token propagation.
+- `server/routers.ts`: protected customer read and acknowledgement procedures.
+- `client/src/customer-popup-eligibility.ts` and `client/src/App.tsx`: customer display eligibility and persistent popup UI.
+- `scripts/trading-popup-delivery.integration.ts`: disposable-database delivery, idempotency and acknowledgement coverage.
+
+**Critical handoff contract:** `in_progress` is accepted for first render only when a non-empty server-issued lease token accompanies the event. The browser must acknowledge `received` and `rendered` with that same token. Window 4 adds regression assertions; it does not duplicate Window 1’s helper correction or introduce a new worker/table/API.
+
+**Database/API changes:** No new schema, migration or endpoint. Existing `customer.opportunities`, `customer.popupDeliveryStatus` and popup lifecycle routes remain authoritative.
+
+**Validation status:** Regression changes are committed in this branch; exact-head CI and disposable MySQL/MariaDB/browser execution must be recorded after the dependent PR is opened. Blitz authenticated acceptance remains outstanding and is not claimed.
+
+**Dependency:** PR #278 must be integrated before this dependent PR can be merged into `main`.
+
+## Windows 2, 3, 5 and 6
 
 Status is pending each assigned owner’s own branch, commit, PR, changed-file list and exact-head test evidence. Do not mark a window complete from its assignment alone.
