@@ -15,7 +15,6 @@ export const PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS = [
   "tradeRetryDelaySeconds", "maxSuccessfulTradesPerDay", "maxConcurrentActiveTrades",
   "minSettlementDelaySeconds", "maxSettlementDelaySeconds", "minimumRewardBps",
   "maxDailyRewardMinor", "maxRewardPerTradeMinor", "badgeLabel", "badgeStyle",
-  "companyRotationEnabled", "burstEnabled", "enabled", "automaticDelivery", "randomizationEnabled",
   "minimumPayoutRateBps", "maximumPayoutRateBps", "minimumTradeDurationSeconds",
   "maximumTradeDurationSeconds", "companyRotationCountryNames", "companyRotationRepeatPolicy",
   "closePolicy",
@@ -27,9 +26,10 @@ export type PackageOpportunityPolicyPatch = Pick<OpportunityPackagePolicyRow, "p
 /**
  * Defaults for a newly created package's policy row.
  *
- * Package-level opportunity controls default ON for newly created packages.
- * Global delivery/eligibility masters remain separately owned by Package
- * Configuration and must still be valid/enabled. Financial execution is always OFF.
+ * Delivery masters intentionally remain OFF compatibility placeholders:
+ * global delivery/eligibility controls are owned by Package Configuration.
+ * The package can be enabled independently, but delivery still requires valid
+ * package terms and the global masters. Financial execution is always OFF.
  */
 export const DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY = {
   badgeLabel: null,
@@ -38,7 +38,7 @@ export const DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY = {
   maximumPayoutRateBps: 300,
   minimumTradeDurationSeconds: 300,
   maximumTradeDurationSeconds: 900,
-  companyRotationEnabled: true,
+  companyRotationEnabled: false,
   companyRotationCountryNames: null,
   companyRotationRepeatPolicy: "avoid_until_exhausted",
   maxPopupsPerDay: 10,
@@ -48,15 +48,15 @@ export const DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY = {
   minHourlyTarget: 0,
   normalHourlyTarget: 0,
   marketInfluenceBps: 0,
-  burstEnabled: true,
+  burstEnabled: false,
   maxBurstSize: 3,
-  enabled: true,
-  automaticDelivery: true,
+  enabled: false,
+  automaticDelivery: false,
   dailyPopupTarget: 0,
   schedulingPeriod: "rolling_24h",
   minIntervalSeconds: 45,
   maxIntervalSeconds: 3600,
-  randomizationEnabled: true,
+  randomizationEnabled: false,
   popupDisplayTargetSeconds: 120,
   completionDisplaySeconds: 8,
   postCompletionIntervalSeconds: 30,
