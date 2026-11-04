@@ -41,3 +41,11 @@
 ## Financial boundary
 
 No opportunity-generation, publishing or delivery operation may initiate real-money execution, customer fund allocation, result determination, automatic settlement, or wallet/ledger mutation. Do not weaken authorization, audit, or existing financial guards.
+
+## Worker monitoring and partial-batch outcomes
+
+- The existing durable worker-health registry remains the single monitoring source; do not create a parallel health table, queue, endpoint or worker.
+- The Trading opportunities worker reports a degraded outcome when one or more customer sub-cycles fail, even if the outer batch loop completes and other customers succeed.
+- The cycle result exposes only an aggregate `customerFailures` count for monitoring. Do not include customer IDs, account details, raw exception messages or secrets in the aggregate diagnostic.
+- Aggregate failure details use the existing sanitized worker-health path and stable `CUSTOMER_CYCLE_FAILURES` diagnostic code. A partial failure must not be represented as healthy.
+- Worker health persistence remains best-effort and must not prevent durable opportunity processing.
