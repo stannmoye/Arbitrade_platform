@@ -18,6 +18,11 @@ describe("package-scoped company spotlight rotation",()=>{
     expect(pool.map(company=>company.id)).toEqual([verified!.id]);
     expect(buildCompanySpotlightPool("",{verifiedIds:[],archivedIds:[]})).toEqual([]);
   });
+  it("keeps an empty eligible pool empty instead of falling back to an unapproved company",()=>{
+    const pool=buildCompanySpotlightPool("",{verifiedIds:[],archivedIds:[]});
+    expect(pool).toEqual([]);
+    expect(pool).not.toContain(COMPANY_REFERENCE_CATALOGUE[0]);
+  });
   it("fails closed when the administrator status setting is missing or malformed",()=>{
     expect(parseCompanyCatalogueAdminState(null)).toEqual({verifiedIds:[],archivedIds:[],disabledIds:[]});
     expect(parseCompanyCatalogueAdminState("{not-json")).toEqual({verifiedIds:[],archivedIds:[],disabledIds:[]});
