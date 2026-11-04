@@ -519,6 +519,13 @@
       "when": 1793404800020,
       "tag": "0104_catalogue_native_opportunity_generation",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1793404800021,
+      "tag": "0105_default_on_global_information_delivery",
+      "breakpoints": true
     }
   ]
 }
