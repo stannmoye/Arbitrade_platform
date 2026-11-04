@@ -84,6 +84,10 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(generator).toContain("companyReferenceId:company?.id??null");
     expect(generator).toContain("companyDisplayName:company?.name??null");
     expect(generator).toContain("companyReferenceMetadataJson:companyMetadata?JSON.stringify(companyMetadata):null");
+    expect(generator).toContain('instrumentType:"Brand",recordCompleteness:"brand-only"');
+    expect(generator).not.toContain("ticker:company.ticker");
+    expect(generator).not.toContain("exchangeCode:company.exchangeCode");
+    expect(generator).not.toContain("listingStatus:company.listingStatus");
     expect(customerQuery).toContain("companyRotationEnabled:generatedOffer?Boolean(generationSnapshot.companyRotationEnabled&&offer.companyReferenceId):globalPolicy.companyRotationEnabled");
     expect(lifecycle).toContain("} else if (item.companyRotationEnabled) {");
     expect(migration106).toContain("MODIFY COLUMN `companyReferenceId` VARCHAR(32) NULL");
