@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import mysql from "mysql2/promise";
 import { and, eq } from "drizzle-orm";
-import { closeDbPool, ensureAutomaticTradingTierEntitlements, getDb, getTradeGlobalControls, listCustomerOpportunities, runTradingTierQualificationWorkerCycle } from "../server/db";
+import { closeDbPool, ensureAutomaticTradingTierEntitlements, ensureCustomerControls, getDb, getTradeGlobalControls, listCustomerOpportunities, runTradingTierQualificationWorkerCycle } from "../server/db";
 import {
   appSettings,
   customerBalances,
@@ -173,9 +173,12 @@ try {
     packageName,
   });
   userId = Number(userResult.insertId);
-  // Pre-provision this fixture row so the concurrent worker calls race inside
-  // generation itself, not in the separate lazy customer-controls initializer.
-  await db.insert(customerControls).values({ userId });
+  // Exercise concurrent lazy provisioning itself: the production helper must
+  // converge on one row instead of racing through SELECT-then-INSERT.
+  await Promise.all([ensureCustomerControls(userId), ensureCustomerControls(userId)]);
+  assert.equal((await db.select({ userId: customerControls.userId }).from(customerControls)
+    .where(eq(customerControls.userId, userId))).length, 1,
+    "Concurrent customer-control initialization must persist exactly one row.");
 
   const usdCurrency = await db.select({
     code: currencyRegistry.code,
