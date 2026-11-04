@@ -1,8 +1,9 @@
 # Window 5 — Trade Settings Administration & Persistence Handoff
 
-**Status:** Implementation checkpoint; exact-head CI and hosted acceptance pending.  
-**Branch:** `workstream/window-5-admin-trade-settings-persistence`  
+**Status:** Implementation checkpoint; automated exact-head verification passed. Authenticated administrator save/read-back acceptance remains outstanding.
+**Branch:** `workstream/window-5-admin-trade-settings-persistence`
 **Base:** `main` at `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`
+**Verified implementation head before this documentation refresh:** `65557fa20f1beca9d4dd2fa437e02502fa8bab44`
 
 ## Existing architecture retained
 
@@ -30,6 +31,7 @@ The canonical route map is documented in `TRADE_SETTINGS_ADMIN_BLUEPRINT_RECONCI
    - effective time and a 5–500 character audit reason are required.
 4. Both editors display accessible validation errors and use the existing green success / clear error feedback styles. Success is displayed only after mutation completion and fresh server read-back.
 5. Added regression contracts for valid and invalid fee/retry drafts and the visible feedback wiring.
+6. Retained the pre-existing branch change in `AdminOperationsPages.tsx`, including normalization of global timing settings so valid zero values are not silently replaced by defaults. Window 7 should review this file's complete diff in context with concurrent settings work.
 
 ## Database and API impact
 
@@ -49,29 +51,48 @@ The canonical route map is documented in `TRADE_SETTINGS_ADMIN_BLUEPRINT_RECONCI
 
 The eight shared integration documents are being introduced by the parallel Window 1 PR #278 and are not present on this branch's `main` base yet. Do not create a competing copy; Window 7 should add this handoff to the shared status/dependency documents when reconciling #278.
 
-## Tests and acceptance
+## Automated verification on exact head
 
-Regression tests were added in `client/src/trading-delivery-policy-client-contracts.test.ts`. The first PR CI run executed 1,142 tests successfully but failed one newly added source-wiring assertion because the human-readable interval validation text correctly lives in the shared validator rather than the editor component. The assertion was narrowed to verify the editor delegates to `validateDeliveryRetryDraft`; a second over-specific assertion was removed. The corrected assertions are committed, and exact-head CI is pending. No passing result is claimed for the corrected head.
+All ten GitHub Actions workflow runs for `65557fa20f1beca9d4dd2fa437e02502fa8bab44` completed successfully:
 
-Latest CI findings and follow-up:
-- The first exact-head type-check and production build did not report an error before the test job stopped; the combined job failed because of the source-wiring assertion above. This is not recorded as a full build/type-check pass.
-- A separate mining regression workflow also failed on that same shared test assertion; it is not evidence of a mining product regression.
-- The unrelated application verification workflow failed; Window 7 should inspect its job logs independently before integration.
+- Verify application.
+- Mining regression checks.
+- Arbitrade trading recovery verification.
+- Company rotation durable-allocation database integration.
+- Opportunity worker concurrency and recovery database integration.
+- Settlement reconciliation database integration.
+- Installer validation.
+- Tier qualification database integration.
+- Administrator wallet idempotency database integration.
+- Production-source build and test, including customer-portal real-browser recovery checks.
 
-Required exact-head checks:
-- Focused: `pnpm test -- client/src/trading-delivery-policy-client-contracts.test.ts`
-- Full: `pnpm test`
-- TypeScript: `pnpm check`
-- Production build: `pnpm build`
-- Diff hygiene: `git diff --check`
+The application and mining suites reported 1,143 tests passed and 27 skipped (146 test files passed, 5 skipped). TypeScript checking and production build passed. Installer validation included a disposable fresh MariaDB install, migration checks, production build/bundle budgets, server smoke test and deployment-package validation.
 
-Hosted authenticated admin-browser acceptance remains required for save persistence after refresh, invalid API responses, role denial, package isolation, keyboard accessibility and mobile/desktop layout. Unit/contract tests alone do not establish hosted database persistence or production behavior.
+Trading database integration jobs passed on MySQL 8.4 and MariaDB 11.4 where configured. Coverage included durable company rotation, worker concurrency/recovery, tier qualification, wallet idempotency/authorization, and settlement reconciliation. Customer portal browser recovery checks passed in the CI browser environment.
+
+Opportunity delivery integration confirmed persisted popup delivery and customer read-back, worker-cycle idempotency, and fail-closed conditions. It also confirmed no wallet/ledger mutation and no trade rows created by popup delivery; automatic financial execution remained disabled.
+
+## Remaining acceptance gap
+
+CI does not replace an authenticated administrator session against the actual hosted deployment. Still required before claiming the entire Trade settings surface is production-verified:
+
+- Exercise each Trade-admin Save operation with an authorized admin session.
+- Confirm success appears only after fresh persisted-state read-back and survives page refresh.
+- Confirm invalid input and API failures show clear errors without discarding the user's draft.
+- Confirm non-admin access is denied.
+- Confirm package-specific edits do not alter another package.
+- Confirm independent switches can be enabled together where policy allows.
+- Verify keyboard accessibility and mobile/desktop layout.
+- Use disposable test records/database only; do not mutate production customer or financial records.
+
+No Blitz production session or production database was accessed in this workstream. Therefore this handoff does not claim that the user's reported live Save-button or popup issue is resolved in Blitz.
 
 ## Window 7 integration instructions
 
-1. Keep this PR unmerged until exact-head checks pass.
-2. Reconcile the five changed source/test files with concurrent work; do not replace whole files from another branch.
-3. Run the focused and full test/typecheck/build checks on the integrated head.
+1. Keep this PR unmerged until integrated-head checks and authenticated administrator persistence acceptance are complete.
+2. Reconcile the changed source/test files with concurrent work; do not replace whole files from another branch.
+3. Re-run focused tests, full test suite, typecheck, production build and diff hygiene on the integrated head.
 4. Verify database persistence and authorization against disposable MySQL/MariaDB and authenticated browser sessions.
-5. Confirm that package fee and delivery retry saves retain drafts on failure and only show success after fresh persisted-state verification.
-6. Preserve the hard-disabled automatic financial execution boundary.
+5. Confirm package fee and delivery retry saves retain drafts on failure and only show success after fresh persisted-state verification.
+6. Review the complete pre-existing `AdminOperationsPages.tsx` diff, especially global Trade settings normalization and read-back checks.
+7. Preserve the hard-disabled automatic financial execution boundary.
