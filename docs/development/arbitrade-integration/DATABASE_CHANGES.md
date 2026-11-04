@@ -1,9 +1,10 @@
 # Database Changes
 
 **Coordination baseline:** 2026-11-04  
-**Workstream 1 reference:** PR #278, head `aa27d664475eaf40dd4ff3d3414b267e569484e9`.
+**Observed generation migration source:** PR #278, branch `feat/automatic-template-opportunities`, current head `b7567f4ae2b1c99342014925c5a667d1896fba21`.  
+**Ownership note:** The supplied assignments place company catalogue/rotation in Window 1 and opportunity generation in Window 3. PR #278 contains generation changes but labels itself Window 1; Window 7 must reconcile attribution and migration ownership before merge.
 
-## Workstream 1 migration sequence
+## Observed generation migration sequence in PR #278
 
 ### Migration 0103 — `0103_automatic_opportunity_generation_templates.sql`
 
@@ -26,19 +27,18 @@
 - Preserves any saved administrator decision/version.
 - Does not change the automatic financial execution guard.
 
-All three migrations are represented in the Drizzle journal and schema on the Workstream 1 branch. The branch's migration sequence must be reconciled against every other workstream before integration.
+All three migrations are represented in the Drizzle journal and schema on PR #278's branch. Their final order must be reconciled against all other workstream migrations. Window 6's CI head `962ae780e62e44ded236454040302afe9c5241e4` is based on `main` and does not itself include PR #278's migrations.
+
+## Window 6 database boundary
+
+- No database table, column, index, migration, journal entry or seed change is introduced by Window 6.
+- Window 6 reuses the existing `worker_health_registry` migration (0084) and durable monitoring implementation.
+- The opportunity worker reports an aggregate failed-customer count through its existing cycle result; the monitor records partial batch outcomes as degraded. This is application-level observability only.
 
 ## Preservation and rollout rules
 
 - Do not drop or rebuild existing package, company, logo, customer, wallet, ledger, trade or historical opportunity tables.
 - Do not import a replacement company catalogue or require re-entry of the existing 16 packages / 1,811 company identities.
 - Apply only forward migrations through the repository's supported migration runners. Never run a fresh-install reset against a populated database.
-- Before production rollout, Window 7 must verify 0103–0105 against the final merged migration journal on disposable MySQL 8.4 and MariaDB 11.4 databases, then validate upgrade compatibility from the supported prior schema.
-- No production migration or deployment is claimed by this workstream.
-
-
-## Workstream 6 — Testing, monitoring and readiness
-
-- No database table, column, index, migration, journal entry or seed change is introduced by Window 6.
-- Window 6 reuses the existing `worker_health_registry` migration (0084) and durable monitoring implementation.
-- The opportunity worker reports an aggregate failed-customer count through its existing cycle result; the monitor records partial batch outcomes as degraded. This is application-level observability only.
+- Before production rollout, Window 7 must verify 0103–0105 and all other workstream migrations against the final merged migration journal on disposable MySQL 8.4 and MariaDB 11.4 databases, then validate upgrade compatibility from the supported prior schema.
+- No production migration or deployment is claimed by Window 6.
