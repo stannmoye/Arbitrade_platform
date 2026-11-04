@@ -53,6 +53,7 @@ const quotaDay = now.toISOString().slice(0, 10);
 let userId: number | undefined;
 let packageId: number | undefined;
 let subscriptionId: number | undefined;
+let subscriptionCopyId: number | undefined;
 let offerId: number | undefined;
 let blockedOfferId: number | undefined;
 let secondPackageId: number | undefined;
@@ -230,11 +231,26 @@ try {
     expiresAt: new Date(Date.now() + 86_400_000),
     status: "active",
     activationKey: `auto-tier:popup-delivery-${token}`,
-    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 2, maxPopupsPerDay: 0 }),
+    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 1, maxPopupsPerDay: 0 }),
     qualifyingBalanceUsdMinor: 10000,
     packageTermsVersion: 1,
   });
   subscriptionId = Number(subscriptionResult.insertId);
+
+  // A second entitlement for the same package has its own customer quota, but
+  // both entitlements share the package-wide generation cap.
+  const [subscriptionCopyResult] = await db.insert(customerPackageSubscriptions).values({
+    userId,
+    packageId,
+    startsAt: new Date(Date.now() - 60_000),
+    expiresAt: new Date(Date.now() + 129_600_000),
+    status: "active",
+    activationKey: `auto-tier:popup-delivery-copy-${token}`,
+    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 1, maxPopupsPerDay: 0 }),
+    qualifyingBalanceUsdMinor: 10000,
+    packageTermsVersion: 1,
+  });
+  subscriptionCopyId = Number(subscriptionCopyResult.insertId);
 
   const [secondPackageResult] = await db.insert(packages).values({
     name: packageName + "Plus",
@@ -383,7 +399,7 @@ const balanceBefore = await db.select({
     "Brand-only companies must not be represented as real ticker symbols.");
   assert.equal(generatedSnapshot.companyRotationEnabled, true,
     "The global company-rotation master must apply even while the legacy per-package copy is OFF.");
-  assert.equal(generatedSnapshot.customerDailyQuota, 2,
+  assert.equal(generatedSnapshot.customerDailyQuota, 1,
     "The immutable assignment must record the subscription entitlement quota.");
   assert.equal(generatedSnapshot.packageDailyOpportunityQuota, 2,
     "The immutable assignment must record the effective package/policy daily cap.");
@@ -544,8 +560,14 @@ const balanceBefore = await db.select({
   additionalOfferIds.push(retryOfferId);
   const retryAssignment = (await db.select().from(opportunityGenerationAssignments)
     .where(eq(opportunityGenerationAssignments.offerId, retryOfferId)))[0];
-  assert.equal(Number(retryAssignment?.packageSubscriptionId), subscriptionId,
-    "The retry must preserve the selected customer/package subscription.");
+  assert.equal(Number(retryAssignment?.packageSubscriptionId), subscriptionCopyId,
+    "The exhausted first subscription must be skipped in favor of the second entitlement copy.");
+  assert.equal((await db.select({ id: opportunityGenerationAssignments.id })
+    .from(opportunityGenerationAssignments).where(and(
+      eq(opportunityGenerationAssignments.userId, userId),
+      eq(opportunityGenerationAssignments.packageId, packageId),
+    ))).length, 2,
+    "The package-wide quota must cap assignments across multiple active subscription copies.");
   const rotationAfterRetryRows = await db.select({ settingValue: appSettings.settingValue })
     .from(appSettings).where(eq(appSettings.settingKey, rotationKey)).limit(1);
   assert.notEqual(String(rotationAfterRetryRows[0]?.settingValue), rotationBeforeFailure,
