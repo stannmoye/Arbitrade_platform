@@ -3,7 +3,7 @@
 **Last inspected:** 2026-11-04  
 **Repository main:** `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`  
 **Workstream 1 branch:** `feat/automatic-template-opportunities`  
-**Workstream 1 latest branch tip inspected:** `6d6d09ba1a001c9c50e54f46a0d58dad83daff16`  
+**Workstream 1 latest branch tip inspected:** `b7567f4ae2b1c99342014925c5a667d1896fba21`  
 **Pull request:** [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278) — open, draft, not merged.
 
 ## Window 1 — Automatic Opportunity Generation
@@ -22,7 +22,7 @@ Observed scope in the branch:
 
 ### Exact-head GitHub Actions evidence
 
-At code head `aa27d664475eaf40dd4ff3d3414b267e569484e9`, the repository returned 10 pull-request workflow runs, all `completed/success`:
+At code head `aa27d664475eaf40dd4ff3d3414b267e569484e9`, the repository returned 10 pull-request workflow runs, all `completed/success`. At code/test head `2629baa75c1644b3771511a4b085b0085eca79fb`, 24 of 25 checks completed successfully with no failures; the remaining local-preview customer-portal browser recovery check was still installing Playwright Chromium. The current PR head `b7567f4ae2b1c99342014925c5a667d1896fba21` adds only a documentation refresh and has no new workflow runs recorded.
 
 1. Trading settlement reconciliation database integration
 2. Trading tier qualification database integration
@@ -35,7 +35,7 @@ At code head `aa27d664475eaf40dd4ff3d3414b267e569484e9`, the repository returned
 9. Installer validation
 10. Build and test production source
 
-This is exact-head CI evidence for that code SHA. The coordination-document commit that follows it has not yet been validated by CI at the time of writing.
+This is exact-head CI evidence for the named code SHA, not hosted acceptance. No authenticated Blitz/staging browser acceptance or production deployment is established.
 
 ## Not established by this status
 
