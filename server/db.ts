@@ -3257,10 +3257,10 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         activationKey:customerPackageSubscriptions.activationKey,subscriptionStatus:customerPackageSubscriptions.status,
         startsAt:customerPackageSubscriptions.startsAt,expiresAt:customerPackageSubscriptions.expiresAt,
         termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
-        packageDailyOpportunityQuota:packages.opportunitiesPerDay,
+        packageDailyOpportunityQuota:packages.opportunitiesPerDay,packageMaxPopupsPerDay:packages.maxPopupsPerDay,
         packageEnabled:packages.enabled,packageStartsAt:packages.startsAt,packageExpiresAt:packages.expiresAt,
         policyId:opportunityPackagePolicies.id,policyVersion:opportunityPackagePolicies.policyVersion,
-        policyDailyOpportunityQuota:opportunityPackagePolicies.maxPopupsPerDay,
+        policyDailyOpportunityQuota:opportunityPackagePolicies.maxPopupsPerDay,dailyPopupTarget:opportunityPackagePolicies.dailyPopupTarget,
         minimumTradeUnits:opportunityPackagePolicies.minimumTradeUnits,maximumTradeUnits:opportunityPackagePolicies.maximumTradeUnits,
         minimumPayoutRateBps:opportunityPackagePolicies.minimumPayoutRateBps,maximumPayoutRateBps:opportunityPackagePolicies.maximumPayoutRateBps,
         minimumTradeDurationSeconds:opportunityPackagePolicies.minimumTradeDurationSeconds,maximumTradeDurationSeconds:opportunityPackagePolicies.maximumTradeDurationSeconds,
@@ -3279,9 +3279,14 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         const effectiveEntitlementQuota=Number(entitlementSnapshot.opportunitiesPerDay??row.packageDailyOpportunityQuota);
         const customerDailyQuota=Number.isSafeInteger(effectiveEntitlementQuota)&&effectiveEntitlementQuota>0
           ?effectiveEntitlementQuota:0;
-        const policyDailyQuota=Number(row.policyDailyOpportunityQuota);
-        const effectiveDailyQuota=customerDailyQuota>0&&Number.isSafeInteger(policyDailyQuota)&&policyDailyQuota>0
-          ?Math.min(customerDailyQuota,policyDailyQuota):0;
+        const policyDailyQuota=Math.max(0,Math.trunc(Number(row.policyDailyOpportunityQuota)||0));
+        const packagePopupQuotaValue=Number(entitlementSnapshot.maxPopupsPerDay??row.packageMaxPopupsPerDay);
+        const packagePopupQuota=Math.max(0,Math.trunc(Number.isFinite(packagePopupQuotaValue)?packagePopupQuotaValue:0));
+        const dailyTarget=Math.max(0,Math.trunc(Number(row.dailyPopupTarget)||0));
+        const policyCap=policyDailyQuota>0?Math.min(customerDailyQuota,policyDailyQuota):customerDailyQuota;
+        const packageCap=packagePopupQuota>0?Math.min(policyCap,packagePopupQuota):policyCap;
+        const effectiveDailyQuota=customerDailyQuota>0
+          ?Math.min(packageCap,dailyTarget>0?dailyTarget:customerDailyQuota):0;
         if(effectiveDailyQuota<=0)continue;
         // This customer lock serializes concurrent worker cycles. Enforce both the
         // subscription entitlement and package policy inside this transaction,
