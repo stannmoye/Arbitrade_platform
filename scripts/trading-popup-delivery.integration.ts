@@ -391,6 +391,15 @@ const balanceBefore = await db.select({
   assert.equal(generatedAssignments[0]?.templateVersion, null);
   assert.equal(generatedAssignments[0]?.companyReferenceId, "logo-brand-0001");
   const generatedSnapshot = JSON.parse(String(generatedAssignments[0]?.packageSnapshotJson || "{}"));
+  const initialRotationRows = await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, `trading.companyRotation.${userId}.${packageId}`)).limit(1);
+  const initialRotationState = JSON.parse(String(initialRotationRows[0]?.settingValue || "{}"));
+  assert.equal(Number(initialRotationState.requestCount), 1,
+    "Two concurrent worker cycles for one customer/package must commit exactly one rotation position.");
+  assert.equal(Number(generatedSnapshot.companyRotation?.rotationSequence), 1,
+    "The generated immutable company snapshot must record the sole committed rotation sequence.");
+  assert.equal(String(initialRotationState.lastLogoId), String(generatedAssignments[0]?.companyReferenceId),
+    "The durable rotation cursor must point to the company identity committed by the generated assignment.");
   assert.ok(Number(generatedSnapshot.configuredProfitRateBps) >= 200 && Number(generatedSnapshot.configuredProfitRateBps) <= 300,
     "The configured return must stay inside this customer's package-specific minimum/maximum.");
   assert.ok(Number(generatedSnapshot.configuredDurationSeconds) >= 300 && Number(generatedSnapshot.configuredDurationSeconds) <= 600,
@@ -596,6 +605,12 @@ const balanceBefore = await db.select({
     .from(appSettings).where(eq(appSettings.settingKey, rotationKey)).limit(1);
   assert.notEqual(String(rotationAfterRetryRows[0]?.settingValue), rotationBeforeFailure,
     "A successful retry must commit exactly one new rotation allocation.");
+  const rotationBeforeRetry = JSON.parse(rotationBeforeFailure);
+  const rotationAfterRetry = JSON.parse(String(rotationAfterRetryRows[0]?.settingValue || "{}"));
+  assert.equal(Number(rotationAfterRetry.requestCount), Number(rotationBeforeRetry.requestCount) + 1,
+    "A retry after rollback must advance the durable rotation request count by exactly one.");
+  assert.equal(String(rotationAfterRetry.lastLogoId), String(retryAssignment?.companyReferenceId),
+    "The committed retry cursor must match the company identity stored on its immutable assignment.");
 
   // Exhaust the first package's quota. The generator must skip it and select
   // the customer's second package using that package's independent saved terms.
