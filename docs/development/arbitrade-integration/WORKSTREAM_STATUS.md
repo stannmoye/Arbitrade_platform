@@ -1,49 +1,46 @@
 # Workstream Status
 
 **Last inspected:** 2026-11-04  
-**Repository main:** `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`  
-**Workstream 1 branch:** `feat/automatic-template-opportunities`  
-**Workstream 1 code head inspected:** `2629baa75c1644b3771511a4b085b0085eca79fb`  
-**Pull request:** [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278) — open, draft, not merged.
+**Main checkpoint:** 0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b  
+**Window 1 company contract branch:** feat/workstream-1-company-catalogue-rotation-contract  
+**Window 3 branch:** workstream/3-automatic-opportunity-engine
 
-## Window 1 — Automatic Opportunity Generation
+## Window 1 — Company Catalogue & Automatic Company Rotation
 
-**Implementation state:** Implemented on PR #278; ready for Window 7 integration review.
+Contract branch documents the existing catalogue and rotation interface. It preserves 1,811 brand records and supports empty-pool behavior. Window 3 consumes this contract.
 
-Observed scope in the branch:
-- Customer-specific generation from the existing approved company catalogue without a one-template-per-company prerequisite.
-- Brand-only catalogue-native identity with no fabricated ticker or venue.
-- Optional approved template enrichment for the selected company.
-- Package-specific persisted capital, payout-rate and duration bounds.
-- Durable customer/package generation lock, unique generation key, assignment and package/company snapshots.
-- Existing company rotation integration and delivery lifecycle handoff.
-- Admin generation control, batch/assignment monitoring and audit/version checks.
-- Migrations 0103, 0104 and 0105.
+## Window 2 — Package Policies & Configuration
 
-### Exact-head GitHub Actions evidence
+Assigned to package-specific policies. Its current branch/interface was not available in the repository branch search at the time of this update. Window 3 must reconcile the final policy contract before integration; no replacement policy service is created here.
 
-At code head `aa27d664475eaf40dd4ff3d3414b267e569484e9`, the repository returned 10 pull-request workflow runs, all `completed/success`:
+## Window 3 — Automatic Opportunity Generation Engine
 
-1. Trading settlement reconciliation database integration
-2. Trading tier qualification database integration
-3. Trading administrator wallet idempotency integration
-4. Trading company rotation durable allocation database integration
-5. Trading opportunity worker concurrency and recovery integration
-6. Verify Arbitrade trading recovery changes
-7. Mining regression checks
-8. Verify application
-9. Installer validation
-10. Build and test production source
+**Implementation:** Extends the existing PR #278 generation engine rather than creating a second generator.
 
-This is exact-head CI evidence for that earlier code SHA. On the current code head `2629baa75c1644b3771511a4b085b0085eca79fb`, 24 of 25 GitHub checks have completed successfully with no failures; the remaining local-preview customer-portal browser recovery check is still installing Playwright Chromium. The API-copy correction and both regression-contract updates are included in this current head.
+Implemented in this branch:
+- Allows generation when the current approved company-display pool is empty.
+- Persists a company-neutral opportunity with NULL company identity rather than failing or inventing an unapproved company.
+- Keeps optional company templates restricted to an already-selected approved company.
+- Makes assignment company identity nullable with forward migration 0106.
+- Adds unit and generation-contract regression coverage.
 
-## Not established by this status
+Existing generation infrastructure reused:
+- Customer/package generation lock and unique generation key.
+- Persisted package/company snapshots and assignment rows.
+- Existing generation batch lifecycle and stale-running recovery.
+- Existing customer/package rotation transaction.
+- Existing opportunity delivery lifecycle handoff.
 
-- No authenticated customer/admin browser acceptance against Blitz or another deployed environment is claimed.
-- No production database migration or deployment is claimed.
-- No real-money execution, automatic customer fund allocation, or unattended financial settlement is enabled by this workstream.
-- A green workflow result is not proof that the hosted customer portal is currently showing pop-ups.
+**Validation:** Source changes and test contracts are committed to this branch. Local test commands and database-backed MySQL/MariaDB execution have not been run in this connector-only session. Exact-head CI and disposable-database migration tests remain required.
 
-## Windows 2–6
+## Window 4 — Opportunity Delivery & Customer Portal
 
-Status is pending each assigned owner’s own branch, commit, PR, changed-file list and exact-head test evidence. Do not mark a window complete from its assignment alone.
+Owns the existing delivery lifecycle and consumes persisted generated offers. Window 3 does not add a delivery worker or endpoint.
+
+## Window 6 — Testing, Monitoring & Production Readiness
+
+Owns worker-health and final readiness verification. Window 3 reuses existing generation batches and monitoring surfaces.
+
+## Window 7 — Final Integration
+
+Must reconcile Window 1/2 contracts with this branch and Window 4/6 changes, verify migration 0106 order, run exact-head checks and authenticated hosted acceptance. No merge or production deployment is claimed.
