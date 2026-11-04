@@ -4,7 +4,7 @@
 
 ## Existing admin operations
 
-The Workstream 1 branch exposes these procedures inside the existing `adminOperations` router:
+The Window 3 generation-engine candidate in PR #278 exposes these procedures inside the existing `adminOperations` router:
 
 | Procedure | Contract |
 | --- | --- |
@@ -23,6 +23,17 @@ The generation-control migration default is ON for new installations. Existing a
 - `customer.popupDeliveryStatus` accepts `{ eventId, status: received|rendered|failed, errorCode?, leaseToken? }`. A lease token is operationally required for a state change; the server also checks authenticated customer ownership, lease equality, current offer status and expiry. Missing/stale tokens are no-ops, not acknowledgements.
 - Existing `customer.popupLifecycle` actions remain the owner for noticed/opened/dismissed/withdrawn/traded/settled presentation/lifecycle state. These actions must not create financial effects.
 - The customer alert may display an `in_progress` dispatch only when the response includes a non-empty `deliveryLeaseToken`; after rendering it acknowledges `received` and `rendered` with that token. Persisted delivered/received/rendered notices can be recovered on refresh while still open and eligible.
+
+## Window 2 package-policy contract
+
+- The existing admin package-policy mutation remains the persistence API; Window 2 adds a typed package patch contract and canonical resolver without introducing a new procedure.
+- Package edits are isolated by package name and preserve omitted saved values. The allowlist includes package-level enablement, delivery, rotation, randomization and burst flags; `automaticTradingEnabled` remains excluded and hard-false.
+- Global delivery-master settings remain separate and cannot be changed through a package patch.
+
+## Window 5 admin settings contract
+
+- Window 5 reuses existing `adminOperations` settings, package-fee and delivery-retry procedures. It adds client-side validation and verified save feedback, not a new endpoint.
+- The server remains authoritative for authorization, audit reason, expected version, validation and persisted read-back.
 
 ## Contract stability
 
