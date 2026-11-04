@@ -4390,7 +4390,7 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
     completedAt:new Date(),updatedAt:new Date(),
   }).where(eq(opportunityGenerationBatches.id,generationBatchId));
   return {
-    customers:customers.length,allocations,batchSize,generated,generationBatchId,generationControlEnabled:generationControl.available&&generationControl.enabled,
+    customers:customers.length,allocations,batchSize,generated,customerFailures:failures,generationBatchId,generationControlEnabled:generationControl.available&&generationControl.enabled,
     ...(pausedUntilSettled?{pausedUntilSettled:true,outstandingTrades}:{}),
   };
 }
