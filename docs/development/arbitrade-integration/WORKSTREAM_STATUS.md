@@ -53,8 +53,9 @@ Status is pending each assigned owner’s own branch, commit, PR, changed-file l
 
 **Implementation branch:** `feat/window-2-package-opportunity-policy-contract`  
 **Baseline:** `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`  
-**Current implementation head:** `4c01348e193f9acd73c1d1f930fa15242948bc5f`  
-**Pull request:** pending creation after exact-head review.
+**Current implementation checkpoint:** `4c01348e193f9acd73c1d1f930fa15242948bc5f`  
+**Pull request:** [#284](https://github.com/stannmoye/Arbitrade_platform/pull/284) — open, draft, unmerged.  
+**PR head at creation:** `92224d32dd85bb8249f094df1e8dcd8afb815a0d`.
 
 Implemented on the Window 2 branch:
 - Added `server/modules/package-opportunity-policy.ts` as the canonical typed policy row/patch contract and single source for new-package policy defaults and package-isolated merge resolution.
