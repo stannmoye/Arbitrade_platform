@@ -4134,7 +4134,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       if(!configured||!hasConfiguredTradingOfferPolicy(configured)) continue;
       if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(configured.maxBurstSize||0)})){
         await recordGeneratedDeliverySkip(offer,"BURST_LIMIT_REACHED");
-        break;
+        continue;
       }
       // Select one administrator-configured rate and duration exactly once. The
       // selection is persisted with the popup and reused by retries/trade allocation.
