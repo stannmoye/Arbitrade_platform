@@ -293,7 +293,11 @@ export async function updatePopupDeliveryStatus(userId: number, eventId: number,
         await connection.execute("UPDATE opportunity_popup_events SET deliveryStatus='expired',expiredAt=COALESCE(expiredAt,CURRENT_TIMESTAMP),deliveryRetryAfter=NULL,deliveryLeaseToken=NULL,deliveryLeaseExpiresAt=NULL,updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=? AND deliveryStatus IN ('queued','in_progress','retry_wait')", [eventId,userId]);
         await connection.commit(); return;
       }
-      if (String(row.deliveryStatus) !== "in_progress" && !(status === "failed" && String(row.deliveryStatus) === "received")) { await connection.commit(); return; }
+      const currentDeliveryStatus = String(row.deliveryStatus);
+      const finalRenderAfterReceipt = status === "rendered" && currentDeliveryStatus === "received";
+      if (currentDeliveryStatus !== "in_progress" &&
+        !(status === "failed" && currentDeliveryStatus === "received") &&
+        !finalRenderAfterReceipt) { await connection.commit(); return; }
       if (status === "failed") {
         const [policyRows] = await connection.query<any[]>("SELECT settingValue FROM app_settings WHERE settingKey=? LIMIT 1", [DELIVERY_RETRY_POLICY_SETTING_KEY]);
         const saved=parseDeliveryRetryPolicy(policyRows[0]?.settingValue) || FAIL_CLOSED_DELIVERY_RETRY_POLICY;
