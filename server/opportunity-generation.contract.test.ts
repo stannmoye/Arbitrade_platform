@@ -213,7 +213,7 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(generator).toContain("if(subscriptionUsed>=customerDailyQuota||packageUsed>=effectiveDailyQuota)continue;");
     expect(generator).toContain("customerDailyQuota:Number(selectedSubscription.customerDailyQuota)");
     expect(generator).toContain("packageDailyOpportunityQuota:Number(selectedSubscription.effectiveDailyQuota)");
-    expect(generator).toContain("quotaWindowStart:input.quotaWindowStart.toISOString()");
+    expect(generator).toContain("quotaWindowStart:selectedSubscription.quotaWindowStart.toISOString()");
   });
 
   it("keeps quota checks, rotation cursor writes, offer persistence and assignment snapshots in one transaction", () => {
