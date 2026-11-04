@@ -16,6 +16,15 @@
 
 The existing generation implementation introduced on PR #278 is the starting point, not a competing service to replace. Window 3 maintains and completes the generation engine on top of that implementation. The generator must call Window 1's company-selection interface and Window 2's package-policy interface; it persists generated offers and assignments for Window 4's existing delivery lifecycle.
 
+## Window 3 — current implementation and handoff boundary
+
+- Implementation PR: [#286](https://github.com/stannmoye/Arbitrade_platform/pull/286), branch `workstream/3-automatic-opportunity-engine`.
+- Dependency/base: Window 1 generation foundation PR #278. Window 3 does not own PR #278 and must not retarget or merge it.
+- Generation owns the per-customer transaction, package/subscription eligibility selection, generation-side daily quota enforcement, durable assignment/snapshot persistence, idempotent retry and generation batch diagnostics.
+- Window 1 remains authoritative for company catalogue loading, approved pool construction and rotation selection semantics. Window 2 remains authoritative for saved package-policy editing and validation. Window 4 remains authoritative for delivery dispatch, leases, retries, acknowledgements and customer rendering. Window 6 remains authoritative for worker-health classification and presentation.
+- Window 3 may coordinate changes to `server/db.ts` but must not create parallel catalogue, package-policy, delivery or worker-monitoring services.
+- Window 7 alone approves the final integrated branch. PR #286 remains open and unmerged until Window 7 explicitly approves it.
+
 ## Shared conflict rules
 
 1. A service, table, worker, endpoint or setting has one primary owner.
