@@ -28,6 +28,7 @@ Implemented in this branch:
 - Keeps optional company templates restricted to an already-selected approved company.
 - Makes assignment company identity nullable with forward migration 0106.
 - Adds unit and generation-contract regression coverage.
+- Exposes aggregate `customerFailures` from the persisted generation-batch failure count for Window 6's degraded-worker classification.
 
 Existing generation infrastructure reused:
 - Customer/package generation lock and unique generation key.
@@ -45,6 +46,13 @@ Existing generation infrastructure reused:
 **Base:** `integration/window1-base-6d6d09b` at `6d6d09ba1a001c9c50e54f46a0d58dad83daff16`; this base is an ancestor of Window 1's current generation branch by two commits.
 
 Owns the existing delivery lifecycle and customer portal. The handoff requires `deliveryLeaseToken` for first render of an `in_progress` event and uses the same token for `received`/`rendered` acknowledgements. A follow-on fix supports retry after a render failure reported after `received`. No migration, queue or new delivery worker is added. Window 3 keeps generated company identity immutable and does not add a delivery path.
+
+## Window 5 — Admin Trade Settings & Database Persistence
+
+**PR:** [#285](https://github.com/stannmoye/Arbitrade_platform/pull/285)  
+**Branch/head:** `workstream/window-5-admin-trade-settings-persistence` / `65557fa20f1beca9d4dd2fa437e02502fa8bab44`
+
+Owns the Trade administration settings interface and reliable settings persistence. It shares admin/router and package-policy UI surfaces with other workstreams; it does not own the generation transaction, generation batches, generation keys or customer opportunity persistence. Reconcile shared files against Window 2 and Window 3 rather than replacing them wholesale.
 
 ## Window 6 — Testing, Monitoring & Production Readiness
 
