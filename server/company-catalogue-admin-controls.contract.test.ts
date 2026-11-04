@@ -41,7 +41,7 @@ describe("administrator company catalogue bulk controls", () => {
     expect(catalogue).toContain("case-specific reason");
     expect(catalogue).toContain("reason.length < 8 || reason.length > 500");
     expect(catalogue).toContain("8–500 characters");
-    expect(catalogue).toContain("await updateStatus.mutateAsync({ selectionBitmap: encodeCompanyCatalogueSelection(ids), status, reason })");
+    expect(catalogue).toContain("await updateStatus.mutateAsync({ ...encodeCompanyCatalogueSelection(ids), status, reason })");
     expect(catalogue).toContain('applyStatus("restored")');
     expect(catalogue).not.toContain("Administrator archived selected catalogue records.");
     expect(ownership).toContain("archive revokes customer approval while verification remains separate from enablement");
