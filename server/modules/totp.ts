@@ -14,7 +14,7 @@ export function isValidTotpEncryptionKey(value: unknown): value is string {
 
 function encryptionKey(): Buffer {
   const raw = process.env.TOTP_ENCRYPTION_KEY || "";
-  if (!isValidTotpEncryptionKey(raw)) throw new Error("TOTP_ENCRYPTION_KEY must be configured as a valid 32-byte hex or base64 key.");
+  if (!isValidTotpEncryptionKey(raw)) throw new Error("TOTP_ENCRYPTION_KEY must be configured as a 32-byte hex or base64 key using canonical encoding.");
   return /^[a-f0-9]{64}$/i.test(raw) ? Buffer.from(raw, "hex") : Buffer.from(raw, "base64");
 }
 
