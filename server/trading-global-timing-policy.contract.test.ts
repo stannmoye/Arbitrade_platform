@@ -23,6 +23,17 @@ describe("global Trade timing policy contract", () => {
     expect(db).toContain("Trade timing save committed, but a fresh database read did not confirm every value and the new policy version");
   });
 
+  it("repairs invalid legacy settlement review delay before AutoTrade reads the policy", () => {
+    expect(db).toContain("Invalid persisted settlement review delay repaired to the documented safe minimum of 900 seconds");
+    expect(db).toContain('settingKey: "trade.settlementDelaySeconds"');
+    expect(db).toContain('settingValue: "900"');
+    expect(db).toContain('action: "trade_global_timing_policy_repaired"');
+    expect(db).toContain('entityId: "settlement-review-delay"');
+    expect(db).toContain('.limit(1).for("update")');
+    expect(db).toContain("const lockedNumber = Number(lockedValue)");
+    expect(db).toContain("rows = await db.select().from(appSettings).where(inArray(appSettings.settingKey, keys))");
+  });
+
   it("requires an administrator reason and expected version at the API boundary", () => {
     expect(router).toContain("reason: z.string().trim().min(5).max(500), expectedPolicyVersion: z.number().int().min(1)");
     expect(router).toContain("input.trade.reason, input.trade.expectedPolicyVersion");
