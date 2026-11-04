@@ -21,7 +21,7 @@ export function inspectWorkerStartupContract(packageJson, wrapperSource, serverS
   }
   for (const [label, pattern] of [
     ["guarded main migrations", /runPhase\("main-database-migrations",\s*\["scripts\/guarded-main-migrate\.mjs"\]\)/],
-    ["worker schema preflight", /runPhase\("worker-runtime-schema-preflight",\s*\["scripts\/ensure-worker-runtime-schema\.mjs"\]\)/],
+    ["read-only worker schema preflight", /runPhase\("worker-runtime-schema-preflight",\s*\["scripts\/ensure-worker-runtime-schema\.mjs",\s*"--verify-only"\]\)/],
     ["persistent application process", /runPhase\("application-server",\s*\["--trace-uncaught",\s*"--unhandled-rejections=strict",\s*"dist\/index\.js"\],\s*\{\},\s*true\)/],
   ]) {
     if (!pattern.test(wrapperSource)) failures.push(`startup wrapper is missing ${label}`);
@@ -80,7 +80,7 @@ async function main() {
     ]);
     const failures = inspectWorkerStartupContract(packageJson, wrapperSource, serverSource);
     report("Server-managed worker startup", failures.length === 0,
-      failures.length ? failures.join("; ") : "Production start wrapper runs guarded migrations, worker schema preflight, and the persistent application process; Trading workers are registered in the server entrypoint.");
+      failures.length ? failures.join("; ") : "Production start wrapper runs guarded migrations, read-only worker schema verification, and the persistent application process; Trading workers are registered in the server entrypoint.");
   } catch {
     report("Server-managed worker startup", false, "Could not read startup contract files. Verify the installed application package.");
   }
