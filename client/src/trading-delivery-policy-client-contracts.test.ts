@@ -8,11 +8,58 @@ import {
   parseLocalDateTime,
   packageFeeExpectedVersion,
   resolvePackageFeePolicy,
+  normalizeGlobalTradeTimingSettings,
 } from "./trading-settings-client-contracts";
 
 const feeEditorSource = readFileSync(new URL("./components/AdminPackageFeeEditor.tsx", import.meta.url), "utf8");
 const retryEditorSource = readFileSync(new URL("./components/AdminDeliveryRetryPolicy.tsx", import.meta.url), "utf8");
 const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const operationsUiSource = readFileSync(new URL("./components/AdminOperationsPages.tsx", import.meta.url), "utf8");
+
+describe("global Trade timing settings hydration", () => {
+  it("preserves explicitly saved zero-second delay and cooldown values", () => {
+    const form = normalizeGlobalTradeTimingSettings({
+      settlementDelaySeconds: 900,
+      creditDelaySeconds: 0,
+      cooldownSeconds: 0,
+      nextPopupFormulaDelaySeconds: 0,
+      popupCooldownSeconds: 0,
+      popupDisplaySeconds: 8,
+      popupPreAlertSeconds: 0,
+      popupJitterSeconds: 0,
+      popupMaxPerHour: 12,
+      marketRefreshIntervalMinutes: 120,
+      blockUntilSettled: false,
+    });
+    expect(form).toMatchObject({
+      settlementMinutes: 15,
+      creditDelaySeconds: 0,
+      cooldownSeconds: 0,
+      nextPopupFormulaDelaySeconds: 0,
+      popupCooldownSeconds: 0,
+      popupPreAlertSeconds: 0,
+      popupJitterSeconds: 0,
+      blockUntilSettled: false,
+    });
+  });
+
+  it("uses safe defaults only for missing or malformed values and is wired to the editor", () => {
+    expect(normalizeGlobalTradeTimingSettings({ cooldownSeconds: "invalid" })).toMatchObject({
+      settlementMinutes: 15,
+      creditDelaySeconds: 0,
+      cooldownSeconds: 30,
+      nextPopupFormulaDelaySeconds: 30,
+      popupCooldownSeconds: 45,
+      popupDisplaySeconds: 8,
+      popupPreAlertSeconds: 4,
+      popupJitterSeconds: 90,
+      popupMaxPerHour: 12,
+      marketRefreshIntervalMinutes: 120,
+      blockUntilSettled: true,
+    });
+    expect(operationsUiSource).toContain("normalizeGlobalTradeTimingSettings(q.data.trade)");
+  });
+});
 
 describe("client Trading settings API contracts", () => {
   it("converts decimal percentage strings to bps exactly without rounding", () => {
