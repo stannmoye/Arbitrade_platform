@@ -7,11 +7,22 @@ const routers = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const ui = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const packageEditor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../drizzle/0100_global_trade_master_controls.sql", import.meta.url), "utf8");
+const migration105 = readFileSync(new URL("../drizzle/0105_default_on_global_information_delivery.sql", import.meta.url), "utf8");
 const journal = JSON.parse(readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8"));
 const migrationRunner = readFileSync(new URL("../scripts/apply-portal-migrations.mjs", import.meta.url), "utf8");
 const installerRunner = readFileSync(new URL("../installer/migration-recovery-status.mjs", import.meta.url), "utf8");
 
 describe("global Trade master policy ownership and migration", () => {
+  it("defaults safe informational delivery masters on only for an untouched migration-created policy", () => {
+    for (const key of ["tierPolicyMasterEnabled", "informationalPopupDeliveryEnabled", "companyRotationEnabled", "randomizedTimingEnabled", "burstDeliveryEnabled"]) {
+      expect(migration105).toContain("'$." + key + "', JSON_EXTRACT('true', '$')");
+    }
+    expect(migration105).toContain("`updatedBy` IS NULL");
+    expect(migration105).toContain("$.policyVersion");
+    expect(migration105).not.toContain("automaticTradingEnabled");
+    expect(journal.entries.some(entry => entry.tag === "0105_default_on_global_information_delivery")).toBe(true);
+  });
+
   it("assigns each global master exactly one global owner and keeps package lifecycle separate", () => {
     const masterKeys = [
       "trade.global.tierPolicyMasterEnabled",

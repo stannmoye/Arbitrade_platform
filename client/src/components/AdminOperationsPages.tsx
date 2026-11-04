@@ -251,7 +251,7 @@ export function AdminTradeSettingsOverview() {
   const ownerRoutes = [
     { label: "Allocation & package configuration", menuLabel: "Package Configuration", source: "Allocation controls", checkedAt: clientCheckedAt(allocation) },
     { label: "Tiers & packages", menuLabel: "Tiers & Eligibility", source: "Package policies", checkedAt: clientCheckedAt(policies) },
-    { label: "Opportunity publishing", menuLabel: "Publish & Manage Opportunities", source: "Open opportunities", checkedAt: clientCheckedAt(offers) },
+    { label: "Opportunity generation", menuLabel: "Opportunity Generation & Management", source: "Generated customer opportunities", checkedAt: clientCheckedAt(offers) },
     { label: "Trade history", menuLabel: "Trading History", source: "Lifecycle events", checkedAt: clientCheckedAt(lifecycle) },
     { label: "Settlement & reconciliation", menuLabel: "Settlement & Reconciliation", source: "Settlement queue", checkedAt: clientCheckedAt(pending) },
   ];

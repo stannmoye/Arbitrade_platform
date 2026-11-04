@@ -227,7 +227,8 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(last.tag).toBe("0102_opportunity_delivery_retry_lifecycle");
+    expect(last.tag).toBe("0105_default_on_global_information_delivery");
+    expect(journal.entries.at(-2).tag).toBe("0104_catalogue_native_opportunity_generation");
     const firstTradingMigration = journal.entries.findIndex((entry) => entry.tag === "0072_wallet_ledger_reconciliation_indexes");
     const masterIndex = journal.entries.findIndex((entry) => entry.tag === "0100_global_trade_master_controls");
     const feeIndex = journal.entries.findIndex((entry) => entry.tag === "0101_package_fee_policy_versions");

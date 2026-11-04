@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import mysql from "mysql2/promise";
 import { mysqlConnectionOptions } from "./_core/mysql";
 import { buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, type CompanySpotlightState, type CompanySpotlightRepeatPolicy } from "./modules/company-spotlight-rotation";
+import { getCompanyReferenceById } from "./modules/company-catalogue-reference";
 import { acknowledgeDelivery, claimDeliveryDispatch, deliveryAdmissionLockKey, deliveryIdempotencyKey, failDeliveryAttempt, type DeliveryState } from "./modules/opportunity-delivery-lifecycle";
 import { DELIVERY_RETRY_POLICY_SETTING_KEY, FAIL_CLOSED_DELIVERY_RETRY_POLICY, parseDeliveryRetryPolicy } from "./modules/opportunity-delivery-retry-policy";
 import { isRetryableMySqlTransactionError, mysqlTransactionRetryDelayMs, MYSQL_TRANSACTION_RETRY_MAX_ATTEMPTS } from "./modules/mysql-transaction-retry";
@@ -29,6 +30,10 @@ type PopupDelivery = {
   companyRotationEnabled: boolean;
   companyRotationCountryNames: string;
   companyRotationRepeatPolicy: CompanySpotlightRepeatPolicy;
+  companyReferenceId?: string | null;
+  companyDisplayName?: string | null;
+  companyLogoUrl?: string | null;
+  companyReferenceMetadataJson?: string | null;
   balanceAvailableMinor: number;
   balanceStatus: "sufficient" | "insufficient" | "unknown";
   marketObservedAt?: Date | null;
@@ -74,7 +79,28 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
         }
 
         let company: { id: string; name: string; logoUrl: string; metadataJson: string; rotationCycle: number; rotationSequence: number; poolFingerprint: string } | null = null;
-        if (item.companyRotationEnabled) {
+        if (item.companyReferenceId) {
+          const [catalogueRows] = await connection.query<any[]>(
+            "SELECT settingValue FROM app_settings WHERE settingKey=? LIMIT 1 LOCK IN SHARE MODE",
+            ["trade.companyCatalogue.adminState"],
+          );
+          const catalogueState = parseCompanyCatalogueAdminState(String(catalogueRows[0]?.settingValue || "{}"));
+          const pinned = getCompanyReferenceById(String(item.companyReferenceId));
+          if (!pinned || !catalogueState.verifiedIds.includes(pinned.id) || catalogueState.archivedIds.includes(pinned.id) || (catalogueState.disabledIds || []).includes(pinned.id)) {
+            throw new Error("Generated opportunity company is no longer approved for customer display.");
+          }
+          let metadata: Record<string, unknown> = {};
+          try { const parsed = JSON.parse(String(item.companyReferenceMetadataJson || "{}")); if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) metadata = parsed; } catch { metadata = {}; }
+          company = {
+            id: pinned.id,
+            name: pinned.name,
+            logoUrl: pinned.logoUrl,
+            metadataJson: JSON.stringify({ ...metadata, adminCatalogueStatus: "verified", referenceOnly: true }),
+            rotationCycle: Number(metadata.rotationCycle || 0),
+            rotationSequence: Number(metadata.rotationSequence || 0),
+            poolFingerprint: String(metadata.poolFingerprint || ""),
+          };
+        } else if (item.companyRotationEnabled) {
           // Read-lock the administrator catalogue state for this transaction so a
           // concurrent verify/unverify/archive action cannot race this selection.
           const [catalogueRows] = await connection.query<any[]>(
@@ -204,6 +230,10 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
           "INSERT INTO opportunity_delivery_idempotency (userId,offerId,popupEventId,packageId,packageName) VALUES (?,?,?,?,?)",
           [item.userId, item.offerId, popupEventId, item.packageId, item.packageName],
         );
+        await connection.execute(
+          "UPDATE opportunity_generation_assignments SET status='delivered',deliveredAt=COALESCE(deliveredAt,CURRENT_TIMESTAMP),updatedAt=CURRENT_TIMESTAMP WHERE userId=? AND offerId=? AND status='generated'",
+          [item.userId, item.offerId],
+        );
         await connection.commit();
         } catch (error) {
           try {
@@ -328,7 +358,7 @@ export async function claimPopupDeliveryDispatches(userId:number) {
 }
 
 export async function runOpportunityRetention() {
-  if (!process.env.DATABASE_URL) return { deletedEvents: 0, deletedDeliveryRows: 0 };
+  if (!process.env.DATABASE_URL) return { expiredAssignments: 0, deletedEvents: 0, deletedDeliveryRows: 0 };
   return withConnection(async connection => {
     await connection.beginTransaction();
     try {
@@ -341,10 +371,34 @@ export async function runOpportunityRetention() {
          GROUP BY userId,DATE(deliveredAt)
          ON DUPLICATE KEY UPDATE deliveredCount=VALUES(deliveredCount), noticedCount=VALUES(noticedCount), openedCount=VALUES(openedCount), dismissedCount=VALUES(dismissedCount), withdrawnCount=VALUES(withdrawnCount), tradedCount=VALUES(tradedCount), settledCount=VALUES(settledCount), zeroBalanceCount=VALUES(zeroBalanceCount), lastEventAt=VALUES(lastEventAt), updatedAt=CURRENT_TIMESTAMP`,
       );
+      const [expiredAssignments] = await connection.execute<any>(
+        `UPDATE opportunity_generation_assignments SET status='expired',failureReason=COALESCE(failureReason,'OFFER_EXPIRED'),updatedAt=CURRENT_TIMESTAMP
+         WHERE status IN ('generated','delivered') AND expiresAt<=UTC_TIMESTAMP()`,
+      );
+      await connection.execute(
+        `UPDATE opportunity_offers SET status='closed'
+         WHERE assignedUserId IS NOT NULL AND generationKey IS NOT NULL AND status='open' AND closesAt<=UTC_TIMESTAMP()`,
+      );
+      await connection.execute(
+        `UPDATE opportunity_popup_events p
+         INNER JOIN opportunity_offers o ON o.id=p.offerId
+         SET p.deliveryStatus='expired',p.expiredAt=COALESCE(p.expiredAt,UTC_TIMESTAMP()),p.deliveryRetryAfter=NULL,
+             p.deliveryLeaseToken=NULL,p.deliveryLeaseExpiresAt=NULL,p.lastErrorCode='OPPORTUNITY_EXPIRED',p.updatedAt=CURRENT_TIMESTAMP
+         WHERE o.assignedUserId IS NOT NULL AND o.generationKey IS NOT NULL AND o.closesAt<=UTC_TIMESTAMP()
+           AND p.deliveryStatus IN ('queued','in_progress','retry_wait')
+           AND p.eventStatus NOT IN ('TRADED','SETTLED','WITHDRAWN')`,
+      );
+      await connection.execute(
+        `UPDATE opportunity_delivery_events e
+         INNER JOIN opportunity_offers o ON o.id=e.offerId
+         SET e.status='expired',e.lastErrorCode='OPPORTUNITY_EXPIRED',e.expiresAt=COALESCE(e.expiresAt,UTC_TIMESTAMP())
+         WHERE o.assignedUserId IS NOT NULL AND o.generationKey IS NOT NULL AND o.closesAt<=UTC_TIMESTAMP()
+           AND e.status='pending'`,
+      );
       const [popupResult] = await connection.execute<any>("DELETE FROM opportunity_popup_events WHERE deliveredAt < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR) AND deliveryStatus NOT IN ('queued','in_progress','retry_wait') AND eventStatus NOT IN ('DELIVERED','NOTICED','OPENED')");
       const [deliveryResult] = await connection.execute<any>("DELETE FROM opportunity_delivery_events WHERE deliveredAt < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR) AND status IN ('expired','failed')");
       await connection.commit();
-      return { deletedEvents: Number(popupResult.affectedRows || 0), deletedDeliveryRows: Number(deliveryResult.affectedRows || 0) };
+      return { expiredAssignments:Number(expiredAssignments.affectedRows||0),deletedEvents: Number(popupResult.affectedRows || 0), deletedDeliveryRows: Number(deliveryResult.affectedRows || 0) };
     } catch (error) {
       await connection.rollback();
       throw error;
