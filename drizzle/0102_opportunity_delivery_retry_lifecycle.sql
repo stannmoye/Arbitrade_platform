@@ -76,6 +76,16 @@ UPDATE `opportunity_delivery_idempotency` d
 JOIN `opportunity_popup_events` e ON e.`id`=d.`popupEventId`
 SET d.`popupEventId`=e.`id`,d.`packageId`=COALESCE(e.`packageId`,0),d.`packageName`=e.`packageName`;
 --> statement-breakpoint
+-- Existing idempotency fences may point at a terminal legacy duplicate. Repoint
+-- each fence to the same canonical event selected above, preferring a dispatchable row.
+UPDATE `opportunity_delivery_idempotency` d
+JOIN (
+  SELECT `userId`,`offerId`,COALESCE(MIN(CASE WHEN `deliveryStatus` IN ('queued','in_progress','retry_wait') AND `tradeId` IS NULL AND `eventStatus` NOT IN ('TRADED','SETTLED') AND `executionStatus` NOT IN ('RUNNING','SUCCEEDED') THEN `id` END),MIN(`id`)) AS `canonicalId`
+  FROM `opportunity_popup_events` GROUP BY `userId`,`offerId`
+) canonical ON canonical.`userId`=d.`userId` AND canonical.`offerId`=d.`offerId`
+JOIN `opportunity_popup_events` e ON e.`id`=canonical.`canonicalId`
+SET d.`popupEventId`=e.`id`,d.`packageId`=COALESCE(e.`packageId`,0),d.`packageName`=e.`packageName`;
+--> statement-breakpoint
 -- No interval/schedule is inferred. Retry remains disabled until an administrator
 -- explicitly configures a bounded schedule; the initial dispatch is still permitted.
 INSERT INTO `app_settings` (`settingKey`,`settingValue`,`updatedBy`)
