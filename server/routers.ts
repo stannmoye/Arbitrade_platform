@@ -1,4 +1,5 @@
 import { COOKIE_NAME } from "@shared/const";
+import { decodeCompanyCatalogueSelection } from "@shared/company-catalogue-selection";
 import { parse as parseCookieHeader } from "cookie";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -109,15 +110,23 @@ export const appRouter = router({
       }
     }),
     updateAdminState: adminProcedure.input(z.object({
-      ids: z.array(z.string().regex(/^logo-brand-\d{4}$/)).min(1).max(1811),
+      // Keep legacy ID-array clients compatible while current clients send a compact
+      // 1,811-bit selection bitmap (304 base64 characters) through restrictive proxies.
+      ids: z.array(z.string().regex(/^logo-brand-\\d{4}$/)).min(1).max(1811).optional(),
+      selectionBitmap: z.string().length(304).optional(),
       status: z.enum(["verified", "unverified", "archived", "restored", "disabled", "enabled"]),
       reason: z.string().trim().min(8).max(500),
+    }).refine(input => Boolean(input.ids) !== Boolean(input.selectionBitmap), {
+      message: "Provide exactly one company selection representation.",
     })).mutation(async ({ ctx, input }) => {
-      const ids = [...new Set(input.ids)];
+      const selectedIds = input.selectionBitmap
+        ? decodeCompanyCatalogueSelection(input.selectionBitmap)
+        : input.ids!;
+      const ids = [...new Set(selectedIds)];
       if (ids.some(id => !getCompanyReferenceById(id))) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "One or more selected company IDs do not exist in the catalogue." });
       }
-      return updateCompanyCatalogueAdminState({ ...input, ids, updatedBy: ctx.user.id });
+      return updateCompanyCatalogueAdminState({ ids, status: input.status, reason: input.reason, updatedBy: ctx.user.id });
     }),
     byId: adminProcedure.input(z.object({
       id: z.string().trim().min(1).max(180),
