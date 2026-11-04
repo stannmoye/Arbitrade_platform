@@ -38,6 +38,20 @@ describe("worker schema contracts", () => {
     expect(findWorkerSchemaContractFailures(columns, indexes)).toEqual([]);
   });
 
+  it("bridges and verifies the Mining customer-package base table before workers start", async () => {
+    const root = new URL("../", import.meta.url);
+    const [runtimeSchema, miningMigration] = await Promise.all([
+      readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
+      readFile(new URL("drizzle/0036_crypto_mining_portal.sql", root), "utf8"),
+    ]);
+    expect(runtimeSchema).toContain('drizzle/0036_crypto_mining_portal.sql');
+    expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, miningPortalMigration)");
+    expect(runtimeSchema).toContain("await assertMiningCustomerPackagesTable(db)");
+    expect(miningMigration).toContain("CREATE TABLE IF NOT EXISTS mining_customer_packages");
+    expect(runtimeSchema.indexOf("await executeCompatibleMigrationSql(db, miningPortalMigration)"))
+      .toBeLessThan(runtimeSchema.indexOf("await assertWorkerSchemaContracts(db)"));
+  });
+
   it("creates and validates the durable Trading tier queue in the runtime schema bridge", async () => {
     const root = new URL("../", import.meta.url);
     const [runtimeSchema, mainMigrationRunner, migration, opportunityWorkerMigration, healthMigration, deliveryDiagnosticsMigration, mainPopupPolicySnapshotMigration, executionLeaseMigration, packagePolicySchemaMigration, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration, walletFundingPlanMigration, walletAdjustmentIdempotencyMigration, nullablePolicyDurationBoundsMigration, fxSnapshotSourceTimestampMigration, settlementReviewTimestampMigration, dailyAttemptAccountingMigration, automaticFinancialExecutionOffMigration, portalRunner, installerRecovery] = await Promise.all([
