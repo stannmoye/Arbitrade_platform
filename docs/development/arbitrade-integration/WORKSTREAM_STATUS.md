@@ -28,6 +28,7 @@ Implemented in this branch:
 - Keeps optional company templates restricted to an already-selected approved company.
 - Makes assignment company identity nullable with forward migration 0106.
 - Adds unit and generation-contract regression coverage.
+- Strictly validates company-neutral sentinel metadata; rejects extra fields, altered display identity, and non-null company references.
 - Exposes aggregate `customerFailures` from the persisted generation-batch failure count for Window 6's degraded-worker classification.
 
 Existing generation infrastructure reused:
