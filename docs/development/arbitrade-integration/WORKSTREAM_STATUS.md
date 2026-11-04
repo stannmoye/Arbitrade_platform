@@ -5,7 +5,7 @@
 **Window 1 company contract branch:** feat/workstream-1-company-catalogue-rotation-contract  
 **Window 3 branch:** workstream/3-automatic-opportunity-engine  
 **Window 3 PR:** [#286](https://github.com/stannmoye/Arbitrade_platform/pull/286), draft, stacked on PR #278  
-**Window 3 exact head:** `b6cbd5eb2fe1ba81c9409ddbb53936cc24c0341c`
+**Window 3 exact head:** `d73d5eb05ea4e5467fb82bcc02e36c5c88b4f7d3`
 
 ## Window 1 — Company Catalogue & Automatic Company Rotation
 
@@ -35,20 +35,30 @@ Implemented in this branch:
 - Resolves the quota window from the selected package policy (calendar day or rolling 24 hours), counts both subscription and customer/package assignments, and snapshots the applied limits.
 - Skips exhausted quota candidates before rotation selection; quota reads, rotation cursor, offer and assignment writes remain in one transaction.
 
-**Database verification update:** the first exact-head MySQL 8.4/MariaDB 11.4 workflow ran. MariaDB 11.4 exposed an `ER_LOCK_DEADLOCK` while two concurrent cycles upserted the same customer lock row; this was a real concurrency failure, not a fixture assertion. Window 3 added bounded whole-transaction retries for deadlock/lock-wait-timeout errors and a contract assertion. The workflow must be rerun on the new head before concurrency, rollback, quota, idempotency or snapshot results can be accepted. The MySQL 8.4 job had not yet reached the generation integration step at the time of this update.
+**Stage 3 verification — exact head `d73d5eb05ea4e5467fb82bcc02e36c5c88b4f7d3`:**
 
-Existing generation infrastructure reused:
-- Customer/package generation lock and unique generation key.
-- Persisted package/company snapshots and assignment rows.
-- Existing generation batch lifecycle and stale-running recovery.
-- Existing customer/package rotation transaction.
-- Existing opportunity delivery lifecycle handoff.
+<https://github.com/stannmoye/Arbitrade_platform/actions/runs/41784510459>
 
-**Stage 1 rotation verification:** The generation/delivery integration scenario checks concurrent cycles, the persisted cursor and assignment snapshot, an injected SQL failure after rotation selection, rollback after a missing-currency prerequisite, and successful retry. A company-neutral sentinel mutation regression was also corrected: changing the sentinel's company reference can no longer route it through the company-specific validator.
+All three jobs passed on this exact SHA:
+- MySQL 8.4 opportunity worker lifecycle integration.
+- MariaDB 11.4 opportunity worker lifecycle integration.
+- Generation source checks: TypeScript, focused generation/delivery contracts, full `pnpm test`, and production build.
 
-**Latest failure analysis and correction:** workflow run `41781006882` was on commit `744b7454390a5f4ac63a5fd155d95fb36889e301`, not the then-current PR head. Both MySQL 8.4 and MariaDB 11.4 failed because two concurrent requests raced in `ensureCustomerControls`' SELECT-then-INSERT initializer (`ER_DUP_ENTRY`). The source test failed because a tampered company-neutral sentinel could fall through to company-specific validation; current code routes canonical neutral sentinels through strict neutral validation. Window 3 has now made `ensureCustomerControls` provisioning atomic with an idempotent unique-key upsert and added a real concurrent-helper integration assertion that verifies exactly one controls row is created. The generation integration continues to exercise two concurrent worker cycles after this initialization check.
+The two database jobs applied the guarded migration chain (including migration 0106), exercised package fee/global control migrations, worker claims and lease recovery, duplicate-effect fencing, and the customer popup lifecycle. The popup integration now also exercises the company-neutral database path with an empty approved company pool: the offer and assignment persist NULL company identity, no company-specific template is attached, and the previously persisted rotation cursor remains unchanged.
 
-**Current exact head:** `ced5d145998cb5dbba985b94d6bda26fa29c2b83`. At the time of this update, GitHub reports no workflow runs and no combined statuses for this exact SHA. The prior TypeScript, guarded-migration and worker lease/recovery successes belong to older SHA `744b7454390a5f4ac63a5fd155d95fb36889e301`; they do not validate the current head. MySQL 8.4 and MariaDB 11.4 generation integration, source tests and build remain unverified on the current SHA. Local test commands were not run in this connector-only session.
+Generation integration coverage includes concurrent worker cycles and customer-control provisioning, exactly one committed rotation position, per-subscription entitlement quotas, package-wide quotas across subscription copies, independent package policy selection, rollback after missing currency and injected offer-insert failures, successful retry, customer read/lease acknowledgement, stale-token rejection, idempotent repeated cycles, and zero wallet/ledger/trade mutations.
+
+Other implementation contracts retained:
+- Existing generation lock, idempotency key, batch lifecycle and stale-batch recovery.
+- Persisted package-specific payout and duration bounds; invalid/missing saved bounds fail closed.
+- Brand-only company metadata; no ticker, exchange, listing or market-quote claims.
+- Window 4's existing delivery lease lifecycle; no second queue or delivery implementation.
+- Window 6's aggregate `customerFailures` contract.
+- Automatic financial execution remains disabled.
+
+**Stage 3 status:** implementation and exact-head automated verification are complete and ready for Window 7's integration review. Stage 1 remains approved and closed. PR #286 remains open, draft and unmerged.
+
+**Not claimed by this branch:** authenticated browser acceptance on the hosted Blitz deployment, production deployment, or final reconciliation/merge of stacked Window 1/2/4/5/6 work. Window 7 owns those integrated checks. The PR is intentionally stacked on PR #278 and must not be merged independently.
 
 ## Window 4 — Opportunity Delivery & Customer Portal
 
