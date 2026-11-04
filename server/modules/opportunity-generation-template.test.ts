@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createCatalogueIdentityOpportunityTemplate,
+  createUnattributedCatalogueOpportunityTemplate,
   selectOpportunityGenerationTerms,
   validateOpportunityGenerationTemplate,
   type OpportunityGenerationPackageBounds,
@@ -36,6 +37,25 @@ describe("opportunity generation templates", () => {
     const generated = createCatalogueIdentityOpportunityTemplate({ id: "logo-brand-0991", name: "Example Brand" }, 25_000);
     expect(generated).toMatchObject({ templateName: "Example Brand opportunity", companyReferenceId: "logo-brand-0991", symbol: "BRAND", venueFrom: "Informational", venueTo: "Informational", currency: "USD", minimumMinor: 25_000, sourceReference: "company-catalogue:logo-brand-0991" });
     expect(generated.reviewNotes).toContain("does not assert a market listing");
+  });
+
+  it("creates a company-neutral informational opportunity when no approved company is available", () => {
+    const generated = createUnattributedCatalogueOpportunityTemplate(25_000);
+    expect(generated).toMatchObject({
+      templateName: "Informational opportunity",
+      companyReferenceId: null,
+      symbol: "BRAND",
+      venueFrom: "Informational",
+      venueTo: "Informational",
+      currency: "USD",
+      minimumMinor: 25_000,
+      sourceReference: "company-catalogue:no-approved-company",
+    });
+    expect(generated.reviewNotes).toContain("not associated with a company");
+    const values = [250, 90];
+    const terms = selectOpportunityGenerationTerms(generated, packageA, () => values.shift()!);
+    expect(terms).toMatchObject({ companyReferenceId: null, configuredPayoutRateBps: 250, tradeDurationSeconds: 90 });
+    expect(() => validateOpportunityGenerationTemplate(generated)).toThrow(/Company reference ID/);
   });
 
   it("rejects malformed catalogue identities", () => {
