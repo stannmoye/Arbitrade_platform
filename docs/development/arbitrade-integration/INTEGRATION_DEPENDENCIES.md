@@ -6,7 +6,7 @@
 
 | Dependency | Existing owner / source | Required behaviour | Integration check |
 | --- | --- | --- | --- |
-| Customer tier qualification | Existing qualification service and persisted package subscriptions; implementation owner outside WS1 | Generation consumes only active server-assigned eligible subscriptions. It must not create or infer qualification. | Qualifying credit/threshold and entitlement integration; no customer-selected tier. |
+| Customer tier qualification | Existing qualification service and persisted package subscriptions; Window 3 consumes this contract without replacing the qualification owner | Generation consumes only active server-assigned eligible subscriptions. It must not create or infer qualification. | Qualifying credit/threshold and entitlement integration; no customer-selected tier. |
 | Package configuration | Existing package records and `opportunityPackagePolicies` | Read persisted package-specific bounds and policy versions; never hardcode terms or let templates override bounds. | Multiple package policies generate within their own saved bounds; snapshots remain stable. |
 | Company catalogue | Existing `companyCatalogueReference` source and `trade.companyCatalogue.adminState` | Use stable Logo IDs and current approved/enabled/non-archived records; preserve name/logo/country metadata. | 1,811-record integrity, status filtering, country filtering, rotation and restart tests. |
 | Company rotation | Existing `company-spotlight-rotation` module and saved per-customer/package cursor | Advance once per durable assignment, transactionally; respect repeat policy and filter fingerprint. | Concurrent generation, replay and restart do not duplicate or skip cursor advancement. |
@@ -14,7 +14,7 @@
 | Admin visibility | Existing `adminOperations` procedures and `AdminOpportunityTemplates` UI | Expose generation control, batch/assignment monitor and optional template administration with audit/version checks. | Admin authorization, save/read-back, reason/version conflict, useful failure state. |
 | Final integration | Window 7 | Reconcile shared files and migrations, run exact-head checks and end-to-end acceptance. | Window 7 handoff checklist in `INTEGRATION_HANDOFF.md`. |
 
-## Confirmed Workstream 4 dependencies
+## Confirmed Window 4 dependencies
 
 | Dependency | Existing owner / source | Required behaviour | Integration check |
 | --- | --- | --- | --- |
@@ -22,7 +22,7 @@
 | Tier qualification and package policy | Existing server-owned qualification/subscription and policy services; ownership to be reconciled with Windows 2/3 | Deliver only to active, unexpired, server-assigned eligible subscriptions and valid enabled package/global delivery policy. | Eligible/ineligible customer matrix, quota exhaustion, disabled package, global pause and expired subscription checks. |
 | Delivery retry policy | Existing `trade.deliveryRetryPolicy` app setting and `opportunity-delivery-retry-policy` module | Use the single persisted retry policy; missing/invalid/future-effective policy fails closed. Do not introduce another retry setting. | Attempts, retry deadlines, lease expiry/reclaim, stale-token fencing and terminal outcomes. |
 | Customer rendering | Existing `customer.opportunities`, `customer.popupDeliveryStatus`, `CustomerOpportunityAlert` and `customer-popup-eligibility.ts` | A claimed `in_progress` event is renderable only with its server-issued lease token; acknowledgements must return with the same token. | Contract tests for lease propagation and browser tests for first display, refresh recovery, duplicate tabs and dismissal. |
-| Final integration | Window 7 | Reconcile Window 1 generation branch with Window 4 delivery contract and all other workstreams; run exact-head CI and hosted acceptance. | Verify migration order, MySQL/MariaDB delivery integration, authenticated browser acceptance and no financial side effects. |
+| Final integration | Window 7 | Reconcile Window 3 generation candidate with Window 4 delivery contract and all other workstreams; run exact-head CI and hosted acceptance. | Verify migration order, MySQL/MariaDB delivery integration, authenticated browser acceptance and no financial side effects. |
 
 ## Window 1 company-catalogue dependencies
 
@@ -67,7 +67,7 @@ Any overlapping edit must be compared against both branch heads before cherry-pi
 
 | Dependency | Workstream / existing owner | Required behaviour | Integration check |
 | --- | --- | --- | --- |
-| Opportunity cycle result | Window 1 generation worker / existing `runAutoTradeCycle` | Reuse the existing failure counter and expose aggregate `customerFailures` without customer identifiers or raw exception text. | Partial customer batch is observable as degraded while the remaining customer work continues. |
+| Opportunity cycle result | Window 3 generation worker / existing `runAutoTradeCycle` | Reuse the existing failure counter and expose aggregate `customerFailures` without customer identifiers or raw exception text. | Partial customer batch is observable as degraded while the remaining customer work continues. |
 | Durable worker health | Existing Worker Health & Recovery implementation (migration 0084) | Reuse `runMonitoredWorkerCycle`, `worker_health_registry`, admin diagnostics and sanitization. | Exact integrated-head tests verify aggregate failure classification and current-process status. |
 | Worker lifecycle and startup | Existing `server/_core/index.ts` registration | Preserve existing timer, bounded batch, retry/backoff and shutdown semantics. | Existing cycle recovery/concurrency contracts remain green. |
 | Current versus historical instances | Existing worker-health registry and System Diagnostics | Derive current scope from the process instance ID; keep history visible without counting old stale instances as current failures. | Unit tests cover filtering and ensure current degraded/not-started rows remain actionable. |
