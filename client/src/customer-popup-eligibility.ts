@@ -1,5 +1,5 @@
 const terminalEventStatuses = new Set(["DISMISSED", "EXPIRED", "FAILED", "WITHDRAWN", "TRADED", "SETTLED"]);
-const deliverableStatuses = new Set(["delivered", "received", "rendered"]);
+const deliverableStatuses = new Set(["delivered", "in_progress", "received", "rendered"]);
 
 /** A fresh alert must correspond to a still-open persisted event that reached delivery. */
 export function isFreshCustomerPopupCandidate(offer: Record<string, unknown>, now = Date.now()): boolean {
