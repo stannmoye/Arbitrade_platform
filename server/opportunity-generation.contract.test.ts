@@ -72,6 +72,13 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(customerPortal).toContain('"Brand catalogue opportunity"');
   });
 
+  it("explains automatic generation in the customer dashboard and displays catalogue company identity", () => {
+    expect(customerPortal).toContain("opportunities are generated automatically");
+    expect(customerPortal).not.toContain("When an administrator publishes an opportunity");
+    expect(customerPortal).toContain("x.companyDisplayName||x.symbol");
+    expect(customerPortal).toContain('"Brand catalogue opportunity"');
+  });
+
   it("revalidates pinned companies when popup persistence occurs and expires generated assignments safely", () => {
     expect(lifecycle).toContain("if (item.companyReferenceId)");
     expect(lifecycle).toContain("catalogueState.verifiedIds.includes(pinned.id)");
