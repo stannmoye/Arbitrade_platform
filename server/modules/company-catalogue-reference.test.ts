@@ -3,7 +3,6 @@ import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { gzipSync } from "node:zlib";
-import { resolve } from "node:path";
 import {
   COMPANY_REFERENCE_CATALOGUE,
   loadCompanyReferenceCatalogue,
