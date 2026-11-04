@@ -6,6 +6,8 @@ const lifecycle = readFileSync(new URL("./opportunityLifecycle.ts", import.meta.
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../drizzle/0103_automatic_opportunity_generation_templates.sql", import.meta.url), "utf8");
 const migration104 = readFileSync(new URL("../drizzle/0104_catalogue_native_opportunity_generation.sql", import.meta.url), "utf8");
+const migration106 = readFileSync(new URL("../drizzle/0106_company_neutral_opportunity_assignments.sql", import.meta.url), "utf8");
+const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
 const journal = readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8");
 const admin = readFileSync(new URL("../client/src/components/AdminOpportunityTemplates.tsx", import.meta.url), "utf8");
 const customerPortal = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
@@ -39,6 +41,17 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(generator).toContain("control.enabled!==true");
     expect(generator).toContain("The active package's saved capital bounds are invalid.");
     expect(generator).toContain("template?Number(template.id):null");
+  });
+
+  it("continues generation without an approved company identity and persists the absence explicitly", () => {
+    expect(generator).not.toContain("if(!approvedPool.length)return null");
+    expect(generator).toContain("createUnattributedCatalogueOpportunityTemplate(packageMinimum,\"USD\")");
+    expect(generator).toContain("companyReferenceId:company?.id??null");
+    expect(generator).toContain("companyDisplayName:company?.name??null");
+    expect(generator).toContain("companyReferenceMetadataJson:companyMetadata?JSON.stringify(companyMetadata):null");
+    expect(migration106).toContain("MODIFY COLUMN `companyReferenceId` VARCHAR(32) NULL");
+    expect(schema).toContain('companyReferenceId: varchar("companyReferenceId", { length: 32 }),');
+    expect(schema).not.toContain('companyReferenceId: varchar("companyReferenceId", { length: 32 }).notNull(),\n  configuredProfitRateBps');
   });
 
   it("persists one immutable customer/package/template assignment under a lock and unique idempotency key", () => {
