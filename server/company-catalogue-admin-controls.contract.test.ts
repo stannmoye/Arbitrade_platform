@@ -13,7 +13,7 @@ describe("administrator company catalogue bulk controls", () => {
   it("exposes catalogue status reads and writes only through admin procedures", () => {
     expect(router).toContain("adminState: adminProcedure.query");
     expect(router).toContain("updateAdminState: adminProcedure.input");
-    expect(router).toContain("updateCompanyCatalogueAdminState({ ...input, ids, updatedBy: ctx.user.id })");
+    expect(router).toContain("updateCompanyCatalogueAdminState({ ids, status: input.status, reason: input.reason, updatedBy: ctx.user.id })");
     expect(router).toContain('z.enum(["verified", "unverified", "archived", "restored", "disabled", "enabled"])');
     expect(router).toContain("reason: z.string().trim().min(8).max(500)");
     expect(router).toContain(".max(1811)");
@@ -46,7 +46,7 @@ describe("administrator company catalogue bulk controls", () => {
     expect(catalogue).not.toContain("Administrator archived selected catalogue records.");
     expect(ownership).toContain("archive revokes customer approval while verification remains separate from enablement");
     expect(ownership).toContain("archive removes verifiedIds and restore clears archivedIds without re-approving the record");
-    expect(router).toContain("updateCompanyCatalogueAdminState({ ...input, ids, updatedBy: ctx.user.id })");
+    expect(router).toContain("updateCompanyCatalogueAdminState({ ids, status: input.status, reason: input.reason, updatedBy: ctx.user.id })");
     expect(database).toContain("reason,");
     expect(database).toContain('reason,\n      reference: `company-catalogue:${input.status}:${updatedAt}`');
   });
