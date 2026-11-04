@@ -27,10 +27,9 @@ export type PackageOpportunityPolicyPatch = Pick<OpportunityPackagePolicyRow, "p
 /**
  * Defaults for a newly created package's policy row.
  *
- * Delivery masters intentionally remain OFF compatibility placeholders:
- * global delivery/eligibility controls are owned by Package Configuration.
- * The package can be enabled independently, but delivery still requires valid
- * package terms and the global masters. Financial execution is always OFF.
+ * Package-level opportunity controls default ON for newly created packages.
+ * Global delivery/eligibility masters remain separately owned by Package
+ * Configuration and must still be valid/enabled. Financial execution is always OFF.
  */
 export const DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY = {
   badgeLabel: null,
