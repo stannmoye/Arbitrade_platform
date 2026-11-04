@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   COMPANY_REFERENCE_CATALOGUE,
   countCompanyReferences,
@@ -23,6 +25,13 @@ describe("Logo.dev brand-only static reference catalogue", () => {
     expect(googleEntries).toHaveLength(2);
     expect(new Set(googleEntries.map((company) => company.id)).size).toBe(2);
     expect(COMPANY_REFERENCE_CATALOGUE.every((company) => company.logoUrl.startsWith("/assets/company-logo-source/by-country/"))).toBe(true);
+  });
+
+  it("resolves every catalogue logo URL to an existing local image asset", () => {
+    for (const company of COMPANY_REFERENCE_CATALOGUE) {
+      const relativeAssetPath = decodeURIComponent(company.logoUrl).replace(/^\\/+/, "");
+      expect(existsSync(resolve(process.cwd(), "client/public", relativeAssetPath)), company.id).toBe(true);
+    }
   });
 
   it("never presents brand names as verified securities or trade-eligible listings", () => {
