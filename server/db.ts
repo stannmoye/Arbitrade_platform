@@ -4162,9 +4162,16 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
         marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt,publishedExpectedRewardBps:Number(offer.expectedRewardBps),publishedDurationSeconds:Number(offer.durationSeconds),configuredProfitRateBps:Number(offer.configuredProfitRateBps),configuredDurationSeconds:Number(offer.configuredDurationSeconds)})};
     }));
-    newlyEligible=newlyEligible.filter(offer=>lifecycleIds.has(userId+":"+offer.id));
-    const missingLifecycleIds=newlyEligible.filter(offer=>!lifecycleIds.has(userId+":"+offer.id));
+    const skippedDeliveryByKey=new Map(lifecycleIds.skipped.map(item=>[item.key,item.reason]));
+    const missingLifecycleIds=newlyEligible.filter(offer=>{
+      const key=userId+":"+offer.id;
+      return !lifecycleIds.has(key)&&skippedDeliveryByKey.get(key)!=="PENDING_DELIVERY_LIMIT";
+    });
     if(missingLifecycleIds.length) throw new Error("Popup persistence did not return delivery IDs for every eligible opportunity");
+    // Pending-capacity rejections are expected admission decisions, not failed
+    // persistence. Keep them out of the quota ledger and retain their reason on
+    // the generated assignment for operator diagnostics.
+    newlyEligible=newlyEligible.filter(offer=>lifecycleIds.has(userId+":"+offer.id));
     await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({
       userId,offerId:offer.id,quotaDay,status:"pending" as const,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion||1),
     }))).onDuplicateKeyUpdate({set:{deliveredAt:new Date(),status:"delivered",lastErrorCode:null}});
