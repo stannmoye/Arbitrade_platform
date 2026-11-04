@@ -51,13 +51,18 @@ describe("administrator company catalogue bulk controls", () => {
     expect(database).toContain('reason,\n      reference: `company-catalogue:${input.status}:${updatedAt}`');
   });
 
-  it("encodes every catalogue selection into a compact, validated bitset", () => {
+  it("encodes every catalogue selection compactly and validates bitset bounds", () => {
     const allIds = Array.from({ length: 1811 }, (_, index) => `logo-brand-${String(index + 1).padStart(4, "0")}`);
-    const allBitmap = encodeCompanyCatalogueSelection(allIds);
-    expect(allBitmap).toHaveLength(304);
-    expect(decodeCompanyCatalogueSelection(allBitmap)).toEqual(allIds);
+    const allPayload = encodeCompanyCatalogueSelection(allIds);
+    expect("selectionBitmap" in allPayload).toBe(true);
+    if (!("selectionBitmap" in allPayload)) throw new Error("Expected compact bitmap for full catalogue");
+    expect(allPayload.selectionBitmap).toHaveLength(304);
+    expect(decodeCompanyCatalogueSelection(allPayload.selectionBitmap)).toEqual(allIds);
     const sparseIds = [allIds[0]!, allIds[17]!, allIds[1810]!];
-    expect(decodeCompanyCatalogueSelection(encodeCompanyCatalogueSelection(sparseIds))).toEqual(sparseIds);
+    const sparsePayload = encodeCompanyCatalogueSelection(sparseIds);
+    expect("ids" in sparsePayload).toBe(true);
+    if (!("ids" in sparsePayload)) throw new Error("Expected ordinary IDs for small selection");
+    expect(sparsePayload.ids).toEqual(sparseIds);
     expect(() => decodeCompanyCatalogueSelection("A".repeat(304))).toThrow();
     expect(() => encodeCompanyCatalogueSelection(["logo-brand-9999"])).toThrow();
   });
