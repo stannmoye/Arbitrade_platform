@@ -417,6 +417,15 @@ const balanceBefore = await db.select({
   // early because the next delivery is not due yet.
   await db.update(opportunityPackagePolicies).set({ minIntervalSeconds: 0, maxIntervalSeconds: 0 })
     .where(eq(opportunityPackagePolicies.packageName, packageName));
+  // The acknowledged first delivery is no longer a scheduling predecessor for
+  // this isolated generation-transaction scenario.
+  await db.update(opportunityDeliveryEvents).set({
+    status: "failed",
+    deliveredAt: new Date(Date.now() - 60 * 60 * 1000),
+  }).where(and(
+    eq(opportunityDeliveryEvents.userId, userId),
+    eq(opportunityDeliveryEvents.offerId, offerId),
+  ));
   const offersBeforeFailure = await db.select({ id: opportunityOffers.id })
     .from(opportunityOffers).where(eq(opportunityOffers.assignedUserId, userId));
   await listCustomerOpportunities(userId, {
