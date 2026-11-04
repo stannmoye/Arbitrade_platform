@@ -4137,7 +4137,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         badgeLabel:(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel)==null?null:String(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel),
         packageBadgeLabel:(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel)==null?null:String(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel),
         badgeStyle:generatedOffer&&["neutral","blue","purple","gold","green"].includes(String(generationSnapshot.badgeStyle))?String(generationSnapshot.badgeStyle):["neutral","blue","purple","gold","green"].includes(String(configured.badgeStyle))?String(configured.badgeStyle):"neutral",
-        companyRotationEnabled:generatedOffer?Boolean(generationSnapshot.companyRotationEnabled):globalPolicy.companyRotationEnabled,
+        companyRotationEnabled:generatedOffer?Boolean(generationSnapshot.companyRotationEnabled&&offer.companyReferenceId):globalPolicy.companyRotationEnabled,
         companyRotationCountryNames:generatedOffer?String(generationSnapshot.companyRotationCountryNames||""):String(configured.companyRotationCountryNames||""),
         companyRotationRepeatPolicy:generatedOffer?generationSnapshot.companyRotationRepeatPolicy:configured.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
         companyReferenceId:offer.companyReferenceId??null,companyDisplayName:offer.companyDisplayName??null,companyLogoUrl:offer.companyLogoUrl??null,companyReferenceMetadataJson:offer.companyReferenceMetadataJson??null});
