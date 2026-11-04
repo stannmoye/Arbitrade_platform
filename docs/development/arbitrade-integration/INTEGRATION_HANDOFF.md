@@ -43,14 +43,14 @@ Window 1 has not merged to `main` and has not deployed the branch. Window 7 owns
 ## Window 2 — Package policy handoff
 
 - Pull request: [#284](https://github.com/stannmoye/Arbitrade_platform/pull/284) (open, draft, unmerged).
-- Current PR head at handoff update: `5e65811d53d859c92c0ce5a4c8833ec98df4683f`.
+- Current PR head at this handoff update: `3d794c64cd4f542d852ebf97dc18796014a5548b` (source/test code head; subsequent documentation-only updates may advance the branch).
 - Branch: `feat/window-2-package-opportunity-policy-contract`.
 - Baseline: `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`.
-- Implementation head: `c6ce511e8b3ae12ed442eebb001c7ee8388bb823` (package-policy source/test correction); latest handoff documentation commit: `5e65811d53d859c92c0ce5a4c8833ec98df4683f`.
+- Implementation and test correction history: `c6ce511e8b3ae12ed442eebb001c7ee8388bb823`, `00a608535d8e1d29b45f2e663ad3467080929cb5`, and `3d794c64cd4f542d852ebf97dc18796014a5548b` (aligns the admin delivery policy contract test with the centralized patch allowlist and resolver).
 - Reuses the existing `opportunity_package_policies` store; no schema or migration change.
 - Canonical policy contract/defaults/patch allowlist: `server/modules/package-opportunity-policy.ts`.
 - Persistence integration: `server/db.ts` now uses the typed patch contract, central allowlist and package-name-safe policy resolver. Existing row locking, validation, policy version increments, audit writes and package rename transaction remain in place.
-- Tests: `server/package-opportunity-policy.contract.test.ts` covers defaults, partial update preservation, cross-package isolation and immutable/global field exclusions. `server/trading-package-eligibility.contract.test.ts` was updated to assert the centralized defaults/resolver instead of the removed inline constant/assignment. Tests have not been executed locally; corrected-head CI is queued/in progress and must pass before integration.
+- Tests: `server/package-opportunity-policy.contract.test.ts` covers defaults, partial update preservation, cross-package isolation and immutable/global field exclusions. Existing eligibility and admin delivery policy contract tests now assert the centralized defaults, allowlist and resolver. Exact-head GitHub Actions for `3d794c64cd4f542d852ebf97dc18796014a5548b` passed all 10 workflows, including production build/type-check/tests, installer, mining, application, trading recovery, tier qualification, company rotation, worker recovery, settlement reconciliation and wallet idempotency. Tests have not been executed locally. The passing workflows do not independently count/verify all 16 production package rows.
 
 ### Window 7 integration checks
 
