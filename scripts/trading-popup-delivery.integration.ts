@@ -438,7 +438,7 @@ const balanceBefore = await db.select({
       password: userPassword,
       expectedCompanyName: customerRead.offers[0]?.companyDisplayName,
       expectedOpportunityId: Number(customerRead.offers[0]?.offerId),
-      waitForRenderedAcknowledgement: async () => {
+      waitForRenderedAcknowledgement: async (diagnostics) => {
         const deadline = Date.now() + 15_000;
         while (Date.now() < deadline) {
           const rows = await db.select({
@@ -451,7 +451,7 @@ const balanceBefore = await db.select({
           }
           await new Promise(resolve => setTimeout(resolve, 100));
         }
-        throw new Error("The real customer popup did not persist a rendered delivery acknowledgement within 15 seconds.");
+        throw new Error(`The real customer popup did not persist a rendered delivery acknowledgement within 15 seconds. API acknowledgement traffic: ${diagnostics.join(" | ") || "none observed"}`);
       },
     });
     const afterBrowserDismissal = await db.select({

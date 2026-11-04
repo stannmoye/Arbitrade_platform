@@ -175,7 +175,7 @@ export async function verifyCustomerPopupInBrowser(input: {
   password: string;
   expectedCompanyName?: string | null;
   expectedOpportunityId?: number;
-  waitForRenderedAcknowledgement?: () => Promise<void>;
+  waitForRenderedAcknowledgement?: (diagnostics: string[]) => Promise<void>;
 }) {
   const { browser, page } = await launchAuthenticatedPage(
     input.baseUrl,
@@ -184,6 +184,18 @@ export async function verifyCustomerPopupInBrowser(input: {
     input.password
   );
   try {
+    const deliveryAckDiagnostics: string[] = [];
+    page.on("response", response => {
+      if (!response.url().includes("customer.popupDeliveryStatus")) return;
+      const request = response.request();
+      void response.text().then(body => {
+        deliveryAckDiagnostics.push(JSON.stringify({
+          status: response.status(),
+          requestBody: request.postData(),
+          responseBody: body.slice(0, 1000),
+        }));
+      }).catch(error => deliveryAckDiagnostics.push(`response-body-error: ${String(error)}`));
+    });
     const opportunityApiResponse = page.waitForResponse(
       response =>
         response.url().includes("/api/trpc/customer.opportunities") &&
@@ -222,7 +234,7 @@ export async function verifyCustomerPopupInBrowser(input: {
         .getByText(input.expectedCompanyName, { exact: false })
         .first()
         .waitFor();
-    await input.waitForRenderedAcknowledgement?.();
+    await input.waitForRenderedAcknowledgement?.(deliveryAckDiagnostics);
     const text = await alert.innerText();
     await alert.getByRole("button", { name: "Dismiss notification" }).click();
     await alert.waitFor({ state: "hidden", timeout: 10_000 });
