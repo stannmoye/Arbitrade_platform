@@ -225,6 +225,8 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(generator).toContain("tx.update(appSettings).set({settingValue:JSON.stringify(selection.state)");
     expect(generator).toContain("tx.insert(opportunityOffers).values({");
     expect(generator).toContain("tx.insert(opportunityGenerationAssignments).values({");
+    expect(generator).toContain('if(!currencyRow)throw new Error("The generated opportunity currency is not enabled; generation transaction must roll back.")');
+    expect(generator).not.toContain("const currencyRow=currencyRows[0];if(!currencyRow)return null;");
     expect(generator).toContain("packageSnapshotJson:JSON.stringify(snapshot)");
     expect(generator.indexOf("tx.update(appSettings).set({settingValue:JSON.stringify(selection.state)"))
       .toBeLessThan(generator.indexOf("tx.insert(opportunityOffers).values({"));
