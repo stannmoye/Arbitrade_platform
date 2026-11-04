@@ -8,7 +8,7 @@
 
 ## What Window 1 hands off
 
-The branch implements catalogue-native automatic opportunity generation and keeps manual company templates optional. It uses the existing customer entitlement, package-policy, company-catalogue, company-rotation and opportunity-delivery infrastructure. The current PR contains 40 changed files and migrations 0103–0105.
+The branch implements catalogue-native automatic opportunity generation and keeps manual company templates optional. It uses the existing customer entitlement, package-policy, company-catalogue, company-rotation and opportunity-delivery infrastructure. The current PR contains 48 changed files and migrations 0103–0105.
 
 Key implementation files include:
 - `server/modules/opportunity-generation-template.ts`
