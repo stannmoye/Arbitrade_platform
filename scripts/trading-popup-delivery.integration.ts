@@ -572,8 +572,8 @@ const balanceBefore = await db.select({
   const [secondSubscriptionResult] = await db.insert(customerPackageSubscriptions).values({
     userId,
     packageId: secondPackageId,
-    startsAt: new Date(Date.now() - 60_000),
-    expiresAt: new Date(Date.now() + 172_800_000),
+    startsAt: new Date(now.getTime() - 60_000),
+    expiresAt: new Date(now.getTime() + 172_800_000),
     status: "active",
     activationKey: `auto-tier:popup-delivery-secondary-${token}`,
     termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 1, maxPopupsPerDay: 0 }),
