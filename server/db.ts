@@ -3293,6 +3293,8 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     let rotationCycle:number|null=null;
     let rotationSequence:number|null=null;
     let poolFingerprint:string|null=null;
+    let rotationStateKey:string|null=null;
+    let nextRotationState:CompanySpotlightState|null=null;
     if(input.companyRotationEnabled){
       const stateKey=`trading.companyRotation.${input.userId}.${Number(selectedSubscription.packageId)}`;
       await tx.insert(appSettings).values({settingKey:stateKey,settingValue:"",updatedBy:input.userId})
@@ -3304,7 +3306,10 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       const selection=nextCompanySpotlight(approvedPool,priorState,input.userId,String(selectedSubscription.packageId),
         selectedPolicy.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted");
       company=selection.company;rotationCycle=selection.rotationCycle;rotationSequence=selection.rotationSequence;poolFingerprint=selection.poolFingerprint;
-      await tx.update(appSettings).set({settingValue:JSON.stringify(selection.state),updatedBy:input.userId,updatedAt:input.now}).where(eq(appSettings.settingKey,stateKey));
+      // Keep the row locked, but defer consuming this rotation position until
+      // every remaining generation step has succeeded inside this transaction.
+      rotationStateKey=stateKey;
+      nextRotationState=selection.state;
     }else{
       company=approvedPool[crypto.randomInt(0,approvedPool.length)];
     }
@@ -3398,6 +3403,10 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       configuredProfitRateBps:terms.configuredPayoutRateBps,configuredDurationSeconds:terms.tradeDurationSeconds,
       packageSnapshotJson:JSON.stringify(snapshot),status:"generated",generatedAt:input.now,assignedAt:input.now,expiresAt:closesAt,
     });
+    if(rotationStateKey&&nextRotationState){
+      await tx.update(appSettings).set({settingValue:JSON.stringify(nextRotationState),updatedBy:input.userId,updatedAt:input.now})
+        .where(eq(appSettings.settingKey,rotationStateKey));
+    }
     return offerId;
   });
 }
