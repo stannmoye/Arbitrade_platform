@@ -53,7 +53,7 @@ Status is pending each assigned owner’s own branch, commit, PR, changed-file l
 
 **Implementation branch:** `feat/window-2-package-opportunity-policy-contract`  
 **Baseline:** `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`  
-**Latest PR head:** `14ccb46a1c696c3fc7d7dd9858256de75b3f105b` (documentation follow-up; package source/test correction is `c6ce511e8b3ae12ed442eebb001c7ee8388bb823`)  
+**Latest PR head:** `3d794c64cd4f542d852ebf97dc18796014a5548b` (includes the shared-policy contract test alignment)  
 **Pull request:** [#284](https://github.com/stannmoye/Arbitrade_platform/pull/284) — open, draft, unmerged.  
 **PR head at creation:** `92224d32dd85bb8249f094df1e8dcd8afb815a0d`.
 
@@ -63,4 +63,4 @@ Implemented on the Window 2 branch:
 - Updated `server/db.ts` to use the canonical default object, typed package patch, centralized patch allowlist and package-name-safe resolver.
 - Added pure regression tests for default policy safety, preservation of omitted saved fields, package isolation, cross-package mismatch rejection and exclusion of global/immutable fields.
 
-**Validation:** initial CI found stale source-layout assertions in the existing eligibility contract test; these were updated to assert the centralized defaults/resolver. Corrected-head CI for PR head `14ccb46a1c696c3fc7d7dd9858256de75b3f105b` is queued/pending. Tests have not been executed locally. The live database was not queried, so the count/integrity of all 16 installed package records is not claimed as verified by Window 2.
+**Validation:** GitHub Actions for exact PR head `3d794c64cd4f542d852ebf97dc18796014a5548b` completed all 10 workflows successfully: production build/type-check/tests, installer validation, mining regression, application verification, trading recovery, tier qualification (MySQL 8.4 and MariaDB 11.4), company rotation (both engines), opportunity worker concurrency/recovery (both engines), settlement reconciliation (both engines), and administrator wallet idempotency (both engines). The admin delivery policy contract assertions were aligned with the centralized policy module in this head. Tests have not been executed locally. The CI suite does not independently verify the count/integrity of all 16 installed package records in the live hosted database; that remains a Window 7 integration check.
