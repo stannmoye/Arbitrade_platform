@@ -280,3 +280,17 @@ Shared paths requiring coordination include `server/_core/index.ts`, `server/_co
 - The customer preview uses the same approved pool. Active customer pop-up reads re-check current status so unverify, disable or archive changes hide company identity immediately; immutable historical snapshots remain unchanged.
 - The customer-facing company search is restricted server-side to the current admin-verified, enabled, non-archived allowlist; it must not expose the full 1,811-record source catalogue. Full catalogue search and direct lookup are administrator-only. Customer search filters approval before pagination/counting and rechecks current state on each read so unverify/disable/archive immediately removes stale active references. Admin approval is display-only and does not establish securities listing or trade-execution eligibility.
 - All 25 exact-head PR checks passed before merge. Post-merge checks were still running/queued at the last recorded poll. No production deployment or database modification was performed.
+
+---
+
+## 2026-11-04 — Window 1 company catalogue and rotation contract
+
+- Dedicated branch: `feat/workstream-1-company-catalogue-rotation-contract`; base `main` at `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`.
+- Confirmed the current production-facing brand selection path is `server/modules/company-spotlight-rotation.ts`, called by `server/opportunityLifecycle.ts`. It uses the existing 1,811-record static catalogue, the audited `trade.companyCatalogue.adminState` allowlist, exact country-folder filters, and persisted customer/package cursors.
+- Brand-only catalogue records are valid for company display selection. The spotlight pool requires stable ID, name, local logo, current admin verification, and enabled/non-archived state; it does not require ticker, exchange, sector, headquarters, or market-data records. Admin verification is display approval only and does not change the source's unverified listing classification.
+- Disabled and Archived take precedence over stale verified allowlist entries. Missing/malformed admin state and empty approved pools fail closed; the opportunity may continue without company identity.
+- Rotation uses `avoid_until_exhausted` or `allow_repeats`, a deterministic pool fingerprint and persisted cursor. Existing worker locks the customer/package state, rechecks delivery idempotency after acquiring the lock, and commits cursor plus company snapshot in the opportunity transaction.
+- No new catalogue table, API endpoint, or database migration is needed. Existing `drizzle/0090_trading_company_spotlight_rotation.sql` supplies package-level controls; `app_settings` stores admin state and rotation cursors; opportunity popup event columns store immutable company snapshots.
+- The older `server/modules/company-rotation.ts` is ticker/exchange/recent-verification oriented and is not the selector for this brand-only opportunity path. Do not route Window 3 through it.
+- Added `docs/trading/COMPANY_SELECTION_CONTRACT.md`, the shared `docs/development/arbitrade-integration/` coordination set, and a unit regression test for selecting admin-approved brand-only entries with empty ticker/exchange fields.
+- Local tests could not be executed in this environment because the GitHub host could not be resolved during repository checkout. Exact-head GitHub CI and disposable MySQL 8.4/MariaDB 11.4 integration remain required. No production database or deployment was touched.
