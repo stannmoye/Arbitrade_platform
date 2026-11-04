@@ -66,3 +66,11 @@ Window 7 should run the full source pipeline, installer/migration validation, My
 - CI evidence from individual workstream heads is not final integration evidence. Exact-head integration CI, type check, tests, build, MySQL 8.4/MariaDB 11.4 integration checks and authenticated browser acceptance remain mandatory.
 - No production migration, Blitz deployment, real-money execution, customer-fund allocation or unattended settlement is claimed or activated.
 
+
+## Integrated PR #288 — observed CI evidence
+
+- Integrated code/test SHA: `f093e1fb313b88ed2543bf09af6e3967311c1a5e`.
+- Completed successfully: Verify Arbitrade trading recovery changes; Trading settlement reconciliation database integration; Trading opportunity worker concurrency and recovery integration; Mining regression checks; Trading company rotation durable allocation database integration; Verify application; Trading tier qualification database integration; Trading administrator wallet idempotency integration; Installer validation.
+- Still running at last check: Build and test production source.
+- The branch subsequently advanced through documentation-only updates to `f754c64b74bacd33862cfcbbe0b87a00499c616f`; verify current-head workflow results before changing PR #288 from draft.
+- No authenticated Blitz/customer browser acceptance or production migration is evidenced by these workflows.
