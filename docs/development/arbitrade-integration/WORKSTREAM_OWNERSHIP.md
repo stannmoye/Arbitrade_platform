@@ -1,29 +1,24 @@
 # Workstream Ownership
 
-**Coordination baseline:** 2026-11-04
-
-## Confirmed ownership
+**Updated:** 2026-11-04
 
 | Window | Workstream | Owned responsibility | Explicit exclusions |
-| --- | --- | --- | --- |
-| 1 | Automatic Opportunity Generation | Remove the unnecessary per-company approved-template prerequisite; generate customer/package-specific opportunities from the approved existing catalogue; preserve package terms and company rotation; persist generation assignments and snapshots; hand persisted offers to the existing delivery lifecycle. | Does not own qualification, delivery worker internals, global Trade settings UI, financial execution/allocation/settlement, or final integration. |
-| 7 | Final Integration and Verification | Compare all six implementation branches; resolve shared-file/schema/API conflicts; verify migration order and contracts; run exact-head checks and integrated acceptance; report readiness. | Does not replace the implementation ownership of Windows 1–6. |
+|---|---|---|---|
+| 1 | Company Catalogue & Automatic Company Rotation | Preserve the 1,811-entry brand catalogue and logos; expose approved-display pool and durable customer/package rotation interfaces. | Does not own package policy, opportunity generation, or delivery lifecycle. |
+| 2 | Package Policies & Configuration | Own package-specific opportunity policy configuration and its persisted read/validation interface. | Does not own company selection, generation orchestration, or delivery dispatch. |
+| 3 | Automatic Opportunity Generation Engine | Own non-financial generation orchestration, scheduling, durable batch lifecycle, generation persistence coordination, idempotent recovery and generation diagnostics. Consume Window 1 and Window 2 contracts. | Does not own catalogue/rotation, package policy editing, popup delivery internals, customer financial execution, fund allocation, or settlement. |
+| 4 | Opportunity Delivery & Customer Portal | Consume persisted generated opportunities through the existing delivery lifecycle; own delivery dispatch, lease/retry/acknowledgement and customer presentation handoff. | Does not create a competing generator, company selector, or package-policy owner. |
+| 5 | Pending explicit assignment confirmation | Owner must record exact responsibility, paths, interfaces and exclusions from its assigned prompt. | Do not infer ownership. |
+| 6 | Testing, Monitoring & Production Readiness | Own verification, durable worker-health/diagnostic presentation and production-readiness evidence. | Does not duplicate generation, company selection, package policy, or delivery services. |
+| 7 | Final Integration & Verification | Compare all six implementation branches; reconcile shared files/contracts/migrations; run exact-head verification and make the integration/merge decision. | Does not replace implementation ownership or merge unverified work. |
 
-## Workstream slots requiring confirmation from their assigned windows
+## Window 3 implementation boundary
 
-The assignment prompts for Windows 2–6 are not present in this repository snapshot or in Workstream 1's handoff. Their names and boundaries are intentionally not guessed. Each owner must replace its row with the exact assigned scope and explicit exclusions before Window 7 integrates.
+The existing generation implementation introduced on PR #278 is the starting point, not a competing service to replace. Window 3 maintains and completes the generation engine on top of that implementation. The generator must call Window 1's company-selection interface and Window 2's package-policy interface; it persists generated offers and assignments for Window 4's existing delivery lifecycle.
 
-| Window | Workstream name | Owner must document |
-| --- | --- | --- |
-| 2 | Pending owner confirmation | Exact scope, owned paths/services, interfaces, exclusions |
-| 3 | Pending owner confirmation | Exact scope, owned paths/services, interfaces, exclusions |
-| 4 | Pending owner confirmation | Exact scope, owned paths/services, interfaces, exclusions |
-| 5 | Pending owner confirmation | Exact scope, owned paths/services, interfaces, exclusions |
-| 6 | Pending owner confirmation | Exact scope, owned paths/services, interfaces, exclusions |
+## Shared conflict rules
 
-## Conflict rules
-
-1. A file or service has one primary implementation owner. Other workstreams propose changes through a coordinated PR or documented interface.
-2. Shared schema, migration journal, router, worker registration and global settings changes require explicit coordination with every affected owner.
-3. Do not create a parallel service, table, worker, setting or endpoint when an existing owner already provides it.
-4. Window 7 records the final ownership reconciliation and unresolved overlaps before integration.
+1. A service, table, worker, endpoint or setting has one primary owner.
+2. Shared-file edits must be based on the latest dependency head and reviewed against other open workstream PRs.
+3. Window 3 may change generation-owned persistence and orchestration, but must coordinate schema, server/db.ts, worker registration and monitoring changes with Windows 1, 2, 4 and 6.
+4. Window 7 owns final conflict resolution, migration ordering and merge authority.
