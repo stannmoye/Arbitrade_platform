@@ -31,3 +31,26 @@ Window 3 extends the existing generator with a missing company-neutral path requ
 ## Safety and rollout
 
 No wallet/ledger, trade execution, customer-fund allocation, result determination or settlement behavior is added or enabled. No production migration, deployment, or hosted acceptance is claimed by this branch. Window 7 owns final integration and merge authority.
+
+
+## Existing generation architecture investigation
+
+The existing PR #278 implementation was inspected before extending it:
+
+1. **Approved-template dependency:** templates are optional enrichment for the already-selected company. Catalogue-native terms are used when no template exists.
+2. **Generation eligibility:** the worker scans active server-assigned auto-tier subscriptions, enabled packages and saved package policies with valid payout/duration bounds. The current package-policy interface still needs reconciliation with Window 2.
+3. **Package selection:** the generation transaction locks the customer generator key and selects the first eligible subscription with valid saved terms. A customer with multiple subscriptions currently receives at most one open generated offer at a time.
+4. **Company selection:** generation uses the existing approved company spotlight pool and per-customer/package rotation. This branch adds the Window 1 contract's empty-pool case.
+5. **Scheduling:** the current customer cycle uses saved delivery interval/randomization and post-completion timing to determine readiness; the scheduled wrapper ticks every 30 seconds. Window 7 must confirm the final Window 2 scheduling contract.
+6. **Creation:** offer, assignment and package/company snapshot are written in one transaction. Selected payout/duration are persisted and not rerolled on replay.
+7. **Persistence:** generated offers are customer-assigned open opportunity_offers rows; generation provenance is stored in opportunity_generation_assignments and batch state in opportunity_generation_batches.
+8. **Duplicate prevention:** per-customer generation lock, reusable-open-offer lookup and unique generation key protect concurrent/repeated cycles.
+9. **Recovery:** a durable round-robin customer cursor bounds scans; batches left running beyond five minutes are marked partial/interrupted while successful assignments remain persisted for retry.
+10. **APIs and consumers:** existing adminOperations generation control/monitor/template procedures remain the admin surface; customer.opportunities is the authenticated customer read path; opportunityLifecycle.ts remains the delivery owner. No second API or delivery queue is added.
+
+## Observed integration risks requiring Window 7 review
+
+- The current generation call is reached through listCustomerOpportunities during runAutoTradeCycle. The enclosing runTradeCycle scheduler also invokes separate monitored settlement-reconciliation and confirmed-credit-posting workers. Window 3 did not change or activate those financial workers. The existing AUTOMATIC_FINANCIAL_EXECUTION_ENABLED constant is hard-set to false in server/db.ts, and createTrade rejects calls while it is false. Window 7 must preserve that guard and verify generation remains non-financial.
+- The legacy market refresh path ensureMarketDrivenOpportunities still reports generationDisabled and creates zero opportunities on the inspected base. It must not be mistaken for the catalogue-native generation worker.
+- Generation currently shares some readiness/capacity calculations with customer delivery. Reconcile Window 2's package-policy contract and Window 4's delivery ownership before changing those gates; do not fork the policy or delivery services.
+- Window 1's new contract branch and Window 2's final package-policy branch must both be included in Window 7's integration comparison. Window 2's branch was not present in the branch listing during this work.
