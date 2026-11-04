@@ -203,8 +203,8 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(generator).toContain("dailyPopupTarget:opportunityPackagePolicies.dailyPopupTarget");
     expect(generator).toContain("const customerDailyQuota=");
     expect(generator).toContain("const effectiveDailyQuota=");
-    expect(generator).toContain("policyDailyQuota>0?Math.min(customerDailyQuota,policyDailyQuota):customerDailyQuota");
-    expect(generator).toContain("dailyTarget>0?dailyTarget:customerDailyQuota");
+    expect(generator).toContain("policyDailyQuota>0?Math.min(packageDailyQuota,policyDailyQuota):packageDailyQuota");
+    expect(generator).toContain("dailyTarget>0?dailyTarget:packageDailyQuota");
     expect(generator).toContain("eq(opportunityGenerationAssignments.packageSubscriptionId,Number(row.subscriptionId))");
     expect(generator).toContain("eq(opportunityGenerationAssignments.packageId,Number(row.packageId))");
     expect(generator).toContain("schedulingPeriod:opportunityPackagePolicies.schedulingPeriod");
