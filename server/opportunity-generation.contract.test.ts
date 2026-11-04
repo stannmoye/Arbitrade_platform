@@ -101,6 +101,28 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(monitor).not.toContain("automaticDelivery:Boolean(policy.automaticDelivery)");
   });
 
+  it("commits company rotation only after both the offer and immutable assignment are persisted", () => {
+    const rotationSelection = generator.indexOf("const selection=nextCompanySpotlight(");
+    const currencyLookup = generator.indexOf("const currencyRow=currencyRows[0]");
+    const offerInsert = generator.indexOf("tx.insert(opportunityOffers).values({");
+    const assignmentInsert = generator.indexOf("tx.insert(opportunityGenerationAssignments).values({");
+    const rotationCommit = generator.indexOf("tx.update(appSettings).set({settingValue:JSON.stringify(nextRotationState)");
+    const transactionReturn = generator.indexOf("return offerId;");
+    expect(rotationSelection).toBeGreaterThanOrEqual(0);
+    expect(currencyLookup).toBeGreaterThan(rotationSelection);
+    expect(offerInsert).toBeGreaterThan(currencyLookup);
+    expect(assignmentInsert).toBeGreaterThan(offerInsert);
+    expect(rotationCommit).toBeGreaterThan(assignmentInsert);
+    expect(transactionReturn).toBeGreaterThan(rotationCommit);
+    expect(generator).toContain("rotationStateKey=stateKey;");
+    expect(generator).toContain("nextRotationState=selection.state;");
+    expect(generator).toContain("for(let attempt=0;attempt<4;attempt++)");
+    expect(generator).toContain("ER_LOCK_DEADLOCK");
+    expect(generator).toContain("ER_LOCK_WAIT_TIMEOUT");
+    expect(generator).toContain("if(!retryable||attempt===3)throw error;");
+    expect(generator).not.toContain("await tx.update(appSettings).set({settingValue:JSON.stringify(selection.state)");
+  });
+
   it("uses global delivery masters instead of legacy per-package boolean mirrors", () => {
     expect(generator).not.toContain("eq(opportunityPackagePolicies.enabled,true)");
     expect(generator).not.toContain("eq(opportunityPackagePolicies.automaticDelivery,true)");

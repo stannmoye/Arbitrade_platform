@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import mysql from "mysql2/promise";
 import { and, eq } from "drizzle-orm";
 import { closeDbPool, ensureAutomaticTradingTierEntitlements, getDb, getTradeGlobalControls, listCustomerOpportunities, runTradingTierQualificationWorkerCycle } from "../server/db";
 import {
@@ -21,9 +22,17 @@ import {
 import { parseTradeGlobalControlPolicy, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, type TradeGlobalControlPolicy } from "../server/trading-global-policy";
 import { updatePopupDeliveryStatus } from "../server/opportunityLifecycle";
 
+const databaseUrlRaw = process.env.DATABASE_URL;
+if (!databaseUrlRaw) throw new Error("Trading popup delivery integration requires DATABASE_URL for a disposable migrated database.");
+const databaseUrl = new URL(databaseUrlRaw);
+const databaseName = decodeURIComponent(databaseUrl.pathname.replace(/^\/+/, ""));
+if (!new Set(["localhost", "127.0.0.1", "::1"]).has(databaseUrl.hostname) ||
+    !/(?:test|testing|integration|disposable|ci)/i.test(databaseName)) {
+  throw new Error("Refusing company-rotation integration against a non-loopback or non-disposable database.");
+}
 const db = await getDb();
 if (!db) {
-  throw new Error("Trading popup delivery integration requires DATABASE_URL to point to a disposable migrated database.");
+  throw new Error("Trading popup delivery integration cannot connect to its disposable migrated database.");
 }
 
 const migratedExecutionPolicies = await db.select({
@@ -45,11 +54,34 @@ let userId: number | undefined;
 let packageId: number | undefined;
 let subscriptionId: number | undefined;
 let offerId: number | undefined;
+let rollbackRetryOfferId: number | undefined;
+let concurrentOfferId: number | undefined;
+let rawConnection: Awaited<ReturnType<typeof mysql.createConnection>> | undefined;
+let rollbackTriggerName: string | undefined;
 let blockedOfferId: number | undefined;
+let secondPackageId: number | undefined;
+let secondSubscriptionId: number | undefined;
+let quotaSelectionOfferId: number | undefined;
+let capacitySelectionOfferId: number | undefined;
 const catalogueStateKey = "trade.companyCatalogue.adminState";
 let originalCompanyCatalogueStateRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
 let originalGlobalControlRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
 let currentTestGlobalPolicy: TradeGlobalControlPolicy | null = null;
+
+function describeErrorChain(error: unknown): string {
+  const messages: string[] = [];
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const value = current as { message?: unknown; code?: unknown; sqlMessage?: unknown; cause?: unknown; originalError?: unknown };
+    for (const part of [value.message, value.code, value.sqlMessage]) {
+      if (part != null) messages.push(String(part));
+    }
+    current = value.cause ?? value.originalError;
+  }
+  return messages.join(" | ");
+}
 
 async function persistGlobalPolicy(policy: TradeGlobalControlPolicy) {
   const settingValue = JSON.stringify(policy);
@@ -99,6 +131,14 @@ async function restoreOriginalGlobalPolicy() {
 }
 
 try {
+  rawConnection = await mysql.createConnection({
+    host: databaseUrl.hostname,
+    port: Number(databaseUrl.port || 3306),
+    user: decodeURIComponent(databaseUrl.username),
+    password: decodeURIComponent(databaseUrl.password),
+    database: databaseName,
+    timezone: "Z",
+  });
   const [globalControlRow] = await db.select({
     settingValue: appSettings.settingValue,
     updatedBy: appSettings.updatedBy,
@@ -362,9 +402,30 @@ const balanceBefore = await db.select({
   const secondCycle = await listCustomerOpportunities(userId, {
     workerCycle: true,
     consumeDelivery: false,
+    automaticGenerationEnabled: true,
+    generationBatchId: `popup-delivery-retry-${token}`,
   });
   assert.equal(secondCycle.offers.length, 1,
     "A repeated worker cycle must retain, not duplicate, the already delivered popup.");
+  assert.equal(Number(secondCycle.offers[0]?.offerId), offerId,
+    "A retry must reuse the same generated opportunity.");
+  const firstRetryAssignmentRows = await db.select().from(opportunityGenerationAssignments)
+    .where(eq(opportunityGenerationAssignments.offerId, offerId));
+  assert.equal(firstRetryAssignmentRows.length, 1,
+    "A retry must not create another generation assignment or consume another quota slot.");
+  const firstRetryOfferRows = await db.select({
+    generationKey: opportunityOffers.generationKey,
+    configuredProfitRateBps: opportunityOffers.configuredProfitRateBps,
+    configuredDurationSeconds: opportunityOffers.configuredDurationSeconds,
+  }).from(opportunityOffers).where(eq(opportunityOffers.id, offerId));
+  assert.equal(firstRetryAssignmentRows[0]?.packageSnapshotJson, generatedAssignments[0]?.packageSnapshotJson,
+    "A retry must preserve the original immutable package-terms snapshot.");
+  assert.equal(firstRetryOfferRows[0]?.generationKey, generationDiagnostics.persistedOffer[0]?.generationKey,
+    "A retry must preserve the generated opportunity idempotency key.");
+  assert.equal(firstRetryOfferRows[0]?.configuredProfitRateBps, generationDiagnostics.persistedOffer[0]?.configuredProfitRateBps,
+    "A retry must not reroll the configured payout rate.");
+  assert.equal(firstRetryOfferRows[0]?.configuredDurationSeconds, generationDiagnostics.persistedOffer[0]?.configuredDurationSeconds,
+    "A retry must not reroll the configured duration.");
   assert.equal((await db.select({ id: opportunityPopupEvents.id })
     .from(opportunityPopupEvents).where(and(
       eq(opportunityPopupEvents.userId, userId),
@@ -375,6 +436,327 @@ const balanceBefore = await db.select({
       eq(opportunityDeliveryEvents.userId, userId),
       eq(opportunityDeliveryEvents.offerId, offerId),
     ))).length, 1);
+
+  // Inject a database failure after rotation selection but before opportunity
+  // persistence. The transaction must leave the durable rotation cursor intact.
+  const rotationKey = `trading.companyRotation.${userId}.${packageId}`;
+  const rotationBeforeRows = await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, rotationKey)).limit(1);
+  assert.ok(rotationBeforeRows[0], "Successful generation must persist its durable rotation cursor.");
+  const rotationBeforeFailure = String(rotationBeforeRows[0].settingValue);
+  await db.update(opportunityOffers).set({ status: "closed" }).where(eq(opportunityOffers.id, offerId));
+  rollbackTriggerName = `fail_rotation_generation_${token.toLowerCase()}`;
+  await rawConnection!.query(`CREATE TRIGGER ${rollbackTriggerName} BEFORE INSERT ON opportunity_offers
+    FOR EACH ROW BEGIN
+      IF NEW.generationKey LIKE 'auto:%' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced_rotation_generation_failure';
+      END IF;
+    END`);
+  // Remove the fixture's ordinary inter-delivery cooldown so the injected
+  // failure is guaranteed to reach the generation INSERT rather than returning
+  // early because the next delivery is not due yet.
+  await db.update(opportunityPackagePolicies).set({ minIntervalSeconds: 0, maxIntervalSeconds: 0, postCompletionIntervalSeconds: 0 })
+    .where(eq(opportunityPackagePolicies.packageName, packageName));
+  // The acknowledged first delivery is no longer a scheduling predecessor for
+  // this isolated generation-transaction scenario.
+  await db.update(opportunityDeliveryEvents).set({
+    status: "failed",
+    deliveredAt: new Date(Date.now() - 60 * 60 * 1000),
+  }).where(and(
+    eq(opportunityDeliveryEvents.userId, userId),
+    eq(opportunityDeliveryEvents.offerId, offerId),
+  ));
+  const offersBeforeFailure = await db.select({ id: opportunityOffers.id })
+    .from(opportunityOffers).where(eq(opportunityOffers.assignedUserId, userId));
+  let injectedRotationFailure: unknown;
+  try {
+    await listCustomerOpportunities(userId, {
+      workerCycle: true,
+      consumeDelivery: false,
+      automaticGenerationEnabled: true,
+      generationBatchId: `rotation-rollback-${token}`,
+    });
+  } catch (error) {
+    injectedRotationFailure = error;
+  }
+  assert.match(describeErrorChain(injectedRotationFailure), /forced_rotation_generation_failure/,
+    "The rollback scenario must reach and surface the deliberately injected opportunity INSERT failure.");
+  await rawConnection!.query(`DROP TRIGGER IF EXISTS ${rollbackTriggerName}`);
+  rollbackTriggerName = undefined;
+  const rotationAfterFailureRows = await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, rotationKey)).limit(1);
+  assert.equal(String(rotationAfterFailureRows[0]?.settingValue), rotationBeforeFailure,
+    "A failed offer insert must not consume a company rotation position.");
+  assert.equal((await db.select({ id: opportunityOffers.id })
+    .from(opportunityOffers).where(eq(opportunityOffers.assignedUserId, userId))).length, offersBeforeFailure.length,
+    "A failed generation transaction must not leave a partial opportunity.");
+
+  const retryCycle = await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    automaticGenerationEnabled: true,
+    generationBatchId: `rotation-rollback-retry-${token}`,
+  });
+  rollbackRetryOfferId = Number(retryCycle.generatedOpportunityId);
+  assert.ok(Number.isSafeInteger(rollbackRetryOfferId) && rollbackRetryOfferId > 0,
+    "Generation must recover after the injected database failure.");
+  const rotationAfterRetryRows = await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, rotationKey)).limit(1);
+  assert.notEqual(String(rotationAfterRetryRows[0]?.settingValue), rotationBeforeFailure,
+    "A successful retry must consume exactly one rotation position.");
+  const beforeRetryState = JSON.parse(rotationBeforeFailure);
+  const afterRetryState = JSON.parse(String(rotationAfterRetryRows[0]?.settingValue));
+  assert.equal(Number(afterRetryState.requestCount), Number(beforeRetryState.requestCount) + 1,
+    "A successful retry must advance the durable rotation counter exactly once.");
+
+  // Two simultaneous worker cycles for the same customer must serialize on
+  // the generation lock, return the same open opportunity, and consume only
+  // one additional rotation position.
+  await db.update(opportunityOffers).set({ status: "closed" }).where(eq(opportunityOffers.id, rollbackRetryOfferId));
+  const assignmentsBeforeConcurrentCycles = await db.select({ id: opportunityGenerationAssignments.id })
+    .from(opportunityGenerationAssignments).where(eq(opportunityGenerationAssignments.userId, userId));
+  const concurrentStartRows = await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, rotationKey)).limit(1);
+  const concurrentStartState = JSON.parse(String(concurrentStartRows[0]?.settingValue || "{}"));
+  const concurrentCycles = await Promise.all([
+    listCustomerOpportunities(userId, {
+      workerCycle: true, consumeDelivery: false, automaticGenerationEnabled: true,
+      generationBatchId: `rotation-concurrent-a-${token}`,
+    }),
+    listCustomerOpportunities(userId, {
+      workerCycle: true, consumeDelivery: false, automaticGenerationEnabled: true,
+      generationBatchId: `rotation-concurrent-b-${token}`,
+    }),
+  ]);
+  const concurrentIds = concurrentCycles.map(cycle => Number(cycle.generatedOpportunityId));
+  assert.ok(concurrentIds.every(id => Number.isSafeInteger(id) && id > 0),
+    "Both concurrent cycles must resolve to a persisted opportunity.");
+  assert.equal(concurrentIds[0], concurrentIds[1],
+    "Concurrent cycles for one customer must reuse the same generated opportunity.");
+  concurrentOfferId = concurrentIds[0];
+  const concurrentOfferAssignments = await db.select().from(opportunityGenerationAssignments)
+    .where(eq(opportunityGenerationAssignments.offerId, concurrentOfferId));
+  assert.equal(concurrentOfferAssignments.length, 1,
+    "A concurrent retry must persist exactly one assignment for the shared opportunity.");
+  const assignmentsAfterConcurrentCycles = await db.select({ id: opportunityGenerationAssignments.id })
+    .from(opportunityGenerationAssignments).where(eq(opportunityGenerationAssignments.userId, userId));
+  assert.equal(assignmentsAfterConcurrentCycles.length, assignmentsBeforeConcurrentCycles.length + 1,
+    "Two concurrent generation attempts must consume only one quota slot.");
+  const concurrentEndRows = await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, rotationKey)).limit(1);
+  const concurrentEndState = JSON.parse(String(concurrentEndRows[0]?.settingValue || "{}"));
+  assert.equal(Number(concurrentEndState.requestCount), Number(concurrentStartState.requestCount) + 1,
+    "Concurrent retries must consume one rotation position, never two.");
+
+  // The first package has consumed exactly three generation slots (initial
+  // generation, rollback retry, and one concurrent generation). Exhaust that
+  // package while keeping a second package's independent quota available.
+  await db.update(opportunityOffers).set({ status: "closed" }).where(eq(opportunityOffers.id, concurrentOfferId));
+  await db.update(packages).set({ opportunitiesPerDay: 3 }).where(eq(packages.id, packageId));
+  await db.update(opportunityPackagePolicies).set({ maxPopupsPerDay: 3 })
+    .where(eq(opportunityPackagePolicies.packageName, packageName));
+  await db.update(customerPackageSubscriptions).set({
+    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 3, maxPopupsPerDay: 0 }),
+  }).where(eq(customerPackageSubscriptions.id, subscriptionId));
+
+  const secondPackageName = packageName + "Plus";
+  const [secondPackageResult] = await db.insert(packages).values({
+    name: secondPackageName,
+    minimumQualifyingBalanceUsdMinor: 10000,
+    durationMonths: 1,
+    opportunitiesPerDay: 1,
+    termsVersion: 1,
+    maxPopupsPerDay: 0,
+    maxActiveInvestments: 0,
+    enabled: true,
+  });
+  secondPackageId = Number(secondPackageResult.insertId);
+  await db.insert(opportunityPackagePolicies).values({
+    packageName: secondPackageName,
+    minimumPayoutRateBps: 400,
+    maximumPayoutRateBps: 500,
+    minimumTradeDurationSeconds: 700,
+    maximumTradeDurationSeconds: 800,
+    companyRotationEnabled: true,
+    maxPopupsPerDay: 1,
+    maxVisibleOffers: 5,
+    minimumTradeUnits: 100,
+    maximumTradeUnits: 1000,
+    burstEnabled: false,
+    maxBurstSize: 1,
+    enabled: false,
+    automaticDelivery: false,
+    automaticTradingEnabled: false,
+    dailyPopupTarget: 0,
+    schedulingPeriod: "calendar_day",
+    minIntervalSeconds: 0,
+    maxIntervalSeconds: 0,
+    randomizationEnabled: false,
+    popupDisplayTargetSeconds: 120,
+    completionDisplaySeconds: 8,
+    postCompletionIntervalSeconds: 0,
+    maxPendingDeliveries: 3,
+    maxDeliveryAttempts: 3,
+    requirePreviousSettlement: true,
+    minSettlementDelaySeconds: 900,
+    maxSettlementDelaySeconds: 900,
+  });
+  const [secondSubscriptionResult] = await db.insert(customerPackageSubscriptions).values({
+    userId,
+    packageId: secondPackageId,
+    startsAt: new Date(now.getTime() - 60_000),
+    expiresAt: new Date(now.getTime() + 172_800_000),
+    status: "active",
+    activationKey: `auto-tier:popup-delivery-secondary-${token}`,
+    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 1, maxPopupsPerDay: 0 }),
+    qualifyingBalanceUsdMinor: 10000,
+    packageTermsVersion: 1,
+  });
+  secondSubscriptionId = Number(secondSubscriptionResult.insertId);
+
+  const firstPackageAssignmentsBeforeSelection = await db.select({
+    id: opportunityGenerationAssignments.id,
+  }).from(opportunityGenerationAssignments).where(and(
+    eq(opportunityGenerationAssignments.userId, userId),
+    eq(opportunityGenerationAssignments.packageId, packageId),
+  ));
+  assert.equal(firstPackageAssignmentsBeforeSelection.length, 3,
+    "The first package must be demonstrably exhausted before testing candidate selection.");
+
+  const quotaSelectionCycle = await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    automaticGenerationEnabled: true,
+    generationBatchId: `per-package-quota-selection-${token}`,
+  });
+  if (!quotaSelectionCycle.generatedOpportunityId) console.error("PER_PACKAGE_QUOTA_SELECTION_DIAGNOSTICS " + JSON.stringify({
+    delivery: quotaSelectionCycle.delivery,
+    generatedOpportunityId: quotaSelectionCycle.generatedOpportunityId,
+    openOffers: await db.select({
+      id: opportunityOffers.id,
+      packageId: opportunityOffers.assignedPackageId,
+      subscriptionId: opportunityOffers.assignedPackageSubscriptionId,
+    }).from(opportunityOffers).where(and(
+      eq(opportunityOffers.assignedUserId, userId),
+      eq(opportunityOffers.status, "open"),
+    )),
+    firstPackageAssignments: await db.select({
+      id: opportunityGenerationAssignments.id,
+      generatedAt: opportunityGenerationAssignments.generatedAt,
+    }).from(opportunityGenerationAssignments).where(and(
+      eq(opportunityGenerationAssignments.userId, userId),
+      eq(opportunityGenerationAssignments.packageId, packageId),
+    )),
+    secondPackageAssignments: await db.select({
+      id: opportunityGenerationAssignments.id,
+      generatedAt: opportunityGenerationAssignments.generatedAt,
+    }).from(opportunityGenerationAssignments).where(and(
+      eq(opportunityGenerationAssignments.userId, userId),
+      eq(opportunityGenerationAssignments.packageId, secondPackageId),
+    )),
+  }));
+  quotaSelectionOfferId = Number(quotaSelectionCycle.generatedOpportunityId);
+  assert.ok(Number.isSafeInteger(quotaSelectionOfferId) && quotaSelectionOfferId > 0,
+    "Generation must skip an exhausted package and continue to a package with remaining quota.");
+  const quotaSelectionAssignment = (await db.select().from(opportunityGenerationAssignments)
+    .where(eq(opportunityGenerationAssignments.offerId, quotaSelectionOfferId)))[0];
+  assert.equal(Number(quotaSelectionAssignment?.packageId), secondPackageId,
+    "The generator must select the second package because the first package has no remaining daily quota.");
+  assert.equal(Number(quotaSelectionAssignment?.packageSubscriptionId), secondSubscriptionId,
+    "The selected assignment must belong to the subscription whose package still has capacity.");
+  const quotaSelectionSnapshot = JSON.parse(String(quotaSelectionAssignment?.packageSnapshotJson || "{}"));
+  assert.equal(Number(quotaSelectionSnapshot.customerDailyQuota), 1,
+    "The immutable snapshot must record the selected subscription's entitlement quota.");
+  assert.equal(Number(quotaSelectionSnapshot.packageDailyOpportunityQuota), 1,
+    "The immutable snapshot must record the selected package's independent daily cap.");
+  assert.equal((await db.select({ id: opportunityGenerationAssignments.id })
+    .from(opportunityGenerationAssignments).where(and(
+      eq(opportunityGenerationAssignments.userId, userId),
+      eq(opportunityGenerationAssignments.packageId, packageId),
+    ))).length, 3,
+    "Skipping the exhausted package must not create an extra assignment against its quota.");
+  assert.equal((await db.select({ id: opportunityGenerationAssignments.id })
+    .from(opportunityGenerationAssignments).where(and(
+      eq(opportunityGenerationAssignments.userId, userId),
+      eq(opportunityGenerationAssignments.packageId, secondPackageId),
+    ))).length, 1,
+    "The package with available quota must receive exactly one assignment.");
+
+  // Both subscriptions are now exhausted. Close the generated offer so the
+  // retry-reuse fast path cannot mask an incorrect quota decision, then prove
+  // no offer or company rotation position is consumed.
+  await db.update(opportunityOffers).set({ status: "closed" })
+    .where(eq(opportunityOffers.id, quotaSelectionOfferId));
+  const exhaustedRotationBefore = await Promise.all([packageId, secondPackageId].map(async id => {
+    const key = `trading.companyRotation.${userId}.${id}`;
+    const rows = await db.select({ settingValue: appSettings.settingValue })
+      .from(appSettings).where(eq(appSettings.settingKey, key)).limit(1);
+    return { key, value: rows[0]?.settingValue ?? null };
+  }));
+  const allExhaustedCycle = await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    automaticGenerationEnabled: true,
+    generationBatchId: `all-packages-exhausted-${token}`,
+  });
+  assert.equal(allExhaustedCycle.generatedOpportunityId, null,
+    "When every eligible subscription is exhausted, the generator must create no opportunity.");
+  assert.equal((await db.select({ id: opportunityOffers.id }).from(opportunityOffers).where(and(
+    eq(opportunityOffers.assignedUserId, userId), eq(opportunityOffers.status, "open"),
+  ))).length, 0,
+  "All-exhausted quota handling must leave no open generated opportunity.");
+  assert.deepEqual(await Promise.all(exhaustedRotationBefore.map(async ({ key }) => {
+    const rows = await db.select({ settingValue: appSettings.settingValue })
+      .from(appSettings).where(eq(appSettings.settingKey, key)).limit(1);
+    return { key, value: rows[0]?.settingValue ?? null };
+  })), exhaustedRotationBefore,
+  "When all subscriptions are exhausted, no company rotation position may be consumed.");
+  assert.equal((await db.select({ id: opportunityGenerationAssignments.id }).from(opportunityGenerationAssignments)
+    .where(eq(opportunityGenerationAssignments.userId, userId))).length, 4,
+  "All-exhausted generation must not create another quota assignment.");
+
+  // Restore positive per-subscription and package capacity for both candidates.
+  // The first subscription expires earlier, so existing candidate ordering must
+  // select it and persist its exact subscription ID in both offer and assignment.
+  await db.update(packages).set({ opportunitiesPerDay: 5 }).where(eq(packages.id, packageId));
+  await db.update(opportunityPackagePolicies).set({ maxPopupsPerDay: 5 })
+    .where(eq(opportunityPackagePolicies.packageName, packageName));
+  await db.update(customerPackageSubscriptions).set({
+    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 5, maxPopupsPerDay: 0 }),
+  }).where(eq(customerPackageSubscriptions.id, subscriptionId));
+  await db.update(packages).set({ opportunitiesPerDay: 3 }).where(eq(packages.id, secondPackageId));
+  await db.update(opportunityPackagePolicies).set({ maxPopupsPerDay: 3 })
+    .where(eq(opportunityPackagePolicies.packageName, secondPackageName));
+  await db.update(customerPackageSubscriptions).set({
+    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 3, maxPopupsPerDay: 0 }),
+  }).where(eq(customerPackageSubscriptions.id, secondSubscriptionId));
+  const bothHaveCapacityCycle = await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    automaticGenerationEnabled: true,
+    generationBatchId: `both-packages-have-capacity-${token}`,
+  });
+  capacitySelectionOfferId = Number(bothHaveCapacityCycle.generatedOpportunityId);
+  assert.ok(Number.isSafeInteger(capacitySelectionOfferId) && capacitySelectionOfferId > 0,
+    "When both eligible subscriptions have capacity, the generator must create one opportunity.");
+  const capacitySelectionAssignment = (await db.select().from(opportunityGenerationAssignments)
+    .where(eq(opportunityGenerationAssignments.offerId, capacitySelectionOfferId)))[0];
+  const capacitySelectionOffer = (await db.select({
+    packageId: opportunityOffers.assignedPackageId,
+    packageSubscriptionId: opportunityOffers.assignedPackageSubscriptionId,
+  }).from(opportunityOffers).where(eq(opportunityOffers.id, capacitySelectionOfferId)))[0];
+  assert.equal(Number(capacitySelectionAssignment?.packageId), packageId,
+    "With both subscriptions available, generation must honor the existing earliest-expiry selection order.");
+  assert.equal(Number(capacitySelectionAssignment?.packageSubscriptionId), subscriptionId,
+    "The assignment must record the exact first subscription whose quota was checked.");
+  assert.equal(Number(capacitySelectionOffer?.packageId), packageId);
+  assert.equal(Number(capacitySelectionOffer?.packageSubscriptionId), subscriptionId,
+    "The generated offer must identify the same exact subscription as its quota assignment.");
+  const capacitySelectionSnapshot = JSON.parse(String(capacitySelectionAssignment?.packageSnapshotJson || "{}"));
+  assert.equal(Number(capacitySelectionSnapshot.customerDailyQuota), 5,
+    "The both-available assignment snapshot must preserve the selected subscription's saved quota.");
+  await db.update(opportunityOffers).set({ status: "closed" })
+    .where(eq(opportunityOffers.id, capacitySelectionOfferId));
 
   assert.deepEqual(
     await db.select({
@@ -492,7 +874,11 @@ const balanceBefore = await db.select({
       await restoreOriginalCompanyCatalogueState();
     } finally {
       try {
-        for (const fixtureOfferId of [offerId, blockedOfferId]) {
+        if (rollbackTriggerName && rawConnection) {
+          await rawConnection.query(`DROP TRIGGER IF EXISTS ${rollbackTriggerName}`);
+          rollbackTriggerName = undefined;
+        }
+        for (const fixtureOfferId of [offerId, blockedOfferId, rollbackRetryOfferId, concurrentOfferId, quotaSelectionOfferId, capacitySelectionOfferId]) {
           if (userId !== undefined && fixtureOfferId !== undefined) {
             await db.delete(opportunityGenerationAssignments).where(eq(opportunityGenerationAssignments.offerId, fixtureOfferId));
             await db.delete(opportunityDeliveryIdempotency).where(and(
@@ -517,15 +903,23 @@ const balanceBefore = await db.select({
           if (packageId !== undefined) {
             await db.delete(appSettings).where(eq(appSettings.settingKey, `trading.companyRotation.${userId}.${packageId}`));
           }
+          if (secondPackageId !== undefined) {
+            await db.delete(appSettings).where(eq(appSettings.settingKey, `trading.companyRotation.${userId}.${secondPackageId}`));
+          }
           await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.userId, userId));
           await db.delete(customerBalances).where(eq(customerBalances.userId, userId));
           await db.delete(users).where(eq(users.id, userId));
+        }
+        if (secondPackageId !== undefined) {
+          await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName + "Plus"));
+          await db.delete(packages).where(eq(packages.id, secondPackageId));
         }
         await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName));
         if (packageId !== undefined) {
           await db.delete(packages).where(eq(packages.id, packageId));
         }
       } finally {
+        if (rawConnection) await rawConnection.end();
         await closeDbPool();
       }
     }

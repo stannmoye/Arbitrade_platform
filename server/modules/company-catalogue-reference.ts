@@ -123,140 +123,171 @@ function parseCsvRow(line: string): string[] {
   return fields;
 }
 
-function loadLogoMapping(): LogoMappingRow[] {
-  const mappingPath = resolve(process.cwd(), "client/public/assets/company-logo-source/logo-mapping.csv");
+export type CompanyCatalogueLoaderPaths = {
+  mappingPath?: string;
+  tickerSnapshotPath?: string;
+  tickerPartsDirectory?: string;
+  /** Test-only fixture size override; production defaults to the preserved 1,811 source rows. */
+  expectedRecordCount?: number;
+};
+
+type TickerEnrichment = {
+  companyName: string;
+  ticker: string;
+  exchange: string;
+  status: string;
+  parentTicker: string;
+  whyNoRealTicker: string;
+};
+
+function loadLogoMapping(
+  mappingPath = resolve(process.cwd(), "client/public/assets/company-logo-source/logo-mapping.csv"),
+  expectedRecordCount = 1811,
+): LogoMappingRow[] {
   const lines = readFileSync(mappingPath, "utf8").replace(/^\uFEFF/, "").split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) throw new Error("The new company logo mapping is missing or empty.");
+  if (lines.length < 2) throw new Error("The company logo mapping is missing or empty.");
   const headers = parseCsvRow(lines[0]!);
   const required = ["company_name", "domain", "filename", "detail_url", "source_asset_url"];
   const indexes = Object.fromEntries(required.map((key) => [key, headers.indexOf(key)]));
-  if (required.some((key) => indexes[key]! < 0)) throw new Error("The new company logo mapping is missing required columns.");
+  if (required.some((key) => indexes[key]! < 0)) throw new Error("The company logo mapping is missing required columns.");
   const rows = lines.slice(1).map((line) => {
     const values = parseCsvRow(line);
     return Object.fromEntries(required.map((key) => [key, values[indexes[key]!] ?? ""])) as LogoMappingRow;
-  }).filter((row) => row.company_name && row.filename);
-  // The source inventory is keyed by stable logo ID (CSV row order), not by company name.
-  // Distinct source entries can legitimately share a display name; rejecting those would
-  // prevent the entire 1,811-record catalogue from loading. File paths and IDs remain unique.
+  }).filter((row) => row.company_name.trim() && row.filename.trim());
   const filenames = new Set<string>();
   for (const row of rows) {
     const normalizedFilename = row.filename.trim().toLowerCase();
-    if (filenames.has(normalizedFilename)) throw new Error(`Duplicate logo filename in new logo mapping: ${row.filename}`);
+    if (filenames.has(normalizedFilename)) throw new Error("Duplicate logo filename in company logo mapping: " + row.filename);
     filenames.add(normalizedFilename);
   }
-  if (rows.length !== 1811) throw new Error(`Expected 1,811 mapped company logos, found ${rows.length}.`);
+  if (rows.length !== expectedRecordCount) throw new Error("Expected " + expectedRecordCount + " mapped company records, found " + rows.length + ".");
   return rows;
 }
 
-type TickerSnapshot = {
-  v: number;
-  n: number;
-  source: string;
-  statuses: string[];
-  records: Array<[number, string, string, number]>;
-};
+/**
+ * Ticker workbooks are optional enrichment, never catalogue identity.
+ * Missing, partial or malformed enrichment is ignored so brand-only records still load.
+ */
+function loadTickerSnapshot(
+  basePath = resolve(process.cwd(), "server/data/company-trading-symbol-candidates-1811.json.gz.b64"),
+  dataDirectory = resolve(process.cwd(), "server/data/company-trading-symbols-1811.parts"),
+): Map<number, TickerEnrichment> {
+  const candidates = new Map<number, TickerEnrichment>();
+  try {
+    const baseEncoded = readFileSync(basePath, "utf8").trim();
+    const snapshot = JSON.parse(gunzipSync(Buffer.from(baseEncoded, "base64")).toString("utf8")) as {
+      v?: number;
+      statuses?: unknown;
+      records?: unknown;
+    };
+    if (snapshot.v === 1 && Array.isArray(snapshot.statuses) && Array.isArray(snapshot.records)) {
+      for (const rawRecord of snapshot.records) {
+        if (!Array.isArray(rawRecord) || rawRecord.length < 4) continue;
+        const [logoId, ticker, exchange, statusIndex] = rawRecord;
+        const status = snapshot.statuses[statusIndex as number];
+        if (!Number.isSafeInteger(logoId) || (logoId as number) < 1 || typeof status !== "string") continue;
+        candidates.set(logoId as number, {
+          companyName: "",
+          ticker: typeof ticker === "string" ? ticker : "",
+          exchange: typeof exchange === "string" ? exchange : "",
+          status,
+          parentTicker: "",
+          whyNoRealTicker: "",
+        });
+      }
+    }
+  } catch {
+    // Optional workbook snapshot may be absent in fresh, partial or brand-only installs.
+  }
 
-function loadTickerSnapshot(): Map<number, { companyName: string; ticker: string; exchange: string; status: string; parentTicker: string; whyNoRealTicker: string }> {
-  const basePath = resolve(process.cwd(), "server/data/company-trading-symbol-candidates-1811.json.gz.b64");
-  const baseEncoded = readFileSync(basePath, "utf8").trim();
-  const snapshot = JSON.parse(gunzipSync(Buffer.from(baseEncoded, "base64")).toString("utf8")) as TickerSnapshot;
-  if (snapshot.v !== 1 || snapshot.n !== 1811 || snapshot.records.length !== 1811 || !Array.isArray(snapshot.statuses)) {
-    throw new Error("The base 1,811-company ticker snapshot has an invalid schema or record count.");
-  }
-  const candidates = new Map<number, { companyName: string; ticker: string; exchange: string; status: string; parentTicker: string; whyNoRealTicker: string }>();
-  const statusCounts = new Map<string, number>();
-  for (const record of snapshot.records) {
-    const [logoId, ticker, exchange, statusIndex] = record;
-    const status = snapshot.statuses[statusIndex];
-    if (!Number.isInteger(logoId) || logoId < 1 || logoId > 1811 || candidates.has(logoId) || !status) {
-      throw new Error("The base ticker snapshot contains an invalid or duplicate logo ID/status.");
+  try {
+    const encoded = ["part-01.b64", "part-02.b64", "part-03.b64"]
+      .map((part) => readFileSync(resolve(dataDirectory, part), "utf8").trim())
+      .join("");
+    const supplement = JSON.parse(brotliDecompressSync(Buffer.from(encoded, "base64")).toString("utf8")) as {
+      v?: number;
+      records?: unknown;
+    };
+    if (supplement.v === 1 && Array.isArray(supplement.records)) {
+      for (const rawRecord of supplement.records) {
+        if (!Array.isArray(rawRecord) || rawRecord.length < 6) continue;
+        const [logoId, companyName, ticker, exchange, parentTicker, whyNoRealTicker] = rawRecord;
+        if (!Number.isSafeInteger(logoId) || (logoId as number) < 1 || typeof companyName !== "string") continue;
+        const current = candidates.get(logoId as number);
+        candidates.set(logoId as number, {
+          companyName,
+          ticker: typeof ticker === "string" ? ticker : current?.ticker ?? "",
+          exchange: typeof exchange === "string" ? exchange : current?.exchange ?? "",
+          status: current?.status ?? "Not supplied",
+          parentTicker: typeof parentTicker === "string" ? parentTicker : "",
+          whyNoRealTicker: typeof whyNoRealTicker === "string" ? whyNoRealTicker : "",
+        });
+      }
     }
-    candidates.set(logoId, { companyName: "", ticker, exchange, status, parentTicker: "", whyNoRealTicker: "" });
-  }
-  const dataDirectory = resolve(process.cwd(), "server/data/company-trading-symbols-1811.parts");
-  const encoded = ["part-01.b64", "part-02.b64", "part-03.b64"]
-    .map((part) => readFileSync(resolve(dataDirectory, part), "utf8").trim())
-    .join("");
-  const supplement = JSON.parse(brotliDecompressSync(Buffer.from(encoded, "base64")).toString("utf8")) as {
-    v: number; n: number; source: string; records: Array<[number, string, string, string, string, string]>;
-  };
-  if (supplement.v !== 1 || supplement.n !== 997 || supplement.records.length !== 997) {
-    throw new Error("The supplemental 997-row workbook import has an invalid schema or record count.");
-  }
-  const supplemented = new Set<number>();
-  for (const record of supplement.records) {
-    const [logoId, companyName, ticker, exchange, parentTicker, whyNoRealTicker] = record;
-    const current = candidates.get(logoId);
-    if (!current || supplemented.has(logoId) || current.status === "Public" || !companyName || !ticker || !exchange) {
-      throw new Error(`Invalid or duplicate supplemental workbook row for logo ID ${logoId}.`);
-    }
-    supplemented.add(logoId);
-    candidates.set(logoId, { companyName, ticker, exchange, status: current.status, parentTicker, whyNoRealTicker });
-  }
-  for (const [logoId, current] of candidates) {
-    if (!current.companyName) {
-      if (current.status !== "Public") throw new Error(`Missing supplemental workbook fields for logo ID ${logoId}.`);
-      current.companyName = mapping[logoId - 1]?.company_name ?? "";
-    }
-    if (!current.ticker || !current.exchange) throw new Error(`Missing supplied ticker/code fields for logo ID ${logoId}.`);
-    statusCounts.set(current.status, (statusCounts.get(current.status) ?? 0) + 1);
-  }
-  const expected = new Map([
-    ["Public", 814],
-    ["PLACEHOLDER - invented code, not a real ticker", 637],
-    ["Uses listed parent's ticker", 265],
-    ["Historic ticker (no longer trading / delisted)", 95],
-  ]);
-  if (candidates.size !== 1811 || supplemented.size !== 997 || statusCounts.size !== expected.size || [...expected].some(([status, count]) => statusCounts.get(status) !== count)) {
-    throw new Error("The combined ticker data does not preserve all 1,811 workbook rows and statuses.");
+  } catch {
+    // A missing or invalid supplemental workbook never invalidates the brand catalogue.
   }
   return candidates;
 }
 
-const mapping = loadLogoMapping();
-const tickerSnapshot = loadTickerSnapshot();
+function classifyTicker(status: string): CompanyReferenceRecord["tickerClassification"] {
+  if (status === "Public") return "public";
+  if (status.startsWith("PLACEHOLDER")) return "placeholder";
+  if (status.startsWith("Uses listed parent")) return "parent";
+  if (status.startsWith("Historic")) return "historic";
+  return "other";
+}
 
-function toReference(row: LogoMappingRow, index: number): CompanyReferenceRecord {
-  const tickerData = tickerSnapshot.get(index + 1);
-  if (!tickerData) throw new Error(`Missing ticker snapshot row for logo ID ${index + 1}.`);
-  if (tickerData.companyName && tickerData.companyName.trim().toLowerCase() !== row.company_name.trim().toLowerCase()) {
-    throw new Error(`Company-name/Logo ID alignment mismatch for logo ID ${index + 1}: ${row.company_name} vs ${tickerData.companyName}.`);
-  }
-  const filename = row.filename.replace(/^\/+/, "");
-  if (filename.includes("..") || filename.startsWith("http:") || filename.startsWith("https:")) {
-    throw new Error(`Invalid local logo filename for ${row.company_name}`);
-  }
-  return {
-    id: `logo-brand-${String(index + 1).padStart(4, "0")}`,
-    name: row.company_name.trim(),
-    ticker: tickerData?.ticker ?? "",
-    symbol: tickerData?.ticker ?? "",
-    exchangeCode: tickerData?.exchange ?? "",
-    tickerResearchStatus: tickerData?.status ?? "Not supplied",
-    tickerSource: "company_trading_symbols.xlsx",
-    parentTicker: tickerData.parentTicker,
-    whyNoRealTicker: tickerData.whyNoRealTicker,
-    tickerClassification: tickerData.status === "Public" ? "public" : tickerData.status.startsWith("PLACEHOLDER") ? "placeholder" : tickerData.status.startsWith("Uses listed parent") ? "parent" : tickerData.status.startsWith("Historic") ? "historic" : "other",
-    countryCode: "",
-    countryName: (row.filename.match(/^by-country\/([^/]+)\//)?.[1] ?? "Unassigned"),
-    logoUrl: `/assets/company-logo-source/${filename.split("/").map(encodeURIComponent).join("/")}`,
-    domain: row.domain,
-    logoSourceName: "Logo.dev",
-    logoSourceUrl: row.detail_url || row.source_asset_url,
-    listingStatus: "unverified",
-    lastVerifiedAt: null,
-    requiresManualVerification: true,
-    sourceConfidence: "brand-name-only",
-    sector: null,
-    headquartersCountry: null,
-    instrumentType: "Brand",
-    recordCompleteness: "brand-only",
-  };
+/**
+ * The stable company identity and logo mapping are authoritative.
+ * Workbook values are merged only when available and are not required for a valid record.
+ */
+export function loadCompanyReferenceCatalogue(paths: CompanyCatalogueLoaderPaths = {}): CompanyReferenceRecord[] {
+  const mapping = loadLogoMapping(paths.mappingPath, paths.expectedRecordCount ?? 1811);
+  const tickerSnapshot = loadTickerSnapshot(paths.tickerSnapshotPath, paths.tickerPartsDirectory);
+  return mapping.map((row, index) => {
+    const tickerData = tickerSnapshot.get(index + 1);
+    const enrichment = tickerData?.companyName && tickerData.companyName.trim().toLowerCase() !== row.company_name.trim().toLowerCase()
+      ? undefined
+      : tickerData;
+    const filename = row.filename.replace(/^\/+/, "");
+    if (filename.includes("..") || filename.startsWith("http:") || filename.startsWith("https:")) {
+      throw new Error("Invalid local logo filename for " + row.company_name);
+    }
+    const status = enrichment?.status ?? "Not supplied";
+    return {
+      id: "logo-brand-" + String(index + 1).padStart(4, "0"),
+      name: row.company_name.trim(),
+      ticker: enrichment?.ticker ?? "",
+      symbol: enrichment?.ticker ?? "",
+      exchangeCode: enrichment?.exchange ?? "",
+      tickerResearchStatus: status,
+      tickerSource: "company_trading_symbols.xlsx",
+      parentTicker: enrichment?.parentTicker ?? "",
+      whyNoRealTicker: enrichment?.whyNoRealTicker ?? "",
+      tickerClassification: classifyTicker(status),
+      countryCode: "",
+      countryName: row.filename.match(/^by-country\/([^/]+)\//)?.[1] ?? "Unassigned",
+      logoUrl: "/assets/company-logo-source/" + filename.split("/").map(encodeURIComponent).join("/"),
+      domain: row.domain,
+      logoSourceName: "Logo.dev",
+      logoSourceUrl: row.detail_url || row.source_asset_url,
+      listingStatus: "unverified",
+      lastVerifiedAt: null,
+      requiresManualVerification: true,
+      sourceConfidence: "brand-name-only",
+      sector: null,
+      headquartersCountry: null,
+      instrumentType: "Brand",
+      recordCompleteness: "brand-only",
+    };
+  });
 }
 
 export const COMPANY_REFERENCE_CATALOGUE: readonly CompanyReferenceRecord[] = Object.freeze(
-  mapping.map((row, index) => Object.freeze(toReference(row, index))),
+  loadCompanyReferenceCatalogue().map((company) => Object.freeze(company)),
 );
+
 const byId = new Map(COMPANY_REFERENCE_CATALOGUE.map((company) => [company.id, company]));
 
 function asReferenceResponse(company: CompanyReferenceRecord): CompanyReferenceResponse {
