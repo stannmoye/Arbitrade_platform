@@ -19,7 +19,7 @@ import {
   users,
 } from "../drizzle/schema";
 import { parseTradeGlobalControlPolicy, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, type TradeGlobalControlPolicy } from "../server/trading-global-policy";
-import { updatePopupDeliveryStatus } from "../server/opportunityLifecycle";
+import { ensurePopupDeliveries, updatePopupDeliveryStatus } from "../server/opportunityLifecycle";
 
 const db = await getDb();
 if (!db) {
@@ -46,6 +46,7 @@ let packageId: number | undefined;
 let subscriptionId: number | undefined;
 let offerId: number | undefined;
 let blockedOfferId: number | undefined;
+let capacityOfferId: number | undefined;
 const catalogueStateKey = "trade.companyCatalogue.adminState";
 let originalCompanyCatalogueStateRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
 let originalGlobalControlRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
@@ -335,6 +336,67 @@ const balanceBefore = await db.select({
   assert.equal(deliveryRows[0]?.quotaDay, quotaDay);
   assert.equal(deliveryRows[0]?.status, "pending");
 
+  // The first popup is still queued, so a second admission at a package
+  // pending limit of one must be rejected with a durable diagnostic result.
+  capacityOfferId = 2_000_000_000 + Number.parseInt(token.slice(0, 5), 16) % 100_000_000;
+  await db.insert(opportunityGenerationAssignments).values({
+    generationKey: `capacity-skip:${token}`,
+    batchId: `capacity-skip-${token}`,
+    userId,
+    offerId: capacityOfferId,
+    templateId: null,
+    templateVersion: null,
+    packageId,
+    packageSubscriptionId: subscriptionId,
+    packageName,
+    packagePolicyVersion: 1,
+    companyReferenceId: "logo-brand-0001",
+    configuredProfitRateBps: 250,
+    configuredDurationSeconds: 600,
+    packageSnapshotJson: JSON.stringify(generatedSnapshot),
+    status: "generated",
+    failureReason: null,
+    generatedAt: new Date(),
+    assignedAt: null,
+    deliveredAt: null,
+    expiresAt: new Date(Date.now() + 60 * 60_000),
+  });
+  const capacitySkip = await ensurePopupDeliveries([{
+    userId,
+    offerId: capacityOfferId,
+    quotaDay,
+    packageId,
+    packageName,
+    maxPendingDeliveries: 1,
+    symbol: "CAPACITY",
+    currency,
+    minimumMinor: 10_000,
+    expectedRewardBps: 250,
+    configuredProfitRateBps: 250,
+    configuredDurationSeconds: 600,
+    configuredPopupDisplaySeconds: 120,
+    packagePolicyVersionSnapshot: 1,
+    policyVersion: 1,
+    durationSeconds: 600,
+    badgeLabel: null,
+    packageBadgeLabel: null,
+    badgeStyle: "neutral",
+    companyRotationEnabled: false,
+    companyRotationCountryNames: "",
+    companyRotationRepeatPolicy: "avoid_until_exhausted",
+    balanceAvailableMinor: 100_000,
+    balanceStatus: "sufficient",
+  }]);
+  const capacitySkipKey = `${userId}:${capacityOfferId}`;
+  assert.equal(capacitySkip.has(capacitySkipKey), false,
+    "Pending capacity must not create a second popup.");
+  assert.deepEqual(capacitySkip.skipped, [{ key: capacitySkipKey, reason: "PENDING_DELIVERY_LIMIT" }],
+    "Pending-capacity rejection must carry a structured reason.");
+  const capacityAssignment = await db.select({ failureReason: opportunityGenerationAssignments.failureReason })
+    .from(opportunityGenerationAssignments).where(eq(opportunityGenerationAssignments.offerId, capacityOfferId));
+  assert.equal(capacityAssignment[0]?.failureReason, "DELIVERY_SKIPPED:PENDING_DELIVERY_LIMIT",
+    "The generated assignment must retain the pending-capacity skip reason for operator diagnostics.");
+
   const customerRead = await listCustomerOpportunities(userId);
   assert.equal(customerRead.delivery.enabled, true);
   assert.equal(customerRead.offers.length, 1,
@@ -492,7 +554,7 @@ const balanceBefore = await db.select({
       await restoreOriginalCompanyCatalogueState();
     } finally {
       try {
-        for (const fixtureOfferId of [offerId, blockedOfferId]) {
+        for (const fixtureOfferId of [offerId, blockedOfferId, capacityOfferId]) {
           if (userId !== undefined && fixtureOfferId !== undefined) {
             await db.delete(opportunityGenerationAssignments).where(eq(opportunityGenerationAssignments.offerId, fixtureOfferId));
             await db.delete(opportunityDeliveryIdempotency).where(and(

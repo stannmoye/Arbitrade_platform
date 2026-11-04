@@ -46,8 +46,15 @@ async function withConnection<T>(fn: (connection: mysql.PoolConnection) => Promi
   try { return await fn(connection); } finally { connection.release(); await pool.end(); }
 }
 
-export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
-  if (!deliveries.length || !process.env.DATABASE_URL) return new Map<string, number>();
+export type PopupDeliveryResult = Map<string, number> & {
+  skipped: Array<{ key: string; reason: "PENDING_DELIVERY_LIMIT" | "PERSISTENCE_NOT_CONFIRMED" }>;
+};
+
+export async function ensurePopupDeliveries(deliveries: PopupDelivery[]): Promise<PopupDeliveryResult> {
+  const result = Object.assign(new Map<string, number>(), {
+    skipped: [] as PopupDeliveryResult["skipped"],
+  });
+  if (!deliveries.length || !process.env.DATABASE_URL) return result;
   return withConnection(async connection => {
     deliveryLoop: for (const item of deliveries) {
       const eventKey = deliveryIdempotencyKey(item.userId, item.offerId);
@@ -74,6 +81,11 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
           [item.userId, item.packageId],
         );
         if (pendingRows.length >= item.maxPendingDeliveries) {
+          await connection.execute(
+            "UPDATE opportunity_generation_assignments SET failureReason='DELIVERY_SKIPPED:PENDING_DELIVERY_LIMIT',updatedAt=CURRENT_TIMESTAMP WHERE userId=? AND offerId=? AND status='generated'",
+            [item.userId, item.offerId],
+          );
+          result.skipped.push({ key: eventKey, reason: "PENDING_DELIVERY_LIMIT" });
           await connection.commit();
           continue deliveryLoop;
         }
@@ -231,7 +243,7 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
           [item.userId, item.offerId, popupEventId, item.packageId, item.packageName],
         );
         await connection.execute(
-          "UPDATE opportunity_generation_assignments SET status='delivered',deliveredAt=COALESCE(deliveredAt,CURRENT_TIMESTAMP),updatedAt=CURRENT_TIMESTAMP WHERE userId=? AND offerId=? AND status='generated'",
+          "UPDATE opportunity_generation_assignments SET status='delivered',failureReason=NULL,deliveredAt=COALESCE(deliveredAt,CURRENT_TIMESTAMP),updatedAt=CURRENT_TIMESTAMP WHERE userId=? AND offerId=? AND status='generated'",
           [item.userId, item.offerId],
         );
         await connection.commit();
@@ -245,6 +257,14 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
             await new Promise<void>(resolve => setTimeout(resolve, mysqlTransactionRetryDelayMs(transactionAttempt)));
             continue;
           }
+          const message = error instanceof Error ? error.message : String(error || "");
+          const failureCode = /no longer approved|not approved|archived|disabled/i.test(message)
+            ? "COMPANY_NOT_APPROVED"
+            : "PERSISTENCE_ERROR";
+          await connection.execute(
+            "UPDATE opportunity_generation_assignments SET failureReason=?,updatedAt=CURRENT_TIMESTAMP WHERE userId=? AND offerId=? AND status='generated'",
+            ["DELIVERY_FAILED:" + failureCode, item.userId, item.offerId],
+          );
           throw error;
         }
       }
@@ -252,7 +272,10 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
     const keys = deliveries.map(item => deliveryIdempotencyKey(item.userId, item.offerId));
     const placeholders = keys.map(() => "?").join(",");
     const [rows] = await connection.query<any[]>(`SELECT id,eventKey FROM opportunity_popup_events WHERE eventKey IN (${placeholders})`, keys);
-    return new Map<string, number>(rows.map(row => [String(row.eventKey), Number(row.id)]));
+    for (const row of rows) result.set(String(row.eventKey), Number(row.id));
+    const known = new Set([...result.keys(), ...result.skipped.map(item => item.key)]);
+    for (const key of keys) if (!known.has(key)) result.skipped.push({ key, reason: "PERSISTENCE_NOT_CONFIRMED" });
+    return result;
   });
 }
 
@@ -298,7 +321,7 @@ export async function updatePopupDeliveryStatus(userId: number, eventId: number,
         const [policyRows] = await connection.query<any[]>("SELECT settingValue FROM app_settings WHERE settingKey=? LIMIT 1", [DELIVERY_RETRY_POLICY_SETTING_KEY]);
         const saved=parseDeliveryRetryPolicy(policyRows[0]?.settingValue) || FAIL_CLOSED_DELIVERY_RETRY_POLICY;
         const schedule=saved.effectiveAt && Date.parse(saved.effectiveAt)>Date.now() ? FAIL_CLOSED_DELIVERY_RETRY_POLICY : saved;
-        const current:DeliveryState={deliveryStatus:"in_progress",deliveryAttemptCount:Number(row.deliveryAttemptCount||0),deliveryRetryAfter:row.deliveryRetryAfter?new Date(row.deliveryRetryAfter):null,deliveryLeaseToken:row.deliveryLeaseToken,eventStatus:String(row.eventStatus)};
+        const current:DeliveryState={deliveryStatus:String(row.deliveryStatus) as DeliveryState["deliveryStatus"],deliveryAttemptCount:Number(row.deliveryAttemptCount||0),deliveryRetryAfter:row.deliveryRetryAfter?new Date(row.deliveryRetryAfter):null,deliveryLeaseToken:row.deliveryLeaseToken,eventStatus:String(row.eventStatus)};
         const transition=failDeliveryAttempt({state:current,now:new Date(),errorCode:errorCode||null,retrySchedule:schedule,permanent:String(errorCode||"").toUpperCase().startsWith("PERMANENT_")});
         await connection.execute("UPDATE opportunity_popup_events SET deliveryStatus=?,deliveryRetryAfter=?,deliveryLeaseToken=NULL,deliveryLeaseExpiresAt=NULL,lastErrorCode=?,updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=? AND deliveryLeaseToken=? AND deliveryStatus IN ('in_progress','received') AND eventStatus<>'DISMISSED'", [transition.state.deliveryStatus,transition.retryAt,errorCode||null,eventId,userId,row.deliveryLeaseToken]);
       } else {

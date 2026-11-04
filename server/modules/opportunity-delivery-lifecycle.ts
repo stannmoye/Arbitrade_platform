@@ -108,7 +108,7 @@ export function failDeliveryAttempt(input: {
   permanent?: boolean;
 }): { state: DeliveryState; retryAt: Date | null; terminal: boolean } {
   const { state, now, retrySchedule } = input;
-  if (isTerminalDeliveryState(state) || state.deliveryStatus !== "in_progress") {
+  if (isTerminalDeliveryState(state) || !["in_progress", "received"].includes(state.deliveryStatus)) {
     return { state, retryAt: null, terminal: isTerminalDeliveryState(state) };
   }
   const validSchedule = validateDeliveryRetrySchedule(retrySchedule) === null;

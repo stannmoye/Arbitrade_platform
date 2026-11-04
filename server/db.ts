@@ -3932,6 +3932,12 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   let generationAssignments=offerRows.length?await db.select().from(opportunityGenerationAssignments)
     .where(and(eq(opportunityGenerationAssignments.userId,userId),inArray(opportunityGenerationAssignments.offerId,offerRows.map(row=>Number(row.id))))):[];
   let generationAssignmentByOffer=new Map(generationAssignments.map(row=>[Number(row.offerId),row]));
+  const recordGeneratedDeliverySkip=async(offer:any,reason:string)=>{
+    const assignment=generationAssignmentByOffer.get(Number(offer.id));
+    if(!assignment||String(assignment.status)!=="generated") return;
+    await db.update(opportunityGenerationAssignments).set({failureReason:"DELIVERY_SKIPPED:"+reason})
+      .where(and(eq(opportunityGenerationAssignments.id,Number(assignment.id)),eq(opportunityGenerationAssignments.status,"generated")));
+  };
   const tradeHistory=await listTrades(userId);
   const tradeOfferIds=new Set(tradeHistory.map((row:any)=>Number(row.offerId)));
   const missedHistory=await listMissedOpportunities(userId);
@@ -4069,17 +4075,25 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       generationAssignmentByOffer=new Map(generationAssignments.map(row=>[Number(row.offerId),row]));
     }
   }
+  const deliveryAdmissionPauseReason=!globalPolicy.available||!globalPolicy.tierPolicyMasterEnabled||!globalPolicy.informationalPopupDeliveryEnabled
+    ?"GLOBAL_DELIVERY_DISABLED"
+    :formulaCooling?"SCHEDULE_COOLDOWN"
+    :remainingQuota<=0?(deliveryCapacity.dailyRemaining<=0?"DAILY_QUOTA_EXHAUSTED":deliveryCapacity.visibleRemaining<=0?"VISIBLE_CAPACITY_EXHAUSTED":"DELIVERY_CAPACITY_EXHAUSTED")
+    :null;
+  if(options.workerCycle===true&&deliveryAdmissionPauseReason){
+    for(const offer of offerRows) await recordGeneratedDeliverySkip(offer,deliveryAdmissionPauseReason);
+  }
   if(options.workerCycle===true&&globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&!formulaCooling&&remainingQuota>0){
     for(const offer of offerRows){
-      if(remainingQuota<=0) break;
+      if(remainingQuota<=0){ await recordGeneratedDeliverySkip(offer,"DELIVERY_CAPACITY_EXHAUSTED"); continue; }
       const offerId=Number(offer.id);
       if(deliveredOfferIds.has(offerId)||activePopupOfferIds.has(offerId)||tradeOfferIds.has(offerId)||missedOfferIds.has(offerId)) continue;
       const generationAssignment=generationAssignmentByOffer.get(offerId);
       const generatedOffer=Number(offer.assignedUserId)===userId&&Boolean(generationAssignment);
       let generationSnapshot:any=null;
       if(generatedOffer){
-        if(!generationAssignment||!["generated","delivered"].includes(String(generationAssignment.status)))continue;
-        try{generationSnapshot=JSON.parse(String(generationAssignment.packageSnapshotJson||"{}"));}catch{continue;}
+        if(!generationAssignment||!["generated","delivered"].includes(String(generationAssignment.status))){ await recordGeneratedDeliverySkip(offer,"ASSIGNMENT_NOT_DELIVERABLE"); continue; }
+        try{generationSnapshot=JSON.parse(String(generationAssignment.packageSnapshotJson||"{}"));}catch{ await recordGeneratedDeliverySkip(offer,"INVALID_PACKAGE_SNAPSHOT"); continue; }
         const minRate=Number(generationSnapshot.minimumPayoutRateBps),maxRate=Number(generationSnapshot.maximumPayoutRateBps);
         const minDuration=Number(generationSnapshot.minimumTradeDurationSeconds),maxDuration=Number(generationSnapshot.maximumTradeDurationSeconds);
         const savedPackageVersion=Number(generationSnapshot.policyVersion),savedPackageMinimum=Number(generationSnapshot.packageMinimumMinor),savedPackageMaximum=Number(generationSnapshot.packageMaximumMinor);
@@ -4091,16 +4105,16 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
           generationSnapshot.companyReferenceId!==offer.companyReferenceId||
           Number(offer.expectedRewardBps)!==Number(generationAssignment.configuredProfitRateBps)||Number(offer.durationSeconds)!==Number(generationAssignment.configuredDurationSeconds)||
           Number(offer.expectedRewardBps)<minRate||Number(offer.expectedRewardBps)>maxRate||Number(offer.durationSeconds)<minDuration||Number(offer.durationSeconds)>maxDuration||
-          Number(offer.minimumMinor)!==Number(generationSnapshot.minimumMinor))continue;
+          Number(offer.minimumMinor)!==Number(generationSnapshot.minimumMinor)){ await recordGeneratedDeliverySkip(offer,"PACKAGE_SNAPSHOT_MISMATCH"); continue; }
       }
       const currencyRow=currencyRows.find((row:any)=>String(row.code).toUpperCase()===String(offer.currency).toUpperCase());
-      if(!currencyRow) continue;
+      if(!currencyRow){ await recordGeneratedDeliverySkip(offer,"CURRENCY_NOT_ENABLED"); continue; }
       // The administrator's rate/duration bounds filter published opportunities.
       // They never synthesize a reward rate or reroll a duration.
       const publishedRewardBps=Number(offer.expectedRewardBps);
       const publishedDurationSeconds=Number(offer.durationSeconds);
       if(!Number.isSafeInteger(publishedRewardBps)||publishedRewardBps<0||publishedRewardBps>10000||
-         !Number.isSafeInteger(publishedDurationSeconds)||publishedDurationSeconds<10||publishedDurationSeconds>86400) continue;
+         !Number.isSafeInteger(publishedDurationSeconds)||publishedDurationSeconds<10||publishedDurationSeconds>86400){ await recordGeneratedDeliverySkip(offer,"INVALID_PUBLISHED_TERMS"); continue; }
       let selected:any=null;
       for(const candidate of eligibleSubscriptions){
         if(Number(offer.assignedPackageSubscriptionId)!==Number(candidate.subscriptionId)||Number(offer.assignedPackageId)!==Number(candidate.packageId)) continue;
@@ -4114,20 +4128,23 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         selected={subscription:candidate,configured:candidatePolicy,configuredMinimum,configuredMaximum,minimumMinor,terms};
         break;
       }
-      if(!selected) continue;
+      if(!selected){ await recordGeneratedDeliverySkip(offer,"PACKAGE_ENTITLEMENT_OR_QUOTA_UNAVAILABLE"); continue; }
       const subscription=selected.subscription;
       const configured=selected.configured;
-      if(!configured||!hasConfiguredTradingOfferPolicy(configured)) continue;
-      if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(configured.maxBurstSize||0)})) break;
+      if(!configured||!hasConfiguredTradingOfferPolicy(configured)){ await recordGeneratedDeliverySkip(offer,"PACKAGE_POLICY_UNAVAILABLE"); continue; }
+      if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(configured.maxBurstSize||0)})){
+        await recordGeneratedDeliverySkip(offer,"BURST_LIMIT_REACHED");
+        continue;
+      }
       // Select one administrator-configured rate and duration exactly once. The
       // selection is persisted with the popup and reused by retries/trade allocation.
       const configuredProfitRateBps=generatedOffer?Number(offer.configuredProfitRateBps):chooseInclusiveInteger(Number(configured.minimumPayoutRateBps),Number(configured.maximumPayoutRateBps));
       const configuredDurationSeconds=generatedOffer?Number(offer.configuredDurationSeconds):chooseInclusiveInteger(Number(configured.minimumTradeDurationSeconds),Number(configured.maximumTradeDurationSeconds));
       const savedBounds=generatedOffer?generationSnapshot:{minimumPayoutRateBps:configured.minimumPayoutRateBps,maximumPayoutRateBps:configured.maximumPayoutRateBps,minimumTradeDurationSeconds:configured.minimumTradeDurationSeconds,maximumTradeDurationSeconds:configured.maximumTradeDurationSeconds};
       if(!Number.isSafeInteger(configuredProfitRateBps)||configuredProfitRateBps<Number(savedBounds.minimumPayoutRateBps)||configuredProfitRateBps>Number(savedBounds.maximumPayoutRateBps)||
-        !Number.isSafeInteger(configuredDurationSeconds)||configuredDurationSeconds<Number(savedBounds.minimumTradeDurationSeconds)||configuredDurationSeconds>Number(savedBounds.maximumTradeDurationSeconds)) continue;
+        !Number.isSafeInteger(configuredDurationSeconds)||configuredDurationSeconds<Number(savedBounds.minimumTradeDurationSeconds)||configuredDurationSeconds>Number(savedBounds.maximumTradeDurationSeconds)){ await recordGeneratedDeliverySkip(offer,"PACKAGE_TERMS_OUTSIDE_POLICY"); continue; }
       const configuredPopupDisplaySeconds=generatedOffer?Number(generationSnapshot.popupDisplayTargetSeconds):Number(configured.popupDisplayTargetSeconds);
-      if(!Number.isSafeInteger(configuredPopupDisplaySeconds)||configuredPopupDisplaySeconds<1||configuredPopupDisplaySeconds>86400) continue;
+      if(!Number.isSafeInteger(configuredPopupDisplaySeconds)||configuredPopupDisplaySeconds<1||configuredPopupDisplaySeconds>86400){ await recordGeneratedDeliverySkip(offer,"INVALID_POPUP_DISPLAY_DURATION"); continue; }
       newlyEligible.push({...offer,packageId:Number(subscription.packageId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
         minimumMinor:selected.minimumMinor,packageMinimumTradeMinor:selected.configuredMinimum,packageMaximumTradeMinor:selected.configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
@@ -4162,9 +4179,16 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
         marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt,publishedExpectedRewardBps:Number(offer.expectedRewardBps),publishedDurationSeconds:Number(offer.durationSeconds),configuredProfitRateBps:Number(offer.configuredProfitRateBps),configuredDurationSeconds:Number(offer.configuredDurationSeconds)})};
     }));
-    newlyEligible=newlyEligible.filter(offer=>lifecycleIds.has(userId+":"+offer.id));
-    const missingLifecycleIds=newlyEligible.filter(offer=>!lifecycleIds.has(userId+":"+offer.id));
+    const skippedDeliveryByKey=new Map(lifecycleIds.skipped.map(item=>[item.key,item.reason]));
+    const missingLifecycleIds=newlyEligible.filter(offer=>{
+      const key=userId+":"+offer.id;
+      return !lifecycleIds.has(key)&&skippedDeliveryByKey.get(key)!=="PENDING_DELIVERY_LIMIT";
+    });
     if(missingLifecycleIds.length) throw new Error("Popup persistence did not return delivery IDs for every eligible opportunity");
+    // Pending-capacity rejections are expected admission decisions, not failed
+    // persistence. Keep them out of the quota ledger and retain their reason on
+    // the generated assignment for operator diagnostics.
+    newlyEligible=newlyEligible.filter(offer=>lifecycleIds.has(userId+":"+offer.id));
     await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({
       userId,offerId:offer.id,quotaDay,status:"pending" as const,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion||1),
     }))).onDuplicateKeyUpdate({set:{deliveredAt:new Date(),status:"delivered",lastErrorCode:null}});

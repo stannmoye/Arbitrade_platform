@@ -88,6 +88,9 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(delivery).toContain('["queued","in_progress","retry_wait","delivered","received","rendered"].includes(String(row.deliveryStatus))');
     expect(delivery).not.toContain('["delivered","received","rendered","failed"].includes(String(row.deliveryStatus))');
     expect(delivery).toContain("a refreshed customer portal can retry rendering and status recording");
+    expect(delivery).toContain("const dispatches=await claimPopupDeliveryDispatches(userId)");
+    expect(delivery).toContain("deliveryLeaseToken:dispatch.leaseToken");
+    expect(component).toContain('status:"received",leaseToken:offer.deliveryLeaseToken');
   });
 
   it("holds the browser tab lock until the opportunity alert is dismissed or withdrawn", () => {
@@ -96,6 +99,16 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain("releaseDisplayLock.current=release");
     expect(component).toContain("releaseDisplayLock.current()");
     expect(component).toContain("releaseDisplayLock.current=null");
+  });
+
+  it("surfaces opportunity-feed failures instead of presenting them as a normal empty feed", () => {
+    expect(app).toContain("refetchInterval:3000");
+    expect(app).toContain("opportunityError={opportunityMeta.isError && !opportunityMeta.data}");
+    expect(app).toContain("Live opportunities could not be refreshed.");
+    expect(component).toContain("Live opportunity delivery status is temporarily unavailable.");
+    expect(component).toContain('role="status"');
+    expect(stylesheet).toContain(".customer-portal .customer-opportunity-feed-error");
+    expect(stylesheet).toContain(".customer-portal .portal-main .admin-ops-empty.error");
   });
 
   it("does not poll trade history for informational-only opportunity alerts", () => {
