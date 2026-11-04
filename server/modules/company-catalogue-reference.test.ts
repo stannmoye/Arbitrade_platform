@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -54,15 +54,14 @@ describe("production catalogue loader with optional ticker enrichment", () => {
     withFixture((root) => {
       const mappingDirectory = resolve(root, "client/public/assets/company-logo-source");
       mkdirSync(mappingDirectory, { recursive: true });
-      const rows = ["company_name,domain,filename,detail_url,source_asset_url"];
-      for (let index = 1; index <= 1811; index++) {
-        rows.push(`Brand ${index},brand-${index}.example,by-country/Unassigned/brand-${index}.png,,`);
-      }
-      writeFileSync(resolve(mappingDirectory, "logo-mapping.csv"), rows.join("\n"));
+      copyFileSync(
+        resolve(process.cwd(), "client/public/assets/company-logo-source/logo-mapping.csv"),
+        resolve(mappingDirectory, "logo-mapping.csv"),
+      );
 
       const modulePath = resolve(process.cwd(), "server/modules/company-catalogue-reference.ts");
       const loaderPath = resolve(process.cwd(), "node_modules/tsx/dist/loader.mjs");
-      const script = `const catalogue = await import(${JSON.stringify(pathToFileURL(modulePath).href)}); console.log(JSON.stringify({ total: catalogue.COMPANY_REFERENCE_CATALOGUE.length, first: catalogue.COMPANY_REFERENCE_CATALOGUE[0]?.id, last: catalogue.COMPANY_REFERENCE_CATALOGUE.at(-1)?.id, suppliedTickers: catalogue.COMPANY_REFERENCE_CATALOGUE.filter((company) => company.ticker).length }));`;
+      const script = `const catalogue = await import(${JSON.stringify(pathToFileURL(modulePath).href)}); const first = catalogue.COMPANY_REFERENCE_CATALOGUE[0]; const last = catalogue.COMPANY_REFERENCE_CATALOGUE.at(-1); console.log(JSON.stringify({ total: catalogue.COMPANY_REFERENCE_CATALOGUE.length, first: first?.id, firstName: first?.name, firstLogo: first?.logoUrl, last: last?.id, lastName: last?.name, lastLogo: last?.logoUrl, suppliedTickers: catalogue.COMPANY_REFERENCE_CATALOGUE.filter((company) => company.ticker).length }));`;
       const output = execFileSync(process.execPath, ["--import", loaderPath, "--input-type=module", "-e", script], {
         cwd: root,
         encoding: "utf8",
@@ -71,9 +70,13 @@ describe("production catalogue loader with optional ticker enrichment", () => {
       expect(JSON.parse(output.trim())).toEqual({
         total: 1811,
         first: "logo-brand-0001",
+        firstName: COMPANY_REFERENCE_CATALOGUE[0]?.name,
+        firstLogo: COMPANY_REFERENCE_CATALOGUE[0]?.logoUrl,
         last: "logo-brand-1811",
+        lastName: COMPANY_REFERENCE_CATALOGUE[1810]?.name,
+        lastLogo: COMPANY_REFERENCE_CATALOGUE[1810]?.logoUrl,
         suppliedTickers: 0,
-      });
+      });;
     });
   });
 
