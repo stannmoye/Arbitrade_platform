@@ -21,7 +21,7 @@ describe("opportunity delivery lifecycle migration and state boundaries", () => 
     expect(migration.match(/SET d\.`popupEventId`=e\.`id`/g)?.length).toBeGreaterThanOrEqual(2);
     expect(migration).toContain("e.`id`<>duplicates.`canonicalId`");
     expect(migration).toContain("e.`tradeId` IS NULL");
-    expect(migration).toContain("e.`eventStatus` NOT IN ('TRADED','SETTLED')");
+    expect(migration).toContain("e.`eventStatus` NOT IN ('TRADED','SETTLED','WITHDRAWN')");
     expect(migration).toContain("e.`executionStatus` NOT IN ('RUNNING','SUCCEEDED')");
     expect(migration).toContain("'DELIVERY_DUPLICATE_LEGACY'");
     expect(migration).not.toMatch(/SET e\.`(?:tradeId|executionStatus|eventStatus|wallet|ledger)/i);
@@ -50,6 +50,8 @@ describe("opportunity delivery lifecycle migration and state boundaries", () => 
     expect(migration).toContain("p.`name` COLLATE utf8mb4_unicode_ci=e.`packageName` COLLATE utf8mb4_unicode_ci");
     expect(bridge).toContain("p.name COLLATE utf8mb4_unicode_ci=e.packageName COLLATE utf8mb4_unicode_ci");
     expect(bridge).toContain("DELIVERY_DUPLICATE_LEGACY");
+    expect(bridge).toContain("eventStatus NOT IN ('TRADED','SETTLED','WITHDRAWN')");
+    expect(bridge).toContain('process.argv.includes("--verify-only")');
     expect(bridge).toContain("opportunity_popup_pending_package_id_idx");
     expect(contracts).toContain("opportunity_delivery_idempotency");
     expect(contracts).toContain("deliveryPolicyVersionSnapshot");
