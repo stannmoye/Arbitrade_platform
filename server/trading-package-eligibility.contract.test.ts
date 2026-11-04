@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { isTradingTierEnablingTransition } from "./modules/trading-tier-activation";
+import { DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY, resolveEffectivePackageOpportunityPolicy } from "./modules/package-opportunity-policy";
 
 const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
@@ -64,26 +65,32 @@ describe("server-side automatic Trading tier eligibility", () => {
   });
 
   it("creates policy rows with valid tier terms but inert legacy master placeholders", () => {
-    const start = source.indexOf("const DEFAULT_NEW_TIER_POLICY = {");
-    const end = source.indexOf("\n} as const;", start);
-    const defaults = source.slice(start, end);
-    expect(defaults).toContain("minimumPayoutRateBps:200,maximumPayoutRateBps:300");
-    expect(defaults).toContain("minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900");
-    expect(defaults).toContain("enabled:false,automaticDelivery:false");
-    expect(defaults).toContain("companyRotationEnabled:false");
-    expect(defaults).toContain("randomizationEnabled:false");
-    expect(defaults).toContain("burstEnabled:false,maxBurstSize:3");
-    expect(defaults).toContain("automaticTradingEnabled:false");
-    expect(defaults).toContain("requirePreviousSettlement:true");
-    expect(defaults).toContain("policyVersion:1");
+    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.minimumPayoutRateBps).toBe(200);
+    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.maximumPayoutRateBps).toBe(300);
+    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.minimumTradeDurationSeconds).toBe(300);
+    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.maximumTradeDurationSeconds).toBe(900);
+    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.enabled).toBe(false);
+    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.automaticDelivery).toBe(false);
+    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.companyRotationEnabled).toBe(false);
+    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.randomizationEnabled).toBe(false);
+    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.burstEnabled).toBe(false);
+    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.maxBurstSize).toBe(3);
+    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.automaticTradingEnabled).toBe(false);
+    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.requirePreviousSettlement).toBe(true);
+    expect(DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.policyVersion).toBe(1);
     expect(router).toContain("globalTradeControls: adminProcedure.query(() => getTradeGlobalControls())");
   });
 
   it("keeps unattended financial execution disabled while preserving informational delivery", () => {
     expect(source).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false;");
     expect(source).toContain("AUTOMATIC_FINANCIAL_EXECUTION_ENABLED && options.workerCycle");
-    expect(source).toContain("effective.automaticTradingEnabled=false;");
-    expect(source).toContain("requested.some(policy=>policy.automaticTradingEnabled===true)");
+    expect(resolveEffectivePackageOpportunityPolicy(
+      "Safety test",
+      null,
+      { packageName: "Safety test", minimumPayoutRateBps: 250 },
+      1,
+    ).automaticTradingEnabled).toBe(false);
+    expect(source).toContain("requested.some(policy=>(policy as Record<string,unknown>).automaticTradingEnabled===true)");
     expect(executionOffMigrationSource).toContain("SET `automaticTradingEnabled` = 0");
     expect(executionOffMigrationSource).toContain("WHERE `automaticTradingEnabled` <> 0");
   });
