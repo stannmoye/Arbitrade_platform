@@ -21,6 +21,8 @@ Do not add a competing generation API or expose generation controls to customer 
 - customer.opportunities remains the authenticated customer read path for that customer's own persisted opportunities and delivery summary.
 - customer.popupDeliveryStatus remains the existing acknowledgement path, including dispatch lease-token handling.
 - Customer clients do not choose package, company, payout rate, duration or generation state.
+- Window 4's `in_progress` first-render contract requires a non-empty `deliveryLeaseToken`; the client returns the same token with `received` and `rendered` acknowledgements. A failed render after `received` is retried through the existing delivery retry policy, not by generating another opportunity.
+- Window 6 consumes the aggregate `customerFailures` field from the existing `runAutoTradeCycle` result for worker-health classification. This is internal worker telemetry, not a customer API field.
 
 ## Compatibility
 
