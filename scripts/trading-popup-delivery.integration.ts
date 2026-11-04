@@ -778,6 +778,7 @@ const balanceBefore = await db.select({
           }
           await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.userId, userId));
           await db.delete(customerBalances).where(eq(customerBalances.userId, userId));
+          await db.delete(customerControls).where(eq(customerControls.userId, userId));
           await db.delete(users).where(eq(users.id, userId));
         }
         await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName));
