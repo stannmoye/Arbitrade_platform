@@ -6,6 +6,7 @@ import { closeDbPool, ensureAutomaticTradingTierEntitlements, getDb, getTradeGlo
 import {
   appSettings,
   customerBalances,
+  customerControls,
   customerPackageSubscriptions,
   currencyRegistry,
   opportunityDeliveryEvents,
@@ -172,6 +173,9 @@ try {
     packageName,
   });
   userId = Number(userResult.insertId);
+  // Pre-provision this fixture row so the concurrent worker calls race inside
+  // generation itself, not in the separate lazy customer-controls initializer.
+  await db.insert(customerControls).values({ userId });
 
   const usdCurrency = await db.select({
     code: currencyRegistry.code,
