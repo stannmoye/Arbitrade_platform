@@ -88,6 +88,19 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(lifecycle).toContain("e.status='expired'");
   });
 
+  it("reports global delivery master states rather than stale per-package mirror columns", () => {
+    const monitorStart = db.indexOf("export async function getOpportunityGenerationMonitor()");
+    const monitorEnd = db.indexOf("\nexport async function listOpportunityPackagePolicies()", monitorStart);
+    const monitor = db.slice(monitorStart, monitorEnd);
+    expect(monitorStart).toBeGreaterThanOrEqual(0);
+    expect(monitorEnd).toBeGreaterThan(monitorStart);
+    expect(monitor).toContain("const globalPolicy=await getTradeGlobalControls()");
+    expect(monitor).toContain("policyEnabled:Boolean(globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled)");
+    expect(monitor).toContain("automaticDelivery:Boolean(globalPolicy.available&&globalPolicy.informationalPopupDeliveryEnabled)");
+    expect(monitor).not.toContain("policyEnabled:Boolean(policy.enabled)");
+    expect(monitor).not.toContain("automaticDelivery:Boolean(policy.automaticDelivery)");
+  });
+
   it("uses global delivery masters instead of legacy per-package boolean mirrors", () => {
     expect(generator).not.toContain("eq(opportunityPackagePolicies.enabled,true)");
     expect(generator).not.toContain("eq(opportunityPackagePolicies.automaticDelivery,true)");
