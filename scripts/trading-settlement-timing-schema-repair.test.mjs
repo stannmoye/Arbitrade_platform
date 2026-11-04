@@ -44,6 +44,7 @@ describe("Trading settlement timing schema drift repair", () => {
       "0102_opportunity_delivery_retry_lifecycle",
       "0103_automatic_opportunity_generation_templates",
       "0104_catalogue_native_opportunity_generation",
+      "0105_default_on_global_information_delivery",
     ]);
     expect(entry.idx).toBeGreaterThan(0);
     expect(entry.when).toBeGreaterThan(entries[entry.idx - 1].when);
