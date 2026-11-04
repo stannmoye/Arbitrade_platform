@@ -15,6 +15,7 @@ function runInstaller(args, overrides = {}) {
     SESSION_SECRET: "",
     PASSWORD_PEPPER: "",
     PUBLIC_APP_URL: "",
+    TOTP_ENCRYPTION_KEY: "a".repeat(64),
     ...overrides,
   };
   const result = spawnSync(process.execPath, [installer, ...args], {
