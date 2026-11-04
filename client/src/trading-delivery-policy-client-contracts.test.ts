@@ -15,6 +15,7 @@ import {
 
 const feeEditorSource = readFileSync(new URL("./components/AdminPackageFeeEditor.tsx", import.meta.url), "utf8");
 const retryEditorSource = readFileSync(new URL("./components/AdminDeliveryRetryPolicy.tsx", import.meta.url), "utf8");
+const settingsContractsSource = readFileSync(new URL("./trading-settings-client-contracts.ts", import.meta.url), "utf8");
 const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
 const operationsUiSource = readFileSync(new URL("./components/AdminOperationsPages.tsx", import.meta.url), "utf8");
 
@@ -215,7 +216,7 @@ describe("Trade settings draft validation", () => {
     expect(feeEditorSource).toContain('messageKind === "error" ? "admin-ops-empty error" : "test-notice"');
     expect(retryEditorSource).toContain("Check these retry settings before saving:");
     expect(retryEditorSource).toContain("validateDeliveryRetryDraft");
-    expect(retryEditorSource).toContain("exactly one interval per retry attempt");
+    expect(settingsContractsSource).toContain("maximum attempts minus one");
     expect(retryEditorSource).toContain('messageKind === "error" ? "admin-ops-empty error" : "test-notice"');
   });
 });
