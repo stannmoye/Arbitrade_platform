@@ -3291,16 +3291,14 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         // This customer lock serializes concurrent worker cycles. Enforce both the
         // subscription entitlement and package policy inside this transaction,
         // before company rotation is advanced or an assignment is persisted.
-        const [subscriptionUsageRows,packageUsageRows]=await Promise.all([
-          tx.select({used:count()}).from(opportunityGenerationAssignments).where(and(
-            eq(opportunityGenerationAssignments.userId,input.userId),
-            eq(opportunityGenerationAssignments.packageSubscriptionId,Number(row.subscriptionId)),
-            gte(opportunityGenerationAssignments.generatedAt,input.quotaWindowStart))),
-          tx.select({used:count()}).from(opportunityGenerationAssignments).where(and(
-            eq(opportunityGenerationAssignments.userId,input.userId),
-            eq(opportunityGenerationAssignments.packageId,Number(row.packageId)),
-            gte(opportunityGenerationAssignments.generatedAt,input.quotaWindowStart))),
-        ]);
+        const subscriptionUsageRows=await tx.select({used:count()}).from(opportunityGenerationAssignments).where(and(
+          eq(opportunityGenerationAssignments.userId,input.userId),
+          eq(opportunityGenerationAssignments.packageSubscriptionId,Number(row.subscriptionId)),
+          gte(opportunityGenerationAssignments.generatedAt,input.quotaWindowStart)));
+        const packageUsageRows=await tx.select({used:count()}).from(opportunityGenerationAssignments).where(and(
+          eq(opportunityGenerationAssignments.userId,input.userId),
+          eq(opportunityGenerationAssignments.packageId,Number(row.packageId)),
+          gte(opportunityGenerationAssignments.generatedAt,input.quotaWindowStart)));
         const subscriptionUsed=Number(subscriptionUsageRows[0]?.used||0);
         const packageUsed=Number(packageUsageRows[0]?.used||0);
         if(subscriptionUsed>=customerDailyQuota||packageUsed>=effectiveDailyQuota)continue;
