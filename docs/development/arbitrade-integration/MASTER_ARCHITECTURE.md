@@ -1,37 +1,28 @@
 # Arbitrade Shared Architecture
 
-**Coordination baseline:** 2026-11-04  
-**Repository:** `stannmoye/Arbitrade_platform`  
-**Current implementation reference:** Workstream 1 PR [#278](https://github.com/stannmoye/Arbitrade_platform/pull/278), branch `feat/automatic-template-opportunities`.
-
-## Purpose
-
-This directory is the shared integration contract for six implementation workstreams and Window 7 (final integration and verification). It supplements, and does not replace, the canonical product contract in `docs/TRADING_SYSTEM_SPECIFICATION.md`, the detailed admin contract in `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md`, or the repository instructions in `AGENTS.md`.
+**Updated:** 2026-11-04  
+**Repository:** stannmoye/Arbitrade_platform  
+**Integration authority:** Window 7
 
 ## Target information-opportunity flow
 
-1. **Eligibility:** use the existing server-owned customer package subscription / tier qualification records. Do not create a second qualification mechanism or accept customer-selected packages.
-2. **Generation control and policy:** read the persisted generation control, global delivery controls and the selected package's saved policy. Invalid or unavailable required policy fails closed.
-3. **Company selection:** use the existing company catalogue and stable Logo IDs. The generation pool is the administrator-approved set minus disabled and archived IDs, then constrained by saved country filters. Brand-only entries are valid identities; a ticker, exchange, quote feed or manually authored company template is not required.
-4. **Rotation:** when enabled, select through the existing durable customer/package rotation state. Persist the selected company and rotation metadata with the opportunity in the same transaction. When rotation is disabled, choose only from the same currently eligible pool; do not use an unapproved fallback.
-5. **Terms:** use the selected package's persisted capital, payout-rate and duration bounds. A saved approved company template may enrich display terms for the already-selected company, but it must not determine pool membership or be required for generation.
-6. **Persistence:** persist the customer-specific offer, generation assignment, package-policy snapshot, company identity snapshot and unique generation key transactionally. A retry must reuse the existing assignment and must not reroll terms or advance rotation twice.
-7. **Delivery:** pass persisted offers into the existing opportunity-delivery lifecycle. Enforce the existing delivery idempotency, pending-delivery limits, retries and lease/fencing behaviour. Do not build a second popup delivery worker.
-8. **Customer display:** return only offers assigned to the authenticated customer and eligible under their active server-owned package entitlement. Company display comes from the saved offer/delivery snapshot and current catalogue approval checks.
-9. **Monitoring and recovery:** expose persisted generation batches, assignment outcomes, package breakdown and failures through the existing admin monitoring surface. Keep errors visible and bounded; recover through durable state.
+1. **Eligibility:** use existing server-owned customer package subscriptions and tier qualification. Generation never accepts a customer-selected package or creates qualification.
+2. **Package policy (Window 2):** read the saved policy for the selected active package subscription, including enablement, daily generation quota, capital bounds, configured payout range, duration range, display timing and pending limits. Invalid required configuration fails closed.
+3. **Company selection (Window 1):** call buildCompanySpotlightPool and nextCompanySpotlight from server/modules/company-spotlight-rotation.ts. Use the current verified-for-display, enabled, non-archived pool and exact country filters. Brand-only records are valid; symbols and market data are not required.
+4. **Generation (Window 3):** select one eligible customer/package assignment, derive terms only from its persisted package policy, optionally enrich display text from a saved approved template, and persist a durable generated offer and assignment.
+5. **Scheduling and recovery (Window 3):** use the existing database-backed worker, durable batch records, bounded customer cursor, generation lock, unique generation key and persisted assignment snapshots. Replays reuse the existing assignment and do not reroll terms or advance company rotation twice.
+6. **Publishing handoff:** a generated opportunity is persisted as an open customer-assigned offer. Generation does not create a second publishing or customer-delivery queue.
+7. **Delivery (Window 4):** the existing opportunity-delivery lifecycle owns popup admission, pending capacity, dispatch leases, retries, acknowledgements and customer-facing delivery.
+8. **Monitoring (Window 6):** expose generation batch outcomes and worker health through existing monitoring surfaces. Do not create a parallel health registry.
+9. **Final integration (Window 7):** reconcile all six workstreams, ordered migrations, exact-head checks and authenticated acceptance.
 
-## Workstream 1 implementation boundary
+## Company-neutral generation
 
-Workstream 1 owns automatic information-opportunity generation and the generation-to-delivery handoff. Its current implementation is in PR #278. It does not own the independent delivery lifecycle, package qualification engine, global Trade policy editor, financial allocation, settlement, or final merge.
+An empty approved company pool is not a generation failure. The engine may persist an informational opportunity with a null company identity. It must not invent a company, use an unapproved fallback, or require a ticker, exchange, quote or market-data record. Template absence is also non-blocking.
 
 ## Financial and data boundary
 
-- Information-opportunity generation and display must not execute trades, allocate customer funds, determine results, settle trades, or write wallet/ledger entries.
-- Existing financial safeguards, authorization, audit controls and hard-disabled automatic financial execution remain unchanged.
-- Preserve the existing 16 packages, 1,811 company catalogue records, logos, customers and historical rows.
-- Brand-only records remain brand identities. Never fabricate symbols, exchange listings, prices, market data, or realized outcomes.
-- Database changes are forward-only, additive where possible, ordered, documented and retry-safe. Never reset or reseed populated production data.
-
-## Integration authority
-
-Window 7 owns final cross-branch conflict resolution, migration ordering, exact-head CI, database/browser acceptance and the integration decision. No implementation window merges directly to `main`.
+- Generation and publishing are informational workflows only. They must not execute trades, allocate customer funds, transfer funds, determine results, settle positions, or mutate wallets/ledgers.
+- Keep existing financial execution safeguards, authorization and audit controls unchanged.
+- Preserve all 16 packages, 1,811 company records/logos, customer records and historical snapshots.
+- Database changes are forward-only, ordered, documented and retry-safe. Never reset or reseed populated data.
