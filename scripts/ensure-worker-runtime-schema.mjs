@@ -127,6 +127,11 @@ async function main() {
   const db = await mysql.createConnection(url.toString());
   let repairs = 0;
   try {
+    if (process.argv.includes("--verify-only")) {
+      const verified = await assertWorkerSchemaContracts(db);
+      console.log(`[worker-schema] PASS: read-only verification of ${verified.checkedTables} worker-critical table contracts.`);
+      return;
+    }
     // This journaled bridge deliberately duplicates the worker-table DDL from the
     // standalone mining and portal migration files. It covers hosts that invoke a
     // different migration entry point; contract checks below detect shape drift.
