@@ -1,9 +1,9 @@
 # Database Changes
 
 **Coordination baseline:** 2026-11-04  
-**Workstream 1 reference:** PR #278, head `aa27d664475eaf40dd4ff3d3414b267e569484e9`.
+**Window 3 generation-engine candidate:** PR #278, latest PR head `b7567f4ae2b1c99342014925c5a667d1896fba21`; ownership confirmation pending.
 
-## Workstream 1 migration sequence
+## Window 3 — Generation Engine migration sequence
 
 ### Migration 0103 — `0103_automatic_opportunity_generation_templates.sql`
 
@@ -50,3 +50,12 @@ All three migrations are represented in the Drizzle journal and schema on the Wo
 - Window 6 reuses the existing `worker_health_registry` migration (0084) and durable monitoring implementation.
 - The opportunity worker reports an aggregate failed-customer count through its existing cycle result; the monitor records partial batch outcomes as degraded. This is application-level observability only.
 - The current-versus-historical worker-instance marker is derived from the existing persisted `instanceId`; it introduces no schema change.
+
+
+## Windows 1, 2 and 5 — No schema changes
+
+- Window 1 PR #283 adds catalogue/rotation contract documentation and regression tests only. It reuses the existing static catalogue, `app_settings` state, package policy fields and opportunity snapshot columns.
+- Window 2 PR #284 adds a typed package policy module and refactors existing `server/db.ts` logic. It reuses `packages` and `opportunity_package_policies`; no new table, column, index, migration, journal entry or seed rewrite is introduced.
+- Window 5 PR #285 adds client-side validation and feedback for existing settings mutations. No schema, migration, table or seed changes are introduced.
+- Window 6 PR #279 and the Window 7 current-versus-historical monitoring adaptation also introduce no schema change; they reuse migration 0084 and the existing worker-health registry.
+- The integration branch must validate the combined migration chain, including Window 3 migrations 0103–0105, on disposable MySQL 8.4 and MariaDB 11.4. Do not apply to production as part of this workstream.
