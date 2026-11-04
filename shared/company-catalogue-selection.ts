@@ -7,7 +7,7 @@ export const COMPANY_CATALOGUE_SELECTION_SIZE = 1811;
 const BITSET_BYTES = Math.ceil(COMPANY_CATALOGUE_SELECTION_SIZE / 8);
 const BASE64_LENGTH = Math.ceil(BITSET_BYTES / 3) * 4;
 
-export function encodeCompanyCatalogueSelection(ids: readonly string[]): string {
+export function encodeCompanyCatalogueSelection(ids: readonly string[]): { ids: string[] } | { selectionBitmap: string } {
   if (!Array.isArray(ids) || ids.length < 1 || ids.length > COMPANY_CATALOGUE_SELECTION_SIZE) {
     throw new Error("Select between 1 and 1,811 companies.");
   }
