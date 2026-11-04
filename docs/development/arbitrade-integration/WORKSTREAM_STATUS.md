@@ -34,7 +34,7 @@ Implemented in this branch:
 - Resolves the quota window from the selected package policy (calendar day or rolling 24 hours), counts both subscription and customer/package assignments, and snapshots the applied limits.
 - Skips exhausted quota candidates before rotation selection; quota reads, rotation cursor, offer and assignment writes remain in one transaction.
 
-**Outstanding verification blockers:** source-level quota/transaction assertions have been added but have not been run. No genuine MySQL 8.4 or MariaDB 11.4 generation integration has been executed; concurrency, failure-injection rollback/recovery, idempotency, independent package policy selection and immutable snapshot persistence remain unverified. No exact-head CI run is currently recorded.
+**Database verification update:** the first exact-head MySQL 8.4/MariaDB 11.4 workflow ran. MariaDB 11.4 exposed an `ER_LOCK_DEADLOCK` while two concurrent cycles upserted the same customer lock row; this was a real concurrency failure, not a fixture assertion. Window 3 added bounded whole-transaction retries for deadlock/lock-wait-timeout errors and a contract assertion. The workflow must be rerun on the new head before concurrency, rollback, quota, idempotency or snapshot results can be accepted. The MySQL 8.4 job had not yet reached the generation integration step at the time of this update.
 
 Existing generation infrastructure reused:
 - Customer/package generation lock and unique generation key.
