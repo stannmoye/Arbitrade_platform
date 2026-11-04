@@ -38,3 +38,14 @@ Key implementation files include:
 ## Merge and deployment boundary
 
 Window 1 has not merged to `main` and has not deployed the branch. Window 7 owns the final integration decision. Do not deploy or apply migrations to production as part of integration verification. The user’s separate financial boundary remains in force.
+
+
+## Window 4 — Opportunity Delivery & Customer Portal handoff
+
+- **Dependent implementation branch:** `feat/stage4-opportunity-delivery-contract` (based on Window 1 PR #278 head `6d6d09ba1a001c9c50e54f46a0d58dad83daff16`).
+- Window 4 reuses the existing durable delivery lifecycle and customer API/UI. It does not add a competing worker, queue, schema, migration, endpoint, retry setting or financial side effect.
+- The customer first-render handoff requires the server-issued dispatch lease token: `queued` is claimed as `in_progress`, the customer response carries `deliveryLeaseToken`, the UI accepts `in_progress` only with a non-empty token, and `received`/`rendered` acknowledgements return the same token.
+- Regression tests cover lease-gated client eligibility, propagation of the lease from the existing server dispatch claim, and acknowledgement with the same token.
+- **Merge order:** integrate Window 1 PR #278 first, then rebase/merge the Window 4 dependent PR. Do not merge the Window 4 branch directly to `main` while its base branch is unmerged.
+- **No migration:** Window 4 adds no database schema changes. Window 7 must run the existing popup delivery integration against the final combined migration chain on disposable MySQL 8.4 and MariaDB 11.4, plus authenticated browser acceptance for first display, refresh recovery, multi-tab locking, expiry and dismissal.
+- No Blitz deployment, production migration, financial execution, customer-fund allocation, or settlement is included in this handoff.
