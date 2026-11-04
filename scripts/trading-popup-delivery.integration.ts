@@ -237,6 +237,21 @@ const balanceBefore = await db.select({
     automaticGenerationEnabled: true,
     generationBatchId: `popup-delivery-${token}`,
   });
+  const legacyPolicyMirrors = (await db.select({
+    enabled: opportunityPackagePolicies.enabled,
+    automaticDelivery: opportunityPackagePolicies.automaticDelivery,
+    companyRotationEnabled: opportunityPackagePolicies.companyRotationEnabled,
+    burstEnabled: opportunityPackagePolicies.burstEnabled,
+    randomizationEnabled: opportunityPackagePolicies.randomizationEnabled,
+  }).from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName)))[0];
+  assert.deepEqual(legacyPolicyMirrors, {
+    enabled: false,
+    automaticDelivery: false,
+    companyRotationEnabled: false,
+    burstEnabled: false,
+    randomizationEnabled: false,
+  }, "Legacy package-level switches are OFF; global informational controls must own delivery and rotation.");
+
   const generatedOfferId = Number(firstCycle.generatedOpportunityId);
   assert.ok(Number.isSafeInteger(generatedOfferId) && generatedOfferId > 0,
     "The worker must generate an opportunity directly from the approved brand catalogue without a template.");
