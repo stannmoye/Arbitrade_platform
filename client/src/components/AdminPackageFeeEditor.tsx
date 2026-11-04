@@ -7,6 +7,7 @@ import {
   parseFeePercentToBps,
   parseFutureLocalDateTime,
   resolvePackageFeePolicy,
+  validatePackageFeeDraft,
   type FeeRoundingMode,
   type PackageFeePolicyState,
 } from "../trading-settings-client-contracts";
@@ -50,13 +51,21 @@ export default function AdminPackageFeeEditor({ packageId, policy, policyQueryLo
   }, [latest, dirty]);
   const rateBps = parseFeePercentToBps(percent);
   const effectiveIso = parseFutureLocalDateTime(effectiveAt);
-  const effectiveAtValid = Boolean(effectiveIso);
+  const validationErrors = validatePackageFeeDraft({ feeRateBps: rateBps, roundingMode: rounding, effectiveAt: effectiveIso, reason });
   const save = async () => {
-    if (!canEdit || (policy && !latest) || rateBps === null || !rounding || !effectiveIso || reason.trim().length < 5) {
-      if (!effectiveIso) {
-        setMessageKind("error");
-        setMessage("Choose an effective time in the future. Past times cannot be saved as valid.");
-      }
+    if (!canEdit || (policy && !latest)) {
+      setMessageKind("error");
+      setMessage("Package fee settings are unavailable until the saved policy has loaded successfully.");
+      return;
+    }
+    if (validationErrors.length) {
+      setMessageKind("error");
+      setMessage(validationErrors[0]);
+      return;
+    }
+    if (!effectiveIso) {
+      setMessageKind("error");
+      setMessage("Choose a valid effective time in the future.");
       return;
     }
     setMessage("");
@@ -113,10 +122,10 @@ export default function AdminPackageFeeEditor({ packageId, policy, policyQueryLo
       <label>Rounding mode<select value={rounding} disabled={!canEdit || update.isPending} onChange={event => { setDirty(true); setMessage(""); setRounding(event.target.value as FeeRoundingMode | ""); }}><option value="">Select rounding mode</option><option value="half_up">Half up</option><option value="half_even">Half even</option><option value="down">Down</option><option value="up">Up</option></select></label>
     </div>
     <label>Effective at (your local time)<input type="datetime-local" min={localMinimum} value={effectiveAt} disabled={!canEdit || update.isPending} onChange={event => { setDirty(true); setMessage(""); setEffectiveAt(event.target.value); }} /><small>Required future time, entered in your local time and saved as an exact UTC instant. After this instant, only subsequently created allocations use this fee policy; an allocation already created keeps its fee snapshot even if it settles later.</small></label>
-    {effectiveAt && !effectiveAtValid && <p role="alert">Choose a valid time in the future; a past or invalid effective time cannot be saved.</p>}
     <label>Reason for this package fee change (required)<textarea maxLength={500} minLength={5} value={reason} disabled={!canEdit || update.isPending} onChange={event => { setDirty(true); setMessage(""); setReason(event.target.value); }} /></label>
-    {message && <p role={messageKind === "error" ? "alert" : "status"} aria-live="polite">{message}</p>}
-    <button type="button" className="primary-button" disabled={!canEdit || update.isPending || rateBps === null || !rounding || !effectiveAtValid || reason.trim().length < 5} aria-busy={update.isPending} onClick={() => void save()}>{update.isPending ? "Saving package fee…" : isInitialSetup ? "Set up version 1 fee policy" : "Save package fee"} <Check size={14}/></button>
+    {validationErrors.length > 0 && <div className="admin-ops-empty error" role="alert" aria-live="polite"><strong>Check these fee settings before saving:</strong><ul>{validationErrors.map(error => <li key={error}>{error}</li>)}</ul></div>}
+    {message && <div className={messageKind === "error" ? "admin-ops-empty error" : "test-notice"} role={messageKind === "error" ? "alert" : "status"} aria-live="polite">{message}</div>}
+    <button type="button" className="primary-button" disabled={!canEdit || update.isPending || validationErrors.length > 0} aria-busy={update.isPending} onClick={() => void save()}>{update.isPending ? "Saving package fee…" : isInitialSetup ? "Set up version 1 fee policy" : "Save package fee"} <Check size={14}/></button>
     <button type="button" className="secondary-button" onClick={() => void history.refetch()} disabled={history.isFetching}><RefreshCw size={14}/> Refresh history</button>
   </section>;
 }

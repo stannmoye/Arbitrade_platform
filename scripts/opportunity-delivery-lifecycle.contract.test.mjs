@@ -15,10 +15,13 @@ describe("opportunity delivery lifecycle migration and state boundaries", () => 
   });
   it("terminalizes only surplus legacy delivery-only rows, with a stable explicit error code", async () => {
     const migration = await read("../drizzle/0102_opportunity_delivery_retry_lifecycle.sql");
-    expect(migration).toContain("MIN(`id`) AS `canonicalId`");
+    expect(migration).toContain("COALESCE(MIN(CASE WHEN `deliveryStatus` IN ('queued','in_progress','retry_wait')");
+    expect(migration).toContain("SET d.`popupEventId`=e.`id`");
+    expect(migration).toContain("JOIN `opportunity_popup_events` e ON e.`id`=canonical.`canonicalId`");
+    expect(migration.match(/SET d\.`popupEventId`=e\.`id`/g)?.length).toBeGreaterThanOrEqual(2);
     expect(migration).toContain("e.`id`<>duplicates.`canonicalId`");
     expect(migration).toContain("e.`tradeId` IS NULL");
-    expect(migration).toContain("e.`eventStatus` NOT IN ('TRADED','SETTLED')");
+    expect(migration).toContain("e.`eventStatus` NOT IN ('TRADED','SETTLED','WITHDRAWN')");
     expect(migration).toContain("e.`executionStatus` NOT IN ('RUNNING','SUCCEEDED')");
     expect(migration).toContain("'DELIVERY_DUPLICATE_LEGACY'");
     expect(migration).not.toMatch(/SET e\.`(?:tradeId|executionStatus|eventStatus|wallet|ledger)/i);
@@ -30,8 +33,11 @@ describe("opportunity delivery lifecycle migration and state boundaries", () => 
       read("../scripts/worker-schema-contracts.mjs"), read("../drizzle/0102_opportunity_delivery_retry_lifecycle.sql"),
     ]);
     const journal = JSON.parse(journalText);
-    expect(journal.entries.at(-2)).toMatchObject({ idx: 70, tag: "0101_package_fee_policy_versions" });
-    expect(journal.entries.at(-1)).toMatchObject({ idx: 71, tag: "0102_opportunity_delivery_retry_lifecycle" });
+    const feeIndex = journal.entries.findIndex(entry => entry.tag === "0101_package_fee_policy_versions");
+    const deliveryIndex = journal.entries.findIndex(entry => entry.tag === "0102_opportunity_delivery_retry_lifecycle");
+    expect(journal.entries[feeIndex + 1]?.tag).toBe("0102_opportunity_delivery_retry_lifecycle");
+    expect(journal.entries[deliveryIndex + 1]?.tag).toBe("0103_automatic_opportunity_generation_templates");
+    expect(journal.entries[deliveryIndex + 2]?.tag).toBe("0104_catalogue_native_opportunity_generation");
     const trackedPortalFiles = portal.match(/const migrationFiles = \[([\s\S]*?)\];/)?.[1] ?? "";
     const trackedRecoveryFiles = recovery.match(/const portalMigrationFiles = \[([\s\S]*?)\];/)?.[1] ?? "";
     expect(trackedPortalFiles).not.toContain("0101_package_fee_policy_versions.sql");
@@ -44,6 +50,8 @@ describe("opportunity delivery lifecycle migration and state boundaries", () => 
     expect(migration).toContain("p.`name` COLLATE utf8mb4_unicode_ci=e.`packageName` COLLATE utf8mb4_unicode_ci");
     expect(bridge).toContain("p.name COLLATE utf8mb4_unicode_ci=e.packageName COLLATE utf8mb4_unicode_ci");
     expect(bridge).toContain("DELIVERY_DUPLICATE_LEGACY");
+    expect(bridge).toContain("eventStatus NOT IN ('TRADED','SETTLED','WITHDRAWN')");
+    expect(bridge).toContain('process.argv.includes("--verify-only")');
     expect(bridge).toContain("opportunity_popup_pending_package_id_idx");
     expect(contracts).toContain("opportunity_delivery_idempotency");
     expect(contracts).toContain("deliveryPolicyVersionSnapshot");

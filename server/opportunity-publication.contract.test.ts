@@ -5,15 +5,15 @@ const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 
 describe("reviewed opportunity publication contracts", () => {
-  it("requires source references and review notes at both admin publication API boundaries", () => {
+  it("rejects manual and CSV opportunity creation at both admin API boundaries", () => {
     const single = router.slice(router.indexOf("createOffer: adminProcedure.input"), router.indexOf("bulkCreateOffers: adminProcedure.input"));
     const bulk = router.slice(router.indexOf("bulkCreateOffers: adminProcedure.input"), router.indexOf("tickets: adminProcedure.query"));
     for (const procedure of [single, bulk]) {
-      expect(procedure).toContain("sourceReference: z.string().trim().min(1).max(160)");
-      expect(procedure).toContain("reviewNotes: z.string().trim().min(1).max(2000)");
+      expect(procedure).toContain('code: "PRECONDITION_FAILED"');
+      expect(procedure).toContain("retired");
     }
-    expect(single).toContain("createOpportunityOffer(ctx.user.id, input)");
-    expect(bulk).toContain("bulkCreateOpportunityOffers(ctx.user.id, input.offers)");
+    expect(single).not.toContain("createOpportunityOffer(ctx.user.id, input)");
+    expect(bulk).not.toContain("bulkCreateOpportunityOffers(ctx.user.id, input.offers)");
   });
 
   it("persists offer and source/review/accepted terms in one transaction with an offer-specific audit reference", () => {

@@ -110,6 +110,14 @@ if (process.env.NODE_ENV !== "production") fail("NODE_ENV must be production; lo
 if (Number(process.versions.node.split(".")[0]) < 20) {
   fail("Node.js 20 or newer is required. Detected " + process.versions.node + ".");
 }
+function isValidTotpEncryptionKey(value) {
+  if (typeof value !== "string" || !value) return false;
+  if (/^[a-f0-9]{64}$/i.test(value)) return true;
+  if (!/^[A-Za-z0-9+/]{43}=?$/.test(value)) return false;
+  const decoded = Buffer.from(value, "base64");
+  return decoded.length === 32 && decoded.toString("base64").replace(/=+$/, "") === value.replace(/=+$/, "");
+}
+
 if (!process.env.DATABASE_URL || !process.env.PASSWORD_PEPPER || !process.env.PUBLIC_APP_URL) {
   fail("DATABASE_URL, PASSWORD_PEPPER, and PUBLIC_APP_URL must be configured by the installer or private host environment.");
 }
@@ -121,6 +129,9 @@ try {
 }
 if (!["http:", "https:"].includes(publicAppUrl.protocol) || publicAppUrl.username || publicAppUrl.password) {
   fail("PUBLIC_APP_URL must use HTTP(S) and must not contain a username or password.");
+}
+if (!isValidTotpEncryptionKey(process.env.TOTP_ENCRYPTION_KEY || "")) {
+  fail("TOTP_ENCRYPTION_KEY must be a valid 32-byte hex or base64 key. For an existing database, restore the original key from the previous protected environment; do not generate a replacement.");
 }
 if (process.env.PASSWORD_PEPPER.length < 32) {
   fail("PASSWORD_PEPPER must contain at least 32 characters.");

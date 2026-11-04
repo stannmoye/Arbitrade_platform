@@ -6,6 +6,7 @@ const policyEditor = readFileSync(new URL("../client/src/components/TradingDeliv
 const retryEditor = readFileSync(new URL("../client/src/components/AdminDeliveryRetryPolicy.tsx", import.meta.url), "utf8");
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const packagePolicySource = readFileSync(new URL("./modules/package-opportunity-policy.ts", import.meta.url), "utf8");
 const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
 const staticGuide = readFileSync(new URL("../client/public/trade-admin-guide.html", import.meta.url), "utf8");
 
@@ -67,19 +68,22 @@ describe("administrator Trading delivery policy controls", () => {
     }
     expect(tierMutation).toContain("}).strict()).min(1).max(1000)");
     expect(tierMutation).not.toContain("maxDeliveryAttempts");
-    expect(database).toContain("const TRADING_TIER_POLICY_PATCH_KEYS = new Set([");
+    expect(database).toContain("const TRADING_TIER_POLICY_PATCH_KEYS = new Set<string>(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS);");
     expect(database).toContain("Per-tier Trading policy cannot update global or unknown fields");
-    const patchKeysStart = database.indexOf("const TRADING_TIER_POLICY_PATCH_KEYS = new Set([");
-    const patchKeysEnd = database.indexOf("]);", patchKeysStart);
-    expect(database.slice(patchKeysStart, patchKeysEnd)).not.toContain("maxDeliveryAttempts");
-    expect(database).toContain("...supplied,packageName:policy.packageName,updatedBy");
+    const packagePatchKeysStart = packagePolicySource.indexOf("export const PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS = [");
+    const packagePatchKeysEnd = packagePolicySource.indexOf("] as const", packagePatchKeysStart);
+    expect(packagePatchKeysStart).toBeGreaterThanOrEqual(0);
+    expect(packagePolicySource.slice(packagePatchKeysStart, packagePatchKeysEnd)).not.toContain("maxDeliveryAttempts");
+    expect(database).toContain("resolveEffectivePackageOpportunityPolicy(policy.packageName,current,supplied,updatedBy)");
+    expect(packagePolicySource).toContain("PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS");
+    expect(packagePolicySource).not.toContain('"automaticTradingEnabled"');
   });
 
   it("merges partial policy updates against locked rows before a transactional, versioned and audited write", () => {
     expect(database).toContain("const requested=policies.map(policy=>");
     expect(database).toContain("await db.transaction(async tx=>");
     const rowLock = database.indexOf('where(eq(opportunityPackagePolicies.packageName,policy.packageName)).limit(1).for("update")');
-    const merge = database.indexOf("const effective:any={...DEFAULT_NEW_TIER_POLICY,...(current||{}),...supplied,packageName:policy.packageName,updatedBy}");
+    const merge = database.indexOf("resolveEffectivePackageOpportunityPolicy(policy.packageName,current,supplied,updatedBy)");
     const validation = database.indexOf("validatePackageAutomationPolicy(automation)", merge);
     expect(rowLock).toBeGreaterThanOrEqual(0);
     expect(merge).toBeGreaterThan(rowLock);

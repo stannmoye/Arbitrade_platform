@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./marketSync.ts", import.meta.url), "utf8");
 const databaseSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const adminApp = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
-const opportunityCsv = readFileSync(new URL("../client/src/opportunity-csv.ts", import.meta.url), "utf8");
+const routerSource = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const start = source.indexOf("export async function ensureMarketDrivenOpportunities");
 const implementation = source.slice(start);
 
@@ -45,19 +45,20 @@ describe("trading opportunity economics integrity", () => {
     expect(pause).not.toContain("db.update(opportunityOffers)");
   });
 
-  it("does not prefill opportunity publishing with placeholder symbols, venues or payout terms", () => {
-    expect(adminApp).not.toContain('useState("NVDA")');
-    expect(adminApp).not.toContain('useState("Market venue A")');
-    expect(adminApp).not.toContain('useState("Market venue B")');
-    expect(adminApp).toContain("Enter reviewed, source-backed offer terms.");
-    expect(adminApp).toContain("!symbol.trim()");
-    expect(adminApp).toContain("reward<1||reward>5000");
-    expect(adminApp).toContain("duration<10||duration>86400");
+  it("retires manual creation and CSV import in both the admin interface and server API", () => {
+    expect(adminApp).toContain("Automated generation only");
+    expect(adminApp).toContain("Manual publication and CSV import are disabled");
+    expect(adminApp).not.toContain("createOffer");
+    expect(adminApp).not.toContain("bulkCreateOffers");
+    expect(adminApp).not.toContain("parseOpportunityCsv");
+    expect(routerSource).toContain("Manual opportunity publication is retired.");
+    expect(routerSource).toContain("Manual opportunity CSV import is retired.");
   });
 
-  it("explains that pop-ups require an administrator-published open opportunity", () => {
-    expect(adminApp).toContain("Publish reviewed opportunities, import validated CSV records and inspect the open opportunity feed.");
-    expect(adminApp).toContain("Customer pop-ups require a published, open offer plus an eligible tier and enabled delivery policy.");
+  it("explains that customer pop-ups are automatically generated from approved templates, not manual publication", () => {
+    expect(adminApp).toContain("Customer opportunities are generated automatically from administrator-approved templates");
+    expect(adminApp).toContain("Manual publication and CSV import are disabled");
+    expect(adminApp).toContain("historical manual records cannot create customer pop-ups");
   });
 
   it("expires stale offers and reports existing active offers without creating new ones", () => {
@@ -74,34 +75,26 @@ describe("trading opportunity economics integrity", () => {
 
 
 describe("Trading opportunity publication guidance", () => {
-  it("clearly explains why customers see no popups when the published offer registry is empty", () => {
-    expect(adminApp).toContain("No published opportunities are currently open.");
-    expect(adminApp).toContain("Eligible customers cannot receive a pop-up until an administrator publishes a reviewed, source-backed opportunity");
-    expect(adminApp).toContain("Market-data refresh does not create offers.");
+  it("clearly explains why no customer-specific popup is generated when template/package gates are unmet", () => {
+    expect(adminApp).toContain("No generated customer opportunities are currently open.");
+    expect(adminApp).toContain("No customer-specific generated opportunity is currently open.");
+    expect(adminApp).toContain("Check for an approved verified-company template, the generation switch, an active qualifying package");
     expect(source).toContain("generationDisabled: true");
   });
 });
 
 
 describe("Admin opportunity publisher error handling", () => {
-  it("reports package-compatibility outcomes and failed manual publications through the admin UI", () => {
-    expect(adminApp).toContain("Opportunity #${result.id} was published.");
-    expect(adminApp).toContain("Compatibility was not assessed because no enabled package policies were available; no tier is confirmed compatible.");
-    expect(adminApp).toContain("enabled package policies are compatible.");
-    expect(adminApp).toContain("onError:error=>setPublishMessage(error.message)");
-    expect(adminApp).toContain('role={create.isError?"alert":"status"}');
-    expect(adminApp).toContain('create.isPending?"Publishing…":"Publish to database"');
+  it("makes retired manual publication routes fail explicitly instead of silently creating offers", () => {
+    expect(routerSource).toContain("PRECONDITION_FAILED");
+    expect(routerSource).toContain("Customer-specific opportunities are generated automatically from the approved company catalogue");
+    expect(routerSource).toContain("saved company templates are optional display-term enrichment");
+    expect(routerSource).toContain("saved qualifying-package policy");
+    expect(routerSource).toContain("a company template is not required");
   });
 
-  it("does not announce CSV success before the server confirms the import", () => {
-    expect(adminApp).toContain("Publishing ");
-    expect(adminApp).toContain("validated opportunities published.${compatibilityNote}");
-    expect(adminApp).toContain("no tier compatibility is confirmed for those offers.");
-    expect(adminApp).toContain("onError:error=>{setImportError(true);setImportStatus(error.message)}");
-    expect(adminApp).toContain("reader.onerror=");
-    expect(adminApp).toContain("parseOpportunityCsv(String(reader.result||\"\"))");
-    expect(opportunityCsv).toContain("const MAX_ROWS = 5000;");
-    expect(opportunityCsv).toContain("if (rows.length > MAX_ROWS)");
-    expect(opportunityCsv).not.toContain(".filter(");
+  it("keeps the old CSV parser disconnected from the customer opportunity screen", () => {
+    expect(adminApp).not.toContain("opportunity-csv");
+    expect(adminApp).not.toContain("parseOpportunityCsv");
   });
 });

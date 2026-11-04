@@ -53,6 +53,8 @@ jobs:
           cache: pnpm
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install Chromium for authenticated local browser acceptance
+        run: pnpm exec playwright install --with-deps chromium
       - name: Apply guarded migrations to disposable database
         run: node scripts/guarded-main-migrate.mjs
         env:
@@ -75,11 +77,58 @@ jobs:
         run: node scripts/ensure-worker-runtime-schema.mjs
         env:
           DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_opportunity_worker_test
+      - name: Profile bounded worker-health diagnostics and memory
+        run: pnpm profile:worker-health
+        env:
+          WORKER_HEALTH_PROFILE_ITERATIONS: "5000"
+      - name: Verify partial-batch failures persist as degraded worker health
+        run: pnpm exec tsx scripts/trading-worker-health.integration.ts
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_opportunity_worker_test
       - name: Exercise concurrent claims, lease recovery, fencing, and duplicate financial effects
         run: pnpm exec tsx scripts/trading-opportunity-worker.integration.ts
         env:
           DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_opportunity_worker_test
+      - name: Start the application server against the disposable database
+        shell: bash
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_opportunity_worker_test
+          NODE_ENV: development
+          PORT: "4317"
+          SESSION_SECRET: github-actions-disposable-browser-session-secret
+        run: |
+          set -euo pipefail
+          pnpm dev > "$RUNNER_TEMP/trading-local-server.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/trading-local-server.pid"
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4317/api/health > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/trading-local-server.log"
+          exit 1
       - name: Verify qualified customer popup delivery without financial mutations
         run: pnpm exec tsx scripts/trading-popup-delivery.integration.ts
         env:
           DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_opportunity_worker_test
+          SESSION_SECRET: github-actions-disposable-browser-session-secret
+          TRADING_BROWSER_ACCEPTANCE_BASE_URL: http://127.0.0.1:4317
+      - name: Capture local application logs and stop the test server
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/trading-local-server.pid" ]]; then
+            kill "$(cat "$RUNNER_TEMP/trading-local-server.pid")" 2>/dev/null || true
+          fi
+          if [[ -f "$RUNNER_TEMP/trading-local-server.log" ]]; then
+            tail -n 300 "$RUNNER_TEMP/trading-local-server.log" > "$RUNNER_TEMP/trading-local-server-tail.log"
+          fi
+      - name: Upload local authenticated acceptance server logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trading-local-browser-${{ matrix.database }}
+          path: ${{ runner.temp }}/trading-local-server-tail.log
+          if-no-files-found: ignore
+          retention-days: 14

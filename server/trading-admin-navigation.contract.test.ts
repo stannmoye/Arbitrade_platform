@@ -271,7 +271,7 @@ describe("Trading navigation focus and plain-language controls", () => {
     expect(navigation.match(/id: "trade-history"/g)).toHaveLength(1);
     expect(navigation).toContain('label: "Tiers & Eligibility"');
     expect(navigation).toContain('label: "Per-tier Daily Delivery Caps"');
-    expect(navigation).toContain('label: "Publish & Manage Opportunities"');
+    expect(navigation).toContain('label: "Opportunity Generation & Management"');
     expect(navigation).toContain('label: "Per-tier Company Rotation Rules"');
     expect(navigation).toContain('label: "Settlement & Reconciliation"');
     expect(navigation).toContain('target: "packages", focus: "tiers"');
@@ -289,7 +289,7 @@ describe("Trading navigation focus and plain-language controls", () => {
 
   it("shows the explanation beside each Trading menu item", () => {
     expect(adminApp).toContain('className="admin-nav-item-detail"');
-    expect(navigation).toContain('label: "Publish & Manage Opportunities"');
+    expect(navigation).toContain('label: "Opportunity Generation & Management"');
     expect(navigation).toContain('label: "Retries & Carry-Forward"');
     expect(navigation).toContain('label: "Package Configuration"');
     expect(navigation).not.toContain('label: "System Pause & Safety"');

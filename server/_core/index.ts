@@ -303,7 +303,7 @@ async function startServer() {
     void runMiningCycle();
     const miningFeedTimer = registerWorkerInterval(() => { void runMonitoredWorkerCycle("mining-price-feeds", () => refreshMiningPriceFeeds()).then(result => console.log("[MiningFeeds] refreshed", result)).catch(error => console.error("[MiningFeeds]", error instanceof Error ? error.message : error)); }, 5 * 60_000);
     miningFeedTimer.unref();
-    const popupRetentionTimer = registerWorkerInterval(() => { void runMonitoredWorkerCycle("popup-retention", () => runOpportunityRetention()).then(result => { if (result.deletedEvents || result.deletedDeliveryRows) console.log("[PopupRetention] archived and removed", result); }).catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error)); }, 60 * 60_000);
+    const popupRetentionTimer = registerWorkerInterval(() => { void runMonitoredWorkerCycle("popup-retention", () => runOpportunityRetention()).then(result => { if (result.expiredAssignments || result.deletedEvents || result.deletedDeliveryRows) console.log("[PopupRetention] expired generated assignments and archived old popup rows", result); }).catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error)); }, 60 * 60_000);
     popupRetentionTimer.unref();
     void runMonitoredWorkerCycle("popup-retention", () => runOpportunityRetention()).catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error));
     let tradeCycleRunning = false;
@@ -334,6 +334,9 @@ async function startServer() {
           const outstandingTrades = await countOutstandingTrades();
           const opportunities = await ensureMarketDrivenOpportunities(new Date());
           return { ...cycle, outstandingTrades, opportunities };
+        }, {
+          degradedWhen: result => result.customerFailures > 0,
+          degradedMessage: result => `Customer opportunity sub-cycle failures: ${result.customerFailures}`,
         });
         tradeCycleConsecutiveFailures = 0;
         tradeCycleRetryAfterMs = 0;

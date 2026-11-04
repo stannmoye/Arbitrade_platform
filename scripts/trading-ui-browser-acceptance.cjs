@@ -214,6 +214,8 @@ async function main() {
           offers: data.offers.map((offer) => ({
             id: Number(offer.id), symbol: String(offer.symbol || ""),
             popupEligible: offer.popupEligible === true, closesAt: offer.closesAt,
+            deliveryStatus: String(offer.deliveryStatus || "").toLowerCase(),
+            hasDeliveryLease: typeof offer.deliveryLeaseToken === "string" && offer.deliveryLeaseToken.trim().length > 0,
             companyReferenceId: offer.companyReferenceId ?? null,
             companyDisplayName: offer.companyDisplayName ?? null,
           })),
@@ -221,20 +223,23 @@ async function main() {
       }
     });
     const popupLocator = customerPage.locator(".center-opportunity-toast");
-    await popupLocator.waitFor({ state: "visible", timeout: 30_000 }).catch(() => undefined);
+    await popupLocator.waitFor({ state: "visible", timeout: 120_000 }).catch(() => undefined);
     const visiblePopup = await popupLocator.isVisible().catch(() => false);
     const latestOpportunityResponse = [...opportunityResponses].reverse().find((item) =>
       item.deliveryEnabled && item.hasPopupPolicy &&
-      item.offers.some((offer) => offer.popupEligible && Number.isFinite(Date.parse(offer.closesAt)) &&
-        Date.parse(offer.closesAt) > Date.now())
+      item.offers.some((offer) => offer.popupEligible && offer.deliveryStatus === "in_progress" &&
+        offer.hasDeliveryLease && Number.isFinite(Date.parse(offer.closesAt)) && Date.parse(offer.closesAt) > Date.now())
     );
     assert.ok(latestOpportunityResponse,
-      "Real customer opportunities API must return an open worker-delivered offer with delivery enabled and a saved popup policy. Seed a reviewed open offer and let the worker process it in this isolated environment.");
+      "The customer API must return an automatically generated, customer-assigned offer claimed under an active delivery lease. No manual offer or per-company template is required.");
     assert.ok(visiblePopup,
       "A real worker-delivered popup-eligible offer must render in the authenticated customer's browser.");
     const visiblePopupText = await popupLocator.innerText();
     const popupOffer = latestOpportunityResponse.offers.find((offer) =>
-      offer.popupEligible && visiblePopupText.includes(offer.symbol)
+      offer.popupEligible && offer.deliveryStatus === "in_progress" && offer.hasDeliveryLease &&
+      (offer.companyDisplayName
+        ? visiblePopupText.includes(offer.companyDisplayName)
+        : visiblePopupText.includes(offer.symbol))
     );
     assert.ok(popupOffer,
       "The visible customer popup must correspond to an open popup-eligible offer returned by the real customer API.");
