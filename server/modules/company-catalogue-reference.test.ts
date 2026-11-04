@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { brotliCompressSync, gzipSync } from "node:zlib";
+import { gzipSync } from "node:zlib";
 import { resolve } from "node:path";
 import {
   COMPANY_REFERENCE_CATALOGUE,
