@@ -1,7 +1,7 @@
 # Company Catalogue & Rotation Selection Contract
 
 **Owner:** Workstream 1 — Company Catalogue & Automatic Company Rotation  
-**Status:** Existing implementation inspected; contract documented; integration tests pending exact-head CI  
+**Status:** Runtime loader corrected to use stable brand identity independently of optional ticker enrichment; awaiting exact-head CI and Window 7 re-review  
 **Canonical implementation:** `server/modules/company-catalogue-reference.ts` and `server/modules/company-spotlight-rotation.ts`
 
 ## Purpose and boundary
@@ -13,7 +13,8 @@ Do not use `server/modules/company-rotation.ts` for this purpose. That older lis
 ## Catalogue source and integrity
 
 - Source of truth is the checked-in 1,811-row logo mapping and local country-grouped image assets, aligned by stable IDs `logo-brand-0001` through `logo-brand-1811`.
-- `COMPANY_REFERENCE_CATALOGUE` loads the source mapping and associated ticker workbook snapshot at runtime and validates row counts, ID alignment, duplicate filenames and supplied workbook status totals.
+- `COMPANY_REFERENCE_CATALOGUE` loads the source logo mapping at runtime. Stable IDs are assigned from mapping order; non-empty company names and valid local logo paths establish catalogue identity. The mapping must contain usable records and unique asset paths, but ticker workbook files are not a startup dependency.
+- Ticker/exchange workbook snapshots are optional best-effort enrichment. Missing, partial or malformed workbook data is ignored; it cannot prevent startup, catalogue loading, selection or opportunity generation. Supplied metadata is retained when it can be safely associated with the matching stable ID and company name. No exact ticker/supplement record counts are required for catalogue initialization.
 - Records remain `referenceOnly: true`, `eligibleForVerifiedTradeRotation: false`, `listingStatus: "unverified"`, and `recordCompleteness: "brand-only"`. Supplied ticker/exchange fields are descriptive metadata only.
 - Duplicate display names are valid; stable Logo IDs and unique asset paths distinguish records. Never deduplicate by company name.
 - The catalogue is static application data, not a second customer/company database. Preserve all source rows and local logo assets.
@@ -28,7 +29,7 @@ A company may be attached to a customer opportunity only when all these conditio
 4. It matches the optional exact country-folder filter, applied after the status allowlist.
 5. The selection pool has no duplicate stable IDs.
 
-Administrator Verified means approved for customer-facing company display only. It does not change the source listing status, prove a public listing, or enable securities/trading eligibility. Brand-only records can be selected without ticker, symbol, exchange, sector, headquarters or market-data fields.
+Administrator Verified means approved for customer-facing company display only. It does not change the source listing status, prove a public listing, or enable securities/trading eligibility. Brand-only records can be selected using only their stable company ID, non-empty display name and local logo path. Ticker, symbol, exchange, sector, headquarters and market-data fields are optional and are not part of the selection predicate.
 
 Missing or malformed administrator state fails closed to an empty pool. An empty pool is not an opportunity-generation failure: publish/deliver the opportunity without company identity. Never fall back to an unverified, disabled, archived or arbitrary company.
 
@@ -87,7 +88,7 @@ nextCompanySpotlight(
 
 ## Persistence and database dependencies
 
-No new catalogue table or migration is required for this workstream.
+No database migration is required for this correction. The change affects only application startup data loading and in-memory enrichment; it does not change schema, persisted company IDs, admin state, package policy fields, cursor keys or opportunity snapshot columns. Existing catalogue identity remains in the checked-in logo mapping, while existing database records and settings are untouched.
 
 Existing dependencies:
 - `app_settings.settingKey = 'trade.companyCatalogue.adminState'`: audited admin approval/disable/archive state.
@@ -123,4 +124,4 @@ The existing `server/opportunityLifecycle.ts` already demonstrates this transact
 
 ## Existing verification coverage
 
-The current source includes unit/contract coverage for the 1,811-record source, stable IDs, admin approval, disabled/archived precedence, malformed-state fail-closed behavior, exact country filters, duplicate detection, repeat avoidance, cursor restart restoration, and transactional database rotation integration on MySQL 8.4 / MariaDB 11.4. Workstream 1 adds an explicit brand-only/no-symbol selection regression test. Exact-head CI must execute these tests before acceptance; this documentation update does not claim that CI or production acceptance has run.
+Regression coverage includes the production loader invoked with isolated fixture paths and missing ticker workbook files, partial ticker enrichment, the 1,811-record catalogue and local logo assets, stable IDs, admin approval, disabled/archived precedence, malformed-state fail-closed behavior, exact country filters, duplicate detection, repeat avoidance, cursor restart restoration, and no-fallback behavior for an empty eligible pool. Existing database rotation integration coverage runs in CI on MySQL 8.4 and MariaDB 11.4. CI results are automated verification only; they do not establish a live production deployment, production database upgrade or customer acceptance.
