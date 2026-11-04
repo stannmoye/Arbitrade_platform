@@ -5,7 +5,7 @@
 **Window 6 PR:** [#279](https://github.com/stannmoye/Arbitrade_platform/pull/279)  
 **Branch:** `feat/stage-6-opportunity-worker-observability`  
 **Implementation head with executed CI:** `962ae780e62e44ded236454040302afe9c5241e4`  
-**Latest Window 6 documentation head at handoff:** `7884470fcedc351683d5ac3cfb3669e4790a22d8`  
+**Latest Window 6 follow-up head at handoff:** `30eec7efd714942c44459cd5a46f82f98d0f72f9`  
 **Default branch checkpoint used by PR #279:** `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`
 
 ## What Window 6 delivers
@@ -35,9 +35,11 @@ GitHub Actions associated with implementation head `962ae780e62e44ded23645404030
 
 See `VERIFICATION_MATRIX.md` for exact workflow run links, per-component result, evidence scope and outstanding gates.
 
-**New durable-monitoring check:** Added `scripts/trading-worker-health.integration.ts` and a step in `.github/workflows/trading-opportunity-worker-integration.yml`. The script runs the production `runMonitoredWorkerCycle` with a synthetic partial-batch result against the disposable migrated database, then reads the current process health summary and asserts persisted `degraded`, `CUSTOMER_CYCLE_FAILURES`, aggregate-only diagnostic text and failure count. This verifies durable monitor persistence without invoking real trade execution or mutating customer/financial records. It is pending exact-head MySQL/MariaDB CI on commit `dbedf78b79ee1d9e061b78192827d9f76a08e520`.
+**New durable-monitoring check:** Added `scripts/trading-worker-health.integration.ts` and a step in `.github/workflows/trading-opportunity-worker-integration.yml`. The script runs the production `runMonitoredWorkerCycle` with a synthetic partial-batch result against the disposable migrated database, then reads the current process health summary and asserts persisted `degraded`, `CUSTOMER_CYCLE_FAILURES`, aggregate-only diagnostic text and failure count. This verifies durable monitor persistence without invoking real trade execution or mutating customer/financial records. It is pending exact-head MySQL/MariaDB CI on run [41772087185](https://github.com/stannmoye/Arbitrade_platform/actions/runs/41772087185). At the latest inspection both database jobs were still executing this assertion.
 
 **Evidence limitations:** CI was run on the Window 6 branch, not on a final combined head containing all workstream PRs. The Vite preview browser test is not authenticated Blitz/staging acceptance. No production database, production deployment, production performance profile or live hosted runtime was tested.
+
+**Synthetic performance tool:** Added `scripts/profile-worker-health.ts`, exposed as `pnpm profile:worker-health`. It stresses the pure bounded worker-health queue-diagnostic calculation using 501 synthetic rows per status, verifies the 500-row cap, and emits iteration latency percentiles and process memory observations. Run with `WORKER_HEALTH_PROFILE_ITERATIONS=5000 pnpm profile:worker-health` in a controlled Node 22 environment. This is a diagnostic-computation microprofile only; it does not represent SQL latency, end-to-end worker throughput, production load or Blitz performance. No results are claimed until actually executed.
 
 ## Current workstream/PR references
 
