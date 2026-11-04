@@ -63,3 +63,9 @@ Window 1 has not merged to `main` and has not deployed the branch. Window 7 owns
 7. Do not claim Blitz/staging or production acceptance from CI alone.
 
 No database migration or production deployment is part of Window 6. Window 7 retains final integration and merge authority.
+
+### Coordination note — shared documents
+
+Workstream 1 PR #278 already introduces these same eight coordination-document paths. This Stage 6 branch copied the current Window 1 versions and adds the Window 6 ownership, monitoring contract, dependencies, status and handoff. If PR #278 is integrated first, Window 7 must merge the Window 6 sections into the canonical files; do not replace the newer Window 1 documents with this branch's original snapshots.
+
+Stage 6 PR: [#279](https://github.com/stannmoye/Arbitrade_platform/pull/279). Current branch head at this handoff update: see the PR head SHA. Exact-head CI has not yet returned any workflow runs/status checks.
