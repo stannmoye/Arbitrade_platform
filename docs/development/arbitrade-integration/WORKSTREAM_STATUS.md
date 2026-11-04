@@ -53,7 +53,7 @@ Status is pending each assigned owner’s own branch, commit, PR, changed-file l
 
 **Implementation branch:** `feat/window-2-package-opportunity-policy-contract`  
 **Baseline:** `0f1fafba3bba30cfd7d2605bf6aeb8387fa2664b`  
-**Latest PR head:** `3d794c64cd4f542d852ebf97dc18796014a5548b` (includes the shared-policy contract test alignment)  
+**Latest PR head:** `57e34037bfd296b6c3633f068174b79b615c2cab` (documentation-only handoff follow-up; source/test head `3d794c64cd4f542d852ebf97dc18796014a5548b` has exact-head green CI)  
 **Pull request:** [#284](https://github.com/stannmoye/Arbitrade_platform/pull/284) — open, draft, unmerged.  
 **PR head at creation:** `92224d32dd85bb8249f094df1e8dcd8afb815a0d`.
 
