@@ -413,6 +413,12 @@ const balanceBefore = await db.select({
     "The generated duration must stay inside this customer's package-specific range.");
   assert.equal(generatedSnapshot.symbol, "BRAND",
     "Brand-only companies must not be represented as real ticker symbols.");
+  assert.equal(generatedSnapshot.companyRotation?.ticker, undefined,
+    "Brand-only rotation snapshots must not carry ticker research metadata.");
+  assert.equal(generatedSnapshot.companyRotation?.exchangeCode, undefined,
+    "Brand-only rotation snapshots must not imply an exchange listing.");
+  assert.equal(generatedSnapshot.companyRotation?.listingStatus, undefined,
+    "Brand-only rotation snapshots must not carry market-listing status.");
   assert.equal(generatedSnapshot.companyRotationEnabled, true,
     "The global company-rotation master must apply even while the legacy per-package copy is OFF.");
   assert.equal(generatedSnapshot.customerDailyQuota, 1,
@@ -447,6 +453,11 @@ const balanceBefore = await db.select({
   assert.equal(typeof popupRows[0]?.companyDisplayName, "string");
   assert.ok(String(popupRows[0]?.companyDisplayName || "").length > 0,
     "The persisted customer popup must include the selected catalogue company name.");
+  const popupCompanyMetadata = JSON.parse(String(popupRows[0]?.companyReferenceMetadataJson || "{}"));
+  assert.equal(popupCompanyMetadata.ticker, undefined,
+    "The customer popup metadata must preserve the brand-only snapshot without ticker claims.");
+  assert.equal(popupCompanyMetadata.exchangeCode, undefined,
+    "The customer popup metadata must not introduce exchange claims.");
   assert.equal(popupRows[0]?.deliveryStatus, "queued",
     "Worker admission queues the durable informational delivery; the customer poll owns the dispatch claim.");
   assert.equal(Number((await db.select({ deliveryAttemptCount: opportunityPopupEvents.deliveryAttemptCount }).from(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, popupRows[0]!.id)))[0]?.deliveryAttemptCount), 0,
