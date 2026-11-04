@@ -2123,7 +2123,7 @@ export async function resolveCustomerPayoutRequest(adminId: number, input: Payou
   return result;
 }
 
-export async function ensureCustomerControls(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");let row=(await db.select().from(customerControls).where(eq(customerControls.userId,userId)).limit(1))[0];if(!row){await db.insert(customerControls).values({userId});row=(await db.select().from(customerControls).where(eq(customerControls.userId,userId)).limit(1))[0];}return row;}
+export async function ensureCustomerControls(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");if(!Number.isSafeInteger(userId)||userId<=0)throw new Error("A valid customer ID is required");await db.insert(customerControls).values({userId}).onDuplicateKeyUpdate({set:{userId}});const row=(await db.select().from(customerControls).where(eq(customerControls.userId,userId)).limit(1))[0];if(!row)throw new Error("Customer controls could not be initialized");return row;}
 export async function listAdminCustomers(){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const rows=await db.select({id:users.id,name:users.name,email:users.email,role:users.role,createdAt:users.createdAt}).from(users).orderBy(desc(users.createdAt));
