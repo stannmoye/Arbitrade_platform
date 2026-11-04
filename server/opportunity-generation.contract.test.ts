@@ -195,4 +195,29 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(admin).toContain("Batch {batch.id}");
     expect(admin).toContain("Package breakdown · UTC day");
   });
+  it("enforces customer entitlement and package daily quotas transactionally before rotation allocation", () => {
+    expect(generator).toContain("termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson");
+    expect(generator).toContain("packageDailyOpportunityQuota:packages.opportunitiesPerDay");
+    expect(generator).toContain("policyDailyOpportunityQuota:opportunityPackagePolicies.maxPopupsPerDay");
+    expect(generator).toContain("const customerDailyQuota=");
+    expect(generator).toContain("const effectiveDailyQuota=");
+    expect(generator).toContain("eq(opportunityGenerationAssignments.packageSubscriptionId,Number(row.subscriptionId))");
+    expect(generator).toContain("eq(opportunityGenerationAssignments.packageId,Number(row.packageId))");
+    expect(generator).toContain("gte(opportunityGenerationAssignments.generatedAt,input.quotaWindowStart)");
+    expect(generator).toContain("if(subscriptionUsed>=customerDailyQuota||packageUsed>=effectiveDailyQuota)continue;");
+    expect(generator).toContain("customerDailyQuota:Number(selectedSubscription.customerDailyQuota)");
+    expect(generator).toContain("packageDailyOpportunityQuota:Number(selectedSubscription.effectiveDailyQuota)");
+    expect(generator).toContain("quotaWindowStart:input.quotaWindowStart.toISOString()");
+  });
+
+  it("keeps quota checks, rotation cursor writes, offer persistence and assignment snapshots in one transaction", () => {
+    expect(generator).toContain("return db.transaction(async tx=>{");
+    expect(generator).toContain("tx.update(appSettings).set({settingValue:JSON.stringify(selection.state)");
+    expect(generator).toContain("tx.insert(opportunityOffers).values({");
+    expect(generator).toContain("tx.insert(opportunityGenerationAssignments).values({");
+    expect(generator).toContain("packageSnapshotJson:JSON.stringify(snapshot)");
+    expect(generator.indexOf("tx.update(appSettings).set({settingValue:JSON.stringify(selection.state)"))
+      .toBeLessThan(generator.indexOf("tx.insert(opportunityOffers).values({"));
+  });
+
 });
