@@ -25,7 +25,7 @@ import { updatePopupDeliveryStatus } from "../server/opportunityLifecycle";
 const databaseUrlRaw = process.env.DATABASE_URL;
 if (!databaseUrlRaw) throw new Error("Trading popup delivery integration requires DATABASE_URL for a disposable migrated database.");
 const databaseUrl = new URL(databaseUrlRaw);
-const databaseName = decodeURIComponent(databaseUrl.pathname.replace(/^\\/+/, ""));
+const databaseName = decodeURIComponent(databaseUrl.pathname.replace(/^\/+/, ""));
 if (!/(?:test|testing|integration|disposable|ci)/i.test(databaseName) ||
     !new Set(["localhost", "127.0.0.1", "::1"]).has(databaseUrl.hostname)) {
   throw new Error("Refusing generation integration against a non-loopback or non-disposable database.");
