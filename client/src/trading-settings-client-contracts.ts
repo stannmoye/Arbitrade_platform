@@ -178,3 +178,45 @@ export function parseDeliveryIntervals(input: string): number[] | null {
   if (seconds.length > 20 || seconds.some((value) => !Number.isSafeInteger(value) || value < 5 || value > 3_600)) return null;
   return seconds;
 }
+
+
+export type GlobalTradeTimingFormValues = {
+  settlementMinutes: number;
+  creditDelaySeconds: number;
+  cooldownSeconds: number;
+  nextPopupFormulaDelaySeconds: number;
+  popupCooldownSeconds: number;
+  popupDisplaySeconds: number;
+  popupPreAlertSeconds: number;
+  popupJitterSeconds: number;
+  popupMaxPerHour: number;
+  marketRefreshIntervalMinutes: number;
+  blockUntilSettled: boolean;
+};
+
+/**
+ * Hydrate the global timing editor without treating valid numeric zeroes as
+ * missing values. Zero is meaningful for several delay/cooldown settings.
+ */
+export function normalizeGlobalTradeTimingSettings(value: unknown): GlobalTradeTimingFormValues {
+  const settings = isRecord(value) ? value : {};
+  const numberOrDefault = (key: string, fallback: number) => {
+    const raw = settings[key];
+    if (raw === null || raw === undefined || raw === "") return fallback;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+  return {
+    settlementMinutes: Math.max(15, Math.ceil(numberOrDefault("settlementDelaySeconds", 900) / 60)),
+    creditDelaySeconds: numberOrDefault("creditDelaySeconds", 0),
+    cooldownSeconds: numberOrDefault("cooldownSeconds", 30),
+    nextPopupFormulaDelaySeconds: numberOrDefault("nextPopupFormulaDelaySeconds", 30),
+    popupCooldownSeconds: numberOrDefault("popupCooldownSeconds", 45),
+    popupDisplaySeconds: numberOrDefault("popupDisplaySeconds", 8),
+    popupPreAlertSeconds: numberOrDefault("popupPreAlertSeconds", 4),
+    popupJitterSeconds: numberOrDefault("popupJitterSeconds", 90),
+    popupMaxPerHour: numberOrDefault("popupMaxPerHour", 12),
+    marketRefreshIntervalMinutes: numberOrDefault("marketRefreshIntervalMinutes", 120),
+    blockUntilSettled: typeof settings.blockUntilSettled === "boolean" ? settings.blockUntilSettled : true,
+  };
+}
