@@ -76,7 +76,7 @@ describe("production catalogue loader with optional ticker enrichment", () => {
         lastName: COMPANY_REFERENCE_CATALOGUE[1810]?.name,
         lastLogo: COMPANY_REFERENCE_CATALOGUE[1810]?.logoUrl,
         suppliedTickers: 0,
-      });;
+      });
     });
   });
 
