@@ -241,4 +241,8 @@ describe("worker health snapshot safety contract", () => {
     expect(snapshot).not.toMatch(/\.(?:insert|update|delete|transaction)\s*\(/);
     expect(snapshot).not.toMatch(/wallet|settlement|payout/i);
   });
+  it("classifies aggregate customer opportunity failures without customer identity", () => {
+    expect(safeWorkerErrorCode("Customer opportunity sub-cycle failures: 3")).toBe("CUSTOMER_CYCLE_FAILURES");
+  });
+
 });
