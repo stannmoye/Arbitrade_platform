@@ -35,3 +35,11 @@ All three migrations are represented in the Drizzle journal and schema on the Wo
 - Apply only forward migrations through the repository's supported migration runners. Never run a fresh-install reset against a populated database.
 - Before production rollout, Window 7 must verify 0103–0105 against the final merged migration journal on disposable MySQL 8.4 and MariaDB 11.4 databases, then validate upgrade compatibility from the supported prior schema.
 - No production migration or deployment is claimed by this workstream.
+
+
+## Workstream 4 — Opportunity Delivery & Customer Portal
+
+- **Schema changes:** none in this workstream increment. It reuses the existing `opportunity_popup_events`, `opportunity_delivery_idempotency`, `opportunity_delivery_events`, `opportunity_offers` and `app_settings` structures.
+- No new queue, table, index, migration, backfill, or destructive operation is introduced.
+- Window 7 must integrate Workstream 4 against the final combined schema after migrations 0103–0105 and run the existing guarded popup-delivery integration on disposable MySQL 8.4 and MariaDB 11.4 databases.
+- Existing packages, company catalogue entries/logos, customers, subscriptions and historical delivery records remain unchanged.
