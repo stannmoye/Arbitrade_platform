@@ -1,31 +1,27 @@
 # API Contracts
 
-**Coordination baseline:** 2026-11-04
+**Updated:** 2026-11-04
 
-## Existing admin operations
+## Existing generation administration — Window 3
 
-The Workstream 1 branch exposes these procedures inside the existing `adminOperations` router:
+The existing adminOperations router procedures introduced with PR #278 remain the single generation administration surface:
 
 | Procedure | Contract |
-| --- | --- |
-| `opportunityGenerationTemplates` | Admin-only query for saved optional templates. |
-| `opportunityGenerationMonitor` | Admin-only query for generation control, recent batches/assignments, daily totals and package breakdown. |
-| `opportunityGenerationControl` | Admin-only query for persisted generation enabled/version/audit metadata. |
-| `saveOpportunityGenerationTemplate` | Admin-only mutation for draft/approve/disable/archive actions. Requires a 5–500 character reason; edits require the expected template version. |
-| `updateOpportunityGenerationControl` | Admin-only mutation for enabled state, reason (5–500 characters) and expected control version. Uses a transaction, audit event and fresh read-back; stale versions return CONFLICT. |
+|---|---|
+| opportunityGenerationTemplates | Admin-only read of optional company display-term templates. |
+| opportunityGenerationMonitor | Admin-only read of persisted generation batches, assignments, package breakdown and daily outcomes. |
+| opportunityGenerationControl | Admin-only read of persisted generation enabled/version/audit metadata. |
+| saveOpportunityGenerationTemplate | Admin-only audited create/update/approve/disable/archive of optional templates. |
+| updateOpportunityGenerationControl | Admin-only audited, version-checked generation pause/resume with fresh persisted read-back. |
 
-The generation-control migration default is ON for new installations. Existing administrator values are preserved. Invalid/unavailable control state fails closed.
+Do not add a competing generation API or expose generation controls to customer roles.
 
-## Existing customer operations
+## Existing customer operations — Window 4
 
-- `customer.opportunities` is the authenticated customer read path for the customer's own offers and persisted delivery summary.
-- `customer.popupDeliveryStatus` acknowledges delivery/render/failure state using the authenticated customer context and optional dispatch lease token.
-- Existing popup lifecycle actions remain the owner for notice/open/dismiss/withdraw/display state. These actions must not create financial effects.
+- customer.opportunities remains the authenticated customer read path for that customer's own persisted opportunities and delivery summary.
+- customer.popupDeliveryStatus remains the existing acknowledgement path, including dispatch lease-token handling.
+- Customer clients do not choose package, company, payout rate, duration or generation state.
 
-## Contract stability
+## Compatibility
 
-- Do not expose admin generation controls to customer roles.
-- Do not add a second customer opportunity endpoint or an alternate company lookup path for generation.
-- Do not make customer clients select package, payout rate, duration or company outside server policy.
-- Any API changes by another workstream must be recorded here with router path, authorization class, input/output contract, idempotency and compatibility notes.
-- Exact generated output types should continue to be inferred from the existing tRPC router rather than copied into duplicate hand-maintained DTOs.
+Use inferred tRPC types from the existing router. Any future API changes must document authorization, validation, idempotency, versioning and backward compatibility here. Generation API success does not imply delivery, customer display or financial execution.
