@@ -36,6 +36,23 @@ if (!db) {
   throw new Error("Trading popup delivery integration cannot connect to its disposable migrated database.");
 }
 
+function describeErrorChain(error: unknown, seen = new Set<object>()): string {
+  if (error === null || error === undefined) return "";
+  if (typeof error !== "object") return String(error);
+  if (seen.has(error)) return "";
+  seen.add(error);
+  const value = error as Record<string, unknown>;
+  return [
+    value.name,
+    value.message,
+    value.code,
+    value.sqlMessage,
+    value.errno,
+    describeErrorChain(value.cause, seen),
+    describeErrorChain(value.originalError, seen),
+  ].filter(part => part !== null && part !== undefined && String(part).length > 0).join("\\n");
+}
+
 const migratedExecutionPolicies = await db.select({
   packageName: opportunityPackagePolicies.packageName,
   automaticTradingEnabled: opportunityPackagePolicies.automaticTradingEnabled,
@@ -594,7 +611,7 @@ const balanceBefore = await db.select({
   } catch (error) {
     injectedFailure = error;
   }
-  assert.match(String(injectedFailure), /forced_generation_insert_failure/,
+  assert.match(describeErrorChain(injectedFailure), /forced_generation_insert_failure/,
     "The rollback scenario must fail at the real generated-offer INSERT.");
   await rawConnection!.query(`DROP TRIGGER IF EXISTS ${rollbackTriggerName}`);
   rollbackTriggerName = undefined;
