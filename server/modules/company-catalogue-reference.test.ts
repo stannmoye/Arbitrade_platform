@@ -36,6 +36,7 @@ describe("production catalogue loader with optional ticker enrichment", () => {
         mappingPath,
         tickerSnapshotPath: resolve(root, "missing-ticker-snapshot.gz.b64"),
         tickerPartsDirectory: resolve(root, "missing-ticker-parts"),
+        expectedRecordCount: 2,
       });
       expect(loaded).toHaveLength(2);
       expect(loaded.map((company) => [company.id, company.name])).toEqual([
@@ -62,6 +63,7 @@ describe("production catalogue loader with optional ticker enrichment", () => {
         mappingPath,
         tickerSnapshotPath: resolve(root, "ticker.gz.b64"),
         tickerPartsDirectory: dataDirectory,
+        expectedRecordCount: 1,
       });
       expect(loaded[0]).toMatchObject({
         id: "logo-brand-0001",
@@ -75,14 +77,14 @@ describe("production catalogue loader with optional ticker enrichment", () => {
     });
   });
 
-  it("does not require workbook rows to match the catalogue size or supplement count", () => {
+  it("does not require ticker workbook rows to match the catalogue size or supplement count", () => {
     withFixture((root) => {
       const mappingPath = resolve(root, "logo-mapping.csv");
       writeFileSync(mappingPath, [
         "company_name,domain,filename,detail_url,source_asset_url",
         'Brand only,brand.example,by-country/Unassigned/brand.png,,',
       ].join("\n"));
-      const loaded = loadCompanyReferenceCatalogue({ mappingPath });
+      const loaded = loadCompanyReferenceCatalogue({ mappingPath, expectedRecordCount: 1 });
       expect(loaded).toHaveLength(1);
       expect(loaded[0]?.tickerClassification).toBe("other");
       expect(loaded[0]?.tickerResearchStatus).toBe("Not supplied");
