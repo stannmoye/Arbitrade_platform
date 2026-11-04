@@ -64,6 +64,21 @@ let originalCompanyCatalogueStateRow: { settingValue: string; updatedBy: number 
 let originalGlobalControlRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
 let currentTestGlobalPolicy: TradeGlobalControlPolicy | null = null;
 
+function describeErrorChain(error: unknown): string {
+  const messages: string[] = [];
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const value = current as { message?: unknown; code?: unknown; sqlMessage?: unknown; cause?: unknown; originalError?: unknown };
+    for (const part of [value.message, value.code, value.sqlMessage]) {
+      if (part != null) messages.push(String(part));
+    }
+    current = value.cause ?? value.originalError;
+  }
+  return messages.join(" | ");
+}
+
 async function persistGlobalPolicy(policy: TradeGlobalControlPolicy) {
   const settingValue = JSON.stringify(policy);
   await db.insert(appSettings).values({
@@ -428,12 +443,19 @@ const balanceBefore = await db.select({
   ));
   const offersBeforeFailure = await db.select({ id: opportunityOffers.id })
     .from(opportunityOffers).where(eq(opportunityOffers.assignedUserId, userId));
-  await listCustomerOpportunities(userId, {
-    workerCycle: true,
-    consumeDelivery: false,
-    automaticGenerationEnabled: true,
-    generationBatchId: `rotation-rollback-${token}`,
-  });
+  let injectedRotationFailure: unknown;
+  try {
+    await listCustomerOpportunities(userId, {
+      workerCycle: true,
+      consumeDelivery: false,
+      automaticGenerationEnabled: true,
+      generationBatchId: `rotation-rollback-${token}`,
+    });
+  } catch (error) {
+    injectedRotationFailure = error;
+  }
+  assert.match(describeErrorChain(injectedRotationFailure), /forced_rotation_generation_failure/,
+    "The rollback scenario must reach and surface the deliberately injected opportunity INSERT failure.");
   await rawConnection!.query(`DROP TRIGGER IF EXISTS ${rollbackTriggerName}`);
   rollbackTriggerName = undefined;
   const rotationAfterFailureRows = await db.select({ settingValue: appSettings.settingValue })
