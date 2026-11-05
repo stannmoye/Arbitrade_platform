@@ -11,6 +11,7 @@ const autoTrade = source.slice(autoTradeStart, autoTradeEnd);
 const createTradeStart = source.indexOf("export async function createTrade(");
 const createTrade = source.slice(createTradeStart);
 const walletFx = readFileSync(new URL("./modules/trading-wallet-fx.ts", import.meta.url), "utf8");
+const walletFx = readFileSync(new URL("./modules/trading-wallet-fx.ts", import.meta.url), "utf8");
 
 describe("insufficient-balance opportunity handling", () => {
   it("does not suppress eligible opportunities because the target-currency wallet alone is short", () => {
@@ -21,6 +22,10 @@ describe("insufficient-balance opportunity handling", () => {
     expect(implementation).toContain("autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls)");
     expect(implementation).toContain("noPackage:true");
     expect(implementation).toContain("eq(packages.enabled,true)");
+    expect(implementation).toContain("calculateCombinedAvailableTargetMinor");
+    expect(implementation).toContain("getFreshTradingFxRate");
+    expect(implementation).toContain("balanceStatus:balance.balanceStatus");
+    expect(walletFx).toContain("calculateCombinedAvailableTargetMinor");
     expect(autoTrade).not.toContain("listBalances(userId)");
     expect(autoTrade).not.toContain('find(row=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())');
     expect(autoTrade).not.toContain("INSUFFICIENT_AVAILABLE_BALANCE");
