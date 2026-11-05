@@ -202,7 +202,9 @@ describe("automatic opportunity generation and package-aware customer delivery",
     const guard = customerQuery.slice(guardStart, guardEnd);
     expect(guardStart).toBeGreaterThanOrEqual(0);
     expect(guardEnd).toBeGreaterThan(guardStart);
-    expect(guard).toContain("generationAssignmentByOffer.get(Number(offer.id))");
+    expect(guard).toContain("const offerId=Number(offer.id)");
+    expect(guard).toContain("generationAssignmentByOffer.get(offerId)");
+    expect(guard).toContain("insufficientBalanceOfferIds.has(offerId)");
     expect(guard).toContain('["generated","delivered"].includes(assignmentStatus)');
     expect(generator).toContain(".innerJoin(opportunityGenerationAssignments");
     expect(generator).toContain('inArray(opportunityGenerationAssignments.status,["generated","delivered"])');

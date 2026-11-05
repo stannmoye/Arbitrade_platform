@@ -30,6 +30,13 @@ describe("insufficient-balance opportunity handling", () => {
     expect(autoTrade).not.toContain("INSUFFICIENT_AVAILABLE_BALANCE");
   });
 
+  it("does not let an insufficient-balance popup block the next generated opportunity", () => {
+    expect(implementation).toContain("const insufficientBalanceOfferIds=new Set<number>()");
+    expect(implementation).toContain('eq(opportunityPopupEvents.balanceStatus,"insufficient")');
+    expect(implementation).toContain("if(insufficientBalanceOfferIds.has(offerId)) return false");
+    expect(implementation).toContain('["generated","delivered"].includes(assignmentStatus)');
+  });
+
   it("delegates the authoritative balance decision to atomic multi-wallet FX funding", () => {
     expect(autoTrade).toContain("const requestedAmount=Math.max(offerMinimum,packageMinimum)");
     expect(autoTrade).toContain("createTrade(userId,{");

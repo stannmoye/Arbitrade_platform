@@ -4162,8 +4162,21 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   // so the later automatic-trade pass does not count that same quota slot twice.
   const assignedSubscriptionByOffer=new Map<number,any>();
   const activeSubscriptionIds=eligibleSubscriptions.map(subscription=>Number(subscription.subscriptionId));
+  // An informational popup that has already been classified as insufficient
+  // balance is a terminal outcome for that offer, not a usable pending offer.
+  // Keep its popup/offer history intact, but do not let its still-open source offer
+  // hold the customer's generation gate forever.
+  const insufficientBalanceOfferIds=new Set<number>();
+  if(offerRows.length){
+    const insufficientRows=await db.select({offerId:opportunityPopupEvents.offerId}).from(opportunityPopupEvents)
+      .where(and(eq(opportunityPopupEvents.userId,userId),inArray(opportunityPopupEvents.offerId,offerRows.map(offer=>Number(offer.id))),
+        eq(opportunityPopupEvents.balanceStatus,"insufficient")));
+    for(const row of insufficientRows) insufficientBalanceOfferIds.add(Number(row.offerId));
+  }
   const hasUsableAssignedOffer=offerRows.some(offer=>{
-    const assignmentStatus=String(generationAssignmentByOffer.get(Number(offer.id))?.status||"");
+    const offerId=Number(offer.id);
+    if(insufficientBalanceOfferIds.has(offerId)) return false;
+    const assignmentStatus=String(generationAssignmentByOffer.get(offerId)?.status||"");
     return activeSubscriptionIds.includes(Number(offer.assignedPackageSubscriptionId))&&["generated","delivered"].includes(assignmentStatus);
   });
   const generationGateReason=options.workerCycle!==true?"NOT_WORKER_CYCLE"
