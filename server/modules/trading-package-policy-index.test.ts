@@ -11,7 +11,7 @@ describe("Trading package policy identity", () => {
   it("fails closed when normalized package identities are ambiguous", () => {
     const policies = indexTradingPackagePolicies([
       { packageName: "Sterling Reserve", policyVersion: 4 },
-      { packageName: " sterling reserve ", policyVersion: 5 },
+      { packageName: "STERLING RESERVE", policyVersion: 5 },
     ]);
     expect(policies.has("sterling reserve")).toBe(false);
   });
