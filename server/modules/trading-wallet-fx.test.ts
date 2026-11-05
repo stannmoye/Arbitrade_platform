@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planCrossWalletFunding, type FxRateSnapshot } from "./trading-wallet-fx";
+import { calculateCombinedAvailableBalanceMinor, planCrossWalletFunding, type FxRateSnapshot } from "./trading-wallet-fx";
 
 const rate = (currency: string, scale: number, rateUsdPerUnit: string): FxRateSnapshot => ({
   currency, scale, rateUsdPerUnit, provider: "test-api", sourceDate: "2026-10-29T10:00:00.000Z",
@@ -79,4 +79,40 @@ describe("multi-wallet Trading funding plan", () => {
       ],
     })).toThrow(/Duplicate source wallet currency/);
   });
+
+  it("values all enabled spendable wallets in the opportunity currency", () => {
+    const result = calculateCombinedAvailableBalanceMinor({
+      targetCurrency: "USD",
+      wallets: [
+        { currency: "USD", scale: 2, availableMinor: 5_000, rateUsdPerUnit: "1" },
+        { currency: "EUR", scale: 2, availableMinor: 3_000, rateUsdPerUnit: "1.1" },
+        { currency: "GBP", scale: 2, availableMinor: 2_000, rateUsdPerUnit: "1.25" },
+      ],
+    });
+    expect(result).toBe(10_800);
+  });
+
+  it("rounds each converted wallet down and rejects invalid or duplicate wallet data", () => {
+    expect(calculateCombinedAvailableBalanceMinor({
+      targetCurrency: "USD",
+      wallets: [
+        { currency: "USD", scale: 2, availableMinor: 0, rateUsdPerUnit: "1" },
+        { currency: "EUR", scale: 2, availableMinor: 1, rateUsdPerUnit: "1.1" },
+      ],
+    })).toBe(1);
+    expect(() => calculateCombinedAvailableBalanceMinor({
+      targetCurrency: "USD",
+      wallets: [
+        { currency: "USD", scale: 2, availableMinor: 100, rateUsdPerUnit: "1" },
+        { currency: "usd", scale: 2, availableMinor: 100, rateUsdPerUnit: "1" },
+      ],
+    })).toThrow(/Duplicate wallet currency/);
+    expect(() => calculateCombinedAvailableBalanceMinor({
+      targetCurrency: "USD",
+      wallets: [
+        { currency: "USD", scale: 2, availableMinor: -1, rateUsdPerUnit: "1" },
+      ],
+    })).toThrow(/non-negative safe integer/);
+  });
+
 });

@@ -15,7 +15,7 @@ import { assessOpportunityPackageCompatibility, type OpportunityPackageCompatibi
 import { claimPopupDeliveryDispatches, ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { calculateConfiguredProfitMinor, chooseInclusiveInteger } from "./modules/trading-popup-policy";
-import { planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
+import { calculateCombinedAvailableBalanceMinor, planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, usdUnitsToNativeMinor } from "../shared/money";
 import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, createCompanySpotlightDisplayGuard, isCompanySpotlightDisplayAllowed, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
@@ -4280,8 +4280,28 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     // Persist the visible popup first. Only write the quota-consumption ledger after
     // every popup row is confirmed; an insert failure must not consume a quota slot.
     const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map(offer=>{
-      const available=Math.max(0,Number(balancesSnapshot.find((row:any)=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())?.availableMinor||0));
-      return {userId,offerId:offer.id,quotaDay,packageId:Number(offer.packageId),packageName:offer.packageName,maxPendingDeliveries:Math.max(0,Number(policyByName.get(normalizeTradingPackagePolicyKey(offer.packageName))?.maxPendingDeliveries??0)),symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
+      // Assess the combined spendable value of every enabled customer wallet,
+      // converting each native balance into the opportunity currency using the
+      // enabled currency registry. This snapshot is informational only; any
+      // future allocation must still obtain fresh FX evidence and recheck funds.
+      let available:number|null=null;
+      try{
+        const ratesByCurrency=new Map(currencyRows.map((row:any)=>[String(row.code).toUpperCase(),row]));
+        available=calculateCombinedAvailableBalanceMinor({
+          targetCurrency:String(offer.currency),
+          wallets:balancesSnapshot.map((wallet:any)=>{
+            const currency=String(wallet.currency).toUpperCase();
+            const rate=ratesByCurrency.get(currency) as any;
+            if(!rate)throw new Error(`Enabled FX rate is unavailable for wallet currency ${currency}`);
+            return {currency,scale:Number(rate.scale),availableMinor:Number(wallet.availableMinor||0),rateUsdPerUnit:String(rate.usdRate)};
+          }),
+        });
+      }catch(error){
+        console.warn("[Trading] Combined wallet balance valuation unavailable:",error instanceof Error?error.message:"Unknown valuation error");
+      }
+      const minimumMinor=Number(offer.minimumMinor);
+      const balanceStatus=available===null?"unknown":available>=minimumMinor?"sufficient":"insufficient";
+      return {userId,offerId:offer.id,quotaDay,packageId:Number(offer.packageId),packageName:offer.packageName,maxPendingDeliveries:Math.max(0,Number(policyByName.get(normalizeTradingPackagePolicyKey(offer.packageName))?.maxPendingDeliveries??0)),symbol:offer.symbol,currency:offer.currency,minimumMinor,
         expectedRewardBps:Number(offer.expectedRewardBps),configuredProfitRateBps:Number(offer.configuredProfitRateBps),
         configuredDurationSeconds:Number(offer.configuredDurationSeconds),configuredPopupDisplaySeconds:Number(offer.configuredPopupDisplaySeconds),
         policyVersion:Number(offer.policyVersion||1),packagePolicyVersionSnapshot:Number(offer.packagePolicyVersionSnapshot||offer.policyVersion||1),
@@ -4289,7 +4309,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         companyRotationEnabled:Boolean(offer.companyRotationEnabled),companyRotationCountryNames:String(offer.companyRotationCountryNames||""),
         companyRotationRepeatPolicy:offer.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
         companyReferenceId:offer.companyReferenceId??null,companyDisplayName:offer.companyDisplayName??null,companyLogoUrl:offer.companyLogoUrl??null,companyReferenceMetadataJson:offer.companyReferenceMetadataJson??null,
-        balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
+        balanceAvailableMinor:available??0,balanceStatus,
         marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt,publishedExpectedRewardBps:Number(offer.expectedRewardBps),publishedDurationSeconds:Number(offer.durationSeconds),configuredProfitRateBps:Number(offer.configuredProfitRateBps),configuredDurationSeconds:Number(offer.configuredDurationSeconds)})};
     }));
     const missingLifecycleIds=newlyEligible.filter(offer=>!lifecycleIds.has(userId+":"+offer.id));
