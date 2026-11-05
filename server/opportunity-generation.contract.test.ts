@@ -80,6 +80,19 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(customerPortal).toContain('"Brand catalogue opportunity"');
   });
 
+  it("detects missing popup delivery IDs before filtering or recording delivered opportunities", () => {
+    const persistenceStart = db.indexOf("const missingLifecycleIds=newlyEligible.filter(");
+    const missingCheck = db.indexOf("if(missingLifecycleIds.length) throw new Error", persistenceStart);
+    const deliveryEventInsert = db.indexOf("await db.insert(opportunityDeliveryEvents).values(newlyEligible.map", persistenceStart);
+    const deliveryAssignment = db.indexOf("for(const offer of newlyEligible){", deliveryEventInsert);
+    expect(persistenceStart).toBeGreaterThanOrEqual(0);
+    expect(missingCheck).toBeGreaterThan(persistenceStart);
+    expect(deliveryEventInsert).toBeGreaterThan(missingCheck);
+    expect(deliveryAssignment).toBeGreaterThan(deliveryEventInsert);
+    expect(db.slice(persistenceStart, missingCheck)).toContain("!lifecycleIds.has(userId+\":\"+offer.id)");
+    expect(db.slice(persistenceStart, deliveryEventInsert)).not.toContain("newlyEligible=newlyEligible.filter");
+  });
+
   it("revalidates pinned companies when popup persistence occurs and expires generated assignments safely", () => {
     expect(lifecycle).toContain("if (item.companyReferenceId)");
     expect(lifecycle).toContain("catalogueState.verifiedIds.includes(pinned.id)");
