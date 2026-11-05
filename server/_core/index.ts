@@ -340,7 +340,7 @@ async function startServer() {
         });
         tradeCycleConsecutiveFailures = 0;
         tradeCycleRetryAfterMs = 0;
-        console.log("[AutoTrade] cycle", { ...result, settlementReconciliation, settlementCreditPosting });
+        console.log("[AutoTrade] cycle", { ...result, generationDiagnostics: result.generationDiagnostics, deliveryDiagnostics: result.deliveryDiagnostics, settlementReconciliation, settlementCreditPosting });
       } catch (error) {
         tradeCycleConsecutiveFailures = Math.min(tradeCycleConsecutiveFailures + 1, 8);
         const backoffMs = Math.min(tradeCycleMaximumBackoffMs, tradeCycleBaseIntervalMs * (2 ** (tradeCycleConsecutiveFailures - 1)));
