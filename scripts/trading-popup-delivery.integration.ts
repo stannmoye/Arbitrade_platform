@@ -71,6 +71,7 @@ let secondPackageId: number | undefined;
 let secondSubscriptionId: number | undefined;
 let quotaSelectionOfferId: number | undefined;
 let capacitySelectionOfferId: number | undefined;
+let insufficientRetryOfferId: number | undefined;
 const catalogueStateKey = "trade.companyCatalogue.adminState";
 let originalCompanyCatalogueStateRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
 let originalGlobalControlRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
@@ -515,34 +516,6 @@ const balanceBefore = await db.select({
       eq(opportunityDeliveryEvents.offerId, offerId),
     ))).length, 1);
 
-  // A missed/insufficient popup is terminal for that offer. The next worker
-  // cycle must create a different opportunity, not reuse the still-open source.
-  await db.update(opportunityPopupEvents).set({ balanceStatus: "insufficient", balanceAvailableMinor: 0 })
-    .where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id)));
-  await db.update(opportunityPackagePolicies).set({
-    minIntervalSeconds: 0,
-    maxIntervalSeconds: 0,
-    postCompletionIntervalSeconds: 0,
-  }).where(eq(opportunityPackagePolicies.packageName, packageName));
-  const afterInsufficientCycle = await listCustomerOpportunities(userId, {
-    workerCycle: true,
-    consumeDelivery: false,
-    automaticGenerationEnabled: true,
-    generationBatchId: `popup-delivery-after-insufficient-${token}`,
-  });
-  const nextGeneratedOfferId = Number(afterInsufficientCycle.generatedOpportunityId);
-  assert.ok(Number.isSafeInteger(nextGeneratedOfferId) && nextGeneratedOfferId > 0,
-    "An insufficient-balance popup must not prevent the next worker cycle from generating an opportunity.");
-  assert.notEqual(nextGeneratedOfferId, offerId,
-    "The next worker cycle must not return the original insufficient-balance offer.");
-  assert.equal((await db.select({ id: opportunityGenerationAssignments.id }).from(opportunityGenerationAssignments)
-    .where(eq(opportunityGenerationAssignments.offerId, nextGeneratedOfferId))).length, 1,
-    "The next opportunity must persist its own generation assignment.");
-  assert.equal((await db.select({ balanceStatus: opportunityPopupEvents.balanceStatus }).from(opportunityPopupEvents)
-    .where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id))))[0]?.balanceStatus, "insufficient",
-    "The original missed popup history must remain intact.");
-  offerId = nextGeneratedOfferId;
-
   // Inject a database failure after rotation selection but before opportunity
   // persistence. The transaction must leave the durable rotation cursor intact.
   const rotationKey = `trading.companyRotation.${userId}.${packageId}`;
@@ -864,6 +837,34 @@ const balanceBefore = await db.select({
   await db.update(opportunityOffers).set({ status: "closed" })
     .where(eq(opportunityOffers.id, capacitySelectionOfferId));
 
+  // A missed/insufficient popup is terminal for that offer. The next worker
+  // cycle must create a different opportunity, not reuse the still-open source.
+  await db.update(opportunityPopupEvents).set({ balanceStatus: "insufficient", balanceAvailableMinor: 0 })
+    .where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id)));
+  await db.update(opportunityPackagePolicies).set({
+    minIntervalSeconds: 0,
+    maxIntervalSeconds: 0,
+    postCompletionIntervalSeconds: 0,
+  }).where(eq(opportunityPackagePolicies.packageName, packageName));
+  const afterInsufficientCycle = await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    automaticGenerationEnabled: true,
+    generationBatchId: `popup-delivery-after-insufficient-${token}`,
+  });
+  insufficientRetryOfferId = Number(afterInsufficientCycle.generatedOpportunityId);
+  assert.ok(Number.isSafeInteger(insufficientRetryOfferId) && insufficientRetryOfferId > 0,
+    "An insufficient-balance popup must not prevent the next worker cycle from generating an opportunity.");
+  assert.notEqual(generatedAfterInsufficientId, offerId,
+    "The next worker cycle must not return the original insufficient-balance offer.");
+  assert.equal((await db.select({ id: opportunityGenerationAssignments.id }).from(opportunityGenerationAssignments)
+    .where(eq(opportunityGenerationAssignments.offerId, generatedAfterInsufficientId))).length, 1,
+    "The next opportunity must persist its own generation assignment.");
+  assert.equal((await db.select({ balanceStatus: opportunityPopupEvents.balanceStatus }).from(opportunityPopupEvents)
+    .where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id))))[0]?.balanceStatus, "insufficient",
+    "The original missed popup history must remain intact.");
+  offerId = insufficientRetryOfferId;
+
   assert.deepEqual(
     await db.select({
       availableMinor: customerBalances.availableMinor,
@@ -985,7 +986,7 @@ const balanceBefore = await db.select({
           await rawConnection.query(`DROP TRIGGER IF EXISTS ${rollbackTriggerName}`);
           rollbackTriggerName = undefined;
         }
-        for (const fixtureOfferId of [offerId, blockedOfferId, rollbackRetryOfferId, concurrentOfferId, quotaSelectionOfferId, capacitySelectionOfferId]) {
+        for (const fixtureOfferId of [offerId, blockedOfferId, rollbackRetryOfferId, concurrentOfferId, quotaSelectionOfferId, capacitySelectionOfferId, insufficientRetryOfferId]) {
           if (userId !== undefined && fixtureOfferId !== undefined) {
             await db.delete(opportunityGenerationAssignments).where(eq(opportunityGenerationAssignments.offerId, fixtureOfferId));
             await db.delete(opportunityDeliveryIdempotency).where(and(
