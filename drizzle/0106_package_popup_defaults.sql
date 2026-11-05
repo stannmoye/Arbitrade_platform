@@ -9,7 +9,7 @@
 UPDATE `opportunity_package_policies` policy
 JOIN `packages` package ON LOWER(policy.`packageName`) = LOWER(package.`name`)
 JOIN (
-  SELECT ranked.`id`, 180 + ((ranked.`packageOrder` - 1) * 120) AS `intervalSeconds`
+  SELECT ranked.`id`, CASE WHEN ranked.`packageOrder` = 1 THEN 180 WHEN ranked.`packageOrder` = 2 THEN 300 WHEN ranked.`packageOrder` = 3 THEN 420 WHEN ranked.`packageOrder` = 4 THEN 480 ELSE 480 + ((ranked.`packageOrder` - 4) * 120) END AS `intervalSeconds`
   FROM (
     SELECT `id`, ROW_NUMBER() OVER (ORDER BY `id`) AS `packageOrder`
     FROM `packages`
@@ -60,7 +60,7 @@ SELECT
   FALSE, FALSE, FALSE, FALSE, 1, NULL
 FROM `packages` package
 JOIN (
-  SELECT ranked.`id`, 180 + ((ranked.`packageOrder` - 1) * 120) AS `intervalSeconds`
+  SELECT ranked.`id`, CASE WHEN ranked.`packageOrder` = 1 THEN 180 WHEN ranked.`packageOrder` = 2 THEN 300 WHEN ranked.`packageOrder` = 3 THEN 420 WHEN ranked.`packageOrder` = 4 THEN 480 ELSE 480 + ((ranked.`packageOrder` - 4) * 120) END AS `intervalSeconds`
   FROM (
     SELECT `id`, ROW_NUMBER() OVER (ORDER BY `id`) AS `packageOrder`
     FROM `packages`
