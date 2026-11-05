@@ -852,8 +852,9 @@ const balanceBefore = await db.select({
     automaticGenerationEnabled: true,
     generationBatchId: `popup-delivery-after-insufficient-${token}`,
   });
-  insufficientRetryOfferId = Number(afterInsufficientCycle.generatedOpportunityId);
-  assert.ok(Number.isSafeInteger(insufficientRetryOfferId) && insufficientRetryOfferId > 0,
+  const generatedAfterInsufficientId = Number(afterInsufficientCycle.generatedOpportunityId);
+  insufficientRetryOfferId = generatedAfterInsufficientId;
+  assert.ok(Number.isSafeInteger(generatedAfterInsufficientId) && generatedAfterInsufficientId > 0,
     "An insufficient-balance popup must not prevent the next worker cycle from generating an opportunity.");
   assert.notEqual(generatedAfterInsufficientId, offerId,
     "The next worker cycle must not return the original insufficient-balance offer.");
@@ -863,7 +864,6 @@ const balanceBefore = await db.select({
   assert.equal((await db.select({ balanceStatus: opportunityPopupEvents.balanceStatus }).from(opportunityPopupEvents)
     .where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id))))[0]?.balanceStatus, "insufficient",
     "The original missed popup history must remain intact.");
-  offerId = insufficientRetryOfferId;
 
   assert.deepEqual(
     await db.select({
