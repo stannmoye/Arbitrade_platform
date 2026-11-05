@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planCrossWalletFunding, type FxRateSnapshot } from "./trading-wallet-fx";
+import { calculateCombinedAvailableBalanceMinor, planCrossWalletFunding, type FxRateSnapshot } from "./trading-wallet-fx";
 
 const rate = (currency: string, scale: number, rateUsdPerUnit: string): FxRateSnapshot => ({
   currency, scale, rateUsdPerUnit, provider: "test-api", sourceDate: "2026-10-29T10:00:00.000Z",
@@ -81,7 +81,6 @@ describe("multi-wallet Trading funding plan", () => {
   });
 
   it("values all enabled spendable wallets in the opportunity currency", () => {
-    const { calculateCombinedAvailableBalanceMinor } = require("./trading-wallet-fx") as typeof import("./trading-wallet-fx");
     const result = calculateCombinedAvailableBalanceMinor({
       targetCurrency: "USD",
       wallets: [
