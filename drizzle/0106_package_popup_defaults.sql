@@ -16,28 +16,28 @@ JOIN (
   ) ranked
 ) schedule ON schedule.`id` = package.`id`
 SET
-  policy.`minimumPayoutRateBps` = CASE
-    WHEN policy.`minimumPayoutRateBps` BETWEEN 1 AND 5000
-     AND policy.`maximumPayoutRateBps` BETWEEN policy.`minimumPayoutRateBps` AND 5000
-    THEN policy.`minimumPayoutRateBps` ELSE 200 END,
   policy.`maximumPayoutRateBps` = CASE
     WHEN policy.`minimumPayoutRateBps` BETWEEN 1 AND 5000
      AND policy.`maximumPayoutRateBps` BETWEEN policy.`minimumPayoutRateBps` AND 5000
     THEN policy.`maximumPayoutRateBps` ELSE 300 END,
-  policy.`minimumTradeDurationSeconds` = CASE
-    WHEN policy.`minimumTradeDurationSeconds` BETWEEN 10 AND 86400
-     AND policy.`maximumTradeDurationSeconds` BETWEEN policy.`minimumTradeDurationSeconds` AND 86400
-    THEN policy.`minimumTradeDurationSeconds` ELSE 300 END,
+  policy.`minimumPayoutRateBps` = CASE
+    WHEN policy.`minimumPayoutRateBps` BETWEEN 1 AND 5000
+     AND policy.`maximumPayoutRateBps` BETWEEN policy.`minimumPayoutRateBps` AND 5000
+    THEN policy.`minimumPayoutRateBps` ELSE 200 END,
   policy.`maximumTradeDurationSeconds` = CASE
     WHEN policy.`minimumTradeDurationSeconds` BETWEEN 10 AND 86400
      AND policy.`maximumTradeDurationSeconds` BETWEEN policy.`minimumTradeDurationSeconds` AND 86400
     THEN policy.`maximumTradeDurationSeconds` ELSE 900 END,
-  policy.`minIntervalSeconds` = CASE
-    WHEN policy.`minIntervalSeconds` = 45 AND policy.`maxIntervalSeconds` = 3600
-    THEN schedule.`intervalSeconds` ELSE policy.`minIntervalSeconds` END,
+  policy.`minimumTradeDurationSeconds` = CASE
+    WHEN policy.`minimumTradeDurationSeconds` BETWEEN 10 AND 86400
+     AND policy.`maximumTradeDurationSeconds` BETWEEN policy.`minimumTradeDurationSeconds` AND 86400
+    THEN policy.`minimumTradeDurationSeconds` ELSE 300 END,
   policy.`maxIntervalSeconds` = CASE
     WHEN policy.`minIntervalSeconds` = 45 AND policy.`maxIntervalSeconds` = 3600
-    THEN schedule.`intervalSeconds` ELSE policy.`maxIntervalSeconds` END
+    THEN schedule.`intervalSeconds` ELSE policy.`maxIntervalSeconds` END,
+  policy.`minIntervalSeconds` = CASE
+    WHEN policy.`minIntervalSeconds` = 45 AND policy.`maxIntervalSeconds` = schedule.`intervalSeconds`
+    THEN schedule.`intervalSeconds` ELSE policy.`minIntervalSeconds` END
 WHERE policy.`updatedBy` IS NULL;
 --> statement-breakpoint
 INSERT INTO `opportunity_package_policies` (
