@@ -10,6 +10,7 @@ const autoTradeEnd = source.indexOf("export async function listCustomerOpportuni
 const autoTrade = source.slice(autoTradeStart, autoTradeEnd);
 const createTradeStart = source.indexOf("export async function createTrade(");
 const createTrade = source.slice(createTradeStart);
+const walletFx = readFileSync(new URL("./modules/trading-wallet-fx.ts", import.meta.url), "utf8");
 
 describe("insufficient-balance opportunity handling", () => {
   it("does not suppress eligible opportunities because the target-currency wallet alone is short", () => {
@@ -30,7 +31,7 @@ describe("insufficient-balance opportunity handling", () => {
     expect(autoTrade).toContain("createTrade(userId,{");
     expect(createTrade).toContain("getFreshTradingFxRate(config)");
     expect(createTrade).toContain("planCrossWalletFunding({");
-    expect(createTrade).toContain("Insufficient combined spendable wallet balance");
+    expect(walletFx).toContain("Insufficient combined spendable wallet balance");
     expect(createTrade).toContain("ORDER BY currency FOR UPDATE");
     expect(createTrade).toContain("trade_fx_conversion_debit");
     expect(createTrade).toContain("trade_fx_conversion_credit");
