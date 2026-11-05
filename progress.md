@@ -1303,3 +1303,17 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - **Safety/status:** No application database, migration, wallet/ledger/trade/settlement/payout mutation, production setting, merge or deployment was performed. Automatic financial execution remains hard-disabled. No tracked companion specification PDF exists in the repository; Markdown requirements were updated, and no absent PDF is claimed as changed.
 - **Delivery:** Source commit `fa01575485545e2d853bcf875e858dcc5143ada4` was pushed to `feat/previous-settlement-admin-toggle`; GitHub returned no Actions run for that exact SHA. No PR was opened, and `main` remains unchanged.
 - **Next:** Open a PR for review when desired. Merge/release remains separate and requires exact-head CI; no deployment was performed.
+
+
+---
+
+## 2026-11-05 — Automatic opportunity generation skip diagnostics and stale-offer guard
+
+- Working branch: `fix/automatic-opportunity-generation-diagnostics-2026-11-05`, based on latest observed main commit `1cb0adb65d81e3faa4289a57c39c0a0aa1f9d4e5`.
+- Added explicit worker-cycle generation diagnostics. Every scanned eligible customer now reports a reason code when generation is skipped, including disabled/malformed generation control, unavailable global controls, disabled tier-policy or popup-delivery masters, delivery cooldown, exhausted quota/visible capacity, and an already-open generated assignment.
+- Added generator-level skip reasons for missing/invalid package policy, exhausted customer/package quota, zero pending allowance, full pending capacity, an empty currently approved country-filtered catalogue pool, and missing enabled package currency. The worker aggregates skip reasons and reports generation controls, popup-delivery state, offers seen, and popup rows persisted in the `[AutoTrade] cycle` log.
+- Corrected a stale-offer guard: an open offer now suppresses a new generation only when it has a matching persisted generated/delivered assignment. An orphaned or legacy open offer without that assignment no longer blocks the automatic generator; the generator's reusable-offer query applies the same assignment requirement.
+- Renamed the market-data cleanup result in worker logs from the ambiguous `opportunities` label to `marketReferenceOffers`. `ensureMarketDrivenOpportunities()` remains intentionally separate and still does not create customer offers from market snapshots.
+- Added contract coverage for the skip reasons, assignment-aware stale-offer guard, and runtime log distinction. Automatic financial execution remains hard-disabled.
+- **Validation status:** changes are committed to this branch; exact-head GitHub Actions and type/build/test verification are pending. No live database access, production-setting changes, migrations, deployment, customer wallet/ledger mutation, trade execution, or settlement was performed. Existing package/company/customer data was not touched.
+- **Important acceptance boundary:** this change makes the next Blitz worker cycle explain why an eligible customer is skipped and removes the orphan-offer blocker. It does not claim a production popup has been generated or verified; production configuration and eligible-customer data must be checked using the new reason-coded cycle diagnostics after deployment.
