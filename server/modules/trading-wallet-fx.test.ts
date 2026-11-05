@@ -4,6 +4,9 @@ import { calculateCombinedAvailableTargetMinor, planCrossWalletFunding, type FxR
 const rate = (currency: string, scale: number, rateUsdPerUnit: string): FxRateSnapshot => ({
   currency, scale, rateUsdPerUnit, provider: "test-api", sourceDate: "2026-10-29T10:00:00.000Z",
   fetchedAt: new Date("2026-10-29T10:00:00.000Z"),
+});
+
+describe("combined spendable wallet balance", () => {
   it("values all spendable wallets in the target currency using current FX rates", () => {
     const result = calculateCombinedAvailableTargetMinor({
       targetCurrency: "USD",
@@ -38,6 +41,19 @@ const rate = (currency: string, scale: number, rateUsdPerUnit: string): FxRateSn
     })).toThrow(/current FX quote is unavailable/);
   });
 
+  it("rejects duplicate wallet currencies and unsafe balances", () => {
+    expect(() => calculateCombinedAvailableTargetMinor({
+      targetCurrency: "USD",
+      wallets: [
+        { currency: "USD", scale: 2, availableMinor: 100 },
+        { currency: "usd", scale: 2, availableMinor: 100 },
+      ],
+    })).toThrow(/Duplicate wallet currency/);
+    expect(() => calculateCombinedAvailableTargetMinor({
+      targetCurrency: "USD",
+      wallets: [{ currency: "USD", scale: 2, availableMinor: -1 }],
+    })).toThrow(/non-negative safe integer/);
+  });
 });
 
 describe("multi-wallet Trading funding plan", () => {
@@ -77,7 +93,7 @@ describe("multi-wallet Trading funding plan", () => {
     })).toThrow(/Insufficient combined/);
   });
 
-  it("rejects invalid scales and stale/missing source rates rather than guessing", () => {
+  it("rejects invalid scales and missing source rates rather than guessing", () => {
     expect(() => planCrossWalletFunding({
       requiredTargetMinor: 100, targetAvailableMinor: 0,
       targetRate: rate("USD", 2, "1"),
