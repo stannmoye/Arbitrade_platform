@@ -3984,7 +3984,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const emptyResult=async (delivery:any,reason:string,counts:Record<string,number>={})=>({offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,generatedOpportunityId:null,delivery,
     generationDiagnostics:{attempted:false,reason,generationControlEnabled:options.automaticGenerationEnabled===true,
       globalControlsAvailable:globalPolicy.available,tierPolicyMasterEnabled:globalPolicy.tierPolicyMasterEnabled,
-      popupDeliveryMasterEnabled:globalPolicy.informationalPopupDeliveryEnabled,...counts}});
+      popupDeliveryMasterEnabled:globalPolicy.informationalPopupDeliveryEnabled,...counts},
+    deliveryDiagnostics:{enabled:false,openAssignedOffers:0,generatedAssignments:0,popupEventsPersistedThisCycle:0,activePopupEvents:0,remainingQuota:0}});
   if(controls.accountStatus!=="active") return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,accountInactive:true,popupPolicy:{}},"CUSTOMER_ACCOUNT_INACTIVE");
   const subscriptions=(await db.select({
     subscriptionId:customerPackageSubscriptions.id,packageId:packages.id,packageName:packages.name,
