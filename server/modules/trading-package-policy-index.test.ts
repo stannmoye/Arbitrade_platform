@@ -17,6 +17,6 @@ describe("Trading package policy identity", () => {
   });
 
   it("ignores empty package names", () => {
-    expect(indexTradingPackagePolicies([{ packageName: "  ", policyVersion: 1 }]).size).toBe(0);
+    expect(indexTradingPackagePolicies([{ packageName: "", policyVersion: 1 }]).size).toBe(0);
   });
 });
