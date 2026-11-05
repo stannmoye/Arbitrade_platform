@@ -3321,7 +3321,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         companyRotationCountryNames:opportunityPackagePolicies.companyRotationCountryNames,
         companyRotationRepeatPolicy:opportunityPackagePolicies.companyRotationRepeatPolicy,badgeLabel:opportunityPackagePolicies.badgeLabel,
       }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
-        .innerJoin(opportunityPackagePolicies,sql`LOWER(TRIM(${opportunityPackagePolicies.packageName})) = LOWER(TRIM(${packages.name}))`)
+        .innerJoin(opportunityPackagePolicies,sql`LOWER(${opportunityPackagePolicies.packageName}) = LOWER(${packages.name})`)
         .where(and(eq(customerPackageSubscriptions.id,candidate.subscriptionId),eq(customerPackageSubscriptions.userId,input.userId),
           eq(customerPackageSubscriptions.status,"active"),sql`${customerPackageSubscriptions.activationKey} LIKE 'auto-tier:%'`,
           lte(customerPackageSubscriptions.startsAt,input.now),or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,input.now)),
