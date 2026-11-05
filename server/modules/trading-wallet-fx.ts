@@ -173,3 +173,61 @@ export function planCrossWalletFunding(input: {
   }, 0);
   return { targetCreditMinor, sourceDebits };
 }
+
+/**
+ * Values every enabled, spendable wallet in the opportunity's target currency.
+ * Each foreign wallet is converted independently with current, provenance-bearing
+ * FX snapshots; flooring occurs only at the target currency's minor-unit boundary.
+ * A positive foreign balance without a valid quote makes the total unknown.
+ */
+export function calculateCombinedAvailableTargetMinor(input: {
+  targetCurrency: string;
+  targetRate?: FxRateSnapshot | null;
+  wallets: AvailableWallet[];
+}): number {
+  const targetCurrency = input.targetCurrency.trim().toUpperCase();
+  if (!targetCurrency) throw new Error("Target wallet currency is required");
+  const seenCurrencies = new Set<string>();
+  let targetTotal = 0n;
+  const foreignWallets: AvailableWallet[] = [];
+  for (const wallet of input.wallets) {
+    const currency = wallet.currency.trim().toUpperCase();
+    if (!currency) throw new Error("Every wallet must identify its currency");
+    if (seenCurrencies.has(currency)) throw new Error(`Duplicate wallet currency: ${currency}`);
+    seenCurrencies.add(currency);
+    assertMinor(`${currency} availableMinor`, wallet.availableMinor);
+    const scaleFactor = pow10(wallet.scale);
+    if (currency === targetCurrency) {
+      targetTotal += BigInt(wallet.availableMinor);
+      continue;
+    }
+    if (wallet.availableMinor > 0) foreignWallets.push({ ...wallet, currency, scale: wallet.scale, rate: wallet.rate });
+    void scaleFactor;
+  }
+  if (!foreignWallets.length) return safeNumber(targetTotal, "Combined target-currency wallet balance");
+  const targetRate = input.targetRate;
+  if (!targetRate || targetRate.currency.trim().toUpperCase() !== targetCurrency) {
+    throw new Error("A current target-currency FX quote is required to combine wallet balances");
+  }
+  if (!targetRate.provider.trim() || !targetRate.sourceDate.trim() || !Number.isFinite(targetRate.fetchedAt.getTime())) {
+    throw new Error("Target FX rate snapshot is missing valid provenance");
+  }
+  const targetRateScaled = rateToScaled(targetRate.rateUsdPerUnit);
+  const targetScaleFactor = pow10(targetRate.scale);
+  for (const wallet of foreignWallets) {
+    const rate = wallet.rate;
+    if (!rate) throw new Error(`A current FX quote is unavailable for ${wallet.currency}`);
+    if (rate.currency.trim().toUpperCase() !== wallet.currency || rate.scale !== wallet.scale) {
+      throw new Error(`FX quote does not match wallet currency or scale: ${wallet.currency}`);
+    }
+    if (!rate.provider.trim() || !rate.sourceDate.trim() || !Number.isFinite(rate.fetchedAt.getTime())) {
+      throw new Error(`FX rate snapshot is missing valid provenance: ${wallet.currency}`);
+    }
+    const sourceRateScaled = rateToScaled(rate.rateUsdPerUnit);
+    const sourceScaleFactor = pow10(wallet.scale);
+    const convertedMinor = (BigInt(wallet.availableMinor) * sourceRateScaled * targetScaleFactor) /
+      (sourceScaleFactor * targetRateScaled);
+    targetTotal += convertedMinor;
+  }
+  return safeNumber(targetTotal, "Combined target-currency wallet balance");
+}
