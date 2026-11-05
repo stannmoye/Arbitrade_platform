@@ -93,7 +93,6 @@ describe("multi-wallet Trading funding plan", () => {
   });
 
   it("rounds each converted wallet down and rejects invalid or duplicate wallet data", () => {
-    const { calculateCombinedAvailableBalanceMinor } = require("./trading-wallet-fx") as typeof import("./trading-wallet-fx");
     expect(calculateCombinedAvailableBalanceMinor({
       targetCurrency: "USD",
       wallets: [
