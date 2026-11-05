@@ -1,9 +1,43 @@
 import { describe, expect, it } from "vitest";
-import { planCrossWalletFunding, type FxRateSnapshot } from "./trading-wallet-fx";
+import { calculateCombinedAvailableTargetMinor, planCrossWalletFunding, type FxRateSnapshot } from "./trading-wallet-fx";
 
 const rate = (currency: string, scale: number, rateUsdPerUnit: string): FxRateSnapshot => ({
   currency, scale, rateUsdPerUnit, provider: "test-api", sourceDate: "2026-10-29T10:00:00.000Z",
   fetchedAt: new Date("2026-10-29T10:00:00.000Z"),
+  it("values all spendable wallets in the target currency using current FX rates", () => {
+    const result = calculateCombinedAvailableTargetMinor({
+      targetCurrency: "USD",
+      targetRate: rate("USD", 2, "1"),
+      wallets: [
+        { currency: "USD", scale: 2, availableMinor: 2_000 },
+        { currency: "EUR", scale: 2, availableMinor: 3_000, rate: rate("EUR", 2, "1.1") },
+        { currency: "GBP", scale: 2, availableMinor: 2_000, rate: rate("GBP", 2, "1.25") },
+      ],
+    });
+    expect(result).toBe(7_800);
+  });
+
+  it("does not require FX for zero or target-currency-only wallets", () => {
+    expect(calculateCombinedAvailableTargetMinor({
+      targetCurrency: "USD",
+      wallets: [
+        { currency: "USD", scale: 2, availableMinor: 2_000 },
+        { currency: "EUR", scale: 2, availableMinor: 0, rate: null },
+      ],
+    })).toBe(2_000);
+  });
+
+  it("fails closed when a positive foreign wallet has no current FX quote", () => {
+    expect(() => calculateCombinedAvailableTargetMinor({
+      targetCurrency: "USD",
+      targetRate: rate("USD", 2, "1"),
+      wallets: [
+        { currency: "USD", scale: 2, availableMinor: 2_000 },
+        { currency: "EUR", scale: 2, availableMinor: 3_000, rate: null },
+      ],
+    })).toThrow(/current FX quote is unavailable/);
+  });
+
 });
 
 describe("multi-wallet Trading funding plan", () => {
