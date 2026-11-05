@@ -4359,7 +4359,6 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       // A failed browser status write is retryable delivery state, not proof that
       // the opportunity itself expired or became ineligible. Keep it available so
       // a refreshed customer portal can retry rendering and status recording.
-      // A failed browser status write is retryable while the opportunity remains open.
       popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus)&&["queued","in_progress","retry_wait","delivered","received","rendered","failed"].includes(String(row.deliveryStatus)),
       executionEligible:isPopupExecutionEligible({eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus,executionStatus:row.executionStatus}),
       eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus,deliveryAttemptCount:Number(row.deliveryAttemptCount||0),deliveryRetryAfter:row.deliveryRetryAfter,deliveryLeaseToken:row.deliveryLeaseToken};
