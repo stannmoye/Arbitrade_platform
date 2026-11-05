@@ -108,7 +108,7 @@ describe("automatic opportunity generation and package-aware customer delivery",
     const offerInsert = generator.indexOf("tx.insert(opportunityOffers).values({");
     const assignmentInsert = generator.indexOf("tx.insert(opportunityGenerationAssignments).values({");
     const rotationCommit = generator.indexOf("tx.update(appSettings).set({settingValue:JSON.stringify(nextRotationState)");
-    const transactionReturn = generator.indexOf("return offerId;");
+    const transactionReturn = generator.indexOf("return {offerId,skipReason:null};");
     expect(rotationSelection).toBeGreaterThanOrEqual(0);
     expect(currencyLookup).toBeGreaterThan(rotationSelection);
     expect(offerInsert).toBeGreaterThan(currencyLookup);
