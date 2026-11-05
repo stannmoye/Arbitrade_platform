@@ -15,7 +15,7 @@ import { assessOpportunityPackageCompatibility, type OpportunityPackageCompatibi
 import { claimPopupDeliveryDispatches, ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { calculateConfiguredProfitMinor, chooseInclusiveInteger } from "./modules/trading-popup-policy";
-import { planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
+import { calculateCombinedAvailableTargetMinor, planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, usdUnitsToNativeMinor } from "../shared/money";
 import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, createCompanySpotlightDisplayGuard, isCompanySpotlightDisplayAllowed, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
@@ -4274,10 +4274,40 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     }
   }
   if(newlyEligible.length){
+    // Snapshot the combined spendable balance in each offer's currency. Only enabled
+    // wallet currencies with positive available funds need FX quotes; if any such
+    // quote is unavailable, report the balance as unknown rather than understating it.
+    const combinedBalanceSnapshots=await Promise.all(newlyEligible.map(async offer=>{
+      const targetCurrency=String(offer.currency).toUpperCase();
+      const configs=new Map(currencyRows.map((row:any)=>[String(row.code).toUpperCase(),row]));
+      const positiveForeignWallets=balancesSnapshot.filter((wallet:any)=>
+        String(wallet.currency).toUpperCase()!==targetCurrency&&Number(wallet.availableMinor)>0);
+      const rateCodes=[...new Set([...(positiveForeignWallets.length?[targetCurrency]:[]),...positiveForeignWallets.map((wallet:any)=>String(wallet.currency).toUpperCase())])];
+      const rateResults=await Promise.all(rateCodes.map(async code=>{
+        const config:any=configs.get(code);
+        if(!config)return [code,null] as const;
+        try{return [code,await getFreshTradingFxRate({code,scale:Number(config.scale),assetType:config.assetType,externalCode:config.externalCode?String(config.externalCode):null})] as const;}
+        catch{return [code,null] as const;}
+      }));
+      const rates=new Map<string,FxRateSnapshot|null>(rateResults);
+      if(!configs.has(targetCurrency)||positiveForeignWallets.some((wallet:any)=>!rates.get(String(wallet.currency).toUpperCase())))
+        return {availableMinor:0,balanceStatus:"unknown" as const};
+      try{
+        const availableMinor=calculateCombinedAvailableTargetMinor({
+          targetCurrency,targetRate:rates.get(targetCurrency)||null,
+          wallets:balancesSnapshot.map((wallet:any)=>{
+            const code=String(wallet.currency).toUpperCase();
+            const config:any=configs.get(code);
+            return {currency:code,scale:Number(config?.scale??2),availableMinor:Number(wallet.availableMinor||0),rate:rates.get(code)||null};
+          }),
+        });
+        return {availableMinor,balanceStatus:availableMinor>=Number(offer.minimumMinor)?"sufficient" as const:"insufficient" as const};
+      }catch{return {availableMinor:0,balanceStatus:"unknown" as const};}
+    }));
     // Persist the visible popup first. Only write the quota-consumption ledger after
     // every popup row is confirmed; an insert failure must not consume a quota slot.
-    const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map(offer=>{
-      const available=Math.max(0,Number(balancesSnapshot.find((row:any)=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())?.availableMinor||0));
+    const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map((offer,index)=>{
+      const balance=combinedBalanceSnapshots[index]||{availableMinor:0,balanceStatus:"unknown" as const};
       return {userId,offerId:offer.id,quotaDay,packageId:Number(offer.packageId),packageName:offer.packageName,maxPendingDeliveries:Math.max(0,Number(policyByName.get(normalizeTradingPackagePolicyKey(offer.packageName))?.maxPendingDeliveries??0)),symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
         expectedRewardBps:Number(offer.expectedRewardBps),configuredProfitRateBps:Number(offer.configuredProfitRateBps),
         configuredDurationSeconds:Number(offer.configuredDurationSeconds),configuredPopupDisplaySeconds:Number(offer.configuredPopupDisplaySeconds),
@@ -4286,7 +4316,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         companyRotationEnabled:Boolean(offer.companyRotationEnabled),companyRotationCountryNames:String(offer.companyRotationCountryNames||""),
         companyRotationRepeatPolicy:offer.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
         companyReferenceId:offer.companyReferenceId??null,companyDisplayName:offer.companyDisplayName??null,companyLogoUrl:offer.companyLogoUrl??null,companyReferenceMetadataJson:offer.companyReferenceMetadataJson??null,
-        balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
+        balanceAvailableMinor:balance.availableMinor,balanceStatus:balance.balanceStatus,
         marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt,publishedExpectedRewardBps:Number(offer.expectedRewardBps),publishedDurationSeconds:Number(offer.durationSeconds),configuredProfitRateBps:Number(offer.configuredProfitRateBps),configuredDurationSeconds:Number(offer.configuredDurationSeconds)})};
     }));
     const missingLifecycleIds=newlyEligible.filter(offer=>!lifecycleIds.has(userId+":"+offer.id));
