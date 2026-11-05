@@ -5,6 +5,9 @@ const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const start = source.indexOf("export async function listCustomerOpportunities(");
 const end = source.indexOf("export async function runAutoTradeCycle(", start);
 const implementation = source.slice(start, end);
+const generatorStart = source.indexOf("async function generateAutomaticCustomerOpportunity(");
+const generatorEnd = source.indexOf("const OPPORTUNITY_GENERATION_CONTROL_KEY", generatorStart);
+const generator = source.slice(generatorStart, generatorEnd);
 const autoTradeStart = source.indexOf("async function autoTradeOpenOpportunities(");
 const autoTradeEnd = source.indexOf("export async function listCustomerOpportunities(", autoTradeStart);
 const autoTrade = source.slice(autoTradeStart, autoTradeEnd);
@@ -35,6 +38,13 @@ describe("insufficient-balance opportunity handling", () => {
     expect(implementation).toContain('eq(opportunityPopupEvents.balanceStatus,"insufficient")');
     expect(implementation).toContain("if(insufficientBalanceOfferIds.has(offerId)) return false");
     expect(implementation).toContain('["generated","delivered"].includes(assignmentStatus)');
+  });
+
+  it("does not reuse an open generated offer after its popup is classified as insufficient balance", () => {
+    expect(generator).toContain("NOT EXISTS");
+    expect(generator).toContain("opportunityPopupEvents.offerId");
+    expect(generator).toContain("opportunityPopupEvents.balanceStatus");
+    expect(generator).toContain("= 'insufficient'");
   });
 
   it("delegates the authoritative balance decision to atomic multi-wallet FX funding", () => {
