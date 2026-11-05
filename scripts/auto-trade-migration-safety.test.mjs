@@ -86,7 +86,7 @@ describe("package-driven auto-trade execution", () => {
     const execution = db.slice(executionStart, executionEnd);
     expect(execution).toContain("packageMinimumTradeMinor");
     expect(execution).toContain("packageMaximumTradeMinor");
-    expect(execution).toContain("availableMinor");
+    expect(execution).not.toContain("availableMinor");
     expect(execution).not.toContain("autoTradeMinRewardBps");
     expect(execution).not.toContain("autoTradeEnabled");
     expect(execution).not.toContain("autoTradeMode");
