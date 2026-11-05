@@ -85,7 +85,7 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(delivery).toContain("currencyScale:Number(currencyRows.find");
     expect(delivery).toContain("currencySymbol:String(currencyRows.find");
     expect(delivery).toContain('popupEligible:row.offerStatus==="open"');
-    expect(delivery).toContain('["queued","in_progress","retry_wait","delivered","received","rendered"].includes(String(row.deliveryStatus))');
+    expect(delivery).toContain('["queued","in_progress","retry_wait","delivered","received","rendered","failed"].includes(String(row.deliveryStatus))');
     expect(delivery).not.toContain('["delivered","received","rendered","failed"].includes(String(row.deliveryStatus))');
     expect(delivery).toContain("a refreshed customer portal can retry rendering and status recording");
     expect(delivery).toContain("const dispatches=await claimPopupDeliveryDispatches(userId)");
