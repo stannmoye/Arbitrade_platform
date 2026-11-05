@@ -3916,12 +3916,10 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
       missedOfferIds.add(Number(offer.id));
       continue;
     }
-    const balance=(await listBalances(userId)).find(row=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase());
-    if(!balance||Number(balance.availableMinor)<requestedAmount){
-      await markMissedOpportunity(userId,offer,requestedAmount,"INSUFFICIENT_AVAILABLE_BALANCE");
-      missedOfferIds.add(Number(offer.id));
-      continue;
-    }
+    // Do not reject on the target-currency wallet alone. createTrade owns the
+    // authoritative, fresh-FX, all-or-nothing cross-wallet funding check inside
+    // its transaction; prechecking one wallet here incorrectly misses customers
+    // whose combined spendable balances cover the required capital.
     const terms=calculateTradeTerms(userId,offer,requestedAmount);
     const claim=await claimOpportunityExecutionAttempt(userId,offer);
     if(!claim.claimed){
