@@ -3247,17 +3247,19 @@ type AutomaticOpportunityGenerationInput={
   eligibleSubscriptions:Array<{subscriptionId:number;packageId:number;packageName:string}>;
   companyRotationEnabled:boolean;
 };
+type AutomaticOpportunityGenerationOutcome={offerId:number|null;skipReason:string|null;skipDetail?:Record<string,number>};
 
 /**
  * Creates at most one open customer-specific opportunity per active entitlement.
  * Company rotation, template/version, package terms, offer and assignment commit
  * together; retries reuse the persisted open offer and never reroll its terms.
  */
-async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGenerationInput):Promise<number|null>{
-  if(!Number.isSafeInteger(input.userId)||input.userId<1||!input.batchId||input.batchId.length>64) return null;
+async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGenerationInput):Promise<AutomaticOpportunityGenerationOutcome>{
+  const skipped=(skipReason:string,skipDetail?:Record<string,number>):AutomaticOpportunityGenerationOutcome=>({offerId:null,skipReason,...(skipDetail?{skipDetail}:{})});
+  if(!Number.isSafeInteger(input.userId)||input.userId<1||!input.batchId||input.batchId.length>64) return skipped("INVALID_CUSTOMER_OR_BATCH_INPUT");
   const db=await getDb();if(!db)throw new Error("Database is not available");
   const activeSubscriptionIds=input.eligibleSubscriptions.map(row=>row.subscriptionId).filter(id=>Number.isSafeInteger(id)&&id>0);
-  if(!activeSubscriptionIds.length)return null;
+  if(!activeSubscriptionIds.length)return skipped("NO_ACTIVE_AUTOMATIC_SUBSCRIPTION");
   for(let attempt=0;attempt<4;attempt++){
     try{
       return await db.transaction(async tx=>{
@@ -3267,7 +3269,10 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     await tx.select({id:appSettings.id}).from(appSettings).where(eq(appSettings.settingKey,generationLockKey)).limit(1).for("update");
     const generationControlRow=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
       .where(eq(appSettings.settingKey,OPPORTUNITY_GENERATION_CONTROL_KEY)).limit(1).for("update"))[0];
-    try{const control=JSON.parse(String(generationControlRow?.settingValue||""));if(!control||control.enabled!==true||!Number.isSafeInteger(control.version))return null;}catch{return null;}
+    let control:any=null;
+    try{control=JSON.parse(String(generationControlRow?.settingValue||""));}catch{return skipped("GENERATION_CONTROL_MISSING_OR_MALFORMED");}
+    if(!control||typeof control.enabled!=="boolean"||!Number.isSafeInteger(control.version)||Number(control.version)<1)return skipped("GENERATION_CONTROL_MISSING_OR_MALFORMED");
+    if(control.enabled!==true)return skipped("GENERATION_CONTROL_PAUSED");
 
     const obsolete=(await tx.select({id:opportunityOffers.id,subscriptionId:opportunityOffers.assignedPackageSubscriptionId})
       .from(opportunityOffers).where(and(eq(opportunityOffers.assignedUserId,input.userId),eq(opportunityOffers.status,"open"),gt(opportunityOffers.closesAt,input.now)))
@@ -3279,12 +3284,22 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         .where(and(eq(opportunityGenerationAssignments.userId,input.userId),inArray(opportunityGenerationAssignments.offerId,obsoleteOfferIds),eq(opportunityGenerationAssignments.status,"generated")));
     }
     const reusable=(await tx.select({id:opportunityOffers.id}).from(opportunityOffers)
+      .innerJoin(opportunityGenerationAssignments,and(
+        eq(opportunityGenerationAssignments.offerId,opportunityOffers.id),
+        eq(opportunityGenerationAssignments.userId,input.userId),
+        inArray(opportunityGenerationAssignments.status,["generated","delivered"]),
+      ))
       .where(and(eq(opportunityOffers.assignedUserId,input.userId),eq(opportunityOffers.status,"open"),gt(opportunityOffers.closesAt,input.now),inArray(opportunityOffers.assignedPackageSubscriptionId,activeSubscriptionIds)))
       .limit(1).for("update"))[0];
-    if(reusable)return Number(reusable.id);
+    if(reusable)return {offerId:Number(reusable.id),skipReason:null};
 
     let selectedSubscription:any=null;
     let selectedPolicy:any=null;
+    let policyRowsFound=0;
+    let invalidPolicyRows=0;
+    let zeroQuotaRows=0;
+    let customerQuotaExhausted=0;
+    let packageQuotaExhausted=0;
     // Global administrator controls are the single owner of tier delivery and
     // company-rotation switches. Legacy per-package boolean mirrors are not gates.
     for(const candidate of input.eligibleSubscriptions){
@@ -3310,7 +3325,10 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
           eq(customerPackageSubscriptions.status,"active"),sql`${customerPackageSubscriptions.activationKey} LIKE 'auto-tier:%'`,
           lte(customerPackageSubscriptions.startsAt,input.now),or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,input.now)),
           eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,input.now)),or(isNull(packages.expiresAt),gt(packages.expiresAt,input.now)))).limit(1).for("update"))[0];
-      if(row&&hasConfiguredTradingOfferPolicy(row)){
+      if(!row)continue;
+      policyRowsFound++;
+      if(!hasConfiguredTradingOfferPolicy(row)){invalidPolicyRows++;continue;}
+      {
         let entitlementSnapshot:any={};
         try{entitlementSnapshot=JSON.parse(String(row.termsSnapshotJson||"{}"));}catch{entitlementSnapshot={};}
         const packageDailyQuota=Number(row.packageDailyOpportunityQuota);
@@ -3324,7 +3342,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         const packageCap=packagePopupQuota>0?Math.min(policyCap,packagePopupQuota):policyCap;
         const effectiveDailyQuota=Number.isSafeInteger(packageDailyQuota)&&packageDailyQuota>0
           ?Math.min(packageCap,dailyTarget>0?dailyTarget:packageDailyQuota):0;
-        if(customerDailyQuota<=0||effectiveDailyQuota<=0)continue;
+        if(customerDailyQuota<=0||effectiveDailyQuota<=0){zeroQuotaRows++;continue;}
         const candidateQuotaWindow=resolveTradingQuotaWindow(input.now,
           row.schedulingPeriod==="rolling_24h"?"rolling_24h":"calendar_day");
         // The customer generation lock serializes worker cycles. Count this
@@ -3340,20 +3358,28 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
           gte(opportunityGenerationAssignments.generatedAt,candidateQuotaWindow.start)));
         const subscriptionUsed=Number(subscriptionUsageRows[0]?.used||0);
         const packageUsed=Number(packageUsageRows[0]?.used||0);
-        if(subscriptionUsed>=customerDailyQuota||packageUsed>=effectiveDailyQuota)continue;
+        if(subscriptionUsed>=customerDailyQuota){customerQuotaExhausted++;continue;}
+        if(packageUsed>=effectiveDailyQuota){packageQuotaExhausted++;continue;}
         selectedSubscription={...row,customerDailyQuota,effectiveDailyQuota,quotaWindowStart:candidateQuotaWindow.start};
         selectedPolicy=row;
         break;
       }
     }
-    if(!selectedSubscription||!selectedPolicy)return null;
+    if(!selectedSubscription||!selectedPolicy){
+      const skipReason=policyRowsFound===0?"ACTIVE_SUBSCRIPTION_POLICY_ROW_NOT_FOUND"
+        :invalidPolicyRows===policyRowsFound?"PACKAGE_POLICY_INVALID"
+        :zeroQuotaRows>0?"PACKAGE_OR_ENTITLEMENT_QUOTA_ZERO"
+        :customerQuotaExhausted>0&&packageQuotaExhausted===0?"CUSTOMER_PACKAGE_ENTITLEMENT_EXHAUSTED"
+        :packageQuotaExhausted>0?"PACKAGE_DAILY_CAP_EXHAUSTED":"NO_PACKAGE_ELIGIBLE_FOR_GENERATION";
+      return skipped(skipReason,{policyRowsFound,invalidPolicyRows,zeroQuotaRows,customerQuotaExhausted,packageQuotaExhausted});
+    }
 
     const maxPending=Math.max(0,Number(selectedPolicy.maxPendingDeliveries||0));
-    if(maxPending<=0)return null;
+    if(maxPending<=0)return skipped("MAX_PENDING_DELIVERIES_ZERO");
     const pending=(await tx.select({id:opportunityPopupEvents.id}).from(opportunityPopupEvents)
       .where(and(eq(opportunityPopupEvents.userId,input.userId),eq(opportunityPopupEvents.packageId,Number(selectedSubscription.packageId)),
         inArray(opportunityPopupEvents.deliveryStatus,["queued","in_progress","retry_wait"]))).limit(maxPending+1)).length;
-    if(pending>=maxPending)return null;
+    if(pending>=maxPending)return skipped("PENDING_DELIVERY_CAPACITY_FULL",{pending,maxPending});
 
     const catalogueSetting=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
       .where(eq(appSettings.settingKey,"trade.companyCatalogue.adminState")).limit(1).for("update"))[0];
@@ -3361,7 +3387,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     // The existing brand catalogue is the generation source. Templates are optional
     // display-term overrides and must never shrink or gate the company rotation pool.
     const approvedPool=buildCompanySpotlightPool(String(selectedPolicy.companyRotationCountryNames||""),catalogueState);
-    if(!approvedPool.length)return null;
+    if(!approvedPool.length)return skipped("NO_APPROVED_COMPANIES_FOR_COUNTRY_FILTER");
 
     let company:any;
     let rotationCycle:number|null=null;
@@ -3397,7 +3423,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     const currencyCode=template?String(template.currency):"USD";
     const currencyRows=await tx.select({code:currencyRegistry.code,scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,updatedAt:currencyRegistry.updatedAt})
       .from(currencyRegistry).where(and(eq(currencyRegistry.enabled,true),eq(currencyRegistry.code,currencyCode))).limit(1);
-    const currencyRow=currencyRows[0];if(!currencyRow)return null;
+    const currencyRow=currencyRows[0];if(!currencyRow)return skipped("NO_ENABLED_CURRENCY_FOR_PACKAGE");
     const packageMinimum=packageUsdUnitsToNativeMinor(Number(selectedPolicy.minimumTradeUnits),currencyCode,[currencyRow]);
     const packageMaximum=packageUsdUnitsToNativeMinor(Number(selectedPolicy.maximumTradeUnits),currencyCode,[currencyRow]);
     if(!Number.isSafeInteger(packageMinimum)||packageMinimum<=0||!Number.isSafeInteger(packageMaximum)||packageMaximum<packageMinimum)
@@ -3484,7 +3510,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       await tx.update(appSettings).set({settingValue:JSON.stringify(nextRotationState),updatedBy:input.userId,updatedAt:input.now})
         .where(eq(appSettings.settingKey,rotationStateKey));
     }
-    return offerId;
+    return {offerId,skipReason:null};
       });
     }catch(error){
       const failure=error as {code?:string;errno?:number;cause?:{code?:string;errno?:number}};
@@ -3497,7 +3523,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       await new Promise(resolve=>setTimeout(resolve,20*(attempt+1)+crypto.randomInt(0,25)));
     }
   }
-  return null;
+  return skipped("GENERATION_RETRY_LOOP_EXHAUSTED");
 }
 
 const OPPORTUNITY_GENERATION_CONTROL_KEY="trade.opportunityGeneration.control";
@@ -3955,8 +3981,11 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const quotaDay=now.toISOString().slice(0,10);
   const settled:Array<{tradeId:number;rewardMinor:number;currency:string;totalMinor:number}>=[];
   const controls=await ensureCustomerControls(userId);
-  const emptyResult=async (delivery:any)=>({offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,generatedOpportunityId:null,delivery});
-  if(controls.accountStatus!=="active") return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,accountInactive:true,popupPolicy:{}});
+  const emptyResult=async (delivery:any,reason:string,counts:Record<string,number>={})=>({offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,generatedOpportunityId:null,delivery,
+    generationDiagnostics:{attempted:false,reason,generationControlEnabled:options.automaticGenerationEnabled===true,
+      globalControlsAvailable:globalPolicy.available,tierPolicyMasterEnabled:globalPolicy.tierPolicyMasterEnabled,
+      popupDeliveryMasterEnabled:globalPolicy.informationalPopupDeliveryEnabled,...counts}});
+  if(controls.accountStatus!=="active") return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,accountInactive:true,popupPolicy:{}},"CUSTOMER_ACCOUNT_INACTIVE");
   const subscriptions=(await db.select({
     subscriptionId:customerPackageSubscriptions.id,packageId:packages.id,packageName:packages.name,
     activationKey:customerPackageSubscriptions.activationKey,
@@ -3968,7 +3997,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,now)),
       or(isNull(packages.expiresAt),gt(packages.expiresAt,now)))).orderBy(customerPackageSubscriptions.expiresAt))
     .filter(subscription=>String(subscription.activationKey||"").startsWith("auto-tier:"));
-  if(!subscriptions.length) return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,noPackage:true,popupPolicy:{}});
+  if(!subscriptions.length) return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,noPackage:true,popupPolicy:{}},"NO_ACTIVE_AUTOMATIC_TIER");
   const packagePolicies=await listOpportunityPackagePolicies();
   const policyByName=new Map<string,typeof packagePolicies[number]>();
   for(const policyRow of packagePolicies) policyByName.set(policyRow.packageName,policyRow);
@@ -3979,7 +4008,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const configured=policyByName.get(subscription.packageName);
     return Boolean(configured && hasConfiguredTradingOfferPolicy(configured));
   });
-  if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packagePolicyPaused:true,popupPolicy:{}});
+  if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packagePolicyPaused:true,popupPolicy:{}},"NO_PACKAGE_WITH_VALID_TRADING_POLICY",{activeAutomaticSubscriptions:subscriptions.length});
   const quotaFor=(subscription:any)=>{
     try { const snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}")); const value=Number(snapshot.opportunitiesPerDay??subscription.packageQuota); return Number.isSafeInteger(value)&&value>0?value:0; }
     catch { const value=Number(subscription.packageQuota); return Number.isSafeInteger(value)&&value>0?value:0; }
@@ -3987,7 +4016,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const quotaByPackage=new Map<string,number>();
   for(const subscription of eligibleSubscriptions) quotaByPackage.set(subscription.packageName,(quotaByPackage.get(subscription.packageName)||0)+quotaFor(subscription));
   const combinedQuota=[...quotaByPackage.values()].reduce((sum,value)=>sum+value,0);
-  if(combinedQuota<=0) return emptyResult({packageName:eligibleSubscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packageQuotaExhausted:true,popupPolicy:{}});
+  if(combinedQuota<=0) return emptyResult({packageName:eligibleSubscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packageQuotaExhausted:true,popupPolicy:{}},"CUSTOMER_PACKAGE_ENTITLEMENT_ZERO",{activeAutomaticSubscriptions:subscriptions.length,validPolicySubscriptions:eligibleSubscriptions.length});
   const currencyRows=await listCurrencies();
   const configuredPolicies=eligibleSubscriptions.map(subscription=>policyByName.get(subscription.packageName)).filter((row:any)=>Boolean(row));
   const policy=configuredPolicies[0]||null;
@@ -4135,15 +4164,32 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   // so the later automatic-trade pass does not count that same quota slot twice.
   const assignedSubscriptionByOffer=new Map<number,any>();
   const activeSubscriptionIds=eligibleSubscriptions.map(subscription=>Number(subscription.subscriptionId));
-  const hasUsableAssignedOffer=offerRows.some(offer=>activeSubscriptionIds.includes(Number(offer.assignedPackageSubscriptionId)));
-  if(options.workerCycle===true&&options.automaticGenerationEnabled===true&&options.generationBatchId&&
-    globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&
-    !formulaCooling&&remainingQuota>0&&!hasUsableAssignedOffer){
-    generatedOpportunityId=await generateAutomaticCustomerOpportunity({
-      userId,batchId:options.generationBatchId,now,quotaWindowStart:quotaWindow.start,
+  const hasUsableAssignedOffer=offerRows.some(offer=>{
+    const assignmentStatus=String(generationAssignmentByOffer.get(Number(offer.id))?.status||"");
+    return activeSubscriptionIds.includes(Number(offer.assignedPackageSubscriptionId))&&["generated","delivered"].includes(assignmentStatus);
+  });
+  const generationGateReason=options.workerCycle!==true?"NOT_WORKER_CYCLE"
+    :options.automaticGenerationEnabled!==true?"GENERATION_CONTROL_DISABLED_OR_UNAVAILABLE"
+    :!options.generationBatchId?"GENERATION_BATCH_ID_MISSING"
+    :!globalPolicy.available?"GLOBAL_TRADE_CONTROLS_UNAVAILABLE"
+    :!globalPolicy.tierPolicyMasterEnabled?"TIER_POLICY_MASTER_DISABLED"
+    :!globalPolicy.informationalPopupDeliveryEnabled?"POPUP_DELIVERY_MASTER_DISABLED"
+    :formulaCooling?"DELIVERY_SCHEDULE_COOLDOWN"
+    :remainingQuota<=0?"DELIVERY_QUOTA_OR_VISIBLE_CAPACITY_EXHAUSTED"
+    :hasUsableAssignedOffer?"OPEN_GENERATED_OPPORTUNITY_ALREADY_EXISTS":null;
+  let generationAttempted=false;
+  let generationSkipReason:string|null=generationGateReason;
+  let generationSkipDetail:Record<string,number>|undefined;
+  if(generationGateReason===null){
+    generationAttempted=true;
+    const outcome=await generateAutomaticCustomerOpportunity({
+      userId,batchId:options.generationBatchId!,now,quotaWindowStart:quotaWindow.start,
       eligibleSubscriptions:eligibleSubscriptions.map(subscription=>({subscriptionId:Number(subscription.subscriptionId),packageId:Number(subscription.packageId),packageName:String(subscription.packageName)})),
       companyRotationEnabled:Boolean(globalPolicy.companyRotationEnabled),
     });
+    generatedOpportunityId=outcome.offerId;
+    generationSkipReason=outcome.skipReason;
+    generationSkipDetail=outcome.skipDetail;
     if(generatedOpportunityId){
       offerRows=await db.select().from(opportunityOffers).where(and(eq(opportunityOffers.assignedUserId,userId),eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now)))
         .orderBy(opportunityOffers.closesAt).limit(5000);
@@ -4363,7 +4409,16 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     });
   }
   const globalDeliveryEnabled=globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled;
-  return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,generatedOpportunityId,delivery:{enabled:globalDeliveryEnabled,globalPolicyPaused:!globalDeliveryEnabled,packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,
+  const generationReason=generatedOpportunityId?"GENERATED":generationSkipReason||"GENERATOR_RETURNED_NO_OFFER";
+  return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,generatedOpportunityId,
+    generationDiagnostics:{attempted:generationAttempted,reason:generationReason,skipDetail:generationSkipDetail||null,
+      generationControlEnabled:options.automaticGenerationEnabled===true,globalControlsAvailable:globalPolicy.available,
+      tierPolicyMasterEnabled:globalPolicy.tierPolicyMasterEnabled,popupDeliveryMasterEnabled:globalPolicy.informationalPopupDeliveryEnabled,
+      activeAutomaticSubscriptions:subscriptions.length,validPolicySubscriptions:eligibleSubscriptions.length,
+      openGeneratedOfferAlreadyExists:hasUsableAssignedOffer,formulaCooling,formulaReadyAt:formulaReadyAt?.toISOString()||null,remainingQuotaBeforeGeneration:deliveryCapacity.remainingQuota},
+    deliveryDiagnostics:{enabled:globalDeliveryEnabled,openAssignedOffers:offerRows.length,generatedAssignments:generationAssignments.length,
+      popupEventsPersistedThisCycle:newlyEligible.length,activePopupEvents:activePopupRows.length,remainingQuota:deliveryCapacity.remainingQuota},
+    delivery:{enabled:globalDeliveryEnabled,globalPolicyPaused:!globalDeliveryEnabled,packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,
     remainingDailyQuota:Math.max(0,deliveryCapacity.dailyRemaining-newlyEligible.length),
     remainingVisibleSlots:Math.max(0,deliveryCapacity.visibleRemaining-newlyEligible.length),
     remainingQuota,activeVisibleCount:activeVisibleCount+newlyEligible.length,schedulingPeriod:effectiveSchedulingPeriod,
@@ -4441,6 +4496,11 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
   let allocations=0;
   let generated=0;
   let failures=0;
+  let generationAttempts=0;
+  let customersWithDeliveryEnabled=0;
+  let popupEventsPersistedThisCycle=0;
+  let customersWithOpenGeneratedOffers=0;
+  const generationSkipReasons:Record<string,number>={};
   const failureDetails:Array<{userId:number;reason:string;errorType:string}> = [];
   for(const customer of customers){
     try{
@@ -4450,6 +4510,16 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
       });
       allocations+=result.autoTrades.length;
       if(result.generatedOpportunityId)generated++;
+      const generationDiagnostic=result.generationDiagnostics as {attempted?:boolean;reason?:string}|undefined;
+      if(generationDiagnostic?.attempted)generationAttempts++;
+      if(!result.generatedOpportunityId){
+        const reason=String(generationDiagnostic?.reason||"GENERATION_REASON_UNAVAILABLE");
+        generationSkipReasons[reason]=(generationSkipReasons[reason]||0)+1;
+      }
+      const deliveryDiagnostic=result.deliveryDiagnostics as {enabled?:boolean;openAssignedOffers?:number;popupEventsPersistedThisCycle?:number}|undefined;
+      if(deliveryDiagnostic?.enabled)customersWithDeliveryEnabled++;
+      if(Number(deliveryDiagnostic?.openAssignedOffers||0)>0)customersWithOpenGeneratedOffers++;
+      popupEventsPersistedThisCycle+=Math.max(0,Number(deliveryDiagnostic?.popupEventsPersistedThisCycle||0));
       for(const trade of result.autoTrades){
         const notices=[
           {title:"Automatic trading allocation confirmed",body:trade.symbol+" was allocated from your available "+trade.currency+" balance.",eventKey:"auto-trade-allocation:"+trade.tradeId,category:"trading",priority:"normal"},
@@ -4474,6 +4544,11 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
   }).where(eq(opportunityGenerationBatches.id,generationBatchId));
   return {
     customers:customers.length,allocations,batchSize,generated,customerFailures:failures,generationBatchId,generationControlEnabled:generationControl.available&&generationControl.enabled,
+    generationDiagnostics:{generationControlAvailable:generationControl.available,generationControlEnabled:generationControl.enabled,
+      globalControlsAvailable:globalControls.available,tierPolicyMasterEnabled:globalControls.tierPolicyMasterEnabled,
+      popupDeliveryMasterEnabled:globalControls.informationalPopupDeliveryEnabled,customersScanned:customers.length,
+      generationAttempts,generated,skipped:Math.max(0,customers.length-generated-failures),skippedByReason:generationSkipReasons},
+    deliveryDiagnostics:{customersWithDeliveryEnabled,customersWithOpenGeneratedOffers,popupEventsPersistedThisCycle},
     ...(pausedUntilSettled?{pausedUntilSettled:true,outstandingTrades}:{}),
   };
 }
