@@ -3,7 +3,7 @@
  * Ambiguous normalized identities fail closed rather than selecting an arbitrary row.
  */
 export function normalizeTradingPackagePolicyKey(value: unknown): string {
-  return String(value ?? "").trim().toLocaleLowerCase("en-US");
+  return String(value ?? "").toLocaleLowerCase("en-US");
 }
 
 export function indexTradingPackagePolicies<T extends { packageName: string }>(
