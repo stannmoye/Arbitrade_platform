@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const db = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const lifecycle = readFileSync(new URL("./opportunityLifecycle.ts", import.meta.url), "utf8");
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
+const serverIndex = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../drizzle/0103_automatic_opportunity_generation_templates.sql", import.meta.url), "utf8");
 const migration104 = readFileSync(new URL("../drizzle/0104_catalogue_native_opportunity_generation.sql", import.meta.url), "utf8");
 const journal = readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8");
@@ -79,6 +80,19 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(customerPortal).toContain('"Brand catalogue opportunity"');
   });
 
+  it("detects missing popup delivery IDs before filtering or recording delivered opportunities", () => {
+    const persistenceStart = db.indexOf("const missingLifecycleIds=newlyEligible.filter(");
+    const missingCheck = db.indexOf("if(missingLifecycleIds.length) throw new Error", persistenceStart);
+    const deliveryEventInsert = db.indexOf("await db.insert(opportunityDeliveryEvents).values(newlyEligible.map", persistenceStart);
+    const deliveryAssignment = db.indexOf("for(const offer of newlyEligible){", deliveryEventInsert);
+    expect(persistenceStart).toBeGreaterThanOrEqual(0);
+    expect(missingCheck).toBeGreaterThan(persistenceStart);
+    expect(deliveryEventInsert).toBeGreaterThan(missingCheck);
+    expect(deliveryAssignment).toBeGreaterThan(deliveryEventInsert);
+    expect(db.slice(persistenceStart, missingCheck)).toContain("!lifecycleIds.has(userId+\":\"+offer.id)");
+    expect(db.slice(persistenceStart, deliveryEventInsert)).not.toContain("newlyEligible=newlyEligible.filter");
+  });
+
   it("revalidates pinned companies when popup persistence occurs and expires generated assignments safely", () => {
     expect(lifecycle).toContain("if (item.companyReferenceId)");
     expect(lifecycle).toContain("catalogueState.verifiedIds.includes(pinned.id)");
@@ -107,7 +121,7 @@ describe("automatic opportunity generation and package-aware customer delivery",
     const offerInsert = generator.indexOf("tx.insert(opportunityOffers).values({");
     const assignmentInsert = generator.indexOf("tx.insert(opportunityGenerationAssignments).values({");
     const rotationCommit = generator.indexOf("tx.update(appSettings).set({settingValue:JSON.stringify(nextRotationState)");
-    const transactionReturn = generator.indexOf("return offerId;");
+    const transactionReturn = generator.indexOf("return {offerId,skipReason:null};");
     expect(rotationSelection).toBeGreaterThanOrEqual(0);
     expect(currencyLookup).toBeGreaterThan(rotationSelection);
     expect(offerInsert).toBeGreaterThan(currencyLookup);
@@ -154,6 +168,50 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(router).toContain("saved company templates are optional display-term enrichment");
     expect(router).toContain("a company template is not required");
     expect(db).toContain("assignedUserId:input.userId");
+  });
+
+  it("reports the exact worker-level reason when automatic customer generation is skipped", () => {
+    expect(customerQuery).toContain('"NOT_WORKER_CYCLE"');
+    expect(customerQuery).toContain('"GENERATION_CONTROL_DISABLED_OR_UNAVAILABLE"');
+    expect(customerQuery).toContain('"GLOBAL_TRADE_CONTROLS_UNAVAILABLE"');
+    expect(customerQuery).toContain('"TIER_POLICY_MASTER_DISABLED"');
+    expect(customerQuery).toContain('"POPUP_DELIVERY_MASTER_DISABLED"');
+    expect(customerQuery).toContain('"DELIVERY_SCHEDULE_COOLDOWN"');
+    expect(customerQuery).toContain('"DELIVERY_QUOTA_OR_VISIBLE_CAPACITY_EXHAUSTED"');
+    expect(customerQuery).toContain("generationDiagnostics");
+    expect(db).toContain("skippedByReason:generationSkipReasons");
+    expect(db).toContain("popupEventsPersistedThisCycle");
+  });
+
+  it("reports generator-level rejection reasons instead of silently returning no opportunity", () => {
+    expect(generator).toContain("GENERATION_CONTROL_MISSING_OR_MALFORMED");
+    expect(generator).toContain("GENERATION_CONTROL_PAUSED");
+    expect(generator).toContain("ACTIVE_SUBSCRIPTION_POLICY_ROW_NOT_FOUND");
+    expect(generator).toContain("PACKAGE_POLICY_INVALID");
+    expect(generator).toContain("CUSTOMER_PACKAGE_ENTITLEMENT_EXHAUSTED");
+    expect(generator).toContain("PACKAGE_DAILY_CAP_EXHAUSTED");
+    expect(generator).toContain("MAX_PENDING_DELIVERIES_ZERO");
+    expect(generator).toContain("PENDING_DELIVERY_CAPACITY_FULL");
+    expect(generator).toContain("NO_APPROVED_COMPANIES_FOR_COUNTRY_FILTER");
+    expect(generator).toContain("NO_ENABLED_CURRENCY_FOR_PACKAGE");
+  });
+
+  it("does not let an orphaned open offer without a generated assignment suppress new generation", () => {
+    const guardStart = customerQuery.indexOf("const hasUsableAssignedOffer=");
+    const guardEnd = customerQuery.indexOf("const generationGateReason=", guardStart);
+    const guard = customerQuery.slice(guardStart, guardEnd);
+    expect(guardStart).toBeGreaterThanOrEqual(0);
+    expect(guardEnd).toBeGreaterThan(guardStart);
+    expect(guard).toContain("generationAssignmentByOffer.get(Number(offer.id))");
+    expect(guard).toContain('["generated","delivered"].includes(assignmentStatus)');
+    expect(generator).toContain(".innerJoin(opportunityGenerationAssignments");
+    expect(generator).toContain('inArray(opportunityGenerationAssignments.status,["generated","delivered"])');
+  });
+
+  it("labels market-reference cleanup separately from customer opportunity generation in runtime logs", () => {
+    expect(serverIndex).toContain("marketReferenceOffers");
+    expect(serverIndex).not.toContain("opportunities: refreshed.opportunities");
+    expect(serverIndex).toContain("generationDiagnostics");
   });
 
   it("limits the admin open feed to generated assignments and exposes durable diagnostic detail", () => {

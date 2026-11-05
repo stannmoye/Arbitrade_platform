@@ -332,15 +332,15 @@ async function startServer() {
         const result = await runMonitoredWorkerCycle("trading-opportunities", async () => {
           const cycle = await runAutoTradeCycle();
           const outstandingTrades = await countOutstandingTrades();
-          const opportunities = await ensureMarketDrivenOpportunities(new Date());
-          return { ...cycle, outstandingTrades, opportunities };
+          const marketReferenceOffers = await ensureMarketDrivenOpportunities(new Date());
+          return { ...cycle, outstandingTrades, marketReferenceOffers };
         }, {
           degradedWhen: result => result.customerFailures > 0,
           degradedMessage: result => `Customer opportunity sub-cycle failures: ${result.customerFailures}`,
         });
         tradeCycleConsecutiveFailures = 0;
         tradeCycleRetryAfterMs = 0;
-        console.log("[AutoTrade] cycle", { ...result, settlementReconciliation, settlementCreditPosting });
+        console.log("[AutoTrade] cycle", { ...result, generationDiagnostics: result.generationDiagnostics, deliveryDiagnostics: result.deliveryDiagnostics, settlementReconciliation, settlementCreditPosting });
       } catch (error) {
         tradeCycleConsecutiveFailures = Math.min(tradeCycleConsecutiveFailures + 1, 8);
         const backoffMs = Math.min(tradeCycleMaximumBackoffMs, tradeCycleBaseIntervalMs * (2 ** (tradeCycleConsecutiveFailures - 1)));
@@ -363,7 +363,7 @@ async function startServer() {
     const refreshMinutes = Number(await getAppSetting("market.refreshIntervalMinutes", "120"));
     if (!Number.isFinite(refreshMinutes) || refreshMinutes < 1) { console.error("[MarketSync] Invalid market.refreshIntervalMinutes; using safe 120-minute fallback"); }
     const safeRefreshMinutes = Number.isFinite(refreshMinutes) && refreshMinutes >= 1 ? refreshMinutes : 120;
-    const runMarketRefresh = async () => { const refreshed = await runMonitoredWorkerCycle("market-data-refresh", async () => { const result = await refreshMarketData(); const opportunities = await ensureMarketDrivenOpportunities(result.refreshedAt); return { result, opportunities }; }); console.log("[MarketSync] refreshed", { ...refreshed.result, opportunities: refreshed.opportunities }); };
+    const runMarketRefresh = async () => { const refreshed = await runMonitoredWorkerCycle("market-data-refresh", async () => { const result = await refreshMarketData(); const marketReferenceOffers = await ensureMarketDrivenOpportunities(result.refreshedAt); return { result, marketReferenceOffers }; }); console.log("[MarketSync] refreshed", { ...refreshed.result, marketReferenceOffers: refreshed.marketReferenceOffers }); };
     const marketSyncTimer = registerWorkerInterval(() => { void runMarketRefresh().catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error)); }, safeRefreshMinutes * 60_000);
     marketSyncTimer.unref();
     void runMarketRefresh().catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error));
