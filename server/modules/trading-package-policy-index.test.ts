@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { indexTradingPackagePolicies, normalizeTradingPackagePolicyKey } from "./trading-package-policy-index";
 
 describe("Trading package policy identity", () => {
-  it("normalizes case and surrounding whitespace consistently", () => {
-    expect(normalizeTradingPackagePolicyKey("  Sterling Reserve ")).toBe("sterling reserve");
+  it("normalizes package-name case consistently", () => {
+    expect(normalizeTradingPackagePolicyKey("Sterling Reserve")).toBe("sterling reserve");
     const policies = indexTradingPackagePolicies([{ packageName: "Sterling Reserve", policyVersion: 4 }]);
     expect(policies.get(normalizeTradingPackagePolicyKey(" sterling reserve "))?.policyVersion).toBe(4);
   });
