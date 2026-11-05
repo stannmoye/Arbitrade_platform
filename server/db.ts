@@ -24,6 +24,7 @@ import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY, PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS, resolveEffectivePackageOpportunityPolicy, type PackageOpportunityPolicyPatch } from "./modules/package-opportunity-policy";
 import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule, resolveTradingBurstLimit } from "./modules/trading-delivery-quota";
+import { indexTradingPackagePolicies, normalizeTradingPackagePolicyKey } from "./modules/trading-package-policy-index";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry, MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY } from "./modules/trade-execution-retry";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
@@ -4000,13 +4001,12 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     .filter(subscription=>String(subscription.activationKey||"").startsWith("auto-tier:"));
   if(!subscriptions.length) return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,noPackage:true,popupPolicy:{}},"NO_ACTIVE_AUTOMATIC_TIER");
   const packagePolicies=await listOpportunityPackagePolicies();
-  const policyByName=new Map<string,typeof packagePolicies[number]>();
-  for(const policyRow of packagePolicies) policyByName.set(policyRow.packageName,policyRow);
+  const policyByName=indexTradingPackagePolicies(packagePolicies);
   // Package lifecycle remains tier-scoped. Global delivery masters are loaded
   // once above; legacy per-tier copies are migration inputs only, not a second
   // editable or runtime owner.
   const eligibleSubscriptions=subscriptions.filter(subscription=>{
-    const configured=policyByName.get(subscription.packageName);
+    const configured=policyByName.get(normalizeTradingPackagePolicyKey(subscription.packageName));
     return Boolean(configured && hasConfiguredTradingOfferPolicy(configured));
   });
   if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packagePolicyPaused:true,popupPolicy:{}},"NO_PACKAGE_WITH_VALID_TRADING_POLICY",{activeAutomaticSubscriptions:subscriptions.length});
@@ -4019,11 +4019,11 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const combinedQuota=[...quotaByPackage.values()].reduce((sum,value)=>sum+value,0);
   if(combinedQuota<=0) return emptyResult({packageName:eligibleSubscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packageQuotaExhausted:true,popupPolicy:{}},"CUSTOMER_PACKAGE_ENTITLEMENT_ZERO",{activeAutomaticSubscriptions:subscriptions.length,validPolicySubscriptions:eligibleSubscriptions.length});
   const currencyRows=await listCurrencies();
-  const configuredPolicies=eligibleSubscriptions.map(subscription=>policyByName.get(subscription.packageName)).filter((row:any)=>Boolean(row));
+  const configuredPolicies=eligibleSubscriptions.map(subscription=>policyByName.get(normalizeTradingPackagePolicyKey(subscription.packageName))).filter((row:any)=>Boolean(row));
   const policy=configuredPolicies[0]||null;
   const packageName=[...new Set(eligibleSubscriptions.map(row=>row.packageName))].join(", ");
   const tierDeliveryCaps=eligibleSubscriptions.map(subscription=>{
-    const row=policyByName.get(subscription.packageName);
+    const row=policyByName.get(normalizeTradingPackagePolicyKey(subscription.packageName));
     let snapshot:any={};try{snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}"))}catch{snapshot={}}
     return {
       quota:quotaFor(subscription),policyMaxPopupsPerDay:row?.maxPopupsPerDay,
@@ -4342,7 +4342,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     if(!assignedSubscriptionByOffer.has(Number(row.offerId))) {
       usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
     }
-    const configured=policyByName.get(subscription.packageName);
+    const configured=policyByName.get(normalizeTradingPackagePolicyKey(subscription.packageName));
     const currencyRow=currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase());
     const offerMinimum=Number(row.offerMinimumMinor??row.popupMinimumMinor);
     const configuredMinimum=configured&&currencyRow?packageUsdUnitsToNativeMinor(Number(configured.minimumTradeUnits),String(row.currency),currencyRows):offerMinimum;
@@ -4682,7 +4682,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const policyByName=new Map<string,typeof packagePolicies[number]>();
   for(const row of packagePolicies) policyByName.set(row.packageName,row);
   const eligibleSubscriptions=activePackageSubscriptions.filter(subscription=>{
-    const configured=policyByName.get(subscription.packageName);
+    const configured=policyByName.get(normalizeTradingPackagePolicyKey(subscription.packageName));
     return Boolean(configured && configured.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(configured));
   });
   if(!eligibleSubscriptions.length) throw new Error("New allocations are paused for all eligible Trading tier policies");
