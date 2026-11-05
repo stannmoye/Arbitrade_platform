@@ -24,6 +24,7 @@ import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY, PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS, resolveEffectivePackageOpportunityPolicy, type PackageOpportunityPolicyPatch } from "./modules/package-opportunity-policy";
 import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule, resolveTradingBurstLimit } from "./modules/trading-delivery-quota";
+import { indexTradingPackagePolicies, normalizeTradingPackagePolicyKey } from "./modules/trading-package-policy-index";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry, MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY } from "./modules/trade-execution-retry";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
@@ -3320,7 +3321,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         companyRotationCountryNames:opportunityPackagePolicies.companyRotationCountryNames,
         companyRotationRepeatPolicy:opportunityPackagePolicies.companyRotationRepeatPolicy,badgeLabel:opportunityPackagePolicies.badgeLabel,
       }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
-        .innerJoin(opportunityPackagePolicies,eq(opportunityPackagePolicies.packageName,packages.name))
+        .innerJoin(opportunityPackagePolicies,sql`LOWER(${opportunityPackagePolicies.packageName}) = LOWER(${packages.name})`)
         .where(and(eq(customerPackageSubscriptions.id,candidate.subscriptionId),eq(customerPackageSubscriptions.userId,input.userId),
           eq(customerPackageSubscriptions.status,"active"),sql`${customerPackageSubscriptions.activationKey} LIKE 'auto-tier:%'`,
           lte(customerPackageSubscriptions.startsAt,input.now),or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,input.now)),
@@ -4000,13 +4001,12 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     .filter(subscription=>String(subscription.activationKey||"").startsWith("auto-tier:"));
   if(!subscriptions.length) return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,noPackage:true,popupPolicy:{}},"NO_ACTIVE_AUTOMATIC_TIER");
   const packagePolicies=await listOpportunityPackagePolicies();
-  const policyByName=new Map<string,typeof packagePolicies[number]>();
-  for(const policyRow of packagePolicies) policyByName.set(policyRow.packageName,policyRow);
+  const policyByName=indexTradingPackagePolicies(packagePolicies);
   // Package lifecycle remains tier-scoped. Global delivery masters are loaded
   // once above; legacy per-tier copies are migration inputs only, not a second
   // editable or runtime owner.
   const eligibleSubscriptions=subscriptions.filter(subscription=>{
-    const configured=policyByName.get(subscription.packageName);
+    const configured=policyByName.get(normalizeTradingPackagePolicyKey(subscription.packageName));
     return Boolean(configured && hasConfiguredTradingOfferPolicy(configured));
   });
   if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packagePolicyPaused:true,popupPolicy:{}},"NO_PACKAGE_WITH_VALID_TRADING_POLICY",{activeAutomaticSubscriptions:subscriptions.length});
@@ -4019,11 +4019,11 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const combinedQuota=[...quotaByPackage.values()].reduce((sum,value)=>sum+value,0);
   if(combinedQuota<=0) return emptyResult({packageName:eligibleSubscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packageQuotaExhausted:true,popupPolicy:{}},"CUSTOMER_PACKAGE_ENTITLEMENT_ZERO",{activeAutomaticSubscriptions:subscriptions.length,validPolicySubscriptions:eligibleSubscriptions.length});
   const currencyRows=await listCurrencies();
-  const configuredPolicies=eligibleSubscriptions.map(subscription=>policyByName.get(subscription.packageName)).filter((row:any)=>Boolean(row));
+  const configuredPolicies=eligibleSubscriptions.map(subscription=>policyByName.get(normalizeTradingPackagePolicyKey(subscription.packageName))).filter((row:any)=>Boolean(row));
   const policy=configuredPolicies[0]||null;
   const packageName=[...new Set(eligibleSubscriptions.map(row=>row.packageName))].join(", ");
   const tierDeliveryCaps=eligibleSubscriptions.map(subscription=>{
-    const row=policyByName.get(subscription.packageName);
+    const row=policyByName.get(normalizeTradingPackagePolicyKey(subscription.packageName));
     let snapshot:any={};try{snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}"))}catch{snapshot={}}
     return {
       quota:quotaFor(subscription),policyMaxPopupsPerDay:row?.maxPopupsPerDay,
@@ -4235,7 +4235,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       for(const candidate of eligibleSubscriptions){
         if(Number(offer.assignedPackageSubscriptionId)!==Number(candidate.subscriptionId)||Number(offer.assignedPackageId)!==Number(candidate.packageId)) continue;
         if(!subscriptionHasQuota(candidate)) continue;
-        const candidatePolicy=policyByName.get(candidate.packageName);
+        const candidatePolicy=policyByName.get(normalizeTradingPackagePolicyKey(candidate.packageName));
         const configuredMinimum=generatedOffer?Number(generationSnapshot.packageMinimumMinor):candidatePolicy?packageUsdUnitsToNativeMinor(Number(candidatePolicy.minimumTradeUnits),String(offer.currency),currencyRows):Number(offer.minimumMinor);
         const configuredMaximum=generatedOffer?Number(generationSnapshot.packageMaximumMinor):candidatePolicy?Math.max(configuredMinimum,packageUsdUnitsToNativeMinor(Number(candidatePolicy.maximumTradeUnits),String(offer.currency),currencyRows)):Number.MAX_SAFE_INTEGER;
         const terms=calculateTradeTerms(userId,offer,Math.max(Number(offer.minimumMinor),configuredMinimum));
@@ -4281,7 +4281,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     // every popup row is confirmed; an insert failure must not consume a quota slot.
     const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map(offer=>{
       const available=Math.max(0,Number(balancesSnapshot.find((row:any)=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())?.availableMinor||0));
-      return {userId,offerId:offer.id,quotaDay,packageId:Number(offer.packageId),packageName:offer.packageName,maxPendingDeliveries:Math.max(0,Number(policyByName.get(offer.packageName)?.maxPendingDeliveries??0)),symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
+      return {userId,offerId:offer.id,quotaDay,packageId:Number(offer.packageId),packageName:offer.packageName,maxPendingDeliveries:Math.max(0,Number(policyByName.get(normalizeTradingPackagePolicyKey(offer.packageName))?.maxPendingDeliveries??0)),symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
         expectedRewardBps:Number(offer.expectedRewardBps),configuredProfitRateBps:Number(offer.configuredProfitRateBps),
         configuredDurationSeconds:Number(offer.configuredDurationSeconds),configuredPopupDisplaySeconds:Number(offer.configuredPopupDisplaySeconds),
         policyVersion:Number(offer.policyVersion||1),packagePolicyVersionSnapshot:Number(offer.packagePolicyVersionSnapshot||offer.policyVersion||1),
@@ -4295,7 +4295,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const missingLifecycleIds=newlyEligible.filter(offer=>!lifecycleIds.has(userId+":"+offer.id));
     if(missingLifecycleIds.length) throw new Error("Popup persistence did not return delivery IDs for every eligible opportunity");
     await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({
-      userId,offerId:offer.id,quotaDay,status:"pending" as const,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion||1),
+      userId,offerId:offer.id,quotaDay,status:"pending" as const,policyVersion:Number(policyByName.get(normalizeTradingPackagePolicyKey(offer.packageName))?.policyVersion||1),
     }))).onDuplicateKeyUpdate({set:{deliveredAt:new Date(),status:"delivered",lastErrorCode:null}});
     for(const offer of newlyEligible){
       offer.deliveryEventId=lifecycleIds.get(userId+":"+offer.id)||null;
@@ -4342,7 +4342,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     if(!assignedSubscriptionByOffer.has(Number(row.offerId))) {
       usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
     }
-    const configured=policyByName.get(subscription.packageName);
+    const configured=policyByName.get(normalizeTradingPackagePolicyKey(subscription.packageName));
     const currencyRow=currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase());
     const offerMinimum=Number(row.offerMinimumMinor??row.popupMinimumMinor);
     const configuredMinimum=configured&&currencyRow?packageUsdUnitsToNativeMinor(Number(configured.minimumTradeUnits),String(row.currency),currencyRows):offerMinimum;
@@ -4354,12 +4354,12 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,marketObservedAt:row.marketObservedAt,
       marketSnapshotId:row.marketSnapshotId,sector:row.sector,industry:row.industry,listingStatus:row.listingStatus,
       executionStatus:row.executionStatus,executionAttemptCount:Number(row.executionAttemptCount||0),executionRetryAfter:row.executionRetryAfter,executionRetryDay:row.executionRetryDay,executionLastErrorCode:row.executionLastErrorCode,
-      maxTradeAttemptsPerDay:Number(policyByName.get(String(row.packageName))?.maxTradeAttemptsPerDay??5),
-      tradeRetryDelaySeconds:Number(policyByName.get(String(row.packageName))?.tradeRetryDelaySeconds??30),
+      maxTradeAttemptsPerDay:Number(policyByName.get(normalizeTradingPackagePolicyKey(String(row.packageName)))?.maxTradeAttemptsPerDay??5),
+      tradeRetryDelaySeconds:Number(policyByName.get(normalizeTradingPackagePolicyKey(String(row.packageName)))?.tradeRetryDelaySeconds??30),
       // A failed browser status write is retryable delivery state, not proof that
       // the opportunity itself expired or became ineligible. Keep it available so
       // a refreshed customer portal can retry rendering and status recording.
-      popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus)&&["queued","in_progress","retry_wait","delivered","received","rendered"].includes(String(row.deliveryStatus)),
+      popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus)&&["queued","in_progress","retry_wait","delivered","received","rendered","failed"].includes(String(row.deliveryStatus)),
       executionEligible:isPopupExecutionEligible({eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus,executionStatus:row.executionStatus}),
       eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus,deliveryAttemptCount:Number(row.deliveryAttemptCount||0),deliveryRetryAfter:row.deliveryRetryAfter,deliveryLeaseToken:row.deliveryLeaseToken};
   }).filter((offer) => offer !== null);
@@ -4368,7 +4368,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     // Dismissing/minimizing a customer card is presentation-only and must not
     // suppress an otherwise eligible server-owned automatic execution.
     if(offer.executionEligible!==true || allocationControls.allocationsPaused) return false;
-    const packagePolicy=policyByName.get(String(offer.packageName));
+    const packagePolicy=policyByName.get(normalizeTradingPackagePolicyKey(String(offer.packageName)));
     // Disabled package policies or automatic execution must stop new allocations
     // without turning a merely visible/pending popup into a trade request.
     return Boolean(packagePolicy && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy));
@@ -4396,7 +4396,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       currencyScale:Number(currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase())?.scale??2),
       currencySymbol:String(currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase())?.symbol||row.currency),
       popupEligible:row.offerStatus==="open"&&Boolean(row.closesAt&&new Date(row.closesAt).getTime()>now.getTime())&&
-        ["DELIVERED","NOTICED"].includes(row.eventStatus)&&["queued","in_progress","retry_wait","delivered","received","rendered"].includes(String(row.deliveryStatus)),
+        ["DELIVERED","NOTICED"].includes(row.eventStatus)&&["queued","in_progress","retry_wait","delivered","received","rendered","failed"].includes(String(row.deliveryStatus)),
       deliveryStatus:row.deliveryStatus,deliveryAttemptCount:Number(row.deliveryAttemptCount||0),deliveryRetryAfter:row.deliveryRetryAfter,deliveryLeaseToken:row.deliveryLeaseToken,
       automaticTrade:executed};
   });
@@ -4679,10 +4679,9 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
 
   const packagePolicies=await tx.select().from(opportunityPackagePolicies)
     .where(inArray(opportunityPackagePolicies.packageName,activePackageSubscriptions.map(row=>row.packageName))).for("update");
-  const policyByName=new Map<string,typeof packagePolicies[number]>();
-  for(const row of packagePolicies) policyByName.set(row.packageName,row);
+  const policyByName=indexTradingPackagePolicies(packagePolicies);
   const eligibleSubscriptions=activePackageSubscriptions.filter(subscription=>{
-    const configured=policyByName.get(subscription.packageName);
+    const configured=policyByName.get(normalizeTradingPackagePolicyKey(subscription.packageName));
     return Boolean(configured && configured.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(configured));
   });
   if(!eligibleSubscriptions.length) throw new Error("New allocations are paused for all eligible Trading tier policies");
@@ -4719,7 +4718,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const effectiveFeeRow=selectLatestEffectivePackageFeePolicy(feeRows,allocationAt);
   const packageFeePolicy=effectiveFeeRow ? normalizePackageFeePolicy(effectiveFeeRow) : null;
   if(!packageFeePolicy) throw new Error("The selected package has no saved fee policy; allocation is blocked until an administrator configures one");
-  const packagePolicy=policyByName.get(activePackageSubscription.packageName);
+  const packagePolicy=policyByName.get(normalizeTradingPackagePolicyKey(activePackageSubscription.packageName));
   let activeTermsSnapshot:any={};try{activeTermsSnapshot=JSON.parse(String(activePackageSubscription.termsSnapshotJson||"{}"))}catch{activeTermsSnapshot={}}
   const tierActiveLimit=Number(activeTermsSnapshot.maxActiveInvestments??activePackageSubscription.maxActiveInvestments??0);
   if(tierActiveLimit>0){
