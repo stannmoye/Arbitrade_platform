@@ -11,7 +11,6 @@ const autoTrade = source.slice(autoTradeStart, autoTradeEnd);
 const createTradeStart = source.indexOf("export async function createTrade(");
 const createTrade = source.slice(createTradeStart);
 const walletFx = readFileSync(new URL("./modules/trading-wallet-fx.ts", import.meta.url), "utf8");
-const walletFx = readFileSync(new URL("./modules/trading-wallet-fx.ts", import.meta.url), "utf8");
 
 describe("insufficient-balance opportunity handling", () => {
   it("does not suppress eligible opportunities because the target-currency wallet alone is short", () => {
