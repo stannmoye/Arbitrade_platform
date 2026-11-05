@@ -3920,7 +3920,6 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
     // authoritative, fresh-FX, all-or-nothing cross-wallet funding check inside
     // its transaction; prechecking one wallet here incorrectly misses customers
     // whose combined spendable balances cover the required capital.
-    const terms=calculateTradeTerms(userId,offer,requestedAmount);
     const claim=await claimOpportunityExecutionAttempt(userId,offer);
     if(!claim.claimed){
       if(claim.reason==="retry-window-expired"||claim.reason==="attempts-exhausted"||claim.reason==="failed"){
