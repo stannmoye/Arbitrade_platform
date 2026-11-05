@@ -3290,7 +3290,8 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         eq(opportunityGenerationAssignments.userId,input.userId),
         inArray(opportunityGenerationAssignments.status,["generated","delivered"]),
       ))
-      .where(and(eq(opportunityOffers.assignedUserId,input.userId),eq(opportunityOffers.status,"open"),gt(opportunityOffers.closesAt,input.now),inArray(opportunityOffers.assignedPackageSubscriptionId,activeSubscriptionIds)))
+      .where(and(eq(opportunityOffers.assignedUserId,input.userId),eq(opportunityOffers.status,"open"),gt(opportunityOffers.closesAt,input.now),inArray(opportunityOffers.assignedPackageSubscriptionId,activeSubscriptionIds),
+        sql`NOT EXISTS (SELECT 1 FROM ${opportunityPopupEvents} WHERE ${opportunityPopupEvents.userId} = ${input.userId} AND ${opportunityPopupEvents.offerId} = ${opportunityOffers.id} AND ${opportunityPopupEvents.balanceStatus} = 'insufficient')`))
       .limit(1).for("update"))[0];
     if(reusable)return {offerId:Number(reusable.id),skipReason:null};
 
