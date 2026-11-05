@@ -526,6 +526,13 @@
       "when": 1793404800021,
       "tag": "0105_default_on_global_information_delivery",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1793404800022,
+      "tag": "0106_package_popup_defaults",
+      "breakpoints": true
     }
   ]
 }
