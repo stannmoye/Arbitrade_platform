@@ -23,7 +23,7 @@ describe("persisted package popup defaults", () => {
   });
 
   it("assigns the requested package-by-package interval progression", () => {
-    expect(migration).toContain("180 + ((ranked.`packageOrder` - 1) * 120)");
+    expect(migration).toContain("CASE WHEN ranked.`packageOrder` = 1 THEN 180 WHEN ranked.`packageOrder` = 2 THEN 300 WHEN ranked.`packageOrder` = 3 THEN 420 WHEN ranked.`packageOrder` = 4 THEN 480 ELSE 480 + ((ranked.`packageOrder` - 4) * 120) END");
     expect(migration).toContain("policy.`minIntervalSeconds` = 45 AND policy.`maxIntervalSeconds` = 3600");
     expect(migration).toContain("`popupDisplayTargetSeconds`, `completionDisplaySeconds`");
     expect(migration).toContain("FALSE, 120, 60, 60, 3");
