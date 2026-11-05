@@ -1317,3 +1317,10 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Added contract coverage for the skip reasons, assignment-aware stale-offer guard, and runtime log distinction. Automatic financial execution remains hard-disabled.
 - **Validation status:** changes are committed to this branch; exact-head GitHub Actions and type/build/test verification are pending. No live database access, production-setting changes, migrations, deployment, customer wallet/ledger mutation, trade execution, or settlement was performed. Existing package/company/customer data was not touched.
 - **Important acceptance boundary:** this change makes the next Blitz worker cycle explain why an eligible customer is skipped and removes the orphan-offer blocker. It does not claim a production popup has been generated or verified; production configuration and eligible-customer data must be checked using the new reason-coded cycle diagnostics after deployment.
+
+
+## 2026-11-05 — Popup persistence missing-delivery-ID guard correction
+
+- Corrected the persistence guard in `server/db.ts`: missing lifecycle/delivery IDs are now computed from the complete `newlyEligible` set and cause an error before any delivery-event rows are marked delivered or any offers are reported as delivered. Removed the premature filter that made the missing-ID check vacuous.
+- Added a contract regression test asserting that the missing-ID check occurs before delivery-event persistence and delivered-assignment processing, and that no pre-check filtering remains.
+- Validation for this correction is pending on the updated exact PR head. PR remains draft; no merge, deployment, production setting change, or production data mutation performed.
