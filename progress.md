@@ -1324,3 +1324,12 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Corrected the persistence guard in `server/db.ts`: missing lifecycle/delivery IDs are now computed from the complete `newlyEligible` set and cause an error before any delivery-event rows are marked delivered or any offers are reported as delivered. Removed the premature filter that made the missing-ID check vacuous.
 - Added a contract regression test asserting that the missing-ID check occurs before delivery-event persistence and delivered-assignment processing, and that no pre-check filtering remains.
 - Validation for this correction is pending on the updated exact PR head. PR remains draft; no merge, deployment, production setting change, or production data mutation performed.
+
+
+## 2026-11-05 — PR #291 exact-head validation completed
+
+- Exact reviewed head: `ac27e769471f3f9d6f7dddf142bd3e1ccaf09df1`.
+- GitHub Actions: all 10 workflows completed successfully. The hosted matrix includes TypeScript, automated tests, production build, customer-portal browser recovery, installer/migration validation, and MySQL 8.4 / MariaDB 11.4 trading integration checks for wallet idempotency, company rotation, tier qualification, settlement reconciliation, and opportunity-worker concurrency/recovery.
+- No failed, cancelled, skipped, or still-running jobs were reported in the exact-head workflow review.
+- This validates the source commit and hosted checks only. Authenticated Blitz customer-popup delivery has not been verified; deploy and inspect this exact commit in an isolated/staging environment before making any production claim.
+- No merge, deployment, production database/configuration change, customer-data change, wallet/ledger mutation, trade execution, or settlement was performed. Automatic financial execution remains hard-disabled.
