@@ -173,3 +173,48 @@ export function planCrossWalletFunding(input: {
   }, 0);
   return { targetCreditMinor, sourceDebits };
 }
+
+
+export type WalletBalanceValuation = {
+  currency: string;
+  scale: number;
+  availableMinor: number;
+  rateUsdPerUnit: string;
+};
+
+/**
+ * Values every enabled, spendable customer wallet in one opportunity currency.
+ * This is an informational popup assessment using the enabled currency registry;
+ * it does not reserve funds or authorize allocation. Financial allocation must
+ * continue to use fresh, provenance-backed FX snapshots via planCrossWalletFunding.
+ * Each wallet conversion rounds down to avoid overstating spendable value.
+ */
+export function calculateCombinedAvailableBalanceMinor(input: {
+  targetCurrency: string;
+  wallets: WalletBalanceValuation[];
+}): number {
+  const targetCurrency = input.targetCurrency.trim().toUpperCase();
+  if (!targetCurrency) throw new Error("Target currency is required");
+  const seen = new Set<string>();
+  const wallets = input.wallets.map(wallet => {
+    const currency = wallet.currency.trim().toUpperCase();
+    if (!currency) throw new Error("Every wallet must identify its currency");
+    if (seen.has(currency)) throw new Error(`Duplicate wallet currency: ${currency}`);
+    seen.add(currency);
+    assertMinor(`${currency} availableMinor`, wallet.availableMinor);
+    const scale = pow10(wallet.scale);
+    const rate = rateToScaled(wallet.rateUsdPerUnit);
+    return { currency, availableMinor: BigInt(wallet.availableMinor), scale, rate };
+  });
+  const target = wallets.find(wallet => wallet.currency === targetCurrency);
+  if (!target) throw new Error(`Target currency is not enabled: ${targetCurrency}`);
+
+  let combined = 0n;
+  for (const wallet of wallets) {
+    if (wallet.availableMinor === 0n) continue;
+    const converted = (wallet.availableMinor * wallet.rate * target.scale) /
+      (wallet.scale * target.rate);
+    combined += converted;
+  }
+  return safeNumber(combined, "Combined available wallet balance");
+}
