@@ -1493,3 +1493,16 @@
     justify-content: space-between;
   }
 }
+
+/* Explicit delivery terminal states shown in the read-only customer history. */
+.customer-portal .customer-opportunity-history__marker--dismissed,
+.customer-portal .customer-opportunity-history__status--dismissed {
+  color: var(--arb-color-text-muted, #9ca3af);
+  background: color-mix(in srgb, var(--arb-color-text-muted, #9ca3af) 14%, transparent);
+}
+.customer-portal .customer-opportunity-history__marker--expired {
+  background: var(--arb-color-warning, #edbd67);
+}
+.customer-portal .customer-opportunity-history__status--expired {
+  color: var(--arb-color-warning, #edbd67);
+}
