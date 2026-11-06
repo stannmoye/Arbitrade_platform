@@ -1430,3 +1430,13 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - **Safety/scope:** Read-only customer presentation, styling, tests and documentation only. No server/API/query/database/worker, wallet, balance, ledger, allocation, trade execution or settlement behavior changed. Automatic financial execution remains hard-disabled.
 - **Validation:** Exact-head GitHub Actions, type-check, tests, build, browser acceptance and database integration checks are pending for this Stage 3E branch. No authenticated hosted-customer verification, merge or deployment is claimed.
 - Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+## Customer opportunity popup redesign — Stage 4: popup-to-history integration (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage4-history-sync`, stacked directly on Stage 3E PR #304 head `45196db54aff6801bf2113108af127f3f75b5588`. PR #298–#304 and `main` remain untouched.
+- **Integration correction:** Customer popup dismissal now waits for the server lifecycle mutation to succeed, then immediately refetches the same authenticated customer opportunity feed consumed by the read-only history panel. A successful server confirmation produces a customer-visible status message after refresh.
+- **Failure handling:** If the lifecycle mutation fails, the alert still closes locally, but the customer is explicitly told that server dismissal was not confirmed and that the event may not yet appear in history. Alerts without a persisted delivery-event reference are identified as local-only rather than being presented as durably recorded.
+- **Scope:** Client-side popup/history coordination and status messaging only. No server query/API, database, migration, worker, delivery lifecycle semantics, wallet, balance, ledger, allocation, trade execution or settlement behavior changed. The history mapper continues to include dismissed events only when the server returns the explicit persisted dismissed status. Financial execution remains hard-disabled.
+- **Validation:** Exact-head type-check, tests, build, browser acceptance and database integration checks are pending. No authenticated hosted-customer verification, merge or deployment is claimed.
+- **Next:** Add regression coverage for the popup dismissal → server confirmation → feed refresh → history visibility path, then review exact-head CI.
