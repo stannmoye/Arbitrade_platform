@@ -1478,3 +1478,15 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Moved the guard into `runCustomerOpportunityPopupInteractionCheck` beside the customer fixture state and request handler. The admin route no longer references the customer-only flag.
 - Correction commit: `02f333d458d74851460c2c1c9509d018e1f127d1`.
 - Fresh exact-head CI is required; previous browser failure is not considered resolved until the new head's browser acceptance passes.
+
+
+## Customer opportunity popup redesign — Stage 8: combined lifecycle and mobile regression review (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage8-combined-regression`, based on Stage 7 PR #307 head `9d7c0e56cf650618e3864ccb268db0d7d55d294f`. PR #298–#307 and `main` remain unchanged.
+- **Combined lifecycle fixture:** Extended the customer browser acceptance fixture to return an explicitly open opportunity, a persisted expired delivery, a recorded missed event, confirmed and settled trade-history rows, and the dismissal produced by the successful popup flow.
+- **Six-category regression:** After successful popup dismissal and feed refresh, the browser test checks that Available, Missed, Allocated, Settled, Dismissed and Expired each show exactly one record; verifies six distinct visible history records; and checks company labels across the combined timeline.
+- **Search and mobile layout:** Added a browser assertion that searching the combined timeline narrows visible results without changing the server-derived category totals, plus a narrow-viewport history-panel overflow check.
+- **Countdown regression:** Added a real-time browser assertion that the server-synchronised opportunity expiry countdown changes between consecutive ticks. Existing auto-collapse, dock, maximize, minimize, details, and dismissal outcome scenarios remain in the same acceptance flow.
+- **Scope/safeguards:** Browser fixture and progress documentation only. No server/API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution or settlement behavior changed. All history records remain read-only and require explicit source statuses. Automatic financial execution remains hard-disabled.
+- **Validation:** Exact-head type-check, automated tests, production build, browser acceptance, application verification, and MySQL 8.4 / MariaDB 11.4 integration checks are pending. The browser uses mocked customer data and does not constitute authenticated hosted-customer verification. No merge or deployment performed.
+- **Known-good rollback baseline:** `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
