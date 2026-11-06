@@ -1411,6 +1411,16 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Exact-head CI is pending for commit `175d2f1fbcb0723516f29762869d68f87ab5fe8e`. No merge or deployment performed.
 
 
+## Customer opportunity popup redesign — Stage 3D: history overview and record details (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage3d-history-details`, stacked on Stage 3C PR #302 head `5f79f18b146fd1bef43722ed56d14eeb93bde33e`. PR #298–#302 and `main` remain untouched.
+- Added a six-category overview showing counts for available, missed, allocated, settled, dismissed and expired records. Counts are derived exclusively from the existing read-only history mapper.
+- Added keyboard-accessible expandable record details showing the mapped reference, recorded category/status and supplied timestamp. Missing timestamps remain explicitly unavailable; no lifecycle status is inferred.
+- Added responsive summary/detail styling and unit coverage for category totals and reference mapping.
+- **Safety/scope:** customer-side read-only presentation, tests and documentation only. No server/API/query/database/worker changes and no wallet, balance, ledger, allocation, trade execution or settlement actions. Automatic financial execution remains hard-disabled.
+- **Validation:** exact-head GitHub Actions pending. No authenticated hosted-customer verification, merge or deployment is claimed.
+
+
 ## 2026-11-06 — Popup browser fixture eligibility correction
 
 - Corrected the mocked active-offer fixture in the customer popup browser acceptance check: its available amount now exceeds the minimum required amount and its balance status is `sufficient`. The previous fixture marked the same open, popup-eligible offer as `insufficient`, so the customer UI correctly rendered a missed/insufficient-balance event instead of the active opportunity notice the test tried to expand.
