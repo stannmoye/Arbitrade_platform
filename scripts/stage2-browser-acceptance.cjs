@@ -2531,10 +2531,18 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     const filteredHistorySummary = await historyPanel.locator(
       ".customer-opportunity-history__summary"
     ).innerText().catch(() => "");
+    const categoryCountsAfterSearch = {};
+    for (const category of expectedHistoryCategories) {
+      categoryCountsAfterSearch[category] = await historyPanel.locator(
+        `.customer-opportunity-history__metric--${category} strong`
+      ).innerText().catch(() => "0");
+    }
     record("combined-history-search-filters-without-changing-category-totals",
-      filteredHistoryCount === 1 && filteredHistorySummary.includes("1 of 1") &&
-      expectedHistoryCategories.every(category => categoryCounts[category] === "1"),
-      { filteredHistoryCount, filteredHistorySummary, categoryCounts });
+      filteredHistoryCount === 1 && filteredHistorySummary.includes("1–1 of 1") &&
+      expectedHistoryCategories.every(category =>
+        categoryCounts[category] === "1" && categoryCountsAfterSearch[category] === categoryCounts[category]
+      ),
+      { filteredHistoryCount, filteredHistorySummary, categoryCounts, categoryCountsAfterSearch });
     await historySearch.fill("");
     const historyLayout = await historyPanel.evaluate(element => ({
       clientWidth: element.clientWidth,
