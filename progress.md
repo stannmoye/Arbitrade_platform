@@ -1369,7 +1369,7 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 
 ## Customer opportunity popup redesign — Stage 3A: read-only opportunity history (2026-11-06)
 
-- Working branch: `feat/customer-opportunity-popup-stage3-history`, stacked on Stage 2 PR #299 head `21fde58ca9b8935b08ebcaa1453596db7ca0edf7`. Stage 1 PR #298, Stage 2 PR #299, and `main` remain unchanged.
+- Working branch: `feat/customer-opportunity-popup-stage3-history`, stacked on the current Stage 2 PR #299 head `55046ae2f5ca795b8645c2f4349712bdaa40aa2e`. Stage 1 PR #298, Stage 2 PR #299, and `main` remain unchanged.
 - Added a customer-facing Opportunity History panel to the Trading Opportunities workspace. It combines only records already returned by the authenticated customer opportunity feed and persisted trade-history query: currently open opportunities, recorded missed events, allocated trades, and server-confirmed settled trades.
 - Added accessible category filters, per-category counts, company/reference/status search, newest-first ordering, timestamp display, empty states, and responsive styling.
 - State labels are deliberately conservative: no viewed, dismissed, expired, or settled state is invented. A trade is labelled settled only when the persisted trade status says `settled`; other persisted trades remain allocated/awaiting settlement. Closed offers are excluded from the available category.
@@ -1377,3 +1377,11 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - **Safety:** this is a read-only presentation of existing server data. No new API, database table, migration, worker, delivery lifecycle, wallet, balance, ledger, trade execution, allocation, or settlement behavior was added. Financial execution remains hard-disabled.
 - **Validation:** exact-head CI and browser acceptance are pending. No hosted authenticated customer verification is claimed. No merge or deployment performed.
 - Known-good rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+## Stage 3A browser acceptance timing correction (2026-11-06)
+
+- Corrected the mocked customer popup browser fixture to use an eight-second display duration, matching the later Stage 3C fixture. The previous one-second duration allowed the popup to auto-collapse while Playwright was opening and inspecting the read-only details panel.
+- Updated both the offer-level configured display duration and the mocked delivery popup policy so they agree.
+- This is a browser-test fixture correction only. Customer application behavior, server/API, database, worker, delivery lifecycle, wallet, balance, ledger, trade execution, allocation, and settlement logic are unchanged.
+- Exact-head CI is required after this commit; no hosted authenticated-customer verification, merge, or deployment is claimed.
