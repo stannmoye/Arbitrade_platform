@@ -3450,7 +3450,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       maximumTradeDurationSeconds:selectedPolicy.maximumTradeDurationSeconds==null?null:Number(selectedPolicy.maximumTradeDurationSeconds),
     });
     const minimumMinor=packageMinimum;
-    const completionDisplaySeconds=Number(selectedPolicy.completionDisplaySeconds||8);
+    const completionDisplaySeconds=Number(selectedPolicy.completionDisplaySeconds??8);
     if(!Number.isSafeInteger(completionDisplaySeconds)||completionDisplaySeconds<1||completionDisplaySeconds>3600) throw new Error(`Completion display delay is invalid for ${selectedPolicy.packageName}`);
     const rewardAt=new Date(input.now.getTime()+terms.tradeDurationSeconds*1000);
     // One cryptographically selected package duration governs the opportunity/trade countdown.
@@ -4277,7 +4277,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const savedBounds=generatedOffer?generationSnapshot:{minimumPayoutRateBps:configured.minimumPayoutRateBps,maximumPayoutRateBps:configured.maximumPayoutRateBps,minimumTradeDurationSeconds:configured.minimumTradeDurationSeconds,maximumTradeDurationSeconds:configured.maximumTradeDurationSeconds};
       if(!Number.isSafeInteger(configuredProfitRateBps)||configuredProfitRateBps<Number(savedBounds.minimumPayoutRateBps)||configuredProfitRateBps>Number(savedBounds.maximumPayoutRateBps)||
         !Number.isSafeInteger(configuredDurationSeconds)||configuredDurationSeconds<Number(savedBounds.minimumTradeDurationSeconds)||configuredDurationSeconds>Number(savedBounds.maximumTradeDurationSeconds)) continue;
-      const completionDisplaySeconds=generatedOffer?Number(generationSnapshot.completionDisplaySeconds||8):Number(configured.completionDisplaySeconds||8);
+      const completionDisplaySeconds=generatedOffer?Number(generationSnapshot.completionDisplaySeconds??8):Number(configured.completionDisplaySeconds??8);
       if(!Number.isSafeInteger(completionDisplaySeconds)||completionDisplaySeconds<1||completionDisplaySeconds>3600) continue;
       const configuredPopupDisplaySeconds=configuredDurationSeconds+completionDisplaySeconds;
       newlyEligible.push({...offer,packageId:Number(subscription.packageId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
