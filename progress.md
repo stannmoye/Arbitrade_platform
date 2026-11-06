@@ -1408,4 +1408,4 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Updated the mocked customer delivery policy to use the same eight-second popup display duration as the mocked offer. The fixture previously specified conflicting values (offer: 8 seconds; delivery policy: 1 second), which obscured the intended test timing.
 - Extended the dock-visibility wait to 12 seconds so it covers the configured eight-second auto-collapse window plus browser render margin. The earlier five-second wait could expire while the popup was correctly still expanded.
 - This changes browser acceptance fixture timing only; production popup behavior and financial safeguards are unchanged.
-- Exact-head CI is pending for commit `857e42b4a951511e6b701b2146238906abe658b6`. No merge or deployment performed.
+- Exact-head CI is pending for commit `175d2f1fbcb0723516f29762869d68f87ab5fe8e`. No merge or deployment performed.
