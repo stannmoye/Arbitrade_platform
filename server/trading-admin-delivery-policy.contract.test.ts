@@ -98,7 +98,7 @@ describe("administrator Trading delivery policy controls", () => {
   });
 
   it("keeps the single opportunity duration authoritative and the post-completion delay presentation-only", () => {
-    expect(policyEditor).toContain("same value controls its popup countdown and server expiry.");
+    expect(policyEditor).toContain("sets the trade duration, and the popup remains visible for that duration plus the short post-completion delay.");
     expect(policyEditor).toContain("short post-completion display delay is separate.");
     expect(app).toContain("existing customer and trade snapshots were preserved.");
     expect(policyEditor).toContain("This is a minimum eligibility constraint, not a generated or guaranteed return.");
