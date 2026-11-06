@@ -1345,3 +1345,14 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - No failed, cancelled, skipped, or still-running jobs were reported in the exact-head workflow review.
 - This validates the source commit and hosted checks only. Authenticated Blitz customer-popup delivery has not been verified; deploy and inspect this exact commit in an isolated/staging environment before making any production claim.
 - No merge, deployment, production database/configuration change, customer-data change, wallet/ledger mutation, trade execution, or settlement was performed. Automatic financial execution remains hard-disabled.
+
+
+## Customer opportunity popup redesign — Stage 2 (2026-11-06)
+
+- Started a separate stacked draft branch from Stage 1 head `61e73b79c6feb2a142d54dc7d332cc1b679be267`; Stage 1 PR #298 and `main` remain untouched.
+- Added a visible customer popup connection indicator with connected, refreshing, and interrupted states, driven by the existing customer opportunity query's polling/error state. The last successfully loaded notice remains visible if a refresh fails; no false claim of fresh server confirmation is made.
+- Added a keyboard-operable expandable details panel showing only informational metadata: company, assigned package, opportunity reference, opening time, scheduled expiry, and server status.
+- Added responsive styling, visible keyboard focus, and reduced-motion handling.
+- Added contract coverage for the connection states, accessible details toggle, read-only fields, and informational-only boundary.
+- No new API, schema, migration, worker, trade, wallet, balance, ledger, or settlement behavior. No financial execution or allocation is introduced.
+- Validation is pending exact-head GitHub Actions and browser acceptance. Hosted authenticated customer verification remains outstanding.
