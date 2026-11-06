@@ -1538,6 +1538,31 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Updated those assertions to verify the new one-time blocked-playback handler, audio error event, and browser-safe opportunity-loop cleanup. A fresh exact-head CI run is required.
 
 
+## Stage 9 notification audio runtime verification follow-up (2026-11-06)
+
+- Added an injectable notification-audio controller so playback lifecycle behavior can be exercised directly without depending on source-text assertions or a live browser.
+- Added runtime tests for replacing active cues, ended-event cleanup, non-overlapping repeated cues, rejected autoplay promises, media-element errors, synchronous audio-construction failures, and explicit stop/loop cleanup.
+- Preserved notification category and preset identifiers in blocked-playback events so the existing customer recovery notice remains informative.
+- Corrected synchronous audio-construction failure handling so an opportunity loop is not started after playback has already failed.
+- Scope remains customer notification audio only. No trading execution, allocation, wallet, ledger, settlement, or financial state behavior changed. No merge or deployment performed.
+- Validation is pending fresh exact-head GitHub Actions after this commit series.
+
+
+### Stage 9 runtime verification — source-contract alignment (2026-11-06)
+
+- Updated the legacy notification playback contract tests to inspect the extracted `notification-audio-controller.ts` implementation and the `App.tsx` integration boundary instead of expecting playback internals to remain inline in `App.tsx`.
+- Retained checks for customer opt-in, administrator sound policy, event context, WAV assets, single-active-cue behavior, loop cleanup, and blocked-playback handling. Runtime behavior remains covered by the dedicated controller tests.
+- Corrected the asset-path matcher after review of the updated test source.
+- Fresh exact-head GitHub Actions validation is pending. No merge or deployment performed; `main` remains untouched.
+
+
+### Stage 9 runtime verification — rejected-playback assertion correction (2026-11-06)
+
+- Exact-head CI isolated one remaining test failure: the controller correctly calls `audio.play().catch(() => {` but the contract test expected the older compact spelling `void audio.play().catch(() =>` with no whitespace.
+- Replaced the brittle literal substring check with a whitespace-tolerant regular expression that verifies the rejected-promise handler structure without requiring formatting.
+- No runtime implementation or financial behavior changed. Fresh exact-head CI is pending; no merge or deployment performed.
+
+
 ## 2026-11-06 — Popup browser fixture eligibility correction
 
 - Corrected the mocked active-offer fixture in the customer popup browser acceptance check: its available amount now exceeds the minimum required amount and its balance status is `sufficient`. The previous fixture marked the same open, popup-eligible offer as `insufficient`, so the customer UI correctly rendered a missed/insufficient-balance event instead of the active opportunity notice the test tried to expand.

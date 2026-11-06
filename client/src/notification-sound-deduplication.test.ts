@@ -131,17 +131,22 @@ describe("notification sound header integration contract", () => {
     expect(effect).toContain("findNewNotificationSoundEvents(rows,previousHeaderNotificationIds.current,persistedIds");
   });
 
-  it("reports rejected audio playback and stops only a failed opportunity loop", () => {
-    expect(app).toContain("arbitrade:notification-audio-blocked");
-    expect(app).toContain("audio.play().catch(()=>{clearActive();reportBlocked();})");
-    expect(app).toContain("if(kind===\"opportunity\"){if(opportunityLoopTimer&&typeof window!==\"undefined\")window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}");
+  it("routes blocked playback context through the extracted audio controller", () => {
+    const controller = readFileSync(new URL("./notification-audio-controller.ts", import.meta.url), "utf8");
+    expect(app).toContain('import { createNotificationAudioController } from "./notification-audio-controller"');
+    expect(app).toContain('new CustomEvent("arbitrade:notification-audio-blocked"');
+    expect(app).toContain("notificationAudioController.play(preset.src");
+    expect(app).toContain("{kind,presetId:preset.id}");
+    expect(controller).toContain("options.onBlocked(context)");
   });
 
-  it("stops an opportunity loop for both rejected promises and synchronous audio errors", () => {
-    expect(app).toContain("const stopOpportunityLoop=()=>{if(kind===\"opportunity\"){if(opportunityLoopTimer&&typeof window!==\"undefined\")window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}};");
-    expect(app).toContain('audio.addEventListener("error",()=>{clearActive();reportBlocked();},{once:true})');
-    expect(app).toContain("audio.play().catch(()=>{clearActive();reportBlocked();})");
-    expect(app).toContain("reportBlockedSafely(kind,id)");
+  it("handles rejected promises, synchronous playback errors, and media errors in the controller", () => {
+    const controller = readFileSync(new URL("./notification-audio-controller.ts", import.meta.url), "utf8");
+    expect(controller).toContain('audio.addEventListener("error"');
+    expect(controller).toMatch(/void\s+audio\.play\(\)\.catch\(\(\)\s*=>\s*\{/);
+    expect(controller).toContain("clearActive();\n        reportBlocked();");
+    expect(controller).toContain("const reportBlocked = () =>");
+    expect(controller).toContain("stopLoop();");
   });
 
   it("shows accessible audio recovery guidance in both customer and admin settings", () => {
@@ -157,6 +162,7 @@ describe("notification sound header integration contract", () => {
 
 describe("notification sound playback reliability", () => {
   const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+  const controller = readFileSync(new URL("./notification-audio-controller.ts", import.meta.url), "utf8");
 
   it("keeps every configured WAV sound asset in the public bundle", () => {
     const assetPaths = [...new Set(
@@ -168,35 +174,27 @@ describe("notification sound playback reliability", () => {
     }
   });
 
-  it("stops an older cue before starting a new event sound", () => {
-    const start = app.indexOf("function stopActiveNotificationAudio()");
-    const end = app.indexOf("function playNotificationChime()", start);
-    const playback = app.slice(start, end);
-    expect(start).toBeGreaterThanOrEqual(0);
-    expect(end).toBeGreaterThan(start);
-    expect(playback).toContain("const audio=activeNotificationAudio");
-    expect(playback).toContain("audio.pause()");
-    expect(playback).toContain("stopActiveNotificationAudio();");
+  it("stops the previous cue before replacement and clears completed audio", () => {
+    expect(controller).toContain("const stopActive = () =>");
+    expect(controller).toContain("audio.pause()");
+    expect(controller).toContain("const playCue = (skipWhenBusy = false) =>");
+    expect(controller).toContain("stopActive();");
+    expect(controller).toContain('audio.addEventListener("ended", clearActive, { once: true })');
   });
 
-  it("does not overlap repeated opportunity cues and clears completed audio", () => {
-    const start = app.indexOf("function stopActiveNotificationAudio()");
-    const end = app.indexOf("function playNotificationChime()", start);
-    const playback = app.slice(start, end);
-    expect(playback).toContain("if(skipWhenBusy&&activeNotificationAudio&&!activeNotificationAudio.paused&&!activeNotificationAudio.ended)return;");
-    expect(playback).toContain('audio.addEventListener("ended",clearActive,{once:true})');
-    expect(playback).toContain("window.setInterval(()=>play(true),1500)");
+  it("prevents overlapping opportunity cues while allowing the next cue after completion", () => {
+    expect(controller).toContain("if (skipWhenBusy && activeAudio && !activeAudio.paused && !activeAudio.ended) return;");
+    expect(controller).toContain("options.setInterval(() => playCue(true), 1500)");
+    expect(controller).toContain("if (activeAudio === audio) activeAudio = null;");
   });
 
   it("reports browser playback failures once and stops the opportunity loop", () => {
-    const start = app.indexOf("function playConfiguredSound(");
-    const end = app.indexOf("function playNotificationChime()", start);
-    const playback = app.slice(start, end);
-    expect(playback).toContain("let blockedReported=false");
-    expect(playback).toContain("if(blockedReported)return");
-    expect(playback).toContain('audio.addEventListener("error",()=>{clearActive();reportBlocked();},{once:true})');
-    expect(playback).toContain("audio.play().catch(()=>{clearActive();reportBlocked();})");
-    expect(playback).toContain("stopOpportunityLoop()");
+    expect(controller).toContain("let blockedReported = false");
+    expect(controller).toContain("if (blockedReported) return;");
+    expect(controller).toContain('audio.addEventListener("error"');
+    expect(controller).toContain("audio.play().catch");
+    expect(controller).toContain("stopLoop();");
+    expect(controller).toContain("if (loop && !blockedReported && loopTimer === null)");
   });
 
   it("keeps the explicit customer opt-in and administrator sound policy gates", () => {
