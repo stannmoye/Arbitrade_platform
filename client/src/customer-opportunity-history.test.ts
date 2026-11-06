@@ -92,6 +92,7 @@ describe("customer opportunity history", () => {
     expect(stale.items).toEqual([1, 2, 3]);
     expect(stale.start).toBe(1);
     expect(stale.end).toBe(3);
+    expect(paginateCustomerOpportunityHistory(entries, Number.NaN, 8).page).toBe(0);
   });
 
   it("returns an empty first page for an empty result set", () => {
