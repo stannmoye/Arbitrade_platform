@@ -391,7 +391,7 @@ describe("Trading overview and duration navigation", () => {
     expect(navigation).toContain('label: "Global Trade Timing & Settlement"');
     expect(navigation).toContain('label: "Per-tier Offer Rules & Capital Limits"');
     expect(navigation).toContain('label: "Per-tier Delivery Schedule"');
-    expect(navigation).toContain('label: "Per-tier Pop-up Display"');
+    expect(navigation).toContain('label: "Post-completion Display Delay"');
     expect(adminApp).toContain('<AdminSettings focus="tradeDuration"/>');
     expect(adminApp).toContain('section==="tradeDurationRules"&&<Suspense');
     expect(operationsUi).toContain("Manage global settlement, wallet-credit and pop-up timing defaults.");
