@@ -4,6 +4,7 @@ export type CustomerOpportunityHistoryKind = "available" | "missed" | "allocated
 
 export type CustomerOpportunityHistoryEntry = {
   id: string;
+  reference: string;
   kind: CustomerOpportunityHistoryKind;
   title: string;
   subtitle: string;
@@ -51,12 +52,12 @@ export function buildCustomerOpportunityHistory(input: HistoryInput): CustomerOp
 
     if (deliveryStatus === "dismissed") {
       const occurredAt = dateValue(offer?.dismissedAt);
-      entries.push({ id: "dismissed:" + id, kind: "dismissed", title, subtitle: "Opportunity " + id + " · notice dismissed", status: "Dismissed · presentation only", occurredAt, searchable: (title + " " + id + " dismissed presentation notice").toLowerCase() });
+      entries.push({ id: "dismissed:" + id, reference: id, kind: "dismissed", title, subtitle: "Opportunity " + id + " · notice dismissed", status: "Dismissed · presentation only", occurredAt, searchable: (title + " " + id + " dismissed presentation notice").toLowerCase() });
       continue;
     }
     if (deliveryStatus === "expired") {
       const occurredAt = dateValue(offer?.expiredAt || offer?.closesAt);
-      entries.push({ id: "expired:" + id, kind: "expired", title, subtitle: "Opportunity " + id + " · delivery window ended", status: "Expired · delivery ended", occurredAt, searchable: (title + " " + id + " expired delivery ended").toLowerCase() });
+      entries.push({ id: "expired:" + id, reference: id, kind: "expired", title, subtitle: "Opportunity " + id + " · delivery window ended", status: "Expired · delivery ended", occurredAt, searchable: (title + " " + id + " expired delivery ended").toLowerCase() });
       continue;
     }
 
@@ -65,6 +66,7 @@ export function buildCustomerOpportunityHistory(input: HistoryInput): CustomerOp
     const occurredAt = dateValue(offer?.opensAt || offer?.createdAt);
     entries.push({
       id: "available:" + id,
+      reference: id,
       kind: "available",
       title,
       subtitle: [offer?.venueFrom, offer?.venueTo].filter((part: unknown) => typeof part === "string" && part && part !== "Informational").join(" → ") || ("Opportunity " + id),
@@ -80,7 +82,7 @@ export function buildCustomerOpportunityHistory(input: HistoryInput): CustomerOp
     const title = displayName(item);
     const reason = String(item?.reason || "Insufficient available balance").replaceAll("_", " ").toLowerCase();
     const occurredAt = dateValue(item?.createdAt || item?.occurredAt);
-    entries.push({ id: "missed:" + id, kind: "missed", title, subtitle: "Opportunity " + (item?.offerId ?? id) + " · " + reason, status: "Missed · not allocated", occurredAt, searchable: (title + " " + id + " " + (item?.offerId || "") + " " + reason + " missed").toLowerCase() });
+    entries.push({ id: "missed:" + id, reference: String(item?.offerId ?? id), kind: "missed", title, subtitle: "Opportunity " + (item?.offerId ?? id) + " · " + reason, status: "Missed · not allocated", occurredAt, searchable: (title + " " + id + " " + (item?.offerId || "") + " " + reason + " missed").toLowerCase() });
   }
 
   for (const trade of trades) {
@@ -90,7 +92,7 @@ export function buildCustomerOpportunityHistory(input: HistoryInput): CustomerOp
     const title = displayName(trade);
     const occurredAt = dateValue(trade?.settledAt || trade?.confirmedAt || trade?.createdAt);
     const stage = String(trade?.stage || (settled ? "Settlement recorded" : "Awaiting settlement"));
-    entries.push({ id: "trade:" + id, kind: settled ? "settled" : "allocated", title, subtitle: "Trade #" + id + " · " + stage, status: settled ? "Settled · server recorded" : "Allocated · settlement pending", occurredAt, searchable: (title + " " + id + " " + stage + " " + (settled ? "settled" : "allocated")).toLowerCase() });
+    entries.push({ id: "trade:" + id, reference: id, kind: settled ? "settled" : "allocated", title, subtitle: "Trade #" + id + " · " + stage, status: settled ? "Settled · server recorded" : "Allocated · settlement pending", occurredAt, searchable: (title + " " + id + " " + stage + " " + (settled ? "settled" : "allocated")).toLowerCase() });
   }
 
   return entries.sort((left, right) => {
@@ -126,6 +128,23 @@ export function paginateCustomerOpportunityHistory<T>(entries: T[], page: number
   return { items, page: safePage, pageCount, total: entries.length, start: entries.length ? start + 1 : 0, end: start + items.length };
 }
 
+export type CustomerOpportunityHistorySummary = { total: number } & Record<CustomerOpportunityHistoryKind, number>;
+
+export function summarizeCustomerOpportunityHistory(entries: CustomerOpportunityHistoryEntry[]): CustomerOpportunityHistorySummary {
+  const summary: CustomerOpportunityHistorySummary = { total: entries.length, available: 0, missed: 0, allocated: 0, settled: 0, dismissed: 0, expired: 0 };
+  for (const entry of entries) summary[entry.kind] += 1;
+  return summary;
+}
+
+const summaryItems: Array<{ id: CustomerOpportunityHistoryKind; label: string }> = [
+  { id: "available", label: "Available" },
+  { id: "missed", label: "Missed" },
+  { id: "allocated", label: "Allocated" },
+  { id: "settled", label: "Settled" },
+  { id: "dismissed", label: "Dismissed" },
+  { id: "expired", label: "Expired" },
+];
+
 const filters: Array<{ id: "all" | CustomerOpportunityHistoryKind; label: string }> = [
   { id: "all", label: "All activity" },
   { id: "available", label: "Available" },
@@ -148,7 +167,8 @@ export function CustomerOpportunityHistoryPanel({ offers, missed, trades }: Hist
   );
   const pageData = paginateCustomerOpportunityHistory(visible, page, HISTORY_PAGE_SIZE);
   const groups = groupCustomerOpportunityHistoryByDate(pageData.items);
-  const countFor = (kind: string) => kind === "all" ? entries.length : entries.filter(entry => entry.kind === kind).length;
+  const summary = summarizeCustomerOpportunityHistory(entries);
+  const countFor = (kind: "all" | CustomerOpportunityHistoryKind) => kind === "all" ? summary.total : summary[kind];
 
   return <section className="customer-panel customer-opportunity-history" aria-labelledby="customer-opportunity-history-title">
     <div className="customer-panel-head">
@@ -156,6 +176,9 @@ export function CustomerOpportunityHistoryPanel({ offers, missed, trades }: Hist
       <span>{entries.length} records</span>
     </div>
     <p className="customer-opportunity-history__note">A read-only timeline of available opportunities, recorded missed events, persisted delivery dismissals/expiries and trade history. Dismissed and expired labels appear only when the server records those exact delivery states.</p>
+    <div className="customer-opportunity-history__overview" aria-label="History totals">
+      {summaryItems.map(item => <div className={"customer-opportunity-history__metric customer-opportunity-history__metric--" + item.id} key={item.id}><span>{item.label}</span><strong>{summary[item.id]}</strong></div>)}
+    </div>
     <label className="customer-opportunity-history__search-label" htmlFor="customer-opportunity-history-search">Search company, reference or status</label>
     <input id="customer-opportunity-history-search" className="customer-opportunity-history__search" type="search" value={search} onChange={event => { setSearch(event.target.value); setPage(0); }} placeholder="Search opportunity history" autoComplete="off" />
     <div className="customer-opportunity-history__filters" role="group" aria-label="Filter opportunity history">
@@ -174,6 +197,16 @@ export function CustomerOpportunityHistoryPanel({ offers, missed, trades }: Hist
                   <div className="customer-opportunity-history__topline"><strong>{entry.title}</strong><span className={"customer-opportunity-history__status customer-opportunity-history__status--" + entry.kind}>{entry.status}</span></div>
                   <p>{entry.subtitle}</p>
                   <time dateTime={entry.occurredAt || undefined}>{entry.occurredAt ? new Date(entry.occurredAt).toLocaleString() : "Server timestamp unavailable"}</time>
+                  <details className="customer-opportunity-history__details">
+                    <summary>View record details</summary>
+                    <dl>
+                      <div><dt>Record reference</dt><dd>{entry.reference}</dd></div>
+                      <div><dt>Recorded category</dt><dd>{entry.kind}</dd></div>
+                      <div><dt>Recorded status</dt><dd>{entry.status}</dd></div>
+                      <div><dt>Server timestamp</dt><dd>{entry.occurredAt ? new Date(entry.occurredAt).toLocaleString() : "Not supplied"}</dd></div>
+                    </dl>
+                    <p>Informational record only. This view does not perform or request any account action.</p>
+                  </details>
                 </div>
               </article>)}
             </div>
