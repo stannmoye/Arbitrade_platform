@@ -1490,3 +1490,10 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - **Scope/safeguards:** Browser fixture and progress documentation only. No server/API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution or settlement behavior changed. All history records remain read-only and require explicit source statuses. Automatic financial execution remains hard-disabled.
 - **Validation:** Exact-head type-check, automated tests, production build, browser acceptance, application verification, and MySQL 8.4 / MariaDB 11.4 integration checks are pending. The browser uses mocked customer data and does not constitute authenticated hosted-customer verification. No merge or deployment performed.
 - **Known-good rollback baseline:** `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+### Stage 8 review hardening — verify category totals after search (2026-11-06)
+
+- Review found the initial search assertion compared the pre-search category counts to themselves, so it did not prove the rendered overview stayed unchanged after filtering.
+- Updated the browser acceptance to re-read all six rendered category totals after the search is applied and compare them to the pre-search values. The result-range assertion now checks the exact rendered range text for the single filtered record.
+- This is browser-test-only hardening; production behavior and financial boundaries are unchanged. Fresh exact-head CI is required.
