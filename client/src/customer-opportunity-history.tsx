@@ -20,7 +20,7 @@ type HistoryInput = {
 
 function dateValue(value: unknown): string | null {
   if (typeof value !== "string" && !(value instanceof Date)) return null;
-  const date = new Date(value);
+  const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
   return Number.isFinite(date.getTime()) ? date.toISOString() : null;
 }
 
