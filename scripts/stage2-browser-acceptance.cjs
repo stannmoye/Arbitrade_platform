@@ -2368,7 +2368,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
                 opensAt: "2026-11-06T10:00:00.000Z", closesAt: "2099-12-31T23:59:59.000Z",
               },
               {
-                id: 50503, offerId: 50503, offerStatus: "closed", status: "closed",
+                id: 50503, offerId: 50503, offerStatus: "closed", status: "closed", currency: "USD",
                 deliveryStatus: "expired", expiredAt: "2026-11-06T09:00:00.000Z",
                 companyDisplayName: "Expired QA Company", symbol: "EXPIRE",
               },
