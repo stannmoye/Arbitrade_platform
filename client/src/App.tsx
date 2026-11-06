@@ -409,7 +409,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
 
   const isOfferOpen=(offer:any)=>{
     const closesAt=new Date(offer.closesAt).getTime();
-    return String(offer.offerStatus||"").toLowerCase()==="open"&&Number.isFinite(closesAt)&&closesAt>Date.now();
+    return String(offer.offerStatus||"").toLowerCase()==="open"&&Number.isFinite(closesAt)&&closesAt>Date.now()+serverClockOffsetMs.current;
   };
   const isOfferCurrent=(offer:any)=>!dismissed.current.has(Number(offer.id))&&isOfferOpen(offer)&&isFreshCustomerPopupCandidate(offer)&&
     Boolean(opportunityData?.offers?.some((current:any)=>Number(current.id)===Number(offer.id)&&
@@ -533,7 +533,9 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   useEffect(()=>{
     if(!popup||!Array.isArray(opportunityData?.offers))return;
     const current=opportunityData.offers.find((offer:any)=>Number(offer.id)===Number(popup.id));
-    if(!current||current.popupEligible!==true||String(current.offerStatus||"").toLowerCase()!=="open")stop();
+    if(!current||String(current.offerStatus||"").toLowerCase()!=="open"){stop();return;}
+    const refreshedFields=["expiryStatus","popupEligible","companyDisplayName","companyLogoUrl","deliveryStatus"];
+    if(refreshedFields.some((key)=>current[key]!==popup[key]))setPopup((existing:any)=>existing?{...existing,...current}:current);
   },[popup,opportunityData]);
   useEffect(()=>()=> {
     stopConfiguredSound();
