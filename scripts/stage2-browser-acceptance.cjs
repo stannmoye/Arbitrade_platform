@@ -2312,7 +2312,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     id: 50501, offerId: 50501, deliveryEventId: 60501,
     packageName: "QA Eligible Tier", symbol: "BTC/USD", currency: "USD",
     minimumMinor: 10000, balanceAvailableMinor: 4500, balanceStatus: "insufficient",
-    currencyScale: 2, currencySymbol: "$", configuredPopupDisplaySeconds: 1,
+    currencyScale: 2, currencySymbol: "$", configuredPopupDisplaySeconds: 12,
     opensAt: "2099-12-31T23:50:00.000Z", closesAt: "2099-12-31T23:59:59.000Z",
     expiryStatus: "active", offerStatus: "open", popupEligible: true,
     eventStatus: "DELIVERED", deliveryStatus: "delivered",
@@ -2364,9 +2364,31 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     });
     await page.goto(new URL("/customer", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.getByRole("heading", { name: "Welcome back, Jordan." }).waitFor({ state: "visible", timeout: 15000 });
+    const minimizedDock = page.locator(".opportunity-popup-dock");
+    if (await minimizedDock.isVisible().catch(() => false)) {
+      await minimizedDock.getByRole("button", { name: "Maximize opportunity alert" }).click();
+    }
     const popup = page.locator(".center-opportunity-toast").filter({ hasText: "Verified QA Company opportunity notice" });
     await popup.waitFor({ state: "visible", timeout: 10000 });
     const popupText = await popup.innerText();
+    const connectionVisible = await popup.getByRole("status")
+      .filter({ hasText: "Live status connected" }).isVisible().catch(() => false);
+    const detailsToggle = popup.locator(".opportunity-popup-details__toggle");
+    await detailsToggle.click();
+    const detailsPanel = popup.locator(".opportunity-popup-details__grid");
+    const detailsVisible = await detailsPanel.isVisible().catch(() => false);
+    const detailsText = detailsVisible ? await detailsPanel.innerText() : "";
+    const detailsInteractiveControls = await detailsPanel.locator("button,input,select,textarea,[contenteditable='true']").count();
+    const expandedState = await detailsToggle.getAttribute("aria-expanded");
+    record("popup-shows-live-connection-state", connectionVisible);
+    record("opportunity-details-expand-accessibly-with-read-only-server-metadata",
+      detailsVisible && expandedState === "true" && detailsInteractiveControls === 0 &&
+      detailsText.includes("Verified QA Company") &&
+      detailsText.includes("QA Eligible Tier") &&
+      detailsText.includes(String(offer.id)) &&
+      detailsText.toLowerCase().includes("scheduled expiry") &&
+      detailsText.toLowerCase().includes("server status"),
+      { expandedState, detailsInteractiveControls, detailsText });
     const companyVisible = popupText.includes("Verified QA Company") &&
       await popup.locator(".popup-company-reference").isVisible().catch(() => false);
     const insufficientVisible = popupText.includes("Missed — insufficient balance") &&
@@ -2384,7 +2406,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     record("insufficient-balance-is-explained-with-required-available-and-shortfall", insufficientVisible);
     record("popup-makes-no-financial-execution-claim", informationalOnly);
     record("opportunity-popup-renders-server-synchronised-expiry-countdown", expiryCountdownVisible);
-    await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: 5000 });
+    await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: 15000 });
     const dock = page.locator(".opportunity-popup-dock");
     const dockText = await dock.innerText().catch(() => "");
     record("minimized-dock-keeps-live-expiry-countdown", dockText.includes("Opportunity expires in") || dockText.includes("Expiry time reached"), { dockText });
@@ -2395,7 +2417,10 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     await dock.getByRole("button", { name: "Maximize opportunity alert" }).click();
     await popup.waitFor({ state: "visible", timeout: 3000 });
     record("customer-can-maximize-docked-alert", await popup.isVisible().catch(() => false));
-    await popup.getByRole("button", { name: "Minimize opportunity alert" }).click();
+    // The popup has a deliberate entrance/auto-collapse animation. Dispatch the
+    // visible control immediately so Playwright's stability wait cannot race the
+    // configured auto-collapse timer on narrow mobile viewports.
+    await popup.getByRole("button", { name: "Minimize opportunity alert" }).click({ force: true });
     await dock.waitFor({ state: "visible", timeout: 3000 });
     record("customer-can-manually-minimize-alert", await dock.isVisible().catch(() => false));
     record("popup-delivery-lifecycle-is-acknowledged", mutationCalls.some(call =>

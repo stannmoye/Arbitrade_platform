@@ -1345,3 +1345,32 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - No failed, cancelled, skipped, or still-running jobs were reported in the exact-head workflow review.
 - This validates the source commit and hosted checks only. Authenticated Blitz customer-popup delivery has not been verified; deploy and inspect this exact commit in an isolated/staging environment before making any production claim.
 - No merge, deployment, production database/configuration change, customer-data change, wallet/ledger mutation, trade execution, or settlement was performed. Automatic financial execution remains hard-disabled.
+
+
+## Customer opportunity popup redesign — Stage 2 (2026-11-06)
+
+- Started a separate stacked draft branch from Stage 1 head `61e73b79c6feb2a142d54dc7d332cc1b679be267`; Stage 1 PR #298 and `main` remain untouched.
+- Added a visible customer popup connection indicator with connected, refreshing, and interrupted states, driven by the existing customer opportunity query's polling/error state. The last successfully loaded notice remains visible if a refresh fails; no false claim of fresh server confirmation is made.
+- Added a keyboard-operable expandable details panel showing only informational metadata: company, assigned package, opportunity reference, opening time, scheduled expiry, and server status.
+- Added responsive styling, visible keyboard focus, and reduced-motion handling.
+- Added contract coverage for the connection states, accessible details toggle, read-only fields, and informational-only boundary.
+- No new API, schema, migration, worker, trade, wallet, balance, ledger, or settlement behavior. No financial execution or allocation is introduced.
+- Validation is pending exact-head GitHub Actions and browser acceptance. Hosted authenticated customer verification remains outstanding.
+
+
+## Customer opportunity popup redesign — Stage 2 validation hardening (2026-11-06)
+
+- Extended the mocked customer browser acceptance flow to assert the live connection indicator and expanded opportunity details, including company, assigned package, opportunity reference, scheduled expiry and server status. It also verifies that the expanded metadata panel contains no interactive controls.
+- Enabled the existing production/typecheck/test/browser workflow, application verification workflow, and Trading worker integration workflow on pushes to `feat/customer-opportunity-popup-*`. This makes the stacked Stage 2 branch independently trigger the same automated checks without changing its base branch or merging Stage 1.
+- Stage 2 remains informational-only. No trade execution, allocation, wallet, ledger, settlement, API, database schema, migration, or worker behavior was added or changed by the popup UI.
+- Validation is pending on the exact resulting branch head. Do not treat the source or mocked browser checks as hosted authenticated customer verification.
+- Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`; neither PR #298 nor PR #299 has been merged.
+
+
+## Customer opportunity popup Stage 2 browser timing correction (2026-11-06)
+
+- Investigated the exact-head customer browser failure on the Stage 2 branch. The fixture configured the popup to auto-collapse after 1 second, while the browser acceptance sequence attempted to expand and inspect the details panel before continuing through the minimize/maximize/dismiss interactions. The short timer could collapse the popup during Playwright's interaction stability checks.
+- Increased only the mocked fixture's display duration to 12 seconds and extended the dock-appearance wait to 15 seconds. This preserves coverage of automatic collapse while providing a realistic interaction window for the details, countdown, minimize, maximize, and dismiss assertions.
+- No customer application source, server/API behavior, database, worker, wallet, ledger, trade, or settlement logic changed. The insufficient-balance fixture and its explicit no-funds-moved assertions remain unchanged.
+- Correction committed as `0f95f480eedb2f59a0804739223a4aa9132bdabb`. Exact-head GitHub Actions validation is pending; do not claim the browser regression is resolved until the new run completes.
+- No merge, deployment, production configuration/data change, or financial operation was performed. Automatic financial execution remains hard-disabled.

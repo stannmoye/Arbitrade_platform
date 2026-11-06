@@ -114,6 +114,32 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain("Date.now()+serverClockOffsetMs.current");
   });
 
+  it("shows live connection state while retaining the last known informational popup", () => {
+    expect(app).toContain('connectionStatus={opportunityMeta.isError?"offline":opportunityMeta.isFetching&&!opportunityMeta.data?"updating":"connected"}');
+    expect(app).toContain('opportunityMeta.isFetching&&!opportunityMeta.data');
+    expect(component).toContain('connectionStatus:"connected"|"updating"|"offline"');
+    expect(component).toContain('className={"opportunity-popup-connection opportunity-popup-connection--"+connectionStatus}');
+    expect(component).toContain("Connection interrupted");
+    expect(component).toContain("Refreshing status");
+    expect(component).toContain("Live status connected");
+    expect(stylesheet).toContain(".opportunity-popup-connection--offline");
+    expect(stylesheet).toContain(".opportunity-popup-connection--updating");
+  });
+
+  it("provides keyboard-operable, read-only expandable opportunity details", () => {
+    expect(component).toContain('className="opportunity-popup-details__toggle"');
+    expect(component).toContain("aria-expanded={detailsExpanded}");
+    expect(component).toContain("setDetailsExpanded(value=>!value)");
+    expect(component).toContain("Opportunity reference");
+    expect(component).toContain("Assigned package");
+    expect(component).toContain("Scheduled expiry");
+    expect(component).toContain("Server status");
+    expect(component).toContain("<dl");
+    expect(stylesheet).toContain(".opportunity-popup-details__toggle:focus-visible");
+    expect(stylesheet).toContain("@media (max-width: 520px)");
+    expect(component).toContain("It does not execute a trade, allocate capital, or change a wallet balance.");
+  });
+
   it("keeps the expiry countdown informational and respects reduced-motion styling", () => {
     expect(component).toContain('className="opportunity-expiry-panel"');
     expect(component).toContain("Expiry time reached · confirming status");
