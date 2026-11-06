@@ -2386,6 +2386,8 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     record("opportunity-popup-renders-server-synchronised-expiry-countdown", expiryCountdownVisible);
     await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: 5000 });
     const dock = page.locator(".opportunity-popup-dock");
+    const dockText = await dock.innerText().catch(() => "");
+    record("minimized-dock-keeps-live-expiry-countdown", dockText.includes("Opportunity expires in") || dockText.includes("Expiry time reached"), { dockText });
     record("configured-display-duration-collapses-alert-into-dock", await dock.isVisible().catch(() => false), {
       dockText: await dock.innerText().catch(() => ""), pageErrors,
       expiryCountdownInDock: (await dock.innerText().catch(() => "")).includes("Opportunity expires in") || (await dock.innerText().catch(() => "")).includes("Expiry time reached"),
