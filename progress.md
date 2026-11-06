@@ -1356,3 +1356,12 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Added contract coverage for the connection states, accessible details toggle, read-only fields, and informational-only boundary.
 - No new API, schema, migration, worker, trade, wallet, balance, ledger, or settlement behavior. No financial execution or allocation is introduced.
 - Validation is pending exact-head GitHub Actions and browser acceptance. Hosted authenticated customer verification remains outstanding.
+
+
+## Customer opportunity popup redesign — Stage 2 validation hardening (2026-11-06)
+
+- Extended the mocked customer browser acceptance flow to assert the live connection indicator and expanded opportunity details, including company, assigned package, opportunity reference, scheduled expiry and server status. It also verifies that the expanded metadata panel contains no interactive controls.
+- Enabled the existing production/typecheck/test/browser workflow, application verification workflow, and Trading worker integration workflow on pushes to `feat/customer-opportunity-popup-*`. This makes the stacked Stage 2 branch independently trigger the same automated checks without changing its base branch or merging Stage 1.
+- Stage 2 remains informational-only. No trade execution, allocation, wallet, ledger, settlement, API, database schema, migration, or worker behavior was added or changed by the popup UI.
+- Validation is pending on the exact resulting branch head. Do not treat the source or mocked browser checks as hosted authenticated customer verification.
+- Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`; neither PR #298 nor PR #299 has been merged.
