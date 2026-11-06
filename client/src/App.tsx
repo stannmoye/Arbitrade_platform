@@ -11,7 +11,7 @@ import { formatFeeBpsAsPercent, parseFeePercentToBps, resolvePackageFeePolicy, t
 import { getPageCount, paginateItems } from "./trading-catalogue-pagination";
 import { buildChangedPolicyPatches, TRADING_TIER_POLICY_PATCH_KEYS } from "./trading-policy-patches";
 import { isFreshCustomerPopupCandidate } from "./customer-popup-eligibility";
-import { CustomerOpportunityHistoryPanel } from "./customer-opportunity-history";
+import { CustomerOpportunityHistoryPanel, hasPersistedCustomerOpportunityDismissal } from "./customer-opportunity-history";
 const AdminSlideMenu = lazy(() => import("@/components/AdminSlideMenu").then((module) => ({ default: module.AdminSlideMenu })));
 const TradeSettingsAdminGuide = lazy(() => import("@/components/TradeSettingsAdminGuide").then((module) => ({ default: module.TradeSettingsAdminGuide })));
 const AdminPackageFeeEditor = lazy(() => import("@/components/AdminPackageFeeEditor"));
@@ -444,11 +444,14 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
     if(eventId>0){
       void lifecycle.mutateAsync({eventId,action:"dismissed"})
         .then(async()=>{
-          await refreshOpportunityFeed();
+          const refreshed=await refreshOpportunityFeed() as any;
+          if(refreshed?.isError||!hasPersistedCustomerOpportunityDismissal(refreshed?.data,offerId)){
+            throw new Error("dismissal-not-confirmed-in-refreshed-feed");
+          }
           onStatusMessage("Dismissal saved and refreshed in opportunity history.");
         })
         .catch(()=>{
-          onStatusMessage("The alert was closed on this device, but the server did not confirm dismissal. It may not appear in opportunity history.");
+          onStatusMessage("The alert was closed, but the server did not confirm the dismissal in opportunity history. It may not appear there.");
         });
     }else{
       onStatusMessage("The alert was closed locally, but it had no saved delivery reference to record in opportunity history.");
