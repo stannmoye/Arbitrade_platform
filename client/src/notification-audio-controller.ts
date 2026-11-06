@@ -1,6 +1,6 @@
 export type NotificationAudioControllerOptions = {
   createAudio: (src: string) => HTMLAudioElement;
-  onBlocked: () => void;
+  onBlocked: (context?: { kind?: string; presetId?: string }) => void;
   setInterval: (callback: () => void, delayMs: number) => number;
   clearInterval: (timer: number) => void;
 };
@@ -27,14 +27,14 @@ export function createNotificationAudioController(options: NotificationAudioCont
     stopActive();
   };
 
-  const play = (src: string, volume: number, loop = false) => {
+  const play = (src: string, volume: number, loop = false, context?: { kind?: string; presetId?: string }) => {
     stopLoop();
     let blockedReported = false;
     const reportBlocked = () => {
       if (blockedReported) return;
       blockedReported = true;
       stopLoop();
-      options.onBlocked();
+      options.onBlocked(context);
     };
 
     const playCue = (skipWhenBusy = false) => {
