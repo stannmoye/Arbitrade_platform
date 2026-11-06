@@ -9,7 +9,6 @@ const base: PackageAutomationPolicy = {
   minIntervalSeconds: 45,
   maxIntervalSeconds: 3600,
   randomizationEnabled: true,
-  popupDisplayTargetSeconds: 120,
   completionDisplaySeconds: 8,
   postCompletionIntervalSeconds: 30,
   maxPendingDeliveries: 3,
@@ -35,20 +34,17 @@ describe("Trading tier timing and runtime bounds", () => {
       dailyPopupTarget: 10000,
       minIntervalSeconds: 0,
       maxIntervalSeconds: 604800,
-      popupDisplayTargetSeconds: 86400,
       completionDisplaySeconds: 3600,
       maxPendingDeliveries: 1000,
       maxDeliveryAttempts: 20,
       maxConcurrentActiveTrades: 1000,
       minSettlementDelaySeconds: 900,
       maxSettlementDelaySeconds: 604800,
-    })).toMatchObject({ dailyPopupTarget: 10000, maxIntervalSeconds: 604800, popupDisplayTargetSeconds: 86400 });
+    })).toMatchObject({ dailyPopupTarget: 10000, maxIntervalSeconds: 604800, completionDisplaySeconds: 3600 });
   });
 
   it.each([
     ["max interval", { maxIntervalSeconds: 604801 }],
-    ["display duration", { popupDisplayTargetSeconds: 0 }],
-    ["display duration above one day", { popupDisplayTargetSeconds: 86401 }],
     ["delivery attempts", { maxDeliveryAttempts: 0 }],
     ["retry delay", { tradeRetryDelaySeconds: 4 }],
     ["settlement delay", { minSettlementDelaySeconds: 899 }],
