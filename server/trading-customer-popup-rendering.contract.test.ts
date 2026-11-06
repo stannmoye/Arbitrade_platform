@@ -94,7 +94,9 @@ describe("customer opportunity popup retry and visibility gates", () => {
   });
 
   it("uses the server clock and persisted offer expiry for a live opportunity countdown", () => {
-    expect(database).toContain("serverTime:now.toISOString()");
+    expect(database).toContain("serverTime:new Date().toISOString()");
+    expect(database).toContain("const responseNow=new Date();");
+    expect(database).toContain("serverTime:responseNow.toISOString()");
     expect(database).toContain('expiryStatus:row.closesAt?');
     expect(component).toContain("serverClockOffsetMs.current");
     expect(component).toContain("popup.expiryStatus");
