@@ -134,7 +134,7 @@ export function AdminSettings({focus}:{focus?:"tradeDuration"}={}){ const q=trpc
     setSettingsMessage("");
     try{
       if(focus==="tradeDuration"){
-        const trade={settlementDelaySeconds:Math.round(settlementMinutes*60),creditDelaySeconds,cooldownSeconds,nextPopupFormulaDelaySeconds,popupCooldownSeconds,Number(q.data?.trade?.popupDisplaySeconds??8),popupPreAlertSeconds,popupJitterSeconds,popupMaxPerHour,marketRefreshIntervalMinutes,blockUntilSettled};
+        const trade={settlementDelaySeconds:Math.round(settlementMinutes*60),creditDelaySeconds,cooldownSeconds,nextPopupFormulaDelaySeconds,popupCooldownSeconds,popupDisplaySeconds:Number(q.data?.trade?.popupDisplaySeconds??8),popupPreAlertSeconds,popupJitterSeconds,popupMaxPerHour,marketRefreshIntervalMinutes,blockUntilSettled};
         const expectedPolicyVersion=Number(q.data?.trade?.policyVersion??1);
         await save.mutateAsync({trade:{...trade,reason:tradeReason.trim(),expectedPolicyVersion}});
         const refreshed=await q.refetch();
