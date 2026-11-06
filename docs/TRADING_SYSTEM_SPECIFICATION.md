@@ -265,9 +265,9 @@ Never invent missing trade details, timestamps, returns, fees, percentages, or r
 
 - Provide a **Minimize** control on the expanded pop-up. It collapses the card into a fixed bottom dock that remains visible during vertical page scrolling.
 - The minimized dock must keep the company name and flag/logo where practical, current status, countdown, and a **Maximize** control that reopens the expanded pop-up.
-- Minimize/maximize and expanded-card timeout change presentation only. Dismissal/expiry are terminal delivery states; they are not retried or delivered again. No pop-up control or delivery state changes entitlements, allocates funds, executes a trade, determines a result, writes a ledger entry, or settles an account.
+- Minimize/maximize are presentation actions only. The selected package duration controls the popup countdown and server expiry. Expiry is a terminal delivery state; it is not retried or delivered again. No pop-up control or delivery state changes entitlements, allocates funds, executes a trade, determines a result, writes a ledger entry, or settles an account.
 - Keep each card tied to its own trade/opportunity ID. Multiple active cards must not overwrite one another; use a bounded, responsive stack/list when more than one is active.
-- The card must not disappear merely because the user scrolls, minimizes it, changes views, or the expanded-display timeout expires.
+- The card must not disappear merely because the user scrolls, minimizes it, or changes views. At the authoritative opportunity expiry, show the server-confirmed terminal expired status.
 - When an informational delivery expires, show its terminal expired status; a timer reaching zero is not proof of execution, success, or settlement. Financial settlement status is read separately from authoritative server records.
 - An insufficient-balance opportunity remains explicitly marked “Missed — insufficient balance” / “Insufficient balance — not allocated” and shows required capital, eligible available balance, shortfall, and reason. It must never be styled as an executed trade or show fictional invested capital/profit.
 
