@@ -2356,11 +2356,29 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
         } else if (procedure === "customer.opportunities") {
           data = {
             serverTime: new Date().toISOString(),
-            offers: [{ ...offer, ...(dismissalPersisted ? {
-              offerStatus: "closed", deliveryStatus: "dismissed",
-              dismissedAt: "2026-11-06T12:00:00.000Z",
-            } : {}) }],
-            missed: [], autoTrades: [], settled: [],
+            offers: [
+              { ...offer, ...(dismissalPersisted ? {
+                offerStatus: "closed", deliveryStatus: "dismissed",
+                dismissedAt: "2026-11-06T12:00:00.000Z",
+              } : {}) },
+              {
+                id: 50502, offerId: 50502, offerStatus: "open", status: "open",
+                popupEligible: false, deliveryStatus: "delivered",
+                companyDisplayName: "Available QA Company", symbol: "AVAIL",
+                opensAt: "2026-11-06T10:00:00.000Z", closesAt: "2099-12-31T23:59:59.000Z",
+              },
+              {
+                id: 50503, offerId: 50503, offerStatus: "closed", status: "closed",
+                deliveryStatus: "expired", expiredAt: "2026-11-06T09:00:00.000Z",
+                companyDisplayName: "Expired QA Company", symbol: "EXPIRE",
+              },
+            ],
+            missed: [{
+              id: 50504, offerId: 50504, companyName: "Missed QA Company",
+              symbol: "MISSED", reason: "INSUFFICIENT_AVAILABLE_BALANCE",
+              createdAt: "2026-11-06T08:00:00.000Z",
+            }],
+            autoTrades: [], settled: [],
             delivery: {
               enabled: true, packageName: "QA Eligible Tier", maxPopupsPerDay: 6,
               maxVisibleOffers: 2, remainingDailyQuota: 6, remainingVisibleSlots: 2,
@@ -2371,6 +2389,19 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
           data = { enabled: false, opportunity: "soft-chime", loopOpportunity: false };
         } else if (procedure === "customer.balances") {
           data = { balances: [], currencies: [], summary: { availableUsd: 0, totalUsd: 0 } };
+        } else if (procedure === "customer.trades") {
+          data = [
+            {
+              id: 50505, status: "confirmed", symbol: "ALLOC",
+              companyDisplayName: "Allocated QA Company",
+              confirmedAt: "2026-11-06T07:00:00.000Z", stage: "Awaiting settlement",
+            },
+            {
+              id: 50506, status: "settled", symbol: "SETTLED",
+              companyDisplayName: "Settled QA Company",
+              settledAt: "2026-11-06T06:00:00.000Z", stage: "Settlement recorded",
+            },
+          ];
         } else if (procedure === "customer.popupLifecycle" || procedure === "customer.popupDeliveryStatus") {
           const mutationInput = inputAt(index);
           mutationCalls.push({ procedure, input: mutationInput });
@@ -2427,6 +2458,12 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     record("insufficient-balance-is-explained-with-required-available-and-shortfall", insufficientVisible);
     record("popup-makes-no-financial-execution-claim", informationalOnly);
     record("opportunity-popup-renders-server-synchronised-expiry-countdown", expiryCountdownVisible);
+    const countdownBefore = await popup.locator(".opportunity-expiry-ring span").innerText();
+    await page.waitForTimeout(1100);
+    const countdownAfter = await popup.locator(".opportunity-expiry-ring span").innerText();
+    record("opportunity-expiry-countdown-updates-in-real-time", countdownBefore !== countdownAfter, {
+      countdownBefore, countdownAfter,
+    });
     // Match the mock delivery policy to the offer and allow the full configured window.
     // The previous five-second wait expired before the eight-second auto-collapse timer.
     await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: 12000 });
@@ -2463,6 +2500,51 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     record("popup-dismissal-is-reflected-in-read-only-opportunity-history",
       dismissalPersisted && (await dismissedHistoryItem.innerText()).includes("Dismissed · presentation only"),
       { dismissalPersisted, historyText: await dismissedHistoryItem.innerText().catch(() => "") });
+
+    // Review the complete six-category history from one combined mocked feed.
+    await page.getByRole("button", { name: /All activity/ }).click();
+    const historyPanel = page.locator(".customer-opportunity-history");
+    const historyItems = historyPanel.locator(".customer-opportunity-history__item");
+    const expectedHistoryCategories = ["available", "missed", "allocated", "settled", "dismissed", "expired"];
+    const categoryCounts = {};
+    for (const category of expectedHistoryCategories) {
+      categoryCounts[category] = await historyPanel.locator(
+        `.customer-opportunity-history__metric--${category} strong`
+      ).innerText().catch(() => "0");
+    }
+    const combinedHistoryTitles = await historyItems.locator(
+      ".customer-opportunity-history__topline > strong"
+    ).allTextContents();
+    record("combined-history-shows-all-six-server-recorded-categories",
+      expectedHistoryCategories.every(category => categoryCounts[category] === "1") &&
+      combinedHistoryTitles.length === 6 &&
+      new Set(combinedHistoryTitles).size === 6 &&
+      ["Available QA Company", "Missed QA Company", "Allocated QA Company",
+        "Settled QA Company", "Verified QA Company", "Expired QA Company"]
+        .every(title => combinedHistoryTitles.includes(title)),
+      { categoryCounts, combinedHistoryTitles });
+    const historySearch = historyPanel.getByRole("searchbox", {
+      name: "Search company, reference or status",
+    });
+    await historySearch.fill("Expired QA Company");
+    const filteredHistoryCount = await historyItems.count();
+    const filteredHistorySummary = await historyPanel.locator(
+      ".customer-opportunity-history__summary"
+    ).innerText().catch(() => "");
+    record("combined-history-search-filters-without-changing-category-totals",
+      filteredHistoryCount === 1 && filteredHistorySummary.includes("1 of 1") &&
+      expectedHistoryCategories.every(category => categoryCounts[category] === "1"),
+      { filteredHistoryCount, filteredHistorySummary, categoryCounts });
+    await historySearch.fill("");
+    const historyLayout = await historyPanel.evaluate(element => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      viewportWidth: window.innerWidth,
+    }));
+    record("combined-history-fits-mobile-viewport-without-panel-overflow",
+      historyLayout.scrollWidth <= historyLayout.clientWidth + 1 &&
+      historyLayout.clientWidth <= historyLayout.viewportWidth + 1,
+      historyLayout);
 
     // Re-run with a stale feed response: mutation succeeds, but persistence is not
     // reflected by the server feed. The UI must not claim success or invent history.
