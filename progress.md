@@ -1470,3 +1470,11 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - **Combined coverage:** The browser flow now exercises confirmed persistence, a successful mutation with a stale/non-dismissed refreshed feed, and a failed dismissal request.
 - **Scope/safeguards:** Browser fixture and progress documentation only. No server/API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. No financial action is initiated; automatic financial execution remains hard-disabled.
 - **Validation:** Exact-head type-check, automated tests, production build, browser acceptance, application verification, and MySQL 8.4 / MariaDB 11.4 integration checks are pending. Browser acceptance uses mocked customer data and is not authenticated hosted-customer verification. No merge or deployment performed.
+
+
+### Stage 7 validation correction — dismissal failure fixture scope (2026-11-06)
+
+- Exact-head browser acceptance initially failed because the transport-abort guard referenced `failDismissalMutation` from the unrelated admin browser route, outside the customer popup test's scope.
+- Moved the guard into `runCustomerOpportunityPopupInteractionCheck` beside the customer fixture state and request handler. The admin route no longer references the customer-only flag.
+- Correction commit: `02f333d458d74851460c2c1c9509d018e1f127d1`.
+- Fresh exact-head CI is required; previous browser failure is not considered resolved until the new head's browser acceptance passes.
