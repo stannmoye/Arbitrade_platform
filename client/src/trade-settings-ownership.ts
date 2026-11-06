@@ -379,13 +379,13 @@ const registryEntries: readonly RegistryEntry[] = [
     customerImpact: "Defines a permitted configured offer term; it is not evidence of market performance, realized profit, or a wallet credit.", risk: "high",
   }),
   tierPolicyField({
-    field: "minimumTradeDurationSeconds", key: "trade.policy.minimumTradeDurationSeconds", section: "policy", label: "Minimum trade duration",
+    field: "minimumTradeDurationSeconds", key: "trade.policy.minimumTradeDurationSeconds", section: "policy", label: "Minimum opportunity / pop-up duration",
     explanation: "Lower bound for the single server-owned opportunity lifetime; the selected value also drives the popup countdown and expiry.", units: "seconds",
     validation: "Set together with the maximum; integer from 10 through 86,400 seconds and maximum must be at least minimum.", runtimeConsumer: "server/db.ts validates and snapshots configured trade-duration bounds; financial execution remains hard-disabled in this release.",
     customerImpact: "Defines the permitted future popup/opportunity lifetime only; a countdown does not establish execution or settlement.", risk: "high",
   }),
   tierPolicyField({
-    field: "maximumTradeDurationSeconds", key: "trade.policy.maximumTradeDurationSeconds", section: "policy", label: "Maximum trade duration",
+    field: "maximumTradeDurationSeconds", key: "trade.policy.maximumTradeDurationSeconds", section: "policy", label: "Maximum opportunity / pop-up duration",
     explanation: "Upper bound for the single server-owned opportunity lifetime; the selected value also drives the popup countdown and expiry.", units: "seconds",
     validation: "Set together with the minimum; integer from 10 through 86,400 seconds and at least the minimum bound.", runtimeConsumer: "server/db.ts validates and snapshots configured trade-duration bounds; financial execution remains hard-disabled in this release.",
     customerImpact: "Defines the permitted future popup/opportunity lifetime only; existing snapshots remain unchanged.", risk: "high",
