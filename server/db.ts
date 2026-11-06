@@ -3988,7 +3988,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const quotaDay=now.toISOString().slice(0,10);
   const settled:Array<{tradeId:number;rewardMinor:number;currency:string;totalMinor:number}>=[];
   const controls=await ensureCustomerControls(userId);
-  const emptyResult=async (delivery:any,reason:string,counts:Record<string,number>={})=>({offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,generatedOpportunityId:null,delivery,
+  const emptyResult=async (delivery:any,reason:string,counts:Record<string,number>={})=>({serverTime:now.toISOString(),offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,generatedOpportunityId:null,delivery,
     generationDiagnostics:{attempted:false,reason,generationControlEnabled:options.automaticGenerationEnabled===true,
       globalControlsAvailable:globalPolicy.available,tierPolicyMasterEnabled:globalPolicy.tierPolicyMasterEnabled,
       popupDeliveryMasterEnabled:globalPolicy.informationalPopupDeliveryEnabled,...counts},
@@ -4442,6 +4442,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       badgeLabel:row.badgeLabel??null,badgeStyle:["neutral","blue","purple","gold","green"].includes(String(row.badgeStyle))?String(row.badgeStyle):"neutral",
       policyVersion:Number(row.policyVersion||base.policyVersion||1),marketObservedAt:row.marketObservedAt,sector:row.sector,industry:row.industry,
       listingStatus:row.listingStatus,offerStatus:row.offerStatus,
+      expiryStatus:row.closesAt?(new Date(row.closesAt).getTime()<=now.getTime()?"expired":row.offerStatus==="open"?"active":String(row.offerStatus||"unavailable").toLowerCase()):"unavailable",
       currencyScale:Number(currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase())?.scale??2),
       currencySymbol:String(currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase())?.symbol||row.currency),
       popupEligible:row.offerStatus==="open"&&Boolean(row.closesAt&&new Date(row.closesAt).getTime()>now.getTime())&&
@@ -4459,7 +4460,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   }
   const globalDeliveryEnabled=globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled;
   const generationReason=generatedOpportunityId?"GENERATED":generationSkipReason||"GENERATOR_RETURNED_NO_OFFER";
-  return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,generatedOpportunityId,
+  return {serverTime:now.toISOString(),offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,generatedOpportunityId,
     generationDiagnostics:{attempted:generationAttempted,reason:generationReason,skipDetail:generationSkipDetail||null,
       generationControlEnabled:options.automaticGenerationEnabled===true,globalControlsAvailable:globalPolicy.available,
       tierPolicyMasterEnabled:globalPolicy.tierPolicyMasterEnabled,popupDeliveryMasterEnabled:globalPolicy.informationalPopupDeliveryEnabled,
