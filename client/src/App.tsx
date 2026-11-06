@@ -617,7 +617,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
       {insufficientBalance&&<span>Required: {requiredMoney} · Available: {availableMoney} · Shortfall: {shortfallMoney}</span>}
     </div>
     <div className="opportunity-popup-dock__actions">
-      <button type="button" aria-label="Maximize opportunity alert" onClick={()=>{setMinimized(false);scheduleCollapse();}}>Maximize</button>
+      <button type="button" aria-label="Maximize opportunity alert" onClick={()=>{if(timer.current!==null)window.clearTimeout(timer.current);timer.current=null;setMinimized(false);}}>Maximize</button>
       <button type="button" className="opportunity-popup-dock__dismiss" onClick={dismiss}>Dismiss</button>
     </div>
   </div>;
