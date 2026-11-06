@@ -1419,3 +1419,14 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Added responsive summary/detail styling and unit coverage for category totals and reference mapping.
 - **Safety/scope:** customer-side read-only presentation, tests and documentation only. No server/API/query/database/worker changes and no wallet, balance, ledger, allocation, trade execution or settlement actions. Automatic financial execution remains hard-disabled.
 - **Validation:** exact-head GitHub Actions pending. No authenticated hosted-customer verification, merge or deployment is claimed.
+
+## Customer opportunity popup redesign — Stage 3E: final history regression and accessibility hardening (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage3e-history-a11y`, stacked on Stage 3D PR #303 head `51d2539f6408ab0eb3f378479835b6f4e88c34e7`. PR #298–#303 and `main` remain untouched.
+- **Lifecycle correctness:** Removed the implicit default that treated offers with a missing status as open. Only explicit `open` offer status appears in Available. Trade rows are included only for explicit `confirmed` or `settled` statuses; pending and cancelled records are not mislabeled as allocated. Missing missed-event reasons now display “reason not supplied” rather than assuming an insufficient-balance cause.
+- **Pagination robustness:** Invalid/NaN page indexes now safely resolve to the first page. Added regression coverage.
+- **Accessibility:** Connected the history search input to its live results region and made live announcements include removals as filters change. Increased the record-details disclosure touch target to 44px and improved detail text legibility while retaining native keyboard-operable `details/summary` behavior and visible focus styling.
+- **Regression tests:** Added coverage for missing offer status, pending/cancelled trade exclusion, unknown missed-event reason, and invalid pagination input.
+- **Safety/scope:** Read-only customer presentation, styling, tests and documentation only. No server/API/query/database/worker, wallet, balance, ledger, allocation, trade execution or settlement behavior changed. Automatic financial execution remains hard-disabled.
+- **Validation:** Exact-head GitHub Actions, type-check, tests, build, browser acceptance and database integration checks are pending for this Stage 3E branch. No authenticated hosted-customer verification, merge or deployment is claimed.
+- Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
