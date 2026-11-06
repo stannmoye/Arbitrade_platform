@@ -2351,7 +2351,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
             delivery: {
               enabled: true, packageName: "QA Eligible Tier", maxPopupsPerDay: 6,
               maxVisibleOffers: 2, remainingDailyQuota: 6, remainingVisibleSlots: 2,
-              popupPolicy: { popupDisplaySeconds: 1 },
+              popupPolicy: { popupDisplaySeconds: 8 },
             },
           };
         } else if (procedure === "customer.soundSettings") {
@@ -2410,7 +2410,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     record("insufficient-balance-is-explained-with-required-available-and-shortfall", insufficientVisible);
     record("popup-makes-no-financial-execution-claim", informationalOnly);
     record("opportunity-popup-renders-server-synchronised-expiry-countdown", expiryCountdownVisible);
-    await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: 5000 });
+    // Match the mock delivery policy to the offer and allow the full configured window.\n    // The previous five-second wait expired before the eight-second auto-collapse timer.\n    await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: 12000 });
     const dock = page.locator(".opportunity-popup-dock");
     const dockText = await dock.innerText().catch(() => "");
     record("minimized-dock-keeps-live-expiry-countdown", dockText.includes("Opportunity expires in") || dockText.includes("Expiry time reached"), { dockText });
