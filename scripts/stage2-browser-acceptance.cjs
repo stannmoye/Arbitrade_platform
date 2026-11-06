@@ -2312,7 +2312,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     id: 50501, offerId: 50501, deliveryEventId: 60501,
     packageName: "QA Eligible Tier", symbol: "BTC/USD", currency: "USD",
     minimumMinor: 10000, balanceAvailableMinor: 4500, balanceStatus: "insufficient",
-    currencyScale: 2, currencySymbol: "$", configuredPopupDisplaySeconds: 12,
+    currencyScale: 2, currencySymbol: "$", configuredPopupDisplaySeconds: 1,
     opensAt: "2099-12-31T23:50:00.000Z", closesAt: "2099-12-31T23:59:59.000Z",
     expiryStatus: "active", offerStatus: "open", popupEligible: true,
     eventStatus: "DELIVERED", deliveryStatus: "delivered",
@@ -2406,7 +2406,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     record("insufficient-balance-is-explained-with-required-available-and-shortfall", insufficientVisible);
     record("popup-makes-no-financial-execution-claim", informationalOnly);
     record("opportunity-popup-renders-server-synchronised-expiry-countdown", expiryCountdownVisible);
-    await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: 15000 });
+    await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: 5000 });
     const dock = page.locator(".opportunity-popup-dock");
     const dockText = await dock.innerText().catch(() => "");
     record("minimized-dock-keeps-live-expiry-countdown", dockText.includes("Opportunity expires in") || dockText.includes("Expiry time reached"), { dockText });

@@ -11,6 +11,7 @@ import { formatFeeBpsAsPercent, parseFeePercentToBps, resolvePackageFeePolicy, t
 import { getPageCount, paginateItems } from "./trading-catalogue-pagination";
 import { buildChangedPolicyPatches, TRADING_TIER_POLICY_PATCH_KEYS } from "./trading-policy-patches";
 import { isFreshCustomerPopupCandidate } from "./customer-popup-eligibility";
+import { CustomerOpportunityHistoryPanel } from "./customer-opportunity-history";
 const AdminSlideMenu = lazy(() => import("@/components/AdminSlideMenu").then((module) => ({ default: module.AdminSlideMenu })));
 const TradeSettingsAdminGuide = lazy(() => import("@/components/TradeSettingsAdminGuide").then((module) => ({ default: module.TradeSettingsAdminGuide })));
 const AdminPackageFeeEditor = lazy(() => import("@/components/AdminPackageFeeEditor"));
@@ -689,6 +690,7 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
     {feed.delivery?.noPackage||feed.delivery?.packageNotActive
       ? <div className="test-notice"><ShieldCheck size={15}/><span>Eligibility is determined automatically from qualifying manual administrator wallet credits. No tier selection or activation is required; once eligible, the server evaluates opportunities automatically.</span></div>
       : <div className="test-notice"><ShieldCheck size={15}/><span>Scheduled times and reward estimates are not execution evidence. Actual profit, fees, loss, and returned capital appear only after the database records settlement.</span></div>}
+    <CustomerOpportunityHistoryPanel offers={offers} missed={missed} trades={(trades.data || []) as any[]} />
     <section className="customer-panel">
       <div className="customer-panel-head"><div><div className="eyebrow">Current cycle</div><h2>Eligible opportunities</h2></div><span>{offers.length} open</span></div>
       {feed.delivery?.packagePolicyMissing && <div className="admin-ops-empty error">Automatic allocation is paused because no eligible tier policy is configured.</div>}
