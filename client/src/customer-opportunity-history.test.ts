@@ -1,12 +1,30 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCustomerOpportunityHistory,
+  hasPersistedCustomerOpportunityDismissal,
   groupCustomerOpportunityHistoryByDate,
   paginateCustomerOpportunityHistory,
   summarizeCustomerOpportunityHistory,
 } from "./customer-opportunity-history";
 
 describe("customer opportunity history", () => {
+  it("confirms dismissal only from an explicit matching record in the refreshed feed", () => {
+    expect(hasPersistedCustomerOpportunityDismissal({
+      offers: [{ id: 60501, deliveryStatus: "dismissed" }],
+    }, 60501)).toBe(true);
+    expect(hasPersistedCustomerOpportunityDismissal({
+      offers: [{ id: 60502, deliveryStatus: "dismissed" }],
+    }, 60501)).toBe(false);
+    expect(hasPersistedCustomerOpportunityDismissal({
+      offers: [{ id: 60501, deliveryStatus: "delivered" }],
+    }, 60501)).toBe(false);
+    expect(hasPersistedCustomerOpportunityDismissal({
+      offers: [{ id: 60501, status: "closed" }],
+    }, 60501)).toBe(false);
+    expect(hasPersistedCustomerOpportunityDismissal({ offers: [] }, 60501)).toBe(false);
+    expect(hasPersistedCustomerOpportunityDismissal(null, 60501)).toBe(false);
+  });
+
   it("combines records using server timestamps and conservative lifecycle labels", () => {
     const entries = buildCustomerOpportunityHistory({
       offers: [{ id: 7, status: "open", symbol: "ABC", companyDisplayName: "Alpha", opensAt: "2026-11-06T10:00:00.000Z" }],
