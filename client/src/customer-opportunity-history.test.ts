@@ -130,7 +130,7 @@ describe("customer opportunity history", () => {
       ],
     });
 
-    expect(entries.map(entry => entry.kind)).toEqual(["allocated", "available", "missed"]);
+    expect(entries.map(entry => entry.kind)).toEqual(["available", "missed", "allocated"]);
     expect(entries.some(entry => entry.title === "NO STATUS")).toBe(false);
     expect(entries.some(entry => entry.title === "PENDING" || entry.title === "CANCELLED")).toBe(false);
     expect(entries.find(entry => entry.title === "REASON UNKNOWN")?.subtitle).toContain("reason not supplied");
