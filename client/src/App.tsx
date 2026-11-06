@@ -4,6 +4,7 @@ import { findNewNotificationSoundEvents, mergeSeenNotificationIds, selectMostImp
 import { notificationSoundKeyForCategory } from "./notification-sound-policy";
 import { notificationAudioVolume, normalizeNotificationVolume } from "./notification-sound-volume";
 import { notificationPollingInterval } from "./notification-polling-policy";
+import { createNotificationAudioController } from "./notification-audio-controller";
 import PortalRenderBoundary from "@/components/PortalRenderBoundary";
 import { OpportunityCloseAction } from "@/components/OpportunityCloseAction";
 import type { TradingDeliveryPolicyRow } from "@/components/TradingDeliveryPolicyEditor";
@@ -89,7 +90,6 @@ const SOUND_PRESETS = [
 type SoundKey="default"|"opportunity"|"deposit"|"credit"|"debit"|"withdrawal"|"trading"|"mining"|"support"|"announcement"|"failure";
 type SoundSettings={default:string;opportunity:string;deposit:string;credit:string;debit:string;withdrawal:string;trading:string;mining:string;support:string;announcement:string;failure:string;enabled:boolean;loopOpportunity:boolean;volume:number};
 const defaultSoundSettings:SoundSettings={default:"sound-01",opportunity:"sound-01",deposit:"sound-02",credit:"sound-02",debit:"sound-03",withdrawal:"sound-05",trading:"sound-02",mining:"sound-04",support:"sound-03",announcement:"sound-01",failure:"sound-05",enabled:false,loopOpportunity:false,volume:80};
-let activeNotificationAudio:HTMLAudioElement|null=null;let opportunityLoopTimer:number|null=null;
 let notificationAudioUnlocked=false;let notificationAudioUnlockInFlight:Promise<void>|null=null;
 function unlockNotificationAudio(){
   if(notificationAudioUnlocked||notificationAudioUnlockInFlight)return notificationAudioUnlockInFlight;
@@ -100,57 +100,22 @@ function unlockNotificationAudio(){
   return notificationAudioUnlockInFlight;
 }
 function soundEffectsEnabled(){try{return typeof window!=="undefined"&&window.localStorage.getItem("wisebond-sound-effects")==="on"}catch{return false}}
-function stopActiveNotificationAudio(){
-  const audio=activeNotificationAudio;
-  activeNotificationAudio=null;
-  if(audio){audio.pause();try{audio.currentTime=0}catch{}}
-}
+const notificationAudioController=createNotificationAudioController({
+  createAudio:(src)=>new Audio(src),
+  onBlocked:(context)=>{try{if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent("arbitrade:notification-audio-blocked",{detail:{...context,occurredAt:Date.now()}}))}catch{}},
+  setInterval:(callback,delayMs)=>window.setInterval(callback,delayMs),
+  clearInterval:(timer)=>window.clearInterval(timer),
+});
 function playConfiguredSound(id:string,kind:SoundKey="default",loop=false,force=false,volume:number=defaultSoundSettings.volume){
   if(!force&&(!soundEffectsEnabled()||!defaultSoundSettings.enabled))return;
-  const stopOpportunityLoop=()=>{if(kind==="opportunity"){if(opportunityLoopTimer&&typeof window!=="undefined")window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}};
   try{
     const preset=SOUND_PRESETS.find(x=>x.id===id)||SOUND_PRESETS[0];
-    let blockedReported=false;
-    const reportBlocked=()=>{
-      if(blockedReported)return;
-      blockedReported=true;
-      stopOpportunityLoop();
-      try{if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent("arbitrade:notification-audio-blocked",{detail:{kind,presetId:preset.id,occurredAt:Date.now()}}))}catch{}
-    };
-    const play=(skipWhenBusy=false)=>{
-      // A new event replaces an older sound. Repeating opportunity alerts wait
-      // for the current cue to finish instead of cutting it off or overlapping it.
-      if(skipWhenBusy&&activeNotificationAudio&&!activeNotificationAudio.paused&&!activeNotificationAudio.ended)return;
-      stopActiveNotificationAudio();
-      const audio=new Audio(preset.src);
-      audio.preload="auto";
-      audio.volume=notificationAudioVolume(volume,kind==="debit"||kind==="failure"?.9:1);
-      activeNotificationAudio=audio;
-      const clearActive=()=>{if(activeNotificationAudio===audio)activeNotificationAudio=null;};
-      audio.addEventListener("ended",clearActive,{once:true});
-      audio.addEventListener("error",()=>{clearActive();reportBlocked();},{once:true});
-      try{void audio.play().catch(()=>{clearActive();reportBlocked();});}
-      catch{clearActive();reportBlocked();}
-    };
-    play();
-    if(loop){
-      if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);
-      opportunityLoopTimer=window.setInterval(()=>play(true),1500);
-    }
+    notificationAudioController.play(preset.src,notificationAudioVolume(volume,kind==="debit"||kind==="failure"?.9:1),loop,{kind,presetId:preset.id});
   }catch{
-    stopActiveNotificationAudio();
-    stopOpportunityLoop();
-    reportBlockedSafely(kind,id);
+    try{if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent("arbitrade:notification-audio-blocked",{detail:{kind,presetId:id,occurredAt:Date.now()}}))}catch{}
   }
 }
-function reportBlockedSafely(kind:SoundKey,id:string){
-  try{if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent("arbitrade:notification-audio-blocked",{detail:{kind,presetId:id,occurredAt:Date.now()}}))}catch{}
-}
-function stopConfiguredSound(){
-  if(opportunityLoopTimer&&typeof window!=="undefined")window.clearInterval(opportunityLoopTimer);
-  opportunityLoopTimer=null;
-  stopActiveNotificationAudio();
-}
+function stopConfiguredSound(){notificationAudioController.stop()}
 function playNotificationChime(){playConfiguredSound(defaultSoundSettings.default,"default",false)}
 function playTransactionSound(kind:"debit"|"credit"|"failure"){playConfiguredSound(defaultSoundSettings[kind],kind,false)}
 function getBranding(): Branding { try { const saved=localStorage.getItem("arbitrade_branding"); return saved ? {...defaultBranding,...JSON.parse(saved)} : defaultBranding; } catch { return defaultBranding; } }
