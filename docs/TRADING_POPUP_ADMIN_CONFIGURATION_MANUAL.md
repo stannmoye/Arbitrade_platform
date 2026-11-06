@@ -227,7 +227,7 @@ Admin-only **Trade Settings → Company Rotation & Pop-ups** should show current
 
 Acceptance must cover:
 - Every field persists, reloads and changes customer display/runtime behavior only at its documented effective time.
-- Package name, duration, badge, quota, capital minimum/range, profit percentage range, trade duration range, display duration, filters, schedule and limits are not hardcoded in customer code.
+- Package name, entitlement duration, badge, quota, capital minimum/range, configured-return range, opportunity/pop-up duration range, post-completion display delay, filters, schedule and limits are not hardcoded in customer code.
 - For configured rates such as 2%–5%, selected rates always stay inside inclusive bounds, are persisted once, and are reused unchanged after retries/restarts.
 - Capital funding from multiple wallets is atomic; cross-currency debits use fresh timestamped rates and exact minor-unit calculations, with no partial debit or negative balance.
 - Trade due times survive restarts; a late worker resumes/reconciles overdue items without resetting duration, rerolling rate or creating duplicate debits/payouts.
