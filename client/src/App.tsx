@@ -691,10 +691,11 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
   const feed:any=opportunityData||{};
   const offers:any[]=feed.offers||[];
   const missed:any[]=feed.missed||[];
-  const currencyScale=(currency:string)=>Number(balances.data?.currencies?.find((item:any)=>String(item.code).toUpperCase()===currency.toUpperCase())?.scale??(currency==="BTC"||currency==="ETH"?8:2));
-  const money=(minor:number,currency:string)=>Number(minor||0)/(10**currencyScale(currency));
-  const format=(minor:number,currency:string)=>money(minor,currency).toLocaleString(undefined,{minimumFractionDigits:currencyScale(currency),maximumFractionDigits:currencyScale(currency)})+" "+currency.toUpperCase();
-  const availableFor=(currency:string)=>Number(balances.data?.balances?.find((item:any)=>String(item.currency).toUpperCase()===currency.toUpperCase())?.availableMinor||0);
+  const currencyCode=(value:unknown):string|null=>typeof value==="string"&&value.trim()?value.trim().toUpperCase():null;
+  const currencyScale=(currency:unknown)=>{const code=currencyCode(currency);return Number(balances.data?.currencies?.find((item:any)=>String(item.code||"").toUpperCase()===code)?.scale??(code==="BTC"||code==="ETH"?8:2));};
+  const money=(minor:number,currency:unknown)=>Number(minor||0)/(10**currencyScale(currency));
+  const format=(minor:number,currency:unknown)=>{const code=currencyCode(currency);if(!code)return "Currency unavailable";const scale=currencyScale(code);return money(minor,code).toLocaleString(undefined,{minimumFractionDigits:scale,maximumFractionDigits:scale})+" "+code;};
+  const availableFor=(currency:unknown)=>{const code=currencyCode(currency);return code?Number(balances.data?.balances?.find((item:any)=>String(item.currency||"").toUpperCase()===code)?.availableMinor||0):0;};
   const statusText=(offer:any)=>offer.automaticTrade?"Allocated automatically":offer.status==="open"?"Eligible opportunity — automatic evaluation":"Opportunity status: "+String(offer.status||"pending");
   return <div className="arb-page portal-page customer-opportunities-page">
     <div className="portal-page-top">
