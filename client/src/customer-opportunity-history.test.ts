@@ -92,6 +92,7 @@ describe("customer opportunity history", () => {
     expect(stale.items).toEqual([1, 2, 3]);
     expect(stale.start).toBe(1);
     expect(stale.end).toBe(3);
+    expect(paginateCustomerOpportunityHistory(entries, Number.NaN, 8).page).toBe(0);
   });
 
   it("returns an empty first page for an empty result set", () => {
@@ -114,4 +115,26 @@ describe("customer opportunity history", () => {
     expect(entries.find(entry => entry.kind === "missed")?.reference).toBe("44");
     expect(entries.find(entry => entry.kind === "settled")?.reference).toBe("46");
   });
+
+  it("does not infer open, allocated, or missed-reason details from missing fields", () => {
+    const entries = buildCustomerOpportunityHistory({
+      offers: [
+        { id: 51, symbol: "NO STATUS" },
+        { id: 52, status: "closed", symbol: "CLOSED" },
+        { id: 53, status: "open", symbol: "EXPLICIT OPEN" },
+      ],
+      missed: [{ id: 54, symbol: "REASON UNKNOWN" }],
+      trades: [
+        { id: 55, status: "pending", symbol: "PENDING" },
+        { id: 56, status: "cancelled", symbol: "CANCELLED" },
+        { id: 57, status: "confirmed", symbol: "CONFIRMED" },
+      ],
+    });
+
+    expect(entries.map(entry => entry.kind)).toEqual(["available", "missed", "allocated"]);
+    expect(entries.some(entry => entry.title === "NO STATUS")).toBe(false);
+    expect(entries.some(entry => entry.title === "PENDING" || entry.title === "CANCELLED")).toBe(false);
+    expect(entries.find(entry => entry.title === "REASON UNKNOWN")?.subtitle).toContain("reason not supplied");
+  });
+
 });

@@ -61,7 +61,7 @@ export function buildCustomerOpportunityHistory(input: HistoryInput): CustomerOp
       continue;
     }
 
-    const offerStatus = String(offer?.offerStatus || offer?.status || "open").toLowerCase();
+    const offerStatus = String(offer?.offerStatus ?? offer?.status ?? "").toLowerCase();
     if (offerStatus !== "open") continue;
     const occurredAt = dateValue(offer?.opensAt || offer?.createdAt);
     entries.push({
@@ -80,7 +80,7 @@ export function buildCustomerOpportunityHistory(input: HistoryInput): CustomerOp
     const id = String(item?.id ?? item?.offerId ?? "");
     if (!id) continue;
     const title = displayName(item);
-    const reason = String(item?.reason || "Insufficient available balance").replaceAll("_", " ").toLowerCase();
+    const reason = String(item?.reason || "reason not supplied").replaceAll("_", " ").toLowerCase();
     const occurredAt = dateValue(item?.createdAt || item?.occurredAt);
     entries.push({ id: "missed:" + id, reference: String(item?.offerId ?? id), kind: "missed", title, subtitle: "Opportunity " + (item?.offerId ?? id) + " · " + reason, status: "Missed · not allocated", occurredAt, searchable: (title + " " + id + " " + (item?.offerId || "") + " " + reason + " missed").toLowerCase() });
   }
@@ -88,7 +88,9 @@ export function buildCustomerOpportunityHistory(input: HistoryInput): CustomerOp
   for (const trade of trades) {
     const id = String(trade?.id ?? "");
     if (!id) continue;
-    const settled = String(trade?.status || "").toLowerCase() === "settled";
+    const tradeStatus = String(trade?.status || "").toLowerCase();
+    if (tradeStatus !== "confirmed" && tradeStatus !== "settled") continue;
+    const settled = tradeStatus === "settled";
     const title = displayName(trade);
     const occurredAt = dateValue(trade?.settledAt || trade?.confirmedAt || trade?.createdAt);
     const stage = String(trade?.stage || (settled ? "Settlement recorded" : "Awaiting settlement"));
@@ -122,7 +124,8 @@ export function groupCustomerOpportunityHistoryByDate(entries: CustomerOpportuni
 export function paginateCustomerOpportunityHistory<T>(entries: T[], page: number, pageSize = HISTORY_PAGE_SIZE): { items: T[]; page: number; pageCount: number; total: number; start: number; end: number } {
   const safePageSize = Number.isFinite(pageSize) ? Math.max(1, Math.floor(pageSize)) : HISTORY_PAGE_SIZE;
   const pageCount = Math.ceil(entries.length / safePageSize);
-  const safePage = pageCount ? Math.min(Math.max(0, Math.floor(page)), pageCount - 1) : 0;
+  const requestedPage = Number.isFinite(page) ? Math.max(0, Math.floor(page)) : 0;
+  const safePage = pageCount ? Math.min(requestedPage, pageCount - 1) : 0;
   const start = safePage * safePageSize;
   const items = entries.slice(start, start + safePageSize);
   return { items, page: safePage, pageCount, total: entries.length, start: entries.length ? start + 1 : 0, end: start + items.length };
@@ -180,11 +183,11 @@ export function CustomerOpportunityHistoryPanel({ offers, missed, trades }: Hist
       {summaryItems.map(item => <div className={"customer-opportunity-history__metric customer-opportunity-history__metric--" + item.id} key={item.id}><span>{item.label}</span><strong>{summary[item.id]}</strong></div>)}
     </div>
     <label className="customer-opportunity-history__search-label" htmlFor="customer-opportunity-history-search">Search company, reference or status</label>
-    <input id="customer-opportunity-history-search" className="customer-opportunity-history__search" type="search" value={search} onChange={event => { setSearch(event.target.value); setPage(0); }} placeholder="Search opportunity history" autoComplete="off" />
+    <input id="customer-opportunity-history-search" className="customer-opportunity-history__search" type="search" aria-controls="customer-opportunity-history-results" value={search} onChange={event => { setSearch(event.target.value); setPage(0); }} placeholder="Search opportunity history" autoComplete="off" />
     <div className="customer-opportunity-history__filters" role="group" aria-label="Filter opportunity history">
       {filters.map(item => <button key={item.id} type="button" aria-pressed={filter === item.id} className={filter === item.id ? "is-active" : ""} onClick={() => { setFilter(item.id); setPage(0); }}>{item.label}<span>{countFor(item.id)}</span></button>)}
     </div>
-    <div className="customer-opportunity-history__results" aria-live="polite">
+    <div id="customer-opportunity-history-results" className="customer-opportunity-history__results" aria-live="polite" aria-relevant="all">
       {visible.length ? <>
         <div className="customer-opportunity-history__summary">Showing {pageData.start}–{pageData.end} of {pageData.total} matching records</div>
         <div className="customer-opportunity-history__groups">

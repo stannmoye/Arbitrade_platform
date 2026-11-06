@@ -1644,13 +1644,13 @@
   background: color-mix(in srgb, var(--trade-canvas) 60%, transparent);
 }
 .customer-portal .customer-opportunity-history__details > summary {
-  min-height: 36px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   padding: 7px 10px;
   color: var(--arb-color-text, #f8fafc);
   cursor: pointer;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 750;
 }
 .customer-portal .customer-opportunity-history__details > summary:focus-visible {
@@ -1671,7 +1671,7 @@
 .customer-portal .customer-opportunity-history__details dl > div { min-width: 0; }
 .customer-portal .customer-opportunity-history__details dt {
   color: var(--arb-color-text-muted, #9ca3af);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 750;
   text-transform: uppercase;
   letter-spacing: .04em;
@@ -1679,8 +1679,8 @@
 .customer-portal .customer-opportunity-history__details dd {
   margin: 3px 0 0;
   color: var(--arb-color-text, #f8fafc);
-  font-size: 10px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 .customer-portal .customer-opportunity-history__details > p {
