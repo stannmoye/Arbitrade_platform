@@ -3380,7 +3380,8 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     if(maxPending<=0)return skipped("MAX_PENDING_DELIVERIES_ZERO");
     const pending=(await tx.select({id:opportunityPopupEvents.id}).from(opportunityPopupEvents)
       .where(and(eq(opportunityPopupEvents.userId,input.userId),eq(opportunityPopupEvents.packageId,Number(selectedSubscription.packageId)),
-        inArray(opportunityPopupEvents.deliveryStatus,["queued","in_progress","retry_wait"]))).limit(maxPending+1)).length;
+        inArray(opportunityPopupEvents.deliveryStatus,["queued","in_progress","retry_wait"]),
+        sql`(${opportunityPopupEvents.balanceStatus} IS NULL OR ${opportunityPopupEvents.balanceStatus} <> 'insufficient')`)).limit(maxPending+1)).length;
     if(pending>=maxPending)return skipped("PENDING_DELIVERY_CAPACITY_FULL",{pending,maxPending});
 
     const catalogueSetting=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
