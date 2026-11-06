@@ -2312,7 +2312,11 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     id: 50501, offerId: 50501, deliveryEventId: 60501,
     packageName: "QA Eligible Tier", symbol: "BTC/USD", currency: "USD",
     minimumMinor: 10000, balanceAvailableMinor: 4500, balanceStatus: "insufficient",
-    currencyScale: 2, currencySymbol: "$", configuredPopupDisplaySeconds: 1,
+    currencyScale: 2, currencySymbol: "$",
+    // Keep the alert expanded long enough to exercise its read-only details before
+    // the independent auto-collapse assertion below. One second caused the popup
+    // to detach while Playwright was interacting with the details toggle.
+    configuredPopupDisplaySeconds: 8,
     opensAt: "2099-12-31T23:50:00.000Z", closesAt: "2099-12-31T23:59:59.000Z",
     expiryStatus: "active", offerStatus: "open", popupEligible: true,
     eventStatus: "DELIVERED", deliveryStatus: "delivered",
@@ -2347,7 +2351,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
             delivery: {
               enabled: true, packageName: "QA Eligible Tier", maxPopupsPerDay: 6,
               maxVisibleOffers: 2, remainingDailyQuota: 6, remainingVisibleSlots: 2,
-              popupPolicy: { popupDisplaySeconds: 1 },
+              popupPolicy: { popupDisplaySeconds: 8 },
             },
           };
         } else if (procedure === "customer.soundSettings") {
