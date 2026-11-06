@@ -1365,3 +1365,12 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Stage 2 remains informational-only. No trade execution, allocation, wallet, ledger, settlement, API, database schema, migration, or worker behavior was added or changed by the popup UI.
 - Validation is pending on the exact resulting branch head. Do not treat the source or mocked browser checks as hosted authenticated customer verification.
 - Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`; neither PR #298 nor PR #299 has been merged.
+
+
+## Customer opportunity popup Stage 2 browser timing correction (2026-11-06)
+
+- Investigated the exact-head customer browser failure on the Stage 2 branch. The fixture configured the popup to auto-collapse after 1 second, while the browser acceptance sequence attempted to expand and inspect the details panel before continuing through the minimize/maximize/dismiss interactions. The short timer could collapse the popup during Playwright's interaction stability checks.
+- Increased only the mocked fixture's display duration to 12 seconds and extended the dock-appearance wait to 15 seconds. This preserves coverage of automatic collapse while providing a realistic interaction window for the details, countdown, minimize, maximize, and dismiss assertions.
+- No customer application source, server/API behavior, database, worker, wallet, ledger, trade, or settlement logic changed. The insufficient-balance fixture and its explicit no-funds-moved assertions remain unchanged.
+- Correction committed as `0f95f480eedb2f59a0804739223a4aa9132bdabb`. Exact-head GitHub Actions validation is pending; do not claim the browser regression is resolved until the new run completes.
+- No merge, deployment, production configuration/data change, or financial operation was performed. Automatic financial execution remains hard-disabled.
