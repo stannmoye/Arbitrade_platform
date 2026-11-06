@@ -70,7 +70,7 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
           continue deliveryLoop;
         }
         const [pendingRows] = await connection.query<any[]>(
-          "SELECT id FROM opportunity_popup_events WHERE userId=? AND packageId=? AND deliveryStatus IN ('queued','in_progress','retry_wait') FOR UPDATE",
+          "SELECT e.id FROM opportunity_popup_events e INNER JOIN opportunity_offers o ON o.id=e.offerId WHERE e.userId=? AND e.packageId=? AND e.deliveryStatus IN ('queued','in_progress','retry_wait') AND (e.balanceStatus IS NULL OR e.balanceStatus<>'insufficient') AND e.eventStatus NOT IN ('TRADED','SETTLED','WITHDRAWN','DISMISSED') AND o.assignedUserId=e.userId AND o.assignedPackageId=e.packageId AND o.status='open' AND o.closesAt>CURRENT_TIMESTAMP FOR UPDATE",
           [item.userId, item.packageId],
         );
         if (pendingRows.length >= item.maxPendingDeliveries) {
@@ -249,10 +249,19 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
         }
       }
     }
-    const keys = deliveries.map(item => deliveryIdempotencyKey(item.userId, item.offerId));
-    const placeholders = keys.map(() => "?").join(",");
-    const [rows] = await connection.query<any[]>(`SELECT id,eventKey FROM opportunity_popup_events WHERE eventKey IN (${placeholders})`, keys);
-    return new Map<string, number>(rows.map(row => [String(row.eventKey), Number(row.id)]));
+    // Resolve IDs through the durable idempotency records, not the display eventKey.
+    // The unique (userId, offerId) identity is the contract used by callers and
+    // remains stable even if an eventKey representation changes.
+    const identityPredicates = deliveries.map(() => "(userId=? AND offerId=?)").join(" OR ");
+    const identityParams = deliveries.flatMap(item => [item.userId, item.offerId]);
+    const [rows] = await connection.query<any[]>(
+      `SELECT userId,offerId,popupEventId FROM opportunity_delivery_idempotency WHERE ${identityPredicates}`,
+      identityParams,
+    );
+    return new Map<string, number>(rows.map(row => [
+      deliveryIdempotencyKey(Number(row.userId), Number(row.offerId)),
+      Number(row.popupEventId),
+    ]));
   });
 }
 

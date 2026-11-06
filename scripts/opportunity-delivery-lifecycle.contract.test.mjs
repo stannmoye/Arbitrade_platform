@@ -7,7 +7,11 @@ describe("opportunity delivery lifecycle migration and state boundaries", () => 
       read("../server/opportunityLifecycle.ts"), read("../drizzle/schema.ts"), read("../drizzle/0102_opportunity_delivery_retry_lifecycle.sql"),
     ]);
     expect(lifecycle).toContain("deliveryAdmissionLockKey(item.userId, item.packageId)");
-    expect(lifecycle).toContain("WHERE userId=? AND packageId=? AND deliveryStatus IN ('queued','in_progress','retry_wait')");
+    expect(lifecycle).toContain("SELECT e.id FROM opportunity_popup_events e INNER JOIN opportunity_offers o ON o.id=e.offerId");
+    expect(lifecycle).toContain("e.userId=? AND e.packageId=? AND e.deliveryStatus IN ('queued','in_progress','retry_wait')");
+    expect(lifecycle).toContain("(e.balanceStatus IS NULL OR e.balanceStatus<>'insufficient')");
+    expect(lifecycle).toContain("o.assignedUserId=e.userId AND o.assignedPackageId=e.packageId AND o.status='open' AND o.closesAt>CURRENT_TIMESTAMP");
+    expect(lifecycle).toContain("SELECT userId,offerId,popupEventId FROM opportunity_delivery_idempotency");
     expect(lifecycle).toContain("INSERT INTO opportunity_delivery_idempotency (userId,offerId,popupEventId,packageId,packageName)");
     expect(schema).toContain('packageId: int("packageId")');
     expect(schema).toContain('index("opportunity_popup_pending_package_id_idx").on(table.userId, table.packageId, table.deliveryStatus)');
