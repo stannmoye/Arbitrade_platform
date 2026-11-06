@@ -1389,3 +1389,15 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - **Safety and scope:** client presentation and tests only. No server query, API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. No financial actions are initiated. The customer panel remains read-only.
 - **Validation:** exact-head typecheck, unit tests, build, browser acceptance, and database workflow checks are pending. No hosted customer verification, merge, or deployment is claimed.
 - Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+## Customer opportunity popup redesign — Stage 3C: grouped, paginated read-only history (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage3c-history-ux`, stacked on Stage 3B PR #301 branch `feat/customer-opportunity-popup-stage3b-delivery-history` at `3277b852934de985ec2d0115967889d61363924e`. Stage 1–3B PRs and `main` are unchanged.
+- **History navigation:** Added client-side pagination (8 records per page), result-range feedback, accessible Previous/Next controls, and automatic page clamping when a filter/search result shrinks.
+- **Event grouping:** Current page records are grouped by local calendar date, with explicit event counts and a separate “Date unavailable” group. Existing newest-first ordering is preserved within the page.
+- **Mobile presentation:** Tightened event-card spacing and status wrapping; date-group headings and pagination controls adapt to narrow screens. Keyboard focus and disabled pagination states remain visible.
+- **Regression coverage:** Added tests for date grouping, missing timestamps, page boundaries, no duplicate records across pages, stale-page clamping, and empty results.
+- **Safety/scope:** Read-only client presentation and tests only. Uses the existing customer feed and persisted trade query; no API, server query, schema, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. No lifecycle state is inferred. Automatic financial execution remains hard-disabled.
+- **Validation:** Exact-head GitHub Actions and browser acceptance are pending. No authenticated hosted-customer verification, merge, or deployment is claimed.
+- Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
