@@ -10,7 +10,7 @@ export const PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS = [
   "maxPopupsPerDay", "maxVisibleOffers", "minimumTradeUnits", "maximumTradeUnits",
   "minHourlyTarget", "normalHourlyTarget", "marketInfluenceBps", "maxBurstSize",
   "dailyPopupTarget", "schedulingPeriod", "minIntervalSeconds", "maxIntervalSeconds",
-  "popupDisplayTargetSeconds", "completionDisplaySeconds", "postCompletionIntervalSeconds",
+  "completionDisplaySeconds", "postCompletionIntervalSeconds",
   "maxPendingDeliveries", "maxTradeAttemptsPerDay",
   "tradeRetryDelaySeconds", "maxSuccessfulTradesPerDay", "maxConcurrentActiveTrades",
   "minSettlementDelaySeconds", "maxSettlementDelaySeconds", "minimumRewardBps",
