@@ -63,7 +63,7 @@ describe("tier policy field explanation contract", () => {
     expect(editorSource).toContain("not market profit or a guarantee");
     expect(editorSource).toContain("Each newly delivered pop-up stores its selected rate, duration and policy version");
     expect(editorSource).toContain("already delivered pop-ups and allocated trades keep their snapshots");
-    expect(editorSource).toContain("display controls affect presentation only");
+    expect(editorSource).toContain("post-completion display delay affects presentation only");
   });
   it("keeps delivery retry editing in the one shared Retry & Carry-Forward owner", () => {
     expect(editorSource).not.toContain("Maximum delivery attempts");
