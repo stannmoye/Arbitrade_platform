@@ -1519,14 +1519,14 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 
 ## Notification sound library and playback engine — Stage 9 (2026-11-06)
 
-- **Branch/base:** `feat/notification-sound-playback-stage9`, stacked on Stage 8 PR #308 head `14f9e05cd0c4afc44f9e54cc0a06faffe4040f27`. PR #308 and `main` remain untouched.
+- **Branch/base:** `feat/customer-opportunity-popup-stage9-sound-playback`, stacked on Stage 8 PR #308 head `14f9e05cd0c4afc44f9e54cc0a06faffe4040f27`. PR #308 and `main` remain untouched.
 - **Playback reliability:** Centralized customer notification playback now stops the previous cue before a new event sound starts, clears the active-audio reference when playback ends, and prevents repeated opportunity-alert cues from overlapping or cutting off a cue that is still playing.
 - **Failure handling:** Audio element errors, synchronous playback errors, and rejected autoplay promises share a one-time blocked-playback notification path. Opportunity looping stops on playback failure; the visible notification remains available.
 - **Policy preservation:** Customer sound opt-in, administrator enablement, administrator-selected sound mapping, configured volume, and existing event-ID deduplication remain in force. No notification sound is used as evidence of a financial operation.
 - **Regression coverage:** Added checks for all five configured public WAV assets, single-active-cue behaviour, non-overlapping repeated cues, blocked-playback handling, and customer/admin sound gates. Existing category mapping and reconnect-deduplication tests remain unchanged.
 - **Scope/safeguards:** Customer notification audio only. No popup delivery, server/API, database, migration, worker, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. Automatic financial execution remains hard-disabled.
-- **Validation:** Fresh exact-head type-check, automated tests, production build, browser acceptance and integration workflows are pending. No hosted sound/autoplay verification, merge or deployment is claimed.
+- **Validation:** A review caught and corrected an over-escaped asset-path matcher in the new regression test before validation. Fresh exact-head type-check, automated tests, production build, browser acceptance and integration workflows remain pending. No hosted sound/autoplay verification, merge or deployment is claimed.
 - **Known-good rollback baseline:** `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
 
 
-- **CI branch-routing correction:** Stage 9 is on the repository's established `feat/customer-opportunity-popup-*` branch namespace so the existing push-triggered validation workflows include this stacked stage. The earlier temporary branch `feat/notification-sound-playback-stage9` is superseded; no code changes were lost.
+- **CI branch-routing correction:** Stage 9 is on the repository's established `feat/customer-opportunity-popup-*` branch namespace so the existing push-triggered validation workflows include this stacked stage. The earlier temporary branch `feat/customer-opportunity-popup-stage9-sound-playback` is superseded; no code changes were lost.
