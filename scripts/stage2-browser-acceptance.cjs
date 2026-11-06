@@ -2367,6 +2367,23 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     const popup = page.locator(".center-opportunity-toast").filter({ hasText: "Verified QA Company opportunity notice" });
     await popup.waitFor({ state: "visible", timeout: 10000 });
     const popupText = await popup.innerText();
+    const connectionVisible = await popup.getByRole("status")
+      .filter({ hasText: "Live status connected" }).isVisible().catch(() => false);
+    const detailsToggle = popup.locator(".opportunity-popup-details__toggle");
+    await detailsToggle.click();
+    const detailsPanel = popup.locator(".opportunity-popup-details__grid");
+    const detailsVisible = await detailsPanel.isVisible().catch(() => false);
+    const detailsText = detailsVisible ? await detailsPanel.innerText() : "";
+    const expandedState = await detailsToggle.getAttribute("aria-expanded");
+    record("popup-shows-live-connection-state", connectionVisible);
+    record("opportunity-details-expand-accessibly-with-server-metadata",
+      detailsVisible && expandedState === "true" &&
+      detailsText.includes("Verified QA Company") &&
+      detailsText.includes("QA Eligible Tier") &&
+      detailsText.includes(String(offer.id)) &&
+      detailsText.includes("Scheduled expiry") &&
+      detailsText.includes("Server status"),
+      { expandedState, detailsText });
     const companyVisible = popupText.includes("Verified QA Company") &&
       await popup.locator(".popup-company-reference").isVisible().catch(() => false);
     const insufficientVisible = popupText.includes("Missed — insufficient balance") &&
