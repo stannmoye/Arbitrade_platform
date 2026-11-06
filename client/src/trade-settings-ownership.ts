@@ -343,12 +343,6 @@ const registryEntries: readonly RegistryEntry[] = [
     customerImpact: "Defines a future review deadline only; it does not post funds or determine the trade result.", risk: "high",
   }),
   tierPolicyField({
-    field: "popupDisplayTargetSeconds", key: "trade.policy.popupDisplayDurationSeconds", section: "display", label: "Expanded pop-up display duration",
-    explanation: "Controls presentation duration only; it must not close or settle a trade.", units: "seconds",
-    validation: "Integer from 1 through 86,400 seconds (maximum one day), matching the current delivery runtime cap.", runtimeConsumer: "server/db.ts popup snapshot and customer display response; server/modules/trading-popup-policy.ts rejects durations above one day.",
-    customerImpact: "Changes future card presentation only; pending items remain accessible.",
-  }),
-  tierPolicyField({
     field: "completionDisplaySeconds", key: "trade.policy.completionCardDisplaySeconds", section: "display", label: "Completed card display duration",
     explanation: "Controls presentation time for completed-status cards.", units: "seconds",
     validation: "Positive integer within the existing per-tier display bound.", runtimeConsumer: "server/db.ts popup lifecycle/display policy.",
