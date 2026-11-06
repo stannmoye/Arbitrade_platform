@@ -102,7 +102,7 @@ function unlockNotificationAudio(){
 function soundEffectsEnabled(){try{return typeof window!=="undefined"&&window.localStorage.getItem("wisebond-sound-effects")==="on"}catch{return false}}
 const notificationAudioController=createNotificationAudioController({
   createAudio:(src)=>new Audio(src),
-  onBlocked:()=>{try{if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent("arbitrade:notification-audio-blocked",{detail:{occurredAt:Date.now()}}))}catch{}},
+  onBlocked:(context)=>{try{if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent("arbitrade:notification-audio-blocked",{detail:{...context,occurredAt:Date.now()}}))}catch{}},
   setInterval:(callback,delayMs)=>window.setInterval(callback,delayMs),
   clearInterval:(timer)=>window.clearInterval(timer),
 });
@@ -110,7 +110,7 @@ function playConfiguredSound(id:string,kind:SoundKey="default",loop=false,force=
   if(!force&&(!soundEffectsEnabled()||!defaultSoundSettings.enabled))return;
   try{
     const preset=SOUND_PRESETS.find(x=>x.id===id)||SOUND_PRESETS[0];
-    notificationAudioController.play(preset.src,notificationAudioVolume(volume,kind==="debit"||kind==="failure"?.9:1),loop);
+    notificationAudioController.play(preset.src,notificationAudioVolume(volume,kind==="debit"||kind==="failure"?.9:1),loop,{kind,presetId:preset.id});
   }catch{
     try{if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent("arbitrade:notification-audio-blocked",{detail:{kind,presetId:id,occurredAt:Date.now()}}))}catch{}
   }
