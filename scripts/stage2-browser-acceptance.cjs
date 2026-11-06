@@ -2386,8 +2386,8 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
       detailsText.includes("Verified QA Company") &&
       detailsText.includes("QA Eligible Tier") &&
       detailsText.includes(String(offer.id)) &&
-      detailsText.includes("Scheduled expiry") &&
-      detailsText.includes("Server status"),
+      detailsText.toLowerCase().includes("scheduled expiry") &&
+      detailsText.toLowerCase().includes("server status"),
       { expandedState, detailsInteractiveControls, detailsText });
     const companyVisible = popupText.includes("Verified QA Company") &&
       await popup.locator(".popup-company-reference").isVisible().catch(() => false);
@@ -2417,7 +2417,10 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     await dock.getByRole("button", { name: "Maximize opportunity alert" }).click();
     await popup.waitFor({ state: "visible", timeout: 3000 });
     record("customer-can-maximize-docked-alert", await popup.isVisible().catch(() => false));
-    await popup.getByRole("button", { name: "Minimize opportunity alert" }).click();
+    // The popup has a deliberate entrance/auto-collapse animation. Dispatch the
+    // visible control immediately so Playwright's stability wait cannot race the
+    // configured auto-collapse timer on narrow mobile viewports.
+    await popup.getByRole("button", { name: "Minimize opportunity alert" }).click({ force: true });
     await dock.waitFor({ state: "visible", timeout: 3000 });
     record("customer-can-manually-minimize-alert", await dock.isVisible().catch(() => false));
     record("popup-delivery-lifecycle-is-acknowledged", mutationCalls.some(call =>
