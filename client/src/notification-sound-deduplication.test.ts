@@ -159,7 +159,7 @@ describe("notification sound playback reliability", () => {
 
   it("keeps every configured WAV sound asset in the public bundle", () => {
     const assetPaths = [...new Set(
-      [...app.matchAll(/src:"(\\/sounds\\/[^"]+\\.wav)"/g)].map(match => match[1]),
+      [...app.matchAll(/src:"(\/sounds\/[^"]+\.wav)"/g)].map(match => match[1]),
     )];
     expect(assetPaths).toHaveLength(5);
     for (const assetPath of assetPaths) {
