@@ -62,7 +62,7 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain("configuredDurationSeconds");
     expect(database).toContain("const closesAt=new Date(rewardAt.getTime()+completionDisplaySeconds*1000)");
     expect(database).toContain("const displaySeconds=terms.tradeDurationSeconds+completionDisplaySeconds");
-    expect(database).toContain("const configuredPopupDisplaySeconds=configuredDurationSeconds");
+    expect(database).toContain("const configuredPopupDisplaySeconds=configuredDurationSeconds+completionDisplaySeconds");
     expect(database).not.toContain("Math.max(86_400");
     expect(component).toContain("setMinimized(true)");
     expect(component).toContain('aria-label="Minimize opportunity alert"');
