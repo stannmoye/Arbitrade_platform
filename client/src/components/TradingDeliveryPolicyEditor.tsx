@@ -22,7 +22,7 @@ export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyM
   const show = (section: PolicyEditorFocus) => !focus || focus === section;
   return <div className="settings-card package-policy-card">
   <div className="eyebrow">Administrator-managed Trading settings</div>
-  <h2>{focus==="quotas"?"Per-tier daily delivery caps":focus==="policy"?"Per-tier offer rules and capital limits":focus==="delivery"?"Per-tier delivery schedule":focus==="display"?"Per-tier pop-up display":focus==="retries"?"Per-tier retries and settlement safeguards":focus==="rotation"?"Per-tier company rotation rules":"Trading policy settings"}</h2>
+  <h2>{focus==="quotas"?"Per-tier daily delivery caps":focus==="policy"?"Per-tier offer rules and capital limits":focus==="delivery"?"Per-tier delivery schedule":focus==="display"?"Completion display delay":focus==="retries"?"Per-tier retries and settlement safeguards":focus==="rotation"?"Per-tier company rotation rules":"Trading policy settings"}</h2>
   <p>Each section edits settings for the named tier. Changes are validated, audited and versioned by the server. Existing customer entitlement, delivered pop-up and active trade snapshots are not silently rewritten; display controls affect presentation only. Automatic financial execution remains protected OFF.</p>
   {focus==="quotas"&&<div className="admin-policy-note" role="note"><strong>Important: two different limits.</strong> The daily opportunity entitlement is set in <strong>Trade Settings → Tiers &amp; Eligibility</strong>. This page sets per-tier operational delivery ceilings that can reduce that entitlement but never increase it. To make a 600-per-day tier allowance available, set the hard daily pop-up ceiling to at least 600 and leave the optional target at 0. Existing customer entitlements keep their original saved quota; edits apply to future automatic assignments.</div>}
   {focus==="policy"&&<div className="admin-policy-note" role="note"><strong>Scope:</strong> This page contains per-tier offer eligibility and capital bounds only. Per-tier policy and pop-up delivery switches are controlled in the shared Trading controls panel above this page; no global switch is edited here. Tier threshold, entitlement duration and daily opportunity entitlement are maintained only in <strong>Tiers &amp; Eligibility</strong>.</div>}
@@ -46,7 +46,7 @@ export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyM
     </div>
     </>}
     {(show("delivery")||show("display"))&&<>
-    <div className="eyebrow">Delivery cadence and display</div>
+    <div className="eyebrow">Delivery cadence and completion display</div>
     <div className="form-two">
       {show("delivery")&&<>
       <label>Minimum interval between deliveries (seconds)<input type="number" min="0" max="604800" step="1" value={row.minIntervalSeconds} onChange={e=>updateRow(index,"minIntervalSeconds",Number(e.target.value))}/><small>Per-tier lower wait bound between deliveries: 0–604,800 whole seconds; it must not exceed the maximum. Saved bounds affect later delivery eligibility, not the creation of source opportunities.</small></label>
