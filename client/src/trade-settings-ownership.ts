@@ -343,7 +343,7 @@ const registryEntries: readonly RegistryEntry[] = [
     customerImpact: "Defines a future review deadline only; it does not post funds or determine the trade result.", risk: "high",
   }),
   tierPolicyField({
-    field: "completionDisplaySeconds", key: "trade.policy.completionCardDisplaySeconds", section: "display", label: "Completed card display duration",
+    field: "completionDisplaySeconds", key: "trade.policy.completionCardDisplaySeconds", section: "display", label: "Post-completion card display delay",
     explanation: "Controls presentation time for completed-status cards.", units: "seconds",
     validation: "Positive integer within the existing per-tier display bound.", runtimeConsumer: "server/db.ts popup lifecycle/display policy.",
     customerImpact: "Changes future card presentation only; it does not change trade timing or accounting.",
@@ -380,15 +380,15 @@ const registryEntries: readonly RegistryEntry[] = [
   }),
   tierPolicyField({
     field: "minimumTradeDurationSeconds", key: "trade.policy.minimumTradeDurationSeconds", section: "policy", label: "Minimum trade duration",
-    explanation: "Lower bound on a configured trade’s server-owned lifetime; separate from tier entitlement and card display duration.", units: "seconds",
+    explanation: "Lower bound for the single server-owned opportunity lifetime; the selected value also drives the popup countdown and expiry.", units: "seconds",
     validation: "Set together with the maximum; integer from 10 through 86,400 seconds and maximum must be at least minimum.", runtimeConsumer: "server/db.ts validates and snapshots configured trade-duration bounds; financial execution remains hard-disabled in this release.",
-    customerImpact: "Defines a permitted future timing term only; a countdown does not establish execution or settlement.", risk: "high",
+    customerImpact: "Defines the permitted future popup/opportunity lifetime only; a countdown does not establish execution or settlement.", risk: "high",
   }),
   tierPolicyField({
     field: "maximumTradeDurationSeconds", key: "trade.policy.maximumTradeDurationSeconds", section: "policy", label: "Maximum trade duration",
-    explanation: "Upper bound on a configured trade’s server-owned lifetime; separate from tier entitlement and card display duration.", units: "seconds",
+    explanation: "Upper bound for the single server-owned opportunity lifetime; the selected value also drives the popup countdown and expiry.", units: "seconds",
     validation: "Set together with the minimum; integer from 10 through 86,400 seconds and at least the minimum bound.", runtimeConsumer: "server/db.ts validates and snapshots configured trade-duration bounds; financial execution remains hard-disabled in this release.",
-    customerImpact: "Defines a permitted future timing term only; existing snapshots remain unchanged.", risk: "high",
+    customerImpact: "Defines the permitted future popup/opportunity lifetime only; existing snapshots remain unchanged.", risk: "high",
   }),
   tierPolicyField({
     field: "minimumRewardBps", key: "trade.policy.minimumEligibleRewardBps", section: "policy", label: "Minimum eligible reward rate",
