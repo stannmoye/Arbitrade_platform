@@ -72,7 +72,7 @@ export function createNotificationAudioController(options: NotificationAudioCont
     };
 
     playCue();
-    if (loop && loopTimer === null) {
+    if (loop && !blockedReported && loopTimer === null) {
       loopTimer = options.setInterval(() => playCue(true), 1500);
     }
   };
