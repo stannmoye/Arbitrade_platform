@@ -2308,6 +2308,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
   const checks = [];
   const pageErrors = [];
   const mutationCalls = [];
+  let dismissalPersisted = false;
   const offer = {
     id: 50501, offerId: 50501, deliveryEventId: 60501,
     packageName: "QA Eligible Tier", symbol: "BTC/USD", currency: "USD",
@@ -2347,7 +2348,12 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
           data = { id: 90501, email: "popup-qa@example.test", name: "Popup QA Customer", role: "customer" };
         } else if (procedure === "customer.opportunities") {
           data = {
-            serverTime: new Date().toISOString(), offers: [{ ...offer }], missed: [], autoTrades: [], settled: [],
+            serverTime: new Date().toISOString(),
+            offers: [{ ...offer, ...(dismissalPersisted ? {
+              offerStatus: "closed", deliveryStatus: "dismissed",
+              dismissedAt: "2026-11-06T12:00:00.000Z",
+            } : {}) }],
+            missed: [], autoTrades: [], settled: [],
             delivery: {
               enabled: true, packageName: "QA Eligible Tier", maxPopupsPerDay: 6,
               maxVisibleOffers: 2, remainingDailyQuota: 6, remainingVisibleSlots: 2,
@@ -2359,7 +2365,11 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
         } else if (procedure === "customer.balances") {
           data = { balances: [], currencies: [], summary: { availableUsd: 0, totalUsd: 0 } };
         } else if (procedure === "customer.popupLifecycle" || procedure === "customer.popupDeliveryStatus") {
-          mutationCalls.push({ procedure, input: inputAt(index) });
+          const mutationInput = inputAt(index);
+          mutationCalls.push({ procedure, input: mutationInput });
+          if (procedure === "customer.popupLifecycle" && mutationInput?.action === "dismissed") {
+            dismissalPersisted = true;
+          }
           data = { ok: true };
         }
         return { result: { data: { json: data } } };
@@ -2437,6 +2447,15 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     record("customer-can-dismiss-opportunity-alert", mutationCalls.some(call =>
       call.procedure === "customer.popupLifecycle" && call.input?.action === "dismissed"
     ), { mutationCalls });
+    await page.getByText("Dismissal saved and refreshed in opportunity history.").waitFor({ state: "visible", timeout: 5000 });
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("arbitrade:customer-navigate", { detail: "opportunities" })));
+    await page.getByRole("heading", { name: "Opportunity history" }).waitFor({ state: "visible", timeout: 5000 });
+    await page.getByRole("button", { name: /Dismissed/ }).click();
+    const dismissedHistoryItem = page.locator(".customer-opportunity-history__item").filter({ hasText: "Verified QA Company" });
+    await dismissedHistoryItem.waitFor({ state: "visible", timeout: 5000 });
+    record("popup-dismissal-is-reflected-in-read-only-opportunity-history",
+      dismissalPersisted && (await dismissedHistoryItem.innerText()).includes("Dismissed · presentation only"),
+      { dismissalPersisted, historyText: await dismissedHistoryItem.innerText().catch(() => "") });
   } catch (error) {
     record("customer-opportunity-popup-interaction-completes", false, {
       error: error instanceof Error ? error.message : String(error),
