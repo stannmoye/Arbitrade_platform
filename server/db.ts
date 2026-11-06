@@ -3450,9 +3450,10 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       maximumTradeDurationSeconds:selectedPolicy.maximumTradeDurationSeconds==null?null:Number(selectedPolicy.maximumTradeDurationSeconds),
     });
     const minimumMinor=packageMinimum;
-    const displaySeconds=Math.max(1,Math.min(86400,Number(selectedPolicy.popupDisplayTargetSeconds||120)));
-    const closesAt=new Date(input.now.getTime()+Math.max(86_400,terms.tradeDurationSeconds,displaySeconds)*1000);
     const rewardAt=new Date(input.now.getTime()+terms.tradeDurationSeconds*1000);
+    // One cryptographically selected package duration governs both the offer expiry and its displayed countdown.
+    const closesAt=new Date(rewardAt.getTime());
+    const displaySeconds=terms.tradeDurationSeconds;
     const companyMetadata={
       rotationStateVersion:1,rotationCycle,rotationSequence,poolFingerprint,
       repeatPolicy:selectedPolicy.companyRotationRepeatPolicy,
@@ -4275,8 +4276,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const savedBounds=generatedOffer?generationSnapshot:{minimumPayoutRateBps:configured.minimumPayoutRateBps,maximumPayoutRateBps:configured.maximumPayoutRateBps,minimumTradeDurationSeconds:configured.minimumTradeDurationSeconds,maximumTradeDurationSeconds:configured.maximumTradeDurationSeconds};
       if(!Number.isSafeInteger(configuredProfitRateBps)||configuredProfitRateBps<Number(savedBounds.minimumPayoutRateBps)||configuredProfitRateBps>Number(savedBounds.maximumPayoutRateBps)||
         !Number.isSafeInteger(configuredDurationSeconds)||configuredDurationSeconds<Number(savedBounds.minimumTradeDurationSeconds)||configuredDurationSeconds>Number(savedBounds.maximumTradeDurationSeconds)) continue;
-      const configuredPopupDisplaySeconds=generatedOffer?Number(generationSnapshot.popupDisplayTargetSeconds):Number(configured.popupDisplayTargetSeconds);
-      if(!Number.isSafeInteger(configuredPopupDisplaySeconds)||configuredPopupDisplaySeconds<1||configuredPopupDisplaySeconds>86400) continue;
+      const configuredPopupDisplaySeconds=configuredDurationSeconds;
       newlyEligible.push({...offer,packageId:Number(subscription.packageId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
         minimumMinor:selected.minimumMinor,packageMinimumTradeMinor:selected.configuredMinimum,packageMaximumTradeMinor:selected.configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
