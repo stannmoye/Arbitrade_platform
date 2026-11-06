@@ -78,6 +78,20 @@ describe("opportunity generation templates", () => {
     expect(termsB.payoutSemantics).toBe("configured_payout_not_market_earned_profit");
   });
 
+  it("selects a fresh duration for each opportunity inside the same inclusive package range", () => {
+    const samples = [250, 60, 250, 180, 250, 97];
+    const select = () => selectOpportunityGenerationTerms(template, {
+      ...packageA,
+      minimumTradeDurationSeconds: 60,
+      maximumTradeDurationSeconds: 180,
+    }, () => samples.shift()!);
+    const first = select();
+    const second = select();
+    const third = select();
+    expect([first.tradeDurationSeconds, second.tradeDurationSeconds, third.tradeDurationSeconds]).toEqual([60, 180, 97]);
+    expect(new Set([first.tradeDurationSeconds, second.tradeDurationSeconds, third.tradeDurationSeconds]).size).toBe(3);
+  });
+
   it("accepts inclusive configured endpoints for payout and duration", () => {
     const values = [1, 10, 5000, 86400];
     const low = selectOpportunityGenerationTerms(template, {
