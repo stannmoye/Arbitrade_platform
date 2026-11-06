@@ -3378,10 +3378,17 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
 
     const maxPending=Math.max(0,Number(selectedPolicy.maxPendingDeliveries||0));
     if(maxPending<=0)return skipped("MAX_PENDING_DELIVERIES_ZERO");
+    // Pending capacity is for deliveries that can still be shown to the customer.
+    // Old queued rows whose source offer has already been closed/expired must not
+    // permanently consume capacity; insufficient-balance rows are terminal too.
     const pending=(await tx.select({id:opportunityPopupEvents.id}).from(opportunityPopupEvents)
+      .innerJoin(opportunityOffers,eq(opportunityPopupEvents.offerId,opportunityOffers.id))
       .where(and(eq(opportunityPopupEvents.userId,input.userId),eq(opportunityPopupEvents.packageId,Number(selectedSubscription.packageId)),
+        eq(opportunityOffers.assignedUserId,input.userId),eq(opportunityOffers.assignedPackageId,Number(selectedSubscription.packageId)),
+        eq(opportunityOffers.status,"open"),gt(opportunityOffers.closesAt,input.now),
         inArray(opportunityPopupEvents.deliveryStatus,["queued","in_progress","retry_wait"]),
-        sql`(${opportunityPopupEvents.balanceStatus} IS NULL OR ${opportunityPopupEvents.balanceStatus} <> 'insufficient')`)).limit(maxPending+1)).length;
+        sql`(${opportunityPopupEvents.balanceStatus} IS NULL OR ${opportunityPopupEvents.balanceStatus} <> 'insufficient')`,
+        notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN","EXPIRED","DISMISSED"]))).limit(maxPending+1)).length;
     if(pending>=maxPending)return skipped("PENDING_DELIVERY_CAPACITY_FULL",{pending,maxPending});
 
     const catalogueSetting=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
