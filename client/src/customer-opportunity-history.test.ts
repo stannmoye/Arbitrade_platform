@@ -3,6 +3,7 @@ import {
   buildCustomerOpportunityHistory,
   groupCustomerOpportunityHistoryByDate,
   paginateCustomerOpportunityHistory,
+  summarizeCustomerOpportunityHistory,
 } from "./customer-opportunity-history";
 
 describe("customer opportunity history", () => {
@@ -95,5 +96,22 @@ describe("customer opportunity history", () => {
 
   it("returns an empty first page for an empty result set", () => {
     expect(paginateCustomerOpportunityHistory([], 0)).toEqual({ items: [], page: 0, pageCount: 0, total: 0, start: 0, end: 0 });
+  });
+
+  it("summarizes only the mapped server-recorded categories", () => {
+    const entries = buildCustomerOpportunityHistory({
+      offers: [
+        { id: 41, status: "open", symbol: "AVAILABLE" },
+        { id: 42, deliveryStatus: "dismissed", symbol: "DISMISSED", dismissedAt: "2026-11-06T10:00:00.000Z" },
+        { id: 43, deliveryStatus: "expired", symbol: "EXPIRED", closesAt: "2026-11-06T09:00:00.000Z" },
+      ],
+      missed: [{ id: 44, symbol: "MISSED" }],
+      trades: [{ id: 45, status: "confirmed" }, { id: 46, status: "settled" }],
+    });
+    expect(summarizeCustomerOpportunityHistory(entries)).toEqual({
+      total: 6, available: 1, missed: 1, allocated: 1, settled: 1, dismissed: 1, expired: 1,
+    });
+    expect(entries.find(entry => entry.kind === "missed")?.reference).toBe("44");
+    expect(entries.find(entry => entry.kind === "settled")?.reference).toBe("46");
   });
 });
