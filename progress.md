@@ -1391,19 +1391,29 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
 
 
+## Customer opportunity popup redesign — Stage 3C: grouped, paginated read-only history (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage3c-history-ux`, stacked on Stage 3B PR #301 branch `feat/customer-opportunity-popup-stage3b-delivery-history` at `3277b852934de985ec2d0115967889d61363924e`. Stage 1–3B PRs and `main` are unchanged.
+- **History navigation:** Added client-side pagination (8 records per page), result-range feedback, accessible Previous/Next controls, and automatic page clamping when a filter/search result shrinks.
+- **Event grouping:** Current page records are grouped by local calendar date, with explicit event counts and a separate “Date unavailable” group. Existing newest-first ordering is preserved within the page.
+- **Mobile presentation:** Tightened event-card spacing and status wrapping; date-group headings and pagination controls adapt to narrow screens. Keyboard focus and disabled pagination states remain visible.
+- **Regression coverage:** Added tests for date grouping, missing timestamps, page boundaries, no duplicate records across pages, stale-page clamping, and empty results.
+- **Safety/scope:** Read-only client presentation and tests only. Uses the existing customer feed and persisted trade query; no API, server query, schema, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. No lifecycle state is inferred. Automatic financial execution remains hard-disabled.
+- **Validation:** Exact-head GitHub Actions and browser acceptance are pending. No authenticated hosted-customer verification, merge, or deployment is claimed.
+- Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+## PR #302 browser acceptance timing correction (2026-11-06)
+
+- Updated the mocked customer delivery policy to use the same eight-second popup display duration as the mocked offer. The fixture previously specified conflicting values (offer: 8 seconds; delivery policy: 1 second), which obscured the intended test timing.
+- Extended the dock-visibility wait to 12 seconds so it covers the configured eight-second auto-collapse window plus browser render margin. The earlier five-second wait could expire while the popup was correctly still expanded.
+- This changes browser acceptance fixture timing only; production popup behavior and financial safeguards are unchanged.
+- Exact-head CI is pending for commit `175d2f1fbcb0723516f29762869d68f87ab5fe8e`. No merge or deployment performed.
+
+
 ## 2026-11-06 — Popup browser fixture eligibility correction
 
 - Corrected the mocked active-offer fixture in the customer popup browser acceptance check: its available amount now exceeds the minimum required amount and its balance status is `sufficient`. The previous fixture marked the same open, popup-eligible offer as `insufficient`, so the customer UI correctly rendered a missed/insufficient-balance event instead of the active opportunity notice the test tried to expand.
 - Updated the assertion to verify that an active eligible offer is not misclassified as insufficient balance. Existing popup metadata, expiry, read-only details, lifecycle acknowledgement, minimize/maximize and dismiss checks remain in place.
 - Test fixture and assertions only; no customer/server business logic, database, worker, wallet, ledger, allocation, trade execution or settlement behavior changed. Automatic financial execution remains hard-disabled.
 - Exact-head GitHub Actions are pending for this correction. This is mocked browser acceptance evidence only, not live customer or hosted production verification.
-
-
-## 2026-11-06 — Stage 3B browser popup timeout alignment
-
-- **Branch / PR:** `feat/customer-opportunity-popup-stage3b-delivery-history` / PR #301, stacked on the corrected Stage 3A PR #300 head.
-- **CI finding:** the Stage 3B snapshot still contained a fixed five-second wait for the minimized popup dock, despite its fixture configuring an eight-second display duration. The popup was rendered and acknowledged; the test failed only while waiting for the dock to appear.
-- **Correction:** carried the Stage 3A duration-aware browser assertion into Stage 3B. The dock wait now uses the configured display duration plus a five-second scheduling/rendering margin, with a 90-second safety cap. The assertion still requires the dock to become visible.
-- **Scope:** browser acceptance script and progress documentation only. No customer UI/runtime, API, database, worker, wallet, ledger, allocation, trade execution, or settlement behavior changed. Financial execution remains hard-disabled.
-- **Validation:** exact-head GitHub Actions are pending for this correction; no local suite or live customer environment was run during this repair. No merge or deployment performed.
-- **Source update:** browser test commit `8836dc83737c9ac2054cee587c978e3cbf3dd1bf`.

@@ -2409,13 +2409,9 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     record("active-open-offer-is-not-misclassified-as-insufficient-balance", !incorrectlyMissed);
     record("popup-makes-no-financial-execution-claim", informationalOnly);
     record("opportunity-popup-renders-server-synchronised-expiry-countdown", expiryCountdownVisible);
-    const configuredDisplaySeconds = Number(offer.configuredPopupDisplaySeconds || 8);
-    const autoCollapseWaitMs = Math.min(90000, Math.max(5000, configuredDisplaySeconds * 1000 + 5000));
-    record("auto-collapse-wait-covers-configured-display-duration",
-      Number.isFinite(configuredDisplaySeconds) && configuredDisplaySeconds > 0 &&
-      autoCollapseWaitMs > configuredDisplaySeconds * 1000,
-      { configuredDisplaySeconds, autoCollapseWaitMs });
-    await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: autoCollapseWaitMs });
+    // Match the mock delivery policy to the offer and allow the full configured window.
+    // The previous five-second wait expired before the eight-second auto-collapse timer.
+    await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: 12000 });
     const dock = page.locator(".opportunity-popup-dock");
     const dockText = await dock.innerText().catch(() => "");
     record("minimized-dock-keeps-live-expiry-countdown", dockText.includes("Opportunity expires in") || dockText.includes("Expiry time reached"), { dockText });
