@@ -1393,3 +1393,10 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Updated the assertion to verify that an active eligible offer is not misclassified as insufficient balance. Existing popup metadata, expiry, read-only details, lifecycle acknowledgement, minimize/maximize and dismiss checks remain in place.
 - Test fixture and assertions only; no customer/server business logic, database, worker, wallet, ledger, allocation, trade execution or settlement behavior changed. Automatic financial execution remains hard-disabled.
 - Exact-head GitHub Actions are pending for this correction. This is mocked browser acceptance evidence only, not live customer or hosted production verification.
+
+## 2026-11-06 — Popup auto-collapse browser assertion isolation
+
+- Latest browser failure showed the popup remained expanded after the test opened the read-only details panel; lifecycle acknowledgements succeeded and there were no browser page errors. The test had been asking the auto-collapse timer to run while the details interaction was still active.
+- Updated the browser acceptance sequence to close the details panel after validating its metadata, explicitly assert that the details panel collapses, and then independently verify the configured popup auto-collapse into the minimized dock.
+- This isolates the details interaction from the display-duration assertion. It changes test sequencing only; no customer application, server/API, database, worker, wallet, ledger, allocation, trade execution, or settlement behavior changed. Financial execution remains hard-disabled.
+- Exact-head CI must confirm the correction. No live hosted customer verification, merge, or deployment is claimed.
