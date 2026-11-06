@@ -1530,3 +1530,9 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 
 
 - **CI branch-routing correction:** Stage 9 is on the repository's established `feat/customer-opportunity-popup-*` branch namespace so the existing push-triggered validation workflows include this stacked stage. The earlier temporary branch `feat/customer-opportunity-popup-stage9-sound-playback` is superseded; no code changes were lost.
+
+
+### Stage 9 CI correction — update playback contract assertions (2026-11-06)
+
+- The first exact-head run passed TypeScript but failed two existing source-contract assertions that still expected the pre-refactor audio promise handler and timer guard. The new Stage 9 reliability tests passed; the failures were stale expectations, not a runtime or type error.
+- Updated those assertions to verify the new one-time blocked-playback handler, audio error event, and browser-safe opportunity-loop cleanup. A fresh exact-head CI run is required.
