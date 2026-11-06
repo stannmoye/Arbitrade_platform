@@ -2388,6 +2388,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     const dock = page.locator(".opportunity-popup-dock");
     record("configured-display-duration-collapses-alert-into-dock", await dock.isVisible().catch(() => false), {
       dockText: await dock.innerText().catch(() => ""), pageErrors,
+      expiryCountdownInDock: (await dock.innerText().catch(() => "")).includes("Opportunity expires in") || (await dock.innerText().catch(() => "")).includes("Expiry time reached"),
     });
     await dock.getByRole("button", { name: "Maximize opportunity alert" }).click();
     await popup.waitFor({ state: "visible", timeout: 3000 });
