@@ -2363,8 +2363,8 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
               } : {}) },
               {
                 id: 50502, offerId: 50502, offerStatus: "open", status: "open",
-                popupEligible: false, deliveryStatus: "delivered",
-                companyDisplayName: "Available QA Company", symbol: "AVAIL",
+                popupEligible: false, deliveryStatus: "delivered", currency: "USD",
+                minimumMinor: 10000, companyDisplayName: "Available QA Company", symbol: "AVAIL",
                 opensAt: "2026-11-06T10:00:00.000Z", closesAt: "2099-12-31T23:59:59.000Z",
               },
               {
@@ -2374,7 +2374,8 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
               },
             ],
             missed: [{
-              id: 50504, offerId: 50504, companyName: "Missed QA Company",
+              id: 50504, offerId: 50504, companyName: "Missed QA Company", currency: "USD",
+              amountMinor: 10000, availableMinorAtOpportunity: 4500, shortfallMinor: 5500,
               symbol: "MISSED", reason: "INSUFFICIENT_AVAILABLE_BALANCE",
               createdAt: "2026-11-06T08:00:00.000Z",
             }],
@@ -2392,13 +2393,13 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
         } else if (procedure === "customer.trades") {
           data = [
             {
-              id: 50505, status: "confirmed", symbol: "ALLOC",
-              companyDisplayName: "Allocated QA Company",
+              id: 50505, status: "confirmed", symbol: "ALLOC", currency: "USD",
+              principalMinor: 10000, companyDisplayName: "Allocated QA Company",
               confirmedAt: "2026-11-06T07:00:00.000Z", stage: "Awaiting settlement",
             },
             {
-              id: 50506, status: "settled", symbol: "SETTLED",
-              companyDisplayName: "Settled QA Company",
+              id: 50506, status: "settled", symbol: "SETTLED", currency: "USD",
+              principalMinor: 10000, companyDisplayName: "Settled QA Company",
               settledAt: "2026-11-06T06:00:00.000Z", stage: "Settlement recorded",
             },
           ];
