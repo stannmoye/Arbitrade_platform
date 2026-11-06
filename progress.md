@@ -1504,3 +1504,12 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - The combined lifecycle browser fixture exposed a customer workspace render error when navigating from popup dismissal to history. The added available, missed, allocated, and settled fixture rows omitted the currency field consumed by the existing customer opportunity and trade-history presentation formatters.
 - Completed the fixture with explicit USD currency and representative amount fields for all rows. This corrects test data to satisfy the existing customer API contract; it does not alter application runtime behavior, persisted data, or financial logic.
 - The fixture remains mocked and read-only. Exact-head browser, build, application, MySQL 8.4, and MariaDB 11.4 checks must pass before Stage 8 is considered validated.
+
+
+### Stage 8 customer workspace crash fix — currency input hardening (2026-11-06)
+
+- Root cause: the combined browser fixture included an expired opportunity without a currency code. The customer Trading Opportunities view formatted every offer and called uppercase conversion on the missing currency, causing the customer portal render boundary to replace the workspace after popup dismissal/navigation.
+- Hardened customer opportunity amount formatting: currency codes are normalized and validated before lookup/formatting; missing codes now render a neutral “Currency unavailable” label and do not crash the customer workspace. Balance lookup safely returns zero when no valid currency code is present.
+- Corrected the expired fixture to include USD and added a separate deliberately malformed open-offer fixture to prove missing currency data is handled without a render crash.
+- Scope: customer presentation formatting and mocked browser fixture only. No server/API, database, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution or settlement behavior changed. Financial execution remains hard-disabled.
+- Stage 8 remains pending until exact-head browser acceptance and all other required workflows complete successfully.
