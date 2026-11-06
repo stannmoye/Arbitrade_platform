@@ -25,6 +25,18 @@ type HistoryInput = {
   trades?: any[];
 };
 
+/** Confirms dismissal only when the refreshed authenticated feed records it explicitly. */
+export function hasPersistedCustomerOpportunityDismissal(feed: unknown, offerId: unknown): boolean {
+  const targetId = String(offerId ?? "");
+  if (!targetId || !feed || typeof feed !== "object") return false;
+  const offers = (feed as { offers?: unknown }).offers;
+  if (!Array.isArray(offers)) return false;
+  return offers.some((offer: any) =>
+    String(offer?.id ?? offer?.offerId ?? "") === targetId &&
+    String(offer?.deliveryStatus ?? "").toLowerCase() === "dismissed"
+  );
+}
+
 const HISTORY_PAGE_SIZE = 8;
 
 function dateValue(value: unknown): string | null {
