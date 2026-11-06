@@ -1461,3 +1461,12 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - **Stale-feed protection:** Added a second browser pass where the lifecycle mutation reports success but the refreshed opportunity feed deliberately remains non-dismissed. The customer must receive the existing “not confirmed” warning, and the Dismissed history filter must not fabricate an entry.
 - **Scope/safeguards:** Browser fixture and progress documentation only. No server/API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. No financial action is initiated; automatic financial execution remains hard-disabled.
 - **Validation:** Exact-head browser acceptance, type-check, tests, build, application verification and MySQL 8.4 / MariaDB 11.4 integration checks are pending. The browser scenario uses a mocked customer session/feed and does not constitute authenticated hosted-customer verification. No merge or deployment performed.
+
+
+## Customer opportunity popup redesign — Stage 7: dismissal transport-failure regression (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage7-dismissal-failure-regression`, based on Stage 6 PR #306 head `2ba45e1c3a2bf80978b55265d44c7a4fde476e19`.
+- **Failure-path coverage:** Extended the mocked customer browser acceptance to abort the dismissal lifecycle request at the transport layer. The alert may close locally, but the customer must receive the existing unconfirmed warning and the Dismissed history filter must not show a fabricated record.
+- **Combined coverage:** The browser flow now exercises confirmed persistence, a successful mutation with a stale/non-dismissed refreshed feed, and a failed dismissal request.
+- **Scope/safeguards:** Browser fixture and progress documentation only. No server/API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. No financial action is initiated; automatic financial execution remains hard-disabled.
+- **Validation:** Exact-head type-check, automated tests, production build, browser acceptance, application verification, and MySQL 8.4 / MariaDB 11.4 integration checks are pending. Browser acceptance uses mocked customer data and is not authenticated hosted-customer verification. No merge or deployment performed.
