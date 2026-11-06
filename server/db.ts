@@ -3760,7 +3760,6 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
         minIntervalSeconds:effective.minIntervalSeconds,
         maxIntervalSeconds:effective.maxIntervalSeconds,
         randomizationEnabled:effective.randomizationEnabled,
-        popupDisplayTargetSeconds:effective.popupDisplayTargetSeconds,
         completionDisplaySeconds:effective.completionDisplaySeconds,
         postCompletionIntervalSeconds:effective.postCompletionIntervalSeconds,
         maxPendingDeliveries:effective.maxPendingDeliveries,
