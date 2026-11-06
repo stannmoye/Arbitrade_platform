@@ -1432,6 +1432,28 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
 
 
+## Customer opportunity popup redesign — Stage 4: popup-to-history integration (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage4-history-sync`, stacked directly on Stage 3E PR #304 head `45196db54aff6801bf2113108af127f3f75b5588`. PR #298–#304 and `main` remain untouched.
+- **Integration correction:** Customer popup dismissal now waits for the server lifecycle mutation to succeed, then immediately refetches the same authenticated customer opportunity feed consumed by the read-only history panel. A successful server confirmation produces a customer-visible status message after refresh.
+- **Failure handling:** If the lifecycle mutation fails, the alert still closes locally, but the customer is explicitly told that server dismissal was not confirmed and that the event may not yet appear in history. Alerts without a persisted delivery-event reference are identified as local-only rather than being presented as durably recorded.
+- **Scope:** Client-side popup/history coordination and status messaging only. No server query/API, database, migration, worker, delivery lifecycle semantics, wallet, balance, ledger, allocation, trade execution or settlement behavior changed. The history mapper continues to include dismissed events only when the server returns the explicit persisted dismissed status. Financial execution remains hard-disabled.
+- **Validation:** Exact-head type-check, tests, build, browser acceptance and database integration checks are pending. No authenticated hosted-customer verification, merge or deployment is claimed.
+- **Next:** Add regression coverage for the popup dismissal → server confirmation → feed refresh → history visibility path, then review exact-head CI.
+
+- **Regression coverage added:** Extended the mobile customer browser acceptance scenario with a stateful server-feed fixture. It now verifies the dismissal lifecycle request, successful confirmation message, immediate customer opportunity-feed refresh, and appearance of the explicitly persisted dismissed record in the history filter. The fixture does not create any financial records or invoke financial actions.
+
+
+## Customer opportunity popup redesign — Stage 5: dismissal confirmation regression hardening (2026-11-06)
+
+- **Branch:** `feat/customer-opportunity-popup-stage4-history-sync`, continuing the Stage 4 stack on PR #304. This is a focused hardening update to PR #305; no new PR or merge was created.
+- **Issue found in review:** a successful lifecycle mutation followed by a completed query refetch was treated as full confirmation without checking whether the returned feed actually contained the dismissed record. Query refetches can complete with stale data or an error result.
+- **Correction:** the customer popup now requires a non-error refresh result and an exact matching offer ID with explicit persisted `deliveryStatus=dismissed` before displaying the success message. A failed refresh or stale/missing record now produces a warning instead of a false success.
+- **Regression coverage:** added pure helper tests for matching persisted dismissal, mismatched IDs, delivered/non-terminal status, missing status, empty feeds and absent feed data.
+- **Safety/scope:** customer-side read-only confirmation, unit tests and progress documentation only. No server/API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, financial execution or settlement behavior changed. Automatic financial execution remains hard-disabled.
+- **Validation:** exact-head GitHub Actions are pending for the updated commit. No authenticated hosted-customer verification, merge or deployment is claimed.
+
+
 ## 2026-11-06 — Popup browser fixture eligibility correction
 
 - Corrected the mocked active-offer fixture in the customer popup browser acceptance check: its available amount now exceeds the minimum required amount and its balance status is `sufficient`. The previous fixture marked the same open, popup-eligible offer as `insufficient`, so the customer UI correctly rendered a missed/insufficient-balance event instead of the active opportunity notice the test tried to expand.
