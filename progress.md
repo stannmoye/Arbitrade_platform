@@ -1517,6 +1517,27 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Follow-up regression refinement: the deliberately malformed-currency offer fixture is marked pending, so it exercises defensive customer-page formatting without being counted as an available lifecycle-history record. The browser test caught and corrected this fixture/category mismatch.
 
 
+## Notification sound library and playback engine — Stage 9 (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage9-sound-playback`, stacked on Stage 8 PR #308 head `14f9e05cd0c4afc44f9e54cc0a06faffe4040f27`. PR #308 and `main` remain untouched.
+- **Playback reliability:** Centralized customer notification playback now stops the previous cue before a new event sound starts, clears the active-audio reference when playback ends, and prevents repeated opportunity-alert cues from overlapping or cutting off a cue that is still playing.
+- **Failure handling:** Audio element errors, synchronous playback errors, and rejected autoplay promises share a one-time blocked-playback notification path. Opportunity looping stops on playback failure; the visible notification remains available.
+- **Policy preservation:** Customer sound opt-in, administrator enablement, administrator-selected sound mapping, configured volume, and existing event-ID deduplication remain in force. No notification sound is used as evidence of a financial operation.
+- **Regression coverage:** Added checks for all five configured public WAV assets, single-active-cue behaviour, non-overlapping repeated cues, blocked-playback handling, and customer/admin sound gates. Existing category mapping and reconnect-deduplication tests remain unchanged.
+- **Scope/safeguards:** Customer notification audio only. No popup delivery, server/API, database, migration, worker, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. Automatic financial execution remains hard-disabled.
+- **Validation:** A review caught and corrected an over-escaped asset-path matcher in the new regression test before validation. Fresh exact-head type-check, automated tests, production build, browser acceptance and integration workflows remain pending. No hosted sound/autoplay verification, merge or deployment is claimed.
+- **Known-good rollback baseline:** `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+- **CI branch-routing correction:** Stage 9 is on the repository's established `feat/customer-opportunity-popup-*` branch namespace so the existing push-triggered validation workflows include this stacked stage. The earlier temporary branch `feat/customer-opportunity-popup-stage9-sound-playback` is superseded; no code changes were lost.
+
+
+### Stage 9 CI correction — update playback contract assertions (2026-11-06)
+
+- The first exact-head run passed TypeScript but failed two existing source-contract assertions that still expected the pre-refactor audio promise handler and timer guard. The new Stage 9 reliability tests passed; the failures were stale expectations, not a runtime or type error.
+- Updated those assertions to verify the new one-time blocked-playback handler, audio error event, and browser-safe opportunity-loop cleanup. A fresh exact-head CI run is required.
+
+
 ## 2026-11-06 — Popup browser fixture eligibility correction
 
 - Corrected the mocked active-offer fixture in the customer popup browser acceptance check: its available amount now exceeds the minimum required amount and its balance status is `sufficient`. The previous fixture marked the same open, popup-eligible offer as `insufficient`, so the customer UI correctly rendered a missed/insufficient-balance event instead of the active opportunity notice the test tried to expand.
