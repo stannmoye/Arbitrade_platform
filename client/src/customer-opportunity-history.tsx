@@ -124,7 +124,8 @@ export function groupCustomerOpportunityHistoryByDate(entries: CustomerOpportuni
 export function paginateCustomerOpportunityHistory<T>(entries: T[], page: number, pageSize = HISTORY_PAGE_SIZE): { items: T[]; page: number; pageCount: number; total: number; start: number; end: number } {
   const safePageSize = Number.isFinite(pageSize) ? Math.max(1, Math.floor(pageSize)) : HISTORY_PAGE_SIZE;
   const pageCount = Math.ceil(entries.length / safePageSize);
-  const safePage = pageCount ? Math.min(Math.max(0, Math.floor(page)), pageCount - 1) : 0;
+  const requestedPage = Number.isFinite(page) ? Math.max(0, Math.floor(page)) : 0;
+  const safePage = pageCount ? Math.min(requestedPage, pageCount - 1) : 0;
   const start = safePage * safePageSize;
   const items = entries.slice(start, start + safePageSize);
   return { items, page: safePage, pageCount, total: entries.length, start: entries.length ? start + 1 : 0, end: start + items.length };
@@ -186,7 +187,7 @@ export function CustomerOpportunityHistoryPanel({ offers, missed, trades }: Hist
     <div className="customer-opportunity-history__filters" role="group" aria-label="Filter opportunity history">
       {filters.map(item => <button key={item.id} type="button" aria-pressed={filter === item.id} className={filter === item.id ? "is-active" : ""} onClick={() => { setFilter(item.id); setPage(0); }}>{item.label}<span>{countFor(item.id)}</span></button>)}
     </div>
-    <div id="customer-opportunity-history-results" className="customer-opportunity-history__results" aria-live="polite" aria-relevant="additions text">
+    <div id="customer-opportunity-history-results" className="customer-opportunity-history__results" aria-live="polite" aria-relevant="all">
       {visible.length ? <>
         <div className="customer-opportunity-history__summary">Showing {pageData.start}–{pageData.end} of {pageData.total} matching records</div>
         <div className="customer-opportunity-history__groups">
