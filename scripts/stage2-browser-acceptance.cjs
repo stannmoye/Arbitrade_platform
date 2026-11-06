@@ -2310,6 +2310,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
   const mutationCalls = [];
   let dismissalPersisted = false;
   let persistDismissalToFeed = true;
+  let failDismissalMutation = false;
   const offer = {
     id: 50501, offerId: 50501, deliveryEventId: 60501,
     packageName: "QA Eligible Tier", symbol: "BTC/USD", currency: "USD",
@@ -2343,6 +2344,11 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
         const item = Array.isArray(envelope) ? envelope[index] : envelope[String(index)];
         return item?.json ?? item?.input?.json ?? envelope?.json ?? envelope?.input?.json ?? {};
       };
+      if (failDismissalMutation && procedures.includes("customer.popupLifecycle") &&
+          procedures.some((procedure, index) => procedure === "customer.popupLifecycle" && inputAt(index)?.action === "dismissed")) {
+        await route.abort("failed");
+        return;
+      }
       const output = procedures.map((procedure, index) => {
         let data = null;
         if (procedure === "auth.me") {
@@ -2479,6 +2485,25 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     record("stale-refreshed-feed-does-not-create-dismissed-history-entry",
       !(await falseDismissedEntry.isVisible().catch(() => false)),
       { historyEntryVisible: await falseDismissedEntry.isVisible().catch(() => false) });
+
+    // A transport failure must also remain explicitly unconfirmed.
+    failDismissalMutation = true;
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.getByRole("heading", { name: "Welcome back, Jordan." }).waitFor({ state: "visible", timeout: 15000 });
+    const failedMutationDock = page.locator(".opportunity-popup-dock");
+    await failedMutationDock.waitFor({ state: "visible", timeout: 12000 });
+    await failedMutationDock.getByRole("button", { name: "Dismiss" }).click();
+    await failedMutationDock.waitFor({ state: "detached", timeout: 3000 });
+    await page.getByText("The alert was closed, but the server did not confirm the dismissal in opportunity history. It may not appear there.")
+      .waitFor({ state: "visible", timeout: 5000 });
+    record("failed-dismissal-request-does-not-report-persistence", failDismissalMutation);
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("arbitrade:customer-navigate", { detail: "opportunities" })));
+    await page.getByRole("heading", { name: "Opportunity history" }).waitFor({ state: "visible", timeout: 5000 });
+    await page.getByRole("button", { name: /Dismissed/ }).click();
+    const failedMutationHistoryItem = page.locator(".customer-opportunity-history__item").filter({ hasText: "Verified QA Company" });
+    record("failed-dismissal-request-does-not-create-history-entry",
+      !(await failedMutationHistoryItem.isVisible().catch(() => false)),
+      { historyEntryVisible: await failedMutationHistoryItem.isVisible().catch(() => false) });
   } catch (error) {
     record("customer-opportunity-popup-interaction-completes", false, {
       error: error instanceof Error ? error.message : String(error),

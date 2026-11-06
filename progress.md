@@ -1463,6 +1463,23 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - **Validation:** Exact-head browser acceptance, type-check, tests, build, application verification and MySQL 8.4 / MariaDB 11.4 integration checks are pending. The browser scenario uses a mocked customer session/feed and does not constitute authenticated hosted-customer verification. No merge or deployment performed.
 
 
+## Customer opportunity popup redesign — Stage 7: dismissal transport-failure regression (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage7-dismissal-failure-regression`, based on Stage 6 PR #306 head `2ba45e1c3a2bf80978b55265d44c7a4fde476e19`.
+- **Failure-path coverage:** Extended the mocked customer browser acceptance to abort the dismissal lifecycle request at the transport layer. The alert may close locally, but the customer must receive the existing unconfirmed warning and the Dismissed history filter must not show a fabricated record.
+- **Combined coverage:** The browser flow now exercises confirmed persistence, a successful mutation with a stale/non-dismissed refreshed feed, and a failed dismissal request.
+- **Scope/safeguards:** Browser fixture and progress documentation only. No server/API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. No financial action is initiated; automatic financial execution remains hard-disabled.
+- **Validation:** Exact-head type-check, automated tests, production build, browser acceptance, application verification, and MySQL 8.4 / MariaDB 11.4 integration checks are pending. Browser acceptance uses mocked customer data and is not authenticated hosted-customer verification. No merge or deployment performed.
+
+
+### Stage 7 validation correction — dismissal failure fixture scope (2026-11-06)
+
+- Exact-head browser acceptance initially failed because the transport-abort guard referenced `failDismissalMutation` from the unrelated admin browser route, outside the customer popup test's scope.
+- Moved the guard into `runCustomerOpportunityPopupInteractionCheck` beside the customer fixture state and request handler. The admin route no longer references the customer-only flag.
+- Correction commit: `02f333d458d74851460c2c1c9509d018e1f127d1`.
+- Fresh exact-head CI is required; previous browser failure is not considered resolved until the new head's browser acceptance passes.
+
+
 ## 2026-11-06 — Popup browser fixture eligibility correction
 
 - Corrected the mocked active-offer fixture in the customer popup browser acceptance check: its available amount now exceeds the minimum required amount and its balance status is `sufficient`. The previous fixture marked the same open, popup-eligible offer as `insufficient`, so the customer UI correctly rendered a missed/insufficient-balance event instead of the active opportunity notice the test tried to expand.
