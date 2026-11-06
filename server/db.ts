@@ -4043,7 +4043,6 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const quotaWindow=resolveTradingQuotaWindow(now,effectiveSchedulingPeriod);
   const popupPolicy={
     popupMinGapSeconds:Math.max(0,Number(policy?.minIntervalSeconds||0)),
-    popupDisplaySeconds:Math.max(1,Number(policy?.popupDisplayTargetSeconds||120)),
     popupMaxPerHour:maxPopupsPerDay,
     popupPreAlertProbabilityBps:0,popupPreAlertSeconds:0,popupWithdrawalProbabilityBps:0,
     popupJitterSeconds:globalPolicy.randomizedTimingEnabled?Math.max(0,Number(policy?.maxIntervalSeconds||0)-Number(policy?.minIntervalSeconds||0)):0,
@@ -4233,10 +4232,10 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         const minRate=Number(generationSnapshot.minimumPayoutRateBps),maxRate=Number(generationSnapshot.maximumPayoutRateBps);
         const minDuration=Number(generationSnapshot.minimumTradeDurationSeconds),maxDuration=Number(generationSnapshot.maximumTradeDurationSeconds);
         const savedPackageVersion=Number(generationSnapshot.policyVersion),savedPackageMinimum=Number(generationSnapshot.packageMinimumMinor),savedPackageMaximum=Number(generationSnapshot.packageMaximumMinor);
-        const savedDisplaySeconds=Number(generationSnapshot.popupDisplayTargetSeconds),savedCurrencyRate=Number(generationSnapshot.currencyRateUsd);
+        const savedDurationSeconds=Number(generationSnapshot.configuredDurationSeconds),savedCurrencyRate=Number(generationSnapshot.currencyRateUsd);
         if(!Number.isSafeInteger(minRate)||!Number.isSafeInteger(maxRate)||!Number.isSafeInteger(minDuration)||!Number.isSafeInteger(maxDuration)||
           !Number.isSafeInteger(savedPackageVersion)||savedPackageVersion<1||!Number.isSafeInteger(savedPackageMinimum)||savedPackageMinimum<=0||
-          !Number.isSafeInteger(savedPackageMaximum)||savedPackageMaximum<savedPackageMinimum||!Number.isSafeInteger(savedDisplaySeconds)||savedDisplaySeconds<1||savedDisplaySeconds>86400||
+          !Number.isSafeInteger(savedPackageMaximum)||savedPackageMaximum<savedPackageMinimum||!Number.isSafeInteger(savedDurationSeconds)||savedDurationSeconds<minDuration||savedDurationSeconds>maxDuration||
           !Number.isFinite(savedCurrencyRate)||savedCurrencyRate<=0||generationSnapshot.currency!==offer.currency||generationSnapshot.symbol!==offer.symbol||
           generationSnapshot.companyReferenceId!==offer.companyReferenceId||
           Number(offer.expectedRewardBps)!==Number(generationAssignment.configuredProfitRateBps)||Number(offer.durationSeconds)!==Number(generationAssignment.configuredDurationSeconds)||
