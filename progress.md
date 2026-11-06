@@ -1377,3 +1377,15 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - **Safety:** this is a read-only presentation of existing server data. No new API, database table, migration, worker, delivery lifecycle, wallet, balance, ledger, trade execution, allocation, or settlement behavior was added. Financial execution remains hard-disabled.
 - **Validation:** exact-head CI and browser acceptance are pending. No hosted authenticated customer verification is claimed. No merge or deployment performed.
 - Known-good rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+## Customer opportunity popup redesign — Stage 3B: persisted delivery history (2026-11-06)
+
+- Working branch: `feat/customer-opportunity-popup-stage3b-delivery-history`, based on Stage 3A PR #300 head `cdf2e6f83688bf9a4c9b215d6880fb14d40b47f1`. This is a separate stacked draft; Stage 1, Stage 2, Stage 3A, and `main` remain unchanged.
+- Extended the existing read-only history mapper to include delivery events only when the authenticated customer feed already returns the explicit persisted `deliveryStatus=dismissed` or `deliveryStatus=expired` value.
+- Added separate Dismissed and Expired filters, counts, search terms, conservative labels, and status styling. Closed offers without an explicit terminal delivery status remain excluded; failed delivery remains retryable/available and is not mislabelled as dismissed or expired.
+- Timestamps are shown only when the existing response supplies a matching timestamp field. Expiry may use the persisted offer close boundary; dismissal shows the timestamp as unavailable unless a dedicated dismissal timestamp is present.
+- Added unit tests proving explicit-state mapping and preventing inference from closed offers or unrelated delivery statuses.
+- **Safety and scope:** client presentation and tests only. No server query, API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. No financial actions are initiated. The customer panel remains read-only.
+- **Validation:** exact-head typecheck, unit tests, build, browser acceptance, and database workflow checks are pending. No hosted customer verification, merge, or deployment is claimed.
+- Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
