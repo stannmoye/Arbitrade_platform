@@ -57,7 +57,8 @@ export const DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY = {
   minIntervalSeconds: 45,
   maxIntervalSeconds: 3600,
   randomizationEnabled: false,
-  popupDisplayTargetSeconds: 120,
+  // Legacy compatibility column only; runtime display/expiry uses the selected duration bounds above.
+  popupDisplayTargetSeconds: 300,
   completionDisplaySeconds: 8,
   postCompletionIntervalSeconds: 30,
   maxPendingDeliveries: 3,
