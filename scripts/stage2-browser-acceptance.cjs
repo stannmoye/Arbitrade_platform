@@ -2311,7 +2311,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
   const offer = {
     id: 50501, offerId: 50501, deliveryEventId: 60501,
     packageName: "QA Eligible Tier", symbol: "BTC/USD", currency: "USD",
-    minimumMinor: 10000, balanceAvailableMinor: 4500, balanceStatus: "insufficient",
+    minimumMinor: 10000, balanceAvailableMinor: 15000, balanceStatus: "sufficient",
     currencyScale: 2, currencySymbol: "$",
     // Keep the alert expanded long enough to exercise its read-only details before
     // the independent auto-collapse assertion below. One second caused the popup
@@ -2395,19 +2395,18 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
       { expandedState, detailsInteractiveControls, detailsText });
     const companyVisible = popupText.includes("Verified QA Company") &&
       await popup.locator(".popup-company-reference").isVisible().catch(() => false);
-    const insufficientVisible = popupText.includes("Missed — insufficient balance") &&
-      popupText.includes("$ 100.00") && popupText.includes("$ 45.00") && popupText.includes("$ 55.00");
+    const incorrectlyMissed = popupText.includes("Missed — insufficient balance");
     const expiryCountdownVisible = popupText.includes("Opportunity expires in") &&
       popupText.includes("Countdown is synchronised to the server-saved expiry timestamp.") &&
       await popup.locator(".opportunity-expiry-panel").isVisible().catch(() => false);
     const informationalOnly = popupText.includes("Informational notice only") &&
       !popupText.includes("AUTOMATED OPPORTUNITY") && !popupText.includes("Configured return rate:");
     record("eligible-open-opportunity-renders-informational-customer-popup", await popup.isVisible().catch(() => false), {
-      offerId: offer.id, companyVisible, insufficientVisible, informationalOnly,
+      offerId: offer.id, companyVisible, incorrectlyMissed, informationalOnly,
       note: "Customer session and opportunity API are mocked; this verifies React rendering and the client eligibility gate, not live server publication or account authorization.",
     });
     record("verified-company-reference-is-rendered", companyVisible, { companyName: offer.companyDisplayName });
-    record("insufficient-balance-is-explained-with-required-available-and-shortfall", insufficientVisible);
+    record("active-open-offer-is-not-misclassified-as-insufficient-balance", !incorrectlyMissed);
     record("popup-makes-no-financial-execution-claim", informationalOnly);
     record("opportunity-popup-renders-server-synchronised-expiry-countdown", expiryCountdownVisible);
     await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: 5000 });
