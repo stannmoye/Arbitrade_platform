@@ -214,11 +214,6 @@ async function runAdminAppearanceInteractionCheck(browser) {
         const item = Array.isArray(envelope) ? envelope[index] : envelope[String(index)];
         return item?.json ?? item?.input?.json ?? envelope?.json ?? envelope?.input?.json ?? {};
       };
-      if (failDismissalMutation && procedures.includes("customer.popupLifecycle") &&
-          procedures.some((procedure, index) => procedure === "customer.popupLifecycle" && inputAt(index)?.action === "dismissed")) {
-        await route.abort("failed");
-        return;
-      }
       const output = procedures.map((procedure, index) => {
         const input = inputAt(index);
         let data = null;
@@ -2349,6 +2344,11 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
         const item = Array.isArray(envelope) ? envelope[index] : envelope[String(index)];
         return item?.json ?? item?.input?.json ?? envelope?.json ?? envelope?.input?.json ?? {};
       };
+      if (failDismissalMutation && procedures.includes("customer.popupLifecycle") &&
+          procedures.some((procedure, index) => procedure === "customer.popupLifecycle" && inputAt(index)?.action === "dismissed")) {
+        await route.abort("failed");
+        return;
+      }
       const output = procedures.map((procedure, index) => {
         let data = null;
         if (procedure === "auth.me") {
