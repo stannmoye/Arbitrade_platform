@@ -1513,3 +1513,5 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Corrected the expired fixture to include USD and added a separate deliberately malformed open-offer fixture to prove missing currency data is handled without a render crash.
 - Scope: customer presentation formatting and mocked browser fixture only. No server/API, database, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution or settlement behavior changed. Financial execution remains hard-disabled.
 - Stage 8 remains pending until exact-head browser acceptance and all other required workflows complete successfully.
+
+- Follow-up regression refinement: the deliberately malformed-currency offer fixture is marked pending, so it exercises defensive customer-page formatting without being counted as an available lifecycle-history record. The browser test caught and corrected this fixture/category mismatch.
