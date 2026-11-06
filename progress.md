@@ -1442,3 +1442,13 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - **Next:** Add regression coverage for the popup dismissal → server confirmation → feed refresh → history visibility path, then review exact-head CI.
 
 - **Regression coverage added:** Extended the mobile customer browser acceptance scenario with a stateful server-feed fixture. It now verifies the dismissal lifecycle request, successful confirmation message, immediate customer opportunity-feed refresh, and appearance of the explicitly persisted dismissed record in the history filter. The fixture does not create any financial records or invoke financial actions.
+
+
+## Customer opportunity popup redesign — Stage 5: dismissal confirmation regression hardening (2026-11-06)
+
+- **Branch:** `feat/customer-opportunity-popup-stage4-history-sync`, continuing the Stage 4 stack on PR #304. This is a focused hardening update to PR #305; no new PR or merge was created.
+- **Issue found in review:** a successful lifecycle mutation followed by a completed query refetch was treated as full confirmation without checking whether the returned feed actually contained the dismissed record. Query refetches can complete with stale data or an error result.
+- **Correction:** the customer popup now requires a non-error refresh result and an exact matching offer ID with explicit persisted `deliveryStatus=dismissed` before displaying the success message. A failed refresh or stale/missing record now produces a warning instead of a false success.
+- **Regression coverage:** added pure helper tests for matching persisted dismissal, mismatched IDs, delivered/non-terminal status, missing status, empty feeds and absent feed data.
+- **Safety/scope:** customer-side read-only confirmation, unit tests and progress documentation only. No server/API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, financial execution or settlement behavior changed. Automatic financial execution remains hard-disabled.
+- **Validation:** exact-head GitHub Actions are pending for the updated commit. No authenticated hosted-customer verification, merge or deployment is claimed.
