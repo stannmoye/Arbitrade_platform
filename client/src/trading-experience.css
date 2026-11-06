@@ -681,8 +681,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
+.customer-portal .opportunity-popup-company { gap: 12px; align-items: center; }
+.customer-portal .opportunity-popup-company__details { display: grid; gap: 3px; min-width: 0; }
+.customer-portal .opportunity-popup-company__details strong { color: var(--arb-color-text, #f3f8fb); font-size: 15px; font-weight: 850; }
+.customer-portal .opportunity-popup-company__details span { color: var(--arb-color-text-muted, #91a6b6); font-size: 10px; }
+.customer-portal .opportunity-popup-package { margin-left: auto; padding: 6px 9px; border: 1px solid var(--trade-border); border-radius: 9px; color: var(--trade-info); background: color-mix(in srgb, var(--trade-info) 7%, var(--trade-surface)); font-size: 10px; font-weight: 750; }
 .customer-portal .center-opportunity-toast .opportunity-popup-minimize,
 .customer-portal .opportunity-popup-dock__actions button {
   min-height: 40px;
