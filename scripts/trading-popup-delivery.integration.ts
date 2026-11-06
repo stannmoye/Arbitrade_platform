@@ -845,6 +845,7 @@ const balanceBefore = await db.select({
     minIntervalSeconds: 0,
     maxIntervalSeconds: 0,
     postCompletionIntervalSeconds: 0,
+    maxPendingDeliveries: 1,
   }).where(eq(opportunityPackagePolicies.packageName, packageName));
   const afterInsufficientCycle = await listCustomerOpportunities(userId, {
     workerCycle: true,
@@ -855,7 +856,7 @@ const balanceBefore = await db.select({
   const generatedAfterInsufficientId = Number(afterInsufficientCycle.generatedOpportunityId);
   insufficientRetryOfferId = generatedAfterInsufficientId;
   assert.ok(Number.isSafeInteger(generatedAfterInsufficientId) && generatedAfterInsufficientId > 0,
-    "An insufficient-balance popup must not prevent the next worker cycle from generating an opportunity.");
+    "An insufficient-balance popup must not consume pending-delivery capacity or prevent the next worker cycle from generating an opportunity. Diagnostics: "+JSON.stringify(afterInsufficientCycle.generationDiagnostics));
   assert.notEqual(generatedAfterInsufficientId, offerId,
     "The next worker cycle must not return the original insufficient-balance offer.");
   assert.equal((await db.select({ id: opportunityGenerationAssignments.id }).from(opportunityGenerationAssignments)
