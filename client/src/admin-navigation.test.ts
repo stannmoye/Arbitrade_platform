@@ -17,7 +17,7 @@ describe("Trading administrator navigation", () => {
       "Opportunity Generation & Management",
       "Per-tier Delivery Schedule",
       "Global Trade Timing & Settlement",
-      "Per-tier Pop-up Display",
+      "Post-completion Display Delay",
       "Per-tier Company Rotation Rules",
       "Company Catalogue",
       "Capital & Wallet Funding Rules",
