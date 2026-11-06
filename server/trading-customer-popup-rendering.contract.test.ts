@@ -115,7 +115,8 @@ describe("customer opportunity popup retry and visibility gates", () => {
   });
 
   it("shows live connection state while retaining the last known informational popup", () => {
-    expect(app).toContain('connectionStatus={opportunityMeta.isError?"offline":opportunityMeta.isFetching?"updating":"connected"}');
+    expect(app).toContain('connectionStatus={opportunityMeta.isError?"offline":opportunityMeta.isFetching&&!opportunityMeta.data?"updating":"connected"}');
+    expect(app).toContain('opportunityMeta.isFetching&&!opportunityMeta.data');
     expect(component).toContain('connectionStatus:"connected"|"updating"|"offline"');
     expect(component).toContain('className={"opportunity-popup-connection opportunity-popup-connection--"+connectionStatus}');
     expect(component).toContain("Connection interrupted");
