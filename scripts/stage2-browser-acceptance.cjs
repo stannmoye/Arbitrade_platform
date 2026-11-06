@@ -2368,6 +2368,13 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
                 opensAt: "2026-11-06T10:00:00.000Z", closesAt: "2099-12-31T23:59:59.000Z",
               },
               {
+                // Malformed API data must remain visible without crashing the customer workspace.
+                id: 50507, offerId: 50507, offerStatus: "open", status: "open",
+                popupEligible: false, deliveryStatus: "delivered",
+                minimumMinor: 2500, companyDisplayName: "Missing Currency QA Company", symbol: "NOCUR",
+                opensAt: "2026-11-06T09:30:00.000Z", closesAt: "2099-12-31T23:59:59.000Z",
+              },
+              {
                 id: 50503, offerId: 50503, offerStatus: "closed", status: "closed", currency: "USD",
                 deliveryStatus: "expired", expiredAt: "2026-11-06T09:00:00.000Z",
                 companyDisplayName: "Expired QA Company", symbol: "EXPIRE",
