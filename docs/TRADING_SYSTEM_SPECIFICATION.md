@@ -219,7 +219,7 @@ The catalogue is version-controlled static reference data and must not be bulk-s
 
 ## 10. Opportunity pop-up, country flags, trade details, and minimized dock
 
-When an opportunity/trade card opens, it must associate the company identity and all financial/timing fields with the same stable trade and company IDs. The expanded pop-up is controlled by the configured display duration. When minimized, it becomes a fixed bottom-of-viewport dock: it stays visible while the page scrolls up or down and does not scroll away with the page.
+When an opportunity/trade card opens, it must associate the company identity and all financial/timing fields with the same stable trade and company IDs. The expanded pop-up countdown and opportunity expiry use the same server-selected package duration. When minimized, it becomes a fixed bottom-of-viewport dock: it stays visible while the page scrolls up or down and does not scroll away with the page.
 
 ### Admin portal is the source of truth for customer-side behaviour
 
