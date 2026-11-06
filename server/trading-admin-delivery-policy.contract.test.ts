@@ -14,7 +14,7 @@ describe("administrator Trading delivery policy controls", () => {
   it("keeps tier timing, financial retry, concurrency and reward fields in the tier editor while delivery retry has one owner", () => {
     for (const field of [
       "dailyPopupTarget", "schedulingPeriod", "minIntervalSeconds", "maxIntervalSeconds",
-      "popupDisplayTargetSeconds", "completionDisplaySeconds", "postCompletionIntervalSeconds",
+      "completionDisplaySeconds", "postCompletionIntervalSeconds",
       "maxPendingDeliveries", "maxTradeAttemptsPerDay",
       "tradeRetryDelaySeconds", "maxSuccessfulTradesPerDay", "maxConcurrentActiveTrades",
       "minSettlementDelaySeconds", "maxSettlementDelaySeconds",
@@ -39,7 +39,7 @@ describe("administrator Trading delivery policy controls", () => {
     expect(app).not.toContain('aria-checked={active}');
     expect(app).toContain("({...x,packageName:x.packageName");
     for (const binding of [
-      "value={row.popupDisplayTargetSeconds}", "value={row.minIntervalSeconds}",
+      "value={row.minIntervalSeconds}",
       "value={row.maxIntervalSeconds}", "value={row.maxTradeAttemptsPerDay}",
       "value={row.maxDailyRewardMinor}",
     ]) expect(policyEditor).toContain(binding);
@@ -55,9 +55,9 @@ describe("administrator Trading delivery policy controls", () => {
     expect(app).toContain("buildChangedPolicyPatches(policyBaseline,policyRows,TRADING_TIER_POLICY_PATCH_KEYS)");
     expect(router).toContain("maxPopupsPerDay: z.number().int().min(1).max(1000).optional()");
     expect(router).toContain("maxVisibleOffers: z.number().int().min(1).max(10000).optional()");
-    expect(router).toContain("popupDisplayTargetSeconds: z.number().int().min(1).max(86400).optional()");
-    expect(policyEditor).toContain('min="1" max="86400" step="1"');
-    expect(app).toContain("row.popupDisplayTargetSeconds<=86400");
+    expect(router).not.toContain("popupDisplayTargetSeconds: z.number().int().min(1).max(86400).optional()");
+    expect(policyEditor).not.toContain("Expanded pop-up display duration");
+    expect(app).not.toContain("row.popupDisplayTargetSeconds<=86400");
     expect(app).toContain("row.completionDisplaySeconds<=3600");
     expect(router).toContain("minimumTradeUnits: z.number().int().min(1).max(2147483647).optional()");
     const start = router.indexOf("updatePackagePolicies: adminProcedure.input");
