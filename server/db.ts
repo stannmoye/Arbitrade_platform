@@ -3388,7 +3388,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         eq(opportunityOffers.status,"open"),gt(opportunityOffers.closesAt,input.now),
         inArray(opportunityPopupEvents.deliveryStatus,["queued","in_progress","retry_wait"]),
         sql`(${opportunityPopupEvents.balanceStatus} IS NULL OR ${opportunityPopupEvents.balanceStatus} <> 'insufficient')`,
-        notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN","EXPIRED","DISMISSED"]))).limit(maxPending+1)).length;
+        notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN","DISMISSED"]))).limit(maxPending+1)).length;
     if(pending>=maxPending)return skipped("PENDING_DELIVERY_CAPACITY_FULL",{pending,maxPending});
 
     const catalogueSetting=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
