@@ -56,8 +56,13 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain("current.popupEligible===true");
   });
 
-  it("minimizes after the configured display time instead of removing a still-open opportunity", () => {
+  it("minimizes at the shared server expiry instead of using a separate display timer", () => {
     expect(component).toContain("timer.current=window.setTimeout(()=>{");
+    expect(component).toContain("Date.parse(String(popupRef.current?.closesAt||\"\"))");
+    expect(component).toContain("configuredDurationSeconds");
+    expect(database).toContain("const closesAt=new Date(rewardAt.getTime())");
+    expect(database).toContain("const configuredPopupDisplaySeconds=configuredDurationSeconds");
+    expect(database).not.toContain("Math.max(86_400");
     expect(component).toContain("setMinimized(true)");
     expect(component).toContain('aria-label="Minimize opportunity alert"');
     expect(component).toContain('aria-label="Maximize opportunity alert"');
