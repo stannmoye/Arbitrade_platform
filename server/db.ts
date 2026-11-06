@@ -3450,10 +3450,13 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       maximumTradeDurationSeconds:selectedPolicy.maximumTradeDurationSeconds==null?null:Number(selectedPolicy.maximumTradeDurationSeconds),
     });
     const minimumMinor=packageMinimum;
+    const completionDisplaySeconds=Number(selectedPolicy.completionDisplaySeconds||8);
+    if(!Number.isSafeInteger(completionDisplaySeconds)||completionDisplaySeconds<1||completionDisplaySeconds>3600) throw new Error(`Completion display delay is invalid for ${selectedPolicy.packageName}`);
     const rewardAt=new Date(input.now.getTime()+terms.tradeDurationSeconds*1000);
-    // One cryptographically selected package duration governs both the offer expiry and its displayed countdown.
-    const closesAt=new Date(rewardAt.getTime());
-    const displaySeconds=terms.tradeDurationSeconds;
+    // One cryptographically selected package duration governs the opportunity/trade countdown.
+    // The popup expiry adds only the configured short post-completion display grace period.
+    const closesAt=new Date(rewardAt.getTime()+completionDisplaySeconds*1000);
+    const displaySeconds=terms.tradeDurationSeconds+completionDisplaySeconds;
     const companyMetadata={
       rotationStateVersion:1,rotationCycle,rotationSequence,poolFingerprint,
       repeatPolicy:selectedPolicy.companyRotationRepeatPolicy,
@@ -3477,7 +3480,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       configuredProfitRateBps:terms.configuredPayoutRateBps,configuredDurationSeconds:terms.tradeDurationSeconds,minimumMinor,
       symbol:terms.symbol,venueFrom:terms.venueFrom,venueTo:terms.venueTo,currency:terms.currency,
       currencyRateUsd:Number(currencyRow.usdRate),currencyRateUpdatedAt:currencyRow.updatedAt?new Date(currencyRow.updatedAt).toISOString():null,
-      popupDisplayTargetSeconds:displaySeconds,badgeLabel:selectedPolicy.badgeLabel??null,
+      popupDisplayTargetSeconds:displaySeconds,completionDisplaySeconds,badgeLabel:selectedPolicy.badgeLabel??null,
       badgeStyle:["neutral","blue","purple","gold","green"].includes(String((selectedPolicy as any).badgeStyle))?String((selectedPolicy as any).badgeStyle):"neutral",
       companyRotationEnabled:Boolean(input.companyRotationEnabled),companyRotationCountryNames:String(selectedPolicy.companyRotationCountryNames||""),
       companyRotationRepeatPolicy:selectedPolicy.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
@@ -4274,7 +4277,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const savedBounds=generatedOffer?generationSnapshot:{minimumPayoutRateBps:configured.minimumPayoutRateBps,maximumPayoutRateBps:configured.maximumPayoutRateBps,minimumTradeDurationSeconds:configured.minimumTradeDurationSeconds,maximumTradeDurationSeconds:configured.maximumTradeDurationSeconds};
       if(!Number.isSafeInteger(configuredProfitRateBps)||configuredProfitRateBps<Number(savedBounds.minimumPayoutRateBps)||configuredProfitRateBps>Number(savedBounds.maximumPayoutRateBps)||
         !Number.isSafeInteger(configuredDurationSeconds)||configuredDurationSeconds<Number(savedBounds.minimumTradeDurationSeconds)||configuredDurationSeconds>Number(savedBounds.maximumTradeDurationSeconds)) continue;
-      const configuredPopupDisplaySeconds=configuredDurationSeconds;
+      const completionDisplaySeconds=generatedOffer?Number(generationSnapshot.completionDisplaySeconds||8):Number(configured.completionDisplaySeconds||8);
+      if(!Number.isSafeInteger(completionDisplaySeconds)||completionDisplaySeconds<1||completionDisplaySeconds>3600) continue;
+      const configuredPopupDisplaySeconds=configuredDurationSeconds+completionDisplaySeconds;
       newlyEligible.push({...offer,packageId:Number(subscription.packageId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
         minimumMinor:selected.minimumMinor,packageMinimumTradeMinor:selected.configuredMinimum,packageMaximumTradeMinor:selected.configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
