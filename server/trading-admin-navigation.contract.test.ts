@@ -236,7 +236,8 @@ describe("Trading customer-display navigation", () => {
     const item = navigation.match(/id: "trade-popup-display", target: "([^"]+)"/);
     expect(item?.[1]).toBe("tradeCustomerDisplay");
     expect(adminApp).toContain('{section==="tradeCustomerDisplay"&&<AdminPackages focus="display"/>}');
-    expect(policyEditor).toContain("value={row.popupDisplayTargetSeconds}");
+    expect(policyEditor).not.toContain("value={row.popupDisplayTargetSeconds}");
+    expect(policyEditor).toContain("Post-completion card display delay (seconds)");
     expect(policyEditor).toContain("value={row.completionDisplaySeconds}");
     expect(policyEditor).toContain("Controls display only; must not cancel an active trade.");
     expect(adminApp).toContain('(!focus||focus==="tiers")&&<AdminTradingPackageCatalogue/>');
