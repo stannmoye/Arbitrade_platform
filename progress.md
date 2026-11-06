@@ -1480,6 +1480,43 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Fresh exact-head CI is required; previous browser failure is not considered resolved until the new head's browser acceptance passes.
 
 
+## Customer opportunity popup redesign — Stage 8: combined lifecycle and mobile regression review (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage8-combined-regression`, based on Stage 7 PR #307 head `9d7c0e56cf650618e3864ccb268db0d7d55d294f`. PR #298–#307 and `main` remain unchanged.
+- **Combined lifecycle fixture:** Extended the customer browser acceptance fixture to return an explicitly open opportunity, a persisted expired delivery, a recorded missed event, confirmed and settled trade-history rows, and the dismissal produced by the successful popup flow.
+- **Six-category regression:** After successful popup dismissal and feed refresh, the browser test checks that Available, Missed, Allocated, Settled, Dismissed and Expired each show exactly one record; verifies six distinct visible history records; and checks company labels across the combined timeline.
+- **Search and mobile layout:** Added a browser assertion that searching the combined timeline narrows visible results without changing the server-derived category totals, plus a narrow-viewport history-panel overflow check.
+- **Countdown regression:** Added a real-time browser assertion that the server-synchronised opportunity expiry countdown changes between consecutive ticks. Existing auto-collapse, dock, maximize, minimize, details, and dismissal outcome scenarios remain in the same acceptance flow.
+- **Scope/safeguards:** Browser fixture and progress documentation only. No server/API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution or settlement behavior changed. All history records remain read-only and require explicit source statuses. Automatic financial execution remains hard-disabled.
+- **Validation:** Exact-head type-check, automated tests, production build, browser acceptance, application verification, and MySQL 8.4 / MariaDB 11.4 integration checks are pending. The browser uses mocked customer data and does not constitute authenticated hosted-customer verification. No merge or deployment performed.
+- **Known-good rollback baseline:** `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+### Stage 8 review hardening — verify category totals after search (2026-11-06)
+
+- Review found the initial search assertion compared the pre-search category counts to themselves, so it did not prove the rendered overview stayed unchanged after filtering.
+- Updated the browser acceptance to re-read all six rendered category totals after the search is applied and compare them to the pre-search values. The result-range assertion now checks the exact rendered range text for the single filtered record.
+- This is browser-test-only hardening; production behavior and financial boundaries are unchanged. Fresh exact-head CI is required.
+
+
+### Stage 8 browser fixture correction — complete currency fields (2026-11-06)
+
+- The combined lifecycle browser fixture exposed a customer workspace render error when navigating from popup dismissal to history. The added available, missed, allocated, and settled fixture rows omitted the currency field consumed by the existing customer opportunity and trade-history presentation formatters.
+- Completed the fixture with explicit USD currency and representative amount fields for all rows. This corrects test data to satisfy the existing customer API contract; it does not alter application runtime behavior, persisted data, or financial logic.
+- The fixture remains mocked and read-only. Exact-head browser, build, application, MySQL 8.4, and MariaDB 11.4 checks must pass before Stage 8 is considered validated.
+
+
+### Stage 8 customer workspace crash fix — currency input hardening (2026-11-06)
+
+- Root cause: the combined browser fixture included an expired opportunity without a currency code. The customer Trading Opportunities view formatted every offer and called uppercase conversion on the missing currency, causing the customer portal render boundary to replace the workspace after popup dismissal/navigation.
+- Hardened customer opportunity amount formatting: currency codes are normalized and validated before lookup/formatting; missing codes now render a neutral “Currency unavailable” label and do not crash the customer workspace. Balance lookup safely returns zero when no valid currency code is present.
+- Corrected the expired fixture to include USD and added a separate deliberately malformed open-offer fixture to prove missing currency data is handled without a render crash.
+- Scope: customer presentation formatting and mocked browser fixture only. No server/API, database, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution or settlement behavior changed. Financial execution remains hard-disabled.
+- Stage 8 remains pending until exact-head browser acceptance and all other required workflows complete successfully.
+
+- Follow-up regression refinement: the deliberately malformed-currency offer fixture is marked pending, so it exercises defensive customer-page formatting without being counted as an available lifecycle-history record. The browser test caught and corrected this fixture/category mismatch.
+
+
 ## 2026-11-06 — Popup browser fixture eligibility correction
 
 - Corrected the mocked active-offer fixture in the customer popup browser acceptance check: its available amount now exceeds the minimum required amount and its balance status is `sufficient`. The previous fixture marked the same open, popup-eligible offer as `insufficient`, so the customer UI correctly rendered a missed/insufficient-balance event instead of the active opportunity notice the test tried to expand.
