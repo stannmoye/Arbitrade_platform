@@ -97,8 +97,9 @@ describe("administrator Trading delivery policy controls", () => {
     expect(app).toContain('setPolicyMessage("Enter at least 5 characters explaining this policy change.");');
   });
 
-  it("keeps display timeout presentation-only and avoids promising a configured reward as earned profit", () => {
-    expect(policyEditor).toContain("Controls display only; must not cancel an active trade.");
+  it("keeps the single opportunity duration authoritative and the post-completion delay presentation-only", () => {
+    expect(policyEditor).toContain("same value controls its popup countdown and server expiry.");
+    expect(policyEditor).toContain("short post-completion display delay is separate.");
     expect(app).toContain("existing customer and trade snapshots were preserved.");
     expect(policyEditor).toContain("This is a minimum eligibility constraint, not a generated or guaranteed return.");
     expect(database).toContain("packagePolicyVersionSnapshot:snapshotVersion");
@@ -109,7 +110,7 @@ describe("administrator Trading delivery policy controls", () => {
     expect(staticGuide).not.toContain("not enforced by the delivery worker");
     expect(staticGuide).not.toContain("does not read this field");
     expect(staticGuide).toContain("Shared delivery retry policy");
-    expect(staticGuide).toContain("not silently migrated");
-    expect(staticGuide).toContain("1–86,400 seconds");
+    expect(staticGuide).toContain("each new opportunity receives its own value within that range");
+    expect(staticGuide).toContain("Post-completion card display delay");
   });
 });
