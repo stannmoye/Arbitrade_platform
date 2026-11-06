@@ -1367,10 +1367,43 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`; neither PR #298 nor PR #299 has been merged.
 
 
-## Customer opportunity popup Stage 2 browser timing correction (2026-11-06)
+## Customer opportunity popup redesign — Stage 3A: read-only opportunity history (2026-11-06)
 
-- Investigated the exact-head customer browser failure on the Stage 2 branch. The fixture configured the popup to auto-collapse after 1 second, while the browser acceptance sequence attempted to expand and inspect the details panel before continuing through the minimize/maximize/dismiss interactions. The short timer could collapse the popup during Playwright's interaction stability checks.
-- Increased only the mocked fixture's display duration to 12 seconds and extended the dock-appearance wait to 15 seconds. This preserves coverage of automatic collapse while providing a realistic interaction window for the details, countdown, minimize, maximize, and dismiss assertions.
-- No customer application source, server/API behavior, database, worker, wallet, ledger, trade, or settlement logic changed. The insufficient-balance fixture and its explicit no-funds-moved assertions remain unchanged.
-- Correction committed as `0f95f480eedb2f59a0804739223a4aa9132bdabb`. Exact-head GitHub Actions validation is pending; do not claim the browser regression is resolved until the new run completes.
-- No merge, deployment, production configuration/data change, or financial operation was performed. Automatic financial execution remains hard-disabled.
+- Working branch: `feat/customer-opportunity-popup-stage3-history`, stacked on the current Stage 2 PR #299 head `55046ae2f5ca795b8645c2f4349712bdaa40aa2e`. Stage 1 PR #298, Stage 2 PR #299, and `main` remain unchanged.
+- Added a customer-facing Opportunity History panel to the Trading Opportunities workspace. It combines only records already returned by the authenticated customer opportunity feed and persisted trade-history query: currently open opportunities, recorded missed events, allocated trades, and server-confirmed settled trades.
+- Added accessible category filters, per-category counts, company/reference/status search, newest-first ordering, timestamp display, empty states, and responsive styling.
+- State labels are deliberately conservative: no viewed, dismissed, expired, or settled state is invented. A trade is labelled settled only when the persisted trade status says `settled`; other persisted trades remain allocated/awaiting settlement. Closed offers are excluded from the available category.
+- Added unit coverage for category mapping, ordering, absent/malformed timestamps, absent API collections, and the prohibition on inferred lifecycle states.
+- **Safety:** this is a read-only presentation of existing server data. No new API, database table, migration, worker, delivery lifecycle, wallet, balance, ledger, trade execution, allocation, or settlement behavior was added. Financial execution remains hard-disabled.
+- **Validation:** exact-head CI and browser acceptance are pending. No hosted authenticated customer verification is claimed. No merge or deployment performed.
+- Known-good rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+## Stage 3A browser acceptance timing correction (2026-11-06)
+
+- Corrected the mocked customer popup browser fixture to use an eight-second display duration, matching the later Stage 3C fixture. The previous one-second duration allowed the popup to auto-collapse while Playwright was opening and inspecting the read-only details panel.
+- Updated both the offer-level configured display duration and the mocked delivery popup policy so they agree.
+- This is a browser-test fixture correction only. Customer application behavior, server/API, database, worker, delivery lifecycle, wallet, balance, ledger, trade execution, allocation, and settlement logic are unchanged.
+- Exact-head CI is required after this commit; no hosted authenticated-customer verification, merge, or deployment is claimed.
+
+
+## 2026-11-06 — Popup browser fixture eligibility correction
+
+- Corrected the mocked active-offer fixture in the customer popup browser acceptance check: its available amount now exceeds the minimum required amount and its balance status is `sufficient`. The previous fixture marked the same open, popup-eligible offer as `insufficient`, so the customer UI correctly rendered a missed/insufficient-balance event instead of the active opportunity notice the test tried to expand.
+- Updated the assertion to verify that an active eligible offer is not misclassified as insufficient balance. Existing popup metadata, expiry, read-only details, lifecycle acknowledgement, minimize/maximize and dismiss checks remain in place.
+- Test fixture and assertions only; no customer/server business logic, database, worker, wallet, ledger, allocation, trade execution or settlement behavior changed. Automatic financial execution remains hard-disabled.
+- Exact-head GitHub Actions are pending for this correction. This is mocked browser acceptance evidence only, not live customer or hosted production verification.
+
+## 2026-11-06 — Popup auto-collapse browser assertion isolation
+
+- Latest browser failure showed the popup remained expanded after the test opened the read-only details panel; lifecycle acknowledgements succeeded and there were no browser page errors. The test had been asking the auto-collapse timer to run while the details interaction was still active.
+- Updated the browser acceptance sequence to close the details panel after validating its metadata, explicitly assert that the details panel collapses, and then independently verify the configured popup auto-collapse into the minimized dock.
+- This isolates the details interaction from the display-duration assertion. It changes test sequencing only; no customer application, server/API, database, worker, wallet, ledger, allocation, trade execution, or settlement behavior changed. Financial execution remains hard-disabled.
+- Exact-head CI must confirm the correction. No live hosted customer verification, merge, or deployment is claimed.
+
+
+## 2026-11-06 — Popup auto-collapse browser timeout aligned with fixture
+
+- **Root cause confirmed from exact-head browser evidence:** the popup fixture configures an 8-second display duration, but the browser acceptance test waited only 5 seconds for the minimized dock. The failed run showed the full popup still visible and no page errors; the wait expired before the configured timer could fire. This was a test timing mismatch, not evidence of a customer popup runtime defect.
+- **Correction:** the browser check now derives its wait from `offer.configuredPopupDisplaySeconds` and adds a 5-second scheduling/rendering margin (with a 90-second safety cap). It also records an explicit assertion that the wait exceeds the configured display duration. The product popup timer and all server, database, worker, wallet, ledger, allocation, trade and settlement behavior are unchanged.
+- **Validation status:** the correction is committed to PR #300; exact-head GitHub Actions must complete before this repair is considered verified. No authenticated Blitz/customer environment was tested. No merge or deployment was performed; `main` remains unchanged.

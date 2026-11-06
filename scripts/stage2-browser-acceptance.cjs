@@ -2311,8 +2311,12 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
   const offer = {
     id: 50501, offerId: 50501, deliveryEventId: 60501,
     packageName: "QA Eligible Tier", symbol: "BTC/USD", currency: "USD",
-    minimumMinor: 10000, balanceAvailableMinor: 4500, balanceStatus: "insufficient",
-    currencyScale: 2, currencySymbol: "$", configuredPopupDisplaySeconds: 12,
+    minimumMinor: 10000, balanceAvailableMinor: 15000, balanceStatus: "sufficient",
+    currencyScale: 2, currencySymbol: "$",
+    // Keep the alert expanded long enough to exercise its read-only details before
+    // the independent auto-collapse assertion below. One second caused the popup
+    // to detach while Playwright was interacting with the details toggle.
+    configuredPopupDisplaySeconds: 8,
     opensAt: "2099-12-31T23:50:00.000Z", closesAt: "2099-12-31T23:59:59.000Z",
     expiryStatus: "active", offerStatus: "open", popupEligible: true,
     eventStatus: "DELIVERED", deliveryStatus: "delivered",
@@ -2347,7 +2351,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
             delivery: {
               enabled: true, packageName: "QA Eligible Tier", maxPopupsPerDay: 6,
               maxVisibleOffers: 2, remainingDailyQuota: 6, remainingVisibleSlots: 2,
-              popupPolicy: { popupDisplaySeconds: 1 },
+              popupPolicy: { popupDisplaySeconds: 8 },
             },
           };
         } else if (procedure === "customer.soundSettings") {
@@ -2389,24 +2393,35 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
       detailsText.toLowerCase().includes("scheduled expiry") &&
       detailsText.toLowerCase().includes("server status"),
       { expandedState, detailsInteractiveControls, detailsText });
+    // The details panel is an intentional interaction state: keep it open long
+    // enough to verify its read-only metadata, then close it before asserting the
+    // independent display-duration auto-collapse behavior.
+    await detailsToggle.click();
+    record("customer-can-collapse-read-only-opportunity-details",
+      await detailsToggle.getAttribute("aria-expanded") === "false");
     const companyVisible = popupText.includes("Verified QA Company") &&
       await popup.locator(".popup-company-reference").isVisible().catch(() => false);
-    const insufficientVisible = popupText.includes("Missed — insufficient balance") &&
-      popupText.includes("$ 100.00") && popupText.includes("$ 45.00") && popupText.includes("$ 55.00");
+    const incorrectlyMissed = popupText.includes("Missed — insufficient balance");
     const expiryCountdownVisible = popupText.includes("Opportunity expires in") &&
       popupText.includes("Countdown is synchronised to the server-saved expiry timestamp.") &&
       await popup.locator(".opportunity-expiry-panel").isVisible().catch(() => false);
     const informationalOnly = popupText.includes("Informational notice only") &&
       !popupText.includes("AUTOMATED OPPORTUNITY") && !popupText.includes("Configured return rate:");
     record("eligible-open-opportunity-renders-informational-customer-popup", await popup.isVisible().catch(() => false), {
-      offerId: offer.id, companyVisible, insufficientVisible, informationalOnly,
+      offerId: offer.id, companyVisible, incorrectlyMissed, informationalOnly,
       note: "Customer session and opportunity API are mocked; this verifies React rendering and the client eligibility gate, not live server publication or account authorization.",
     });
     record("verified-company-reference-is-rendered", companyVisible, { companyName: offer.companyDisplayName });
-    record("insufficient-balance-is-explained-with-required-available-and-shortfall", insufficientVisible);
+    record("active-open-offer-is-not-misclassified-as-insufficient-balance", !incorrectlyMissed);
     record("popup-makes-no-financial-execution-claim", informationalOnly);
     record("opportunity-popup-renders-server-synchronised-expiry-countdown", expiryCountdownVisible);
-    await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: 15000 });
+    const configuredDisplaySeconds = Number(offer.configuredPopupDisplaySeconds || 8);
+    const autoCollapseWaitMs = Math.min(90000, Math.max(5000, configuredDisplaySeconds * 1000 + 5000));
+    record("auto-collapse-wait-covers-configured-display-duration",
+      Number.isFinite(configuredDisplaySeconds) && configuredDisplaySeconds > 0 &&
+      autoCollapseWaitMs > configuredDisplaySeconds * 1000,
+      { configuredDisplaySeconds, autoCollapseWaitMs });
+    await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: autoCollapseWaitMs });
     const dock = page.locator(".opportunity-popup-dock");
     const dockText = await dock.innerText().catch(() => "");
     record("minimized-dock-keeps-live-expiry-countdown", dockText.includes("Opportunity expires in") || dockText.includes("Expiry time reached"), { dockText });

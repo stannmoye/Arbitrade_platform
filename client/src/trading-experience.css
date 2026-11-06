@@ -1336,3 +1336,160 @@
     animation: none;
   }
 }
+
+
+/* Customer opportunity history: a read-only, server-sourced activity timeline. */
+.customer-portal .customer-opportunity-history {
+  display: grid;
+  gap: 13px;
+}
+.customer-portal .customer-opportunity-history__note {
+  margin: -5px 0 0;
+  color: var(--arb-color-text-muted, #9ca3af);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.customer-portal .customer-opportunity-history__search-label {
+  color: var(--arb-color-text-muted, #aab6c5);
+  font-size: 11px;
+  font-weight: 700;
+}
+.customer-portal .customer-opportunity-history__search {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  color: var(--arb-color-text, #f8fafc);
+  background: color-mix(in srgb, var(--trade-canvas) 78%, transparent);
+  border: 1px solid var(--trade-border);
+  border-radius: 10px;
+  font: inherit;
+}
+.customer-portal .customer-opportunity-history__search:focus-visible,
+.customer-portal .customer-opportunity-history__filters button:focus-visible {
+  outline: 2px solid var(--arb-focus-ring, #7ce7c2);
+  outline-offset: 2px;
+}
+.customer-portal .customer-opportunity-history__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.customer-portal .customer-opportunity-history__filters button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 6px 10px;
+  color: var(--arb-color-text-muted, #aab6c5);
+  background: color-mix(in srgb, var(--trade-raised) 70%, transparent);
+  border: 1px solid var(--trade-border);
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+}
+.customer-portal .customer-opportunity-history__filters button.is-active {
+  color: var(--arb-color-text, #f8fafc);
+  border-color: color-mix(in srgb, var(--trade-accent) 58%, var(--trade-border));
+  background: color-mix(in srgb, var(--trade-accent) 12%, var(--trade-raised));
+}
+.customer-portal .customer-opportunity-history__filters button span {
+  min-width: 18px;
+  padding: 1px 5px;
+  color: inherit;
+  background: color-mix(in srgb, var(--arb-color-text, #fff) 10%, transparent);
+  border-radius: 999px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.customer-portal .customer-opportunity-history__list {
+  display: grid;
+  gap: 8px;
+}
+.customer-portal .customer-opportunity-history__item {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr);
+  align-items: start;
+  gap: 11px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--trade-raised) 72%, transparent);
+  border: 1px solid var(--trade-border);
+  border-radius: 12px;
+}
+.customer-portal .customer-opportunity-history__marker {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--arb-color-info, #6db9ff);
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 12%, transparent);
+}
+.customer-portal .customer-opportunity-history__marker--missed {
+  background: var(--arb-color-warning, #edbd67);
+}
+.customer-portal .customer-opportunity-history__marker--allocated {
+  background: var(--arb-color-info, #6db9ff);
+}
+.customer-portal .customer-opportunity-history__marker--settled {
+  background: var(--arb-color-success, #55d6a4);
+}
+.customer-portal .customer-opportunity-history__body {
+  min-width: 0;
+}
+.customer-portal .customer-opportunity-history__topline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px 12px;
+}
+.customer-portal .customer-opportunity-history__topline > strong {
+  color: var(--arb-color-text, #f8fafc);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.customer-portal .customer-opportunity-history__status {
+  color: var(--arb-color-info, #6db9ff);
+  font-size: 10px;
+  font-weight: 800;
+}
+.customer-portal .customer-opportunity-history__status--missed {
+  color: var(--arb-color-warning, #edbd67);
+}
+.customer-portal .customer-opportunity-history__status--settled {
+  color: var(--arb-color-success, #55d6a4);
+}
+.customer-portal .customer-opportunity-history__body p {
+  margin: 4px 0;
+  color: var(--arb-color-text-muted, #aab6c5);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.customer-portal .customer-opportunity-history__body time {
+  color: var(--arb-color-text-muted, #8d9bad);
+  font-size: 10px;
+}
+.customer-portal .customer-opportunity-history__empty {
+  padding: 20px 12px;
+  color: var(--arb-color-text-muted, #aab6c5);
+  background: color-mix(in srgb, var(--trade-raised) 58%, transparent);
+  border: 1px dashed var(--trade-border);
+  border-radius: 11px;
+  font-size: 12px;
+  text-align: center;
+}
+@media (max-width: 560px) {
+  .customer-portal .customer-opportunity-history__topline {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .customer-portal .customer-opportunity-history__filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .customer-portal .customer-opportunity-history__filters button {
+    justify-content: space-between;
+  }
+}
