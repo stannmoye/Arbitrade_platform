@@ -1401,3 +1401,11 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - **Safety/scope:** Read-only client presentation and tests only. Uses the existing customer feed and persisted trade query; no API, server query, schema, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. No lifecycle state is inferred. Automatic financial execution remains hard-disabled.
 - **Validation:** Exact-head GitHub Actions and browser acceptance are pending. No authenticated hosted-customer verification, merge, or deployment is claimed.
 - Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+## PR #302 browser acceptance timing correction (2026-11-06)
+
+- Updated the mocked customer delivery policy to use the same eight-second popup display duration as the mocked offer. The fixture previously specified conflicting values (offer: 8 seconds; delivery policy: 1 second), which obscured the intended test timing.
+- Extended the dock-visibility wait to 12 seconds so it covers the configured eight-second auto-collapse window plus browser render margin. The earlier five-second wait could expire while the popup was correctly still expanded.
+- This changes browser acceptance fixture timing only; production popup behavior and financial safeguards are unchanged.
+- Exact-head CI is pending for commit `857e42b4a951511e6b701b2146238906abe658b6`. No merge or deployment performed.
