@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-export type CustomerOpportunityHistoryKind = "available" | "missed" | "allocated" | "settled";
+export type CustomerOpportunityHistoryKind = "available" | "missed" | "allocated" | "settled" | "dismissed" | "expired";
 
 export type CustomerOpportunityHistoryEntry = {
   id: string;
@@ -29,9 +29,10 @@ function displayName(item: any): string {
 }
 
 /**
- * Builds a read-only timeline exclusively from records already returned by the
- * authenticated customer opportunity and trade queries. It never infers a
- * viewed, dismissed, expired, or settled state that the server did not return.
+ * Builds a read-only timeline from records already returned by the authenticated
+ * customer opportunity and trade queries. Dismissed/expired entries are included
+ * only when the persisted deliveryStatus explicitly confirms that terminal state.
+ * No lifecycle state is inferred from a closed offer or a missing popup.
  */
 export function buildCustomerOpportunityHistory(input: HistoryInput): CustomerOpportunityHistoryEntry[] {
   const offers = Array.isArray(input.offers) ? input.offers : [];
@@ -41,20 +42,50 @@ export function buildCustomerOpportunityHistory(input: HistoryInput): CustomerOp
   const entries: CustomerOpportunityHistoryEntry[] = [];
 
   for (const offer of offers) {
-    const status = String(offer?.offerStatus || offer?.status || "open").toLowerCase();
-    if (status !== "open") continue;
+    const deliveryStatus = String(offer?.deliveryStatus || "").toLowerCase();
     const id = String(offer?.id ?? offer?.offerId ?? "");
     if (!id) continue;
     const title = displayName(offer);
+
+    if (deliveryStatus === "dismissed") {
+      const occurredAt = dateValue(offer?.dismissedAt);
+      entries.push({
+        id: "dismissed:" + id,
+        kind: "dismissed",
+        title,
+        subtitle: "Opportunity " + id + " · notice dismissed",
+        status: "Dismissed · presentation only",
+        occurredAt,
+        searchable: (title + " " + id + " dismissed presentation notice").toLowerCase(),
+      });
+      continue;
+    }
+
+    if (deliveryStatus === "expired") {
+      const occurredAt = dateValue(offer?.expiredAt || offer?.closesAt);
+      entries.push({
+        id: "expired:" + id,
+        kind: "expired",
+        title,
+        subtitle: "Opportunity " + id + " · delivery window ended",
+        status: "Expired · delivery ended",
+        occurredAt,
+        searchable: (title + " " + id + " expired delivery ended").toLowerCase(),
+      });
+      continue;
+    }
+
+    const offerStatus = String(offer?.offerStatus || offer?.status || "open").toLowerCase();
+    if (offerStatus !== "open") continue;
     const occurredAt = dateValue(offer?.opensAt || offer?.createdAt);
     entries.push({
-      id: `available:${id}`,
+      id: "available:" + id,
       kind: "available",
       title,
-      subtitle: [offer?.venueFrom, offer?.venueTo].filter((part: unknown) => typeof part === "string" && part && part !== "Informational").join(" → ") || `Opportunity ${id}`,
+      subtitle: [offer?.venueFrom, offer?.venueTo].filter((part: unknown) => typeof part === "string" && part && part !== "Informational").join(" → ") || ("Opportunity " + id),
       status: "Open · available for review",
       occurredAt,
-      searchable: `${title} ${id} ${offer?.symbol || ""} available open`.toLowerCase(),
+      searchable: (title + " " + id + " " + (offer?.symbol || "") + " available open").toLowerCase(),
     });
   }
 
@@ -65,13 +96,13 @@ export function buildCustomerOpportunityHistory(input: HistoryInput): CustomerOp
     const reason = String(item?.reason || "Insufficient available balance").replaceAll("_", " ").toLowerCase();
     const occurredAt = dateValue(item?.createdAt || item?.occurredAt);
     entries.push({
-      id: `missed:${id}`,
+      id: "missed:" + id,
       kind: "missed",
       title,
-      subtitle: `Opportunity ${item?.offerId ?? id} · ${reason}`,
+      subtitle: "Opportunity " + (item?.offerId ?? id) + " · " + reason,
       status: "Missed · not allocated",
       occurredAt,
-      searchable: `${title} ${id} ${item?.offerId || ""} ${reason} missed`.toLowerCase(),
+      searchable: (title + " " + id + " " + (item?.offerId || "") + " " + reason + " missed").toLowerCase(),
     });
   }
 
@@ -83,13 +114,13 @@ export function buildCustomerOpportunityHistory(input: HistoryInput): CustomerOp
     const occurredAt = dateValue(trade?.settledAt || trade?.confirmedAt || trade?.createdAt);
     const stage = String(trade?.stage || (settled ? "Settlement recorded" : "Awaiting settlement"));
     entries.push({
-      id: `trade:${id}`,
+      id: "trade:" + id,
       kind: settled ? "settled" : "allocated",
       title,
-      subtitle: `Trade #${id} · ${stage}`,
+      subtitle: "Trade #" + id + " · " + stage,
       status: settled ? "Settled · server recorded" : "Allocated · settlement pending",
       occurredAt,
-      searchable: `${title} ${id} ${stage} ${settled ? "settled" : "allocated"}`.toLowerCase(),
+      searchable: (title + " " + id + " " + stage + " " + (settled ? "settled" : "allocated")).toLowerCase(),
     });
   }
 
@@ -103,6 +134,8 @@ const filters: Array<{ id: "all" | CustomerOpportunityHistoryKind; label: string
   { id: "all", label: "All activity" },
   { id: "available", label: "Available" },
   { id: "missed", label: "Missed" },
+  { id: "dismissed", label: "Dismissed" },
+  { id: "expired", label: "Expired" },
   { id: "allocated", label: "Allocated" },
   { id: "settled", label: "Settled" },
 ];
@@ -123,7 +156,7 @@ export function CustomerOpportunityHistoryPanel({ offers, missed, trades }: Hist
       <div><div className="eyebrow">Server-recorded activity</div><h2 id="customer-opportunity-history-title">Opportunity history</h2></div>
       <span>{entries.length} records</span>
     </div>
-    <p className="customer-opportunity-history__note">A read-only timeline of open opportunities, recorded missed events and persisted trades. Only statuses supplied by the server are shown.</p>
+    <p className="customer-opportunity-history__note">A read-only timeline of available opportunities, recorded missed events, persisted delivery dismissals/expiries and trade history. Dismissed and expired labels appear only when the server records those exact delivery states.</p>
     <label className="customer-opportunity-history__search-label" htmlFor="customer-opportunity-history-search">Search company, reference or status</label>
     <input id="customer-opportunity-history-search" className="customer-opportunity-history__search" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search opportunity history" autoComplete="off" />
     <div className="customer-opportunity-history__filters" role="group" aria-label="Filter opportunity history">
@@ -131,9 +164,9 @@ export function CustomerOpportunityHistoryPanel({ offers, missed, trades }: Hist
     </div>
     {visible.length ? <div className="customer-opportunity-history__list">
       {visible.map(entry => <article className="customer-opportunity-history__item" key={entry.id}>
-        <span className={`customer-opportunity-history__marker customer-opportunity-history__marker--${entry.kind}`} aria-hidden="true" />
+        <span className={"customer-opportunity-history__marker customer-opportunity-history__marker--" + entry.kind} aria-hidden="true" />
         <div className="customer-opportunity-history__body">
-          <div className="customer-opportunity-history__topline"><strong>{entry.title}</strong><span className={`customer-opportunity-history__status customer-opportunity-history__status--${entry.kind}`}>{entry.status}</span></div>
+          <div className="customer-opportunity-history__topline"><strong>{entry.title}</strong><span className={"customer-opportunity-history__status customer-opportunity-history__status--" + entry.kind}>{entry.status}</span></div>
           <p>{entry.subtitle}</p>
           <time dateTime={entry.occurredAt || undefined}>{entry.occurredAt ? new Date(entry.occurredAt).toLocaleString() : "Server timestamp unavailable"}</time>
         </div>
