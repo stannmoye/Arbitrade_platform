@@ -6,7 +6,7 @@
 - This is an informational opportunity card, not a started trade; it therefore displays an **opportunity expiry** countdown only. A trade-close countdown requires an actual persisted trade with authoritative start/close timestamps.
 - Preserved the known-good rollback commit and all delivery, eligibility, wallet, ledger, settlement, and automatic-financial-execution safeguards. No schema migration or financial operation is part of this UI increment.
 - Added customer popup contract coverage and mocked browser acceptance for the server-synchronised expiry display. Reduced-motion styling is included.
-- Validation is pending on the exact PR head. Source changes are not deployed or authenticated-host verified by this entry.
+- Final Stage 1 branch head: `324aa7531ba91af8a4a70b7c35aedcfd7e287fd7`; PR #298 is open as a draft. Exact-head GitHub Actions were queued when this handoff was recorded. Source changes are not deployed or authenticated-host verified by this entry.
 
 ---
 
