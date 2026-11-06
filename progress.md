@@ -1497,3 +1497,10 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Review found the initial search assertion compared the pre-search category counts to themselves, so it did not prove the rendered overview stayed unchanged after filtering.
 - Updated the browser acceptance to re-read all six rendered category totals after the search is applied and compare them to the pre-search values. The result-range assertion now checks the exact rendered range text for the single filtered record.
 - This is browser-test-only hardening; production behavior and financial boundaries are unchanged. Fresh exact-head CI is required.
+
+
+### Stage 8 browser fixture correction — complete currency fields (2026-11-06)
+
+- The combined lifecycle browser fixture exposed a customer workspace render error when navigating from popup dismissal to history. The added available, missed, allocated, and settled fixture rows omitted the currency field consumed by the existing customer opportunity and trade-history presentation formatters.
+- Completed the fixture with explicit USD currency and representative amount fields for all rows. This corrects test data to satisfy the existing customer API contract; it does not alter application runtime behavior, persisted data, or financial logic.
+- The fixture remains mocked and read-only. Exact-head browser, build, application, MySQL 8.4, and MariaDB 11.4 checks must pass before Stage 8 is considered validated.
