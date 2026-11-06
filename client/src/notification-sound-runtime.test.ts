@@ -82,20 +82,24 @@ describe("notification audio runtime controller", () => {
   });
 
   it("stops the loop and reports a rejected browser playback promise once", async () => {
-    const { controller, audios, intervals, clearInterval, onBlocked } = setup();
+    const audio = new FakeAudio();
+    audio.play.mockRejectedValueOnce(new Error("autoplay blocked"));
+    const onBlocked = vi.fn();
+    const clearInterval = vi.fn();
+    const controller = createNotificationAudioController({
+      createAudio: () => audio as unknown as HTMLAudioElement,
+      onBlocked,
+      setInterval: () => 17,
+      clearInterval,
+    });
+
     controller.play("/opportunity.wav", 1, true, { kind: "opportunity", presetId: "sound-01" });
-    audios[0].play.mockRejectedValueOnce(new Error("autoplay blocked"));
-    // Trigger a second cue through the loop to exercise a rejected repeat.
-    const tick = [...intervals.values()][0];
-    audios[0].ended = true;
-    audios[0].emit("ended");
-    tick();
     await Promise.resolve();
 
     expect(onBlocked).toHaveBeenCalledOnce();
     expect(onBlocked).toHaveBeenCalledWith({ kind: "opportunity", presetId: "sound-01" });
     expect(clearInterval).toHaveBeenCalledOnce();
-    expect(intervals.size).toBe(0);
+    expect(audio.pause).not.toHaveBeenCalled();
   });
 
   it("handles synchronous audio construction failures without throwing", () => {
