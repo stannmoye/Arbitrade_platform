@@ -101,6 +101,8 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain("Opportunity expires in");
     expect(component).toContain("Countdown is synchronised to the server-saved expiry timestamp.");
     expect(component).toContain("Scheduled expiry:");
+    expect(component).toContain("{expiryLabel}: {expiryCountdown}");
+    expect(component).toContain("Supplied code:");
     expect(component).not.toContain("Trade closes in");
   });
 
