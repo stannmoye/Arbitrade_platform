@@ -100,8 +100,57 @@ function unlockNotificationAudio(){
   return notificationAudioUnlockInFlight;
 }
 function soundEffectsEnabled(){try{return typeof window!=="undefined"&&window.localStorage.getItem("wisebond-sound-effects")==="on"}catch{return false}}
-function playConfiguredSound(id:string,kind:SoundKey="default",loop=false,force=false,volume:number=defaultSoundSettings.volume){if(!force&&(!soundEffectsEnabled()||!defaultSoundSettings.enabled))return;const stopOpportunityLoop=()=>{if(kind==="opportunity"){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}};try{const preset=SOUND_PRESETS.find(x=>x.id===id)||SOUND_PRESETS[0];const reportBlocked=()=>{stopOpportunityLoop();try{if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent("arbitrade:notification-audio-blocked",{detail:{kind,presetId:preset.id,occurredAt:Date.now()}}))}catch{}};const play=()=>{const audio=new Audio(preset.src);audio.preload="auto";audio.volume=notificationAudioVolume(volume,kind==="debit"||kind==="failure"?.9:1);activeNotificationAudio=audio;void audio.play().catch(reportBlocked);};play();if(loop){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=window.setInterval(play,1500)}}catch{stopOpportunityLoop();try{if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent("arbitrade:notification-audio-blocked",{detail:{kind,presetId:id,occurredAt:Date.now()}}))}catch{}}}
-function stopConfiguredSound(){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;if(activeNotificationAudio){activeNotificationAudio.pause();activeNotificationAudio.currentTime=0;activeNotificationAudio=null}}
+function stopActiveNotificationAudio(){
+  const audio=activeNotificationAudio;
+  activeNotificationAudio=null;
+  if(audio){audio.pause();try{audio.currentTime=0}catch{}}
+}
+function playConfiguredSound(id:string,kind:SoundKey="default",loop=false,force=false,volume:number=defaultSoundSettings.volume){
+  if(!force&&(!soundEffectsEnabled()||!defaultSoundSettings.enabled))return;
+  const stopOpportunityLoop=()=>{if(kind==="opportunity"){if(opportunityLoopTimer&&typeof window!=="undefined")window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}};
+  try{
+    const preset=SOUND_PRESETS.find(x=>x.id===id)||SOUND_PRESETS[0];
+    let blockedReported=false;
+    const reportBlocked=()=>{
+      if(blockedReported)return;
+      blockedReported=true;
+      stopOpportunityLoop();
+      try{if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent("arbitrade:notification-audio-blocked",{detail:{kind,presetId:preset.id,occurredAt:Date.now()}}))}catch{}
+    };
+    const play=(skipWhenBusy=false)=>{
+      // A new event replaces an older sound. Repeating opportunity alerts wait
+      // for the current cue to finish instead of cutting it off or overlapping it.
+      if(skipWhenBusy&&activeNotificationAudio&&!activeNotificationAudio.paused&&!activeNotificationAudio.ended)return;
+      stopActiveNotificationAudio();
+      const audio=new Audio(preset.src);
+      audio.preload="auto";
+      audio.volume=notificationAudioVolume(volume,kind==="debit"||kind==="failure"?.9:1);
+      activeNotificationAudio=audio;
+      const clearActive=()=>{if(activeNotificationAudio===audio)activeNotificationAudio=null;};
+      audio.addEventListener("ended",clearActive,{once:true});
+      audio.addEventListener("error",()=>{clearActive();reportBlocked();},{once:true});
+      try{void audio.play().catch(()=>{clearActive();reportBlocked();});}
+      catch{clearActive();reportBlocked();}
+    };
+    play();
+    if(loop){
+      if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);
+      opportunityLoopTimer=window.setInterval(()=>play(true),1500);
+    }
+  }catch{
+    stopActiveNotificationAudio();
+    stopOpportunityLoop();
+    reportBlockedSafely(kind,id);
+  }
+}
+function reportBlockedSafely(kind:SoundKey,id:string){
+  try{if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent("arbitrade:notification-audio-blocked",{detail:{kind,presetId:id,occurredAt:Date.now()}}))}catch{}
+}
+function stopConfiguredSound(){
+  if(opportunityLoopTimer&&typeof window!=="undefined")window.clearInterval(opportunityLoopTimer);
+  opportunityLoopTimer=null;
+  stopActiveNotificationAudio();
+}
 function playNotificationChime(){playConfiguredSound(defaultSoundSettings.default,"default",false)}
 function playTransactionSound(kind:"debit"|"credit"|"failure"){playConfiguredSound(defaultSoundSettings[kind],kind,false)}
 function getBranding(): Branding { try { const saved=localStorage.getItem("arbitrade_branding"); return saved ? {...defaultBranding,...JSON.parse(saved)} : defaultBranding; } catch { return defaultBranding; } }

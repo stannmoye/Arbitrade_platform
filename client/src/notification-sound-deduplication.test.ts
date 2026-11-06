@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { findNewNotificationSoundEvents, mergeSeenNotificationIds, selectMostImportantNotificationSoundEvent } from "./notification-sound-deduplication";
 
@@ -133,14 +133,15 @@ describe("notification sound header integration contract", () => {
 
   it("reports rejected audio playback and stops only a failed opportunity loop", () => {
     expect(app).toContain("arbitrade:notification-audio-blocked");
-    expect(app).toContain("audio.play().catch(reportBlocked)");
-    expect(app).toContain("if(kind===\"opportunity\"){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}");
+    expect(app).toContain("audio.play().catch(()=>{clearActive();reportBlocked();})");
+    expect(app).toContain("if(kind===\"opportunity\"){if(opportunityLoopTimer&&typeof window!==\"undefined\")window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}");
   });
 
   it("stops an opportunity loop for both rejected promises and synchronous audio errors", () => {
-    expect(app).toContain("const stopOpportunityLoop=()=>{if(kind===\"opportunity\"){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}};");
-    expect(app).toContain("audio.play().catch(reportBlocked)");
-    expect(app).toContain("}catch{stopOpportunityLoop();try{if(typeof window!==\"undefined\")window.dispatchEvent");
+    expect(app).toContain("const stopOpportunityLoop=()=>{if(kind===\"opportunity\"){if(opportunityLoopTimer&&typeof window!==\"undefined\")window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}};");
+    expect(app).toContain('audio.addEventListener("error",()=>{clearActive();reportBlocked();},{once:true})');
+    expect(app).toContain("audio.play().catch(()=>{clearActive();reportBlocked();})");
+    expect(app).toContain("reportBlockedSafely(kind,id)");
   });
 
   it("shows accessible audio recovery guidance in both customer and admin settings", () => {
@@ -150,6 +151,58 @@ describe("notification sound header integration contract", () => {
     expect(css).toContain(".portal-session .customer-audio-warning{position:fixed");
     expect(css).toContain("max-width:min(420px,calc(100vw - 32px))");
     expect(css).toContain(".portal-session .customer-audio-warning button{display:inline-flex!important");
+  });
+});
+
+
+describe("notification sound playback reliability", () => {
+  const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+
+  it("keeps every configured WAV sound asset in the public bundle", () => {
+    const assetPaths = [...new Set(
+      [...app.matchAll(/src:"(\/sounds\/[^"]+\.wav)"/g)].map(match => match[1]),
+    )];
+    expect(assetPaths).toHaveLength(5);
+    for (const assetPath of assetPaths) {
+      expect(existsSync(new URL(`../../public${assetPath}`, import.meta.url))).toBe(true);
+    }
+  });
+
+  it("stops an older cue before starting a new event sound", () => {
+    const start = app.indexOf("function stopActiveNotificationAudio()");
+    const end = app.indexOf("function playNotificationChime()", start);
+    const playback = app.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(playback).toContain("const audio=activeNotificationAudio");
+    expect(playback).toContain("audio.pause()");
+    expect(playback).toContain("stopActiveNotificationAudio();");
+  });
+
+  it("does not overlap repeated opportunity cues and clears completed audio", () => {
+    const start = app.indexOf("function stopActiveNotificationAudio()");
+    const end = app.indexOf("function playNotificationChime()", start);
+    const playback = app.slice(start, end);
+    expect(playback).toContain("if(skipWhenBusy&&activeNotificationAudio&&!activeNotificationAudio.paused&&!activeNotificationAudio.ended)return;");
+    expect(playback).toContain('audio.addEventListener("ended",clearActive,{once:true})');
+    expect(playback).toContain("window.setInterval(()=>play(true),1500)");
+  });
+
+  it("reports browser playback failures once and stops the opportunity loop", () => {
+    const start = app.indexOf("function playConfiguredSound(");
+    const end = app.indexOf("function playNotificationChime()", start);
+    const playback = app.slice(start, end);
+    expect(playback).toContain("let blockedReported=false");
+    expect(playback).toContain("if(blockedReported)return");
+    expect(playback).toContain('audio.addEventListener("error",()=>{clearActive();reportBlocked();},{once:true})');
+    expect(playback).toContain("audio.play().catch(()=>{clearActive();reportBlocked();})");
+    expect(playback).toContain("stopOpportunityLoop()");
+  });
+
+  it("keeps the explicit customer opt-in and administrator sound policy gates", () => {
+    expect(app).toContain('if(!force&&(!soundEffectsEnabled()||!defaultSoundSettings.enabled))return;');
+    expect(app).toContain('window.localStorage.setItem("wisebond-sound-effects",next?"on":"off")');
+    expect(app).toContain("headerSoundSettings.enabled&&soundEffectsEnabled()");
   });
 });
 
