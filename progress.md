@@ -1,3 +1,15 @@
+## 2026-11-06 — Customer opportunity popup redesign, Stage 1
+
+- Working branch: `feat/customer-opportunity-popup-redesign-stage1`, based on the known-good merged `main` baseline `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+- Stage 1 scope: premium visual hierarchy, verified company identity already supplied by the server, clear available/missed status, restrained entrance/shimmer/dock motion, and a live expiry countdown.
+- The customer opportunities API now returns its server timestamp and a server-derived expiry status. The countdown is anchored to the persisted offer `closesAt`, corrected using the server clock sample, and interpolated locally once per second. At zero it distinguishes server-confirmed expiry from a pending status confirmation.
+- This is an informational opportunity card, not a started trade; it therefore displays an **opportunity expiry** countdown only. A trade-close countdown requires an actual persisted trade with authoritative start/close timestamps.
+- Preserved the known-good rollback commit and all delivery, eligibility, wallet, ledger, settlement, and automatic-financial-execution safeguards. No schema migration or financial operation is part of this UI increment.
+- Added customer popup contract coverage and mocked browser acceptance for the server-synchronised expiry display. Reduced-motion styling is included.
+- Validation is pending on the exact PR head. Source changes are not deployed or authenticated-host verified by this entry.
+
+---
+
 ## 2026-11-02 — Customer informational pop-up persistence and clarity
 ## 2026-11-03 — MySQL/MariaDB-safe global controls migration
 
