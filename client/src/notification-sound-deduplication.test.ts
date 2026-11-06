@@ -133,14 +133,15 @@ describe("notification sound header integration contract", () => {
 
   it("reports rejected audio playback and stops only a failed opportunity loop", () => {
     expect(app).toContain("arbitrade:notification-audio-blocked");
-    expect(app).toContain("audio.play().catch(reportBlocked)");
-    expect(app).toContain("if(kind===\"opportunity\"){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}");
+    expect(app).toContain("audio.play().catch(()=>{clearActive();reportBlocked();})");
+    expect(app).toContain("if(kind===\"opportunity\"){if(opportunityLoopTimer&&typeof window!==\"undefined\")window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}");
   });
 
   it("stops an opportunity loop for both rejected promises and synchronous audio errors", () => {
-    expect(app).toContain("const stopOpportunityLoop=()=>{if(kind===\"opportunity\"){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}};");
-    expect(app).toContain("audio.play().catch(reportBlocked)");
-    expect(app).toContain("}catch{stopOpportunityLoop();try{if(typeof window!==\"undefined\")window.dispatchEvent");
+    expect(app).toContain("const stopOpportunityLoop=()=>{if(kind===\"opportunity\"){if(opportunityLoopTimer&&typeof window!==\"undefined\")window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}};");
+    expect(app).toContain('audio.addEventListener("error",()=>{clearActive();reportBlocked();},{once:true})');
+    expect(app).toContain("audio.play().catch(()=>{clearActive();reportBlocked();})");
+    expect(app).toContain("reportBlockedSafely(kind,id)");
   });
 
   it("shows accessible audio recovery guidance in both customer and admin settings", () => {
