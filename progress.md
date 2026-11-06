@@ -1385,3 +1385,11 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Updated both the offer-level configured display duration and the mocked delivery popup policy so they agree.
 - This is a browser-test fixture correction only. Customer application behavior, server/API, database, worker, delivery lifecycle, wallet, balance, ledger, trade execution, allocation, and settlement logic are unchanged.
 - Exact-head CI is required after this commit; no hosted authenticated-customer verification, merge, or deployment is claimed.
+
+
+## 2026-11-06 — Popup browser fixture eligibility correction
+
+- Corrected the mocked active-offer fixture in the customer popup browser acceptance check: its available amount now exceeds the minimum required amount and its balance status is `sufficient`. The previous fixture marked the same open, popup-eligible offer as `insufficient`, so the customer UI correctly rendered a missed/insufficient-balance event instead of the active opportunity notice the test tried to expand.
+- Updated the assertion to verify that an active eligible offer is not misclassified as insufficient balance. Existing popup metadata, expiry, read-only details, lifecycle acknowledgement, minimize/maximize and dismiss checks remain in place.
+- Test fixture and assertions only; no customer/server business logic, database, worker, wallet, ledger, allocation, trade execution or settlement behavior changed. Automatic financial execution remains hard-disabled.
+- Exact-head GitHub Actions are pending for this correction. This is mocked browser acceptance evidence only, not live customer or hosted production verification.
