@@ -1369,7 +1369,7 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 
 ## Customer opportunity popup redesign — Stage 3A: read-only opportunity history (2026-11-06)
 
-- Working branch: `feat/customer-opportunity-popup-stage3-history`, stacked on the current Stage 2 PR #299 head `55046ae2f5ca795b8645c2f4349712bdaa40aa2e`. Stage 1 PR #298, Stage 2 PR #299, and `main` remain unchanged.
+- Working branch: `feat/customer-opportunity-popup-stage3-history`, stacked on Stage 2 PR #299 head `21fde58ca9b8935b08ebcaa1453596db7ca0edf7`. Stage 1 PR #298, Stage 2 PR #299, and `main` remain unchanged.
 - Added a customer-facing Opportunity History panel to the Trading Opportunities workspace. It combines only records already returned by the authenticated customer opportunity feed and persisted trade-history query: currently open opportunities, recorded missed events, allocated trades, and server-confirmed settled trades.
 - Added accessible category filters, per-category counts, company/reference/status search, newest-first ordering, timestamp display, empty states, and responsive styling.
 - State labels are deliberately conservative: no viewed, dismissed, expired, or settled state is invented. A trade is labelled settled only when the persisted trade status says `settled`; other persisted trades remain allocated/awaiting settlement. Closed offers are excluded from the available category.
@@ -1379,12 +1379,16 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Known-good rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
 
 
-## Stage 3A browser acceptance timing correction (2026-11-06)
+## Customer opportunity popup redesign — Stage 3B: persisted delivery history (2026-11-06)
 
-- Corrected the mocked customer popup browser fixture to use an eight-second display duration, matching the later Stage 3C fixture. The previous one-second duration allowed the popup to auto-collapse while Playwright was opening and inspecting the read-only details panel.
-- Updated both the offer-level configured display duration and the mocked delivery popup policy so they agree.
-- This is a browser-test fixture correction only. Customer application behavior, server/API, database, worker, delivery lifecycle, wallet, balance, ledger, trade execution, allocation, and settlement logic are unchanged.
-- Exact-head CI is required after this commit; no hosted authenticated-customer verification, merge, or deployment is claimed.
+- Working branch: `feat/customer-opportunity-popup-stage3b-delivery-history`, based on Stage 3A PR #300 head `cdf2e6f83688bf9a4c9b215d6880fb14d40b47f1`. This is a separate stacked draft; Stage 1, Stage 2, Stage 3A, and `main` remain unchanged.
+- Extended the existing read-only history mapper to include delivery events only when the authenticated customer feed already returns the explicit persisted `deliveryStatus=dismissed` or `deliveryStatus=expired` value.
+- Added separate Dismissed and Expired filters, counts, search terms, conservative labels, and status styling. Closed offers without an explicit terminal delivery status remain excluded; failed delivery remains retryable/available and is not mislabelled as dismissed or expired.
+- Timestamps are shown only when the existing response supplies a matching timestamp field. Expiry may use the persisted offer close boundary; dismissal shows the timestamp as unavailable unless a dedicated dismissal timestamp is present.
+- Added unit tests proving explicit-state mapping and preventing inference from closed offers or unrelated delivery statuses.
+- **Safety and scope:** client presentation and tests only. No server query, API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. No financial actions are initiated. The customer panel remains read-only.
+- **Validation:** exact-head typecheck, unit tests, build, browser acceptance, and database workflow checks are pending. No hosted customer verification, merge, or deployment is claimed.
+- Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
 
 
 ## 2026-11-06 — Popup browser fixture eligibility correction
@@ -1394,16 +1398,12 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Test fixture and assertions only; no customer/server business logic, database, worker, wallet, ledger, allocation, trade execution or settlement behavior changed. Automatic financial execution remains hard-disabled.
 - Exact-head GitHub Actions are pending for this correction. This is mocked browser acceptance evidence only, not live customer or hosted production verification.
 
-## 2026-11-06 — Popup auto-collapse browser assertion isolation
 
-- Latest browser failure showed the popup remained expanded after the test opened the read-only details panel; lifecycle acknowledgements succeeded and there were no browser page errors. The test had been asking the auto-collapse timer to run while the details interaction was still active.
-- Updated the browser acceptance sequence to close the details panel after validating its metadata, explicitly assert that the details panel collapses, and then independently verify the configured popup auto-collapse into the minimized dock.
-- This isolates the details interaction from the display-duration assertion. It changes test sequencing only; no customer application, server/API, database, worker, wallet, ledger, allocation, trade execution, or settlement behavior changed. Financial execution remains hard-disabled.
-- Exact-head CI must confirm the correction. No live hosted customer verification, merge, or deployment is claimed.
+## 2026-11-06 — Stage 3B browser popup timeout alignment
 
-
-## 2026-11-06 — Popup auto-collapse browser timeout aligned with fixture
-
-- **Root cause confirmed from exact-head browser evidence:** the popup fixture configures an 8-second display duration, but the browser acceptance test waited only 5 seconds for the minimized dock. The failed run showed the full popup still visible and no page errors; the wait expired before the configured timer could fire. This was a test timing mismatch, not evidence of a customer popup runtime defect.
-- **Correction:** the browser check now derives its wait from `offer.configuredPopupDisplaySeconds` and adds a 5-second scheduling/rendering margin (with a 90-second safety cap). It also records an explicit assertion that the wait exceeds the configured display duration. The product popup timer and all server, database, worker, wallet, ledger, allocation, trade and settlement behavior are unchanged.
-- **Validation status:** the correction is committed to PR #300; exact-head GitHub Actions must complete before this repair is considered verified. No authenticated Blitz/customer environment was tested. No merge or deployment was performed; `main` remains unchanged.
+- **Branch / PR:** `feat/customer-opportunity-popup-stage3b-delivery-history` / PR #301, stacked on the corrected Stage 3A PR #300 head.
+- **CI finding:** the Stage 3B snapshot still contained a fixed five-second wait for the minimized popup dock, despite its fixture configuring an eight-second display duration. The popup was rendered and acknowledged; the test failed only while waiting for the dock to appear.
+- **Correction:** carried the Stage 3A duration-aware browser assertion into Stage 3B. The dock wait now uses the configured display duration plus a five-second scheduling/rendering margin, with a 90-second safety cap. The assertion still requires the dock to become visible.
+- **Scope:** browser acceptance script and progress documentation only. No customer UI/runtime, API, database, worker, wallet, ledger, allocation, trade execution, or settlement behavior changed. Financial execution remains hard-disabled.
+- **Validation:** exact-head GitHub Actions are pending for this correction; no local suite or live customer environment was run during this repair. No merge or deployment performed.
+- **Source update:** browser test commit `8836dc83737c9ac2054cee587c978e3cbf3dd1bf`.
