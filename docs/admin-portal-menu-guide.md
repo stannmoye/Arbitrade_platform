@@ -383,7 +383,7 @@ These controls define how new customers are screened and onboarded. Country-spec
 | **Opportunity Generation & Management** | Pause/resume automatic generation, review durable worker batches and inspect customer-specific package assignments generated directly from the approved company catalogue. Optional display templates are not required. Manual publishing and CSV imports are retired. |
 | **Per-tier Delivery Schedule** | Per-tier spacing between eligible pop-ups, randomized timing bounds and post-completion delivery intervals. |
 | **Global Trade Timing & Settlement** | Trade timing estimates and the global closing/settlement review settings. A scheduled time is not proof of execution or settlement. |
-| **Per-tier Pop-up Display** | Expanded pop-up and completion-card display durations. Display settings do not cancel active records. |
+| **Post-completion Display Delay** | The short completed-card display delay. Opportunity expiry and popup countdown use the package's selected duration. |
 | **Per-tier Company Rotation Rules** | Approved-company country filters and repeat-handling rules. The ON/OFF rotation switch remains in the persistent Trading controls panel. |
 | **Company Catalogue** | Search and manage the separate company reference records, approval state and catalogue metadata. It does not contain a second copy of the rotation settings editor. |
 | **Capital & Wallet Funding Rules** | Read-only status for the currently unavailable capital/wallet-funding queue. It cannot accept or post funds and is not the Finance Wallet & Ledger history page. |

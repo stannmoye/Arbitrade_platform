@@ -3318,7 +3318,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         minimumTradeUnits:opportunityPackagePolicies.minimumTradeUnits,maximumTradeUnits:opportunityPackagePolicies.maximumTradeUnits,
         minimumPayoutRateBps:opportunityPackagePolicies.minimumPayoutRateBps,maximumPayoutRateBps:opportunityPackagePolicies.maximumPayoutRateBps,
         minimumTradeDurationSeconds:opportunityPackagePolicies.minimumTradeDurationSeconds,maximumTradeDurationSeconds:opportunityPackagePolicies.maximumTradeDurationSeconds,
-        popupDisplayTargetSeconds:opportunityPackagePolicies.popupDisplayTargetSeconds,maxPendingDeliveries:opportunityPackagePolicies.maxPendingDeliveries,
+        completionDisplaySeconds:opportunityPackagePolicies.completionDisplaySeconds,maxPendingDeliveries:opportunityPackagePolicies.maxPendingDeliveries,
         companyRotationCountryNames:opportunityPackagePolicies.companyRotationCountryNames,
         companyRotationRepeatPolicy:opportunityPackagePolicies.companyRotationRepeatPolicy,badgeLabel:opportunityPackagePolicies.badgeLabel,
       }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
@@ -3450,9 +3450,13 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       maximumTradeDurationSeconds:selectedPolicy.maximumTradeDurationSeconds==null?null:Number(selectedPolicy.maximumTradeDurationSeconds),
     });
     const minimumMinor=packageMinimum;
-    const displaySeconds=Math.max(1,Math.min(86400,Number(selectedPolicy.popupDisplayTargetSeconds||120)));
-    const closesAt=new Date(input.now.getTime()+Math.max(86_400,terms.tradeDurationSeconds,displaySeconds)*1000);
+    const completionDisplaySeconds=Number(selectedPolicy.completionDisplaySeconds??8);
+    if(!Number.isSafeInteger(completionDisplaySeconds)||completionDisplaySeconds<1||completionDisplaySeconds>3600) throw new Error(`Completion display delay is invalid for ${selectedPolicy.packageName}`);
     const rewardAt=new Date(input.now.getTime()+terms.tradeDurationSeconds*1000);
+    // One cryptographically selected package duration governs the opportunity/trade countdown.
+    // The popup expiry adds only the configured short post-completion display grace period.
+    const closesAt=new Date(rewardAt.getTime()+completionDisplaySeconds*1000);
+    const displaySeconds=terms.tradeDurationSeconds+completionDisplaySeconds;
     const companyMetadata={
       rotationStateVersion:1,rotationCycle,rotationSequence,poolFingerprint,
       repeatPolicy:selectedPolicy.companyRotationRepeatPolicy,
@@ -3476,7 +3480,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       configuredProfitRateBps:terms.configuredPayoutRateBps,configuredDurationSeconds:terms.tradeDurationSeconds,minimumMinor,
       symbol:terms.symbol,venueFrom:terms.venueFrom,venueTo:terms.venueTo,currency:terms.currency,
       currencyRateUsd:Number(currencyRow.usdRate),currencyRateUpdatedAt:currencyRow.updatedAt?new Date(currencyRow.updatedAt).toISOString():null,
-      popupDisplayTargetSeconds:displaySeconds,badgeLabel:selectedPolicy.badgeLabel??null,
+      popupDisplayTargetSeconds:displaySeconds,completionDisplaySeconds,badgeLabel:selectedPolicy.badgeLabel??null,
       badgeStyle:["neutral","blue","purple","gold","green"].includes(String((selectedPolicy as any).badgeStyle))?String((selectedPolicy as any).badgeStyle):"neutral",
       companyRotationEnabled:Boolean(input.companyRotationEnabled),companyRotationCountryNames:String(selectedPolicy.companyRotationCountryNames||""),
       companyRotationRepeatPolicy:selectedPolicy.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
@@ -3759,7 +3763,6 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
         minIntervalSeconds:effective.minIntervalSeconds,
         maxIntervalSeconds:effective.maxIntervalSeconds,
         randomizationEnabled:effective.randomizationEnabled,
-        popupDisplayTargetSeconds:effective.popupDisplayTargetSeconds,
         completionDisplaySeconds:effective.completionDisplaySeconds,
         postCompletionIntervalSeconds:effective.postCompletionIntervalSeconds,
         maxPendingDeliveries:effective.maxPendingDeliveries,
@@ -4042,7 +4045,6 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const quotaWindow=resolveTradingQuotaWindow(now,effectiveSchedulingPeriod);
   const popupPolicy={
     popupMinGapSeconds:Math.max(0,Number(policy?.minIntervalSeconds||0)),
-    popupDisplaySeconds:Math.max(1,Number(policy?.popupDisplayTargetSeconds||120)),
     popupMaxPerHour:maxPopupsPerDay,
     popupPreAlertProbabilityBps:0,popupPreAlertSeconds:0,popupWithdrawalProbabilityBps:0,
     popupJitterSeconds:globalPolicy.randomizedTimingEnabled?Math.max(0,Number(policy?.maxIntervalSeconds||0)-Number(policy?.minIntervalSeconds||0)):0,
@@ -4232,10 +4234,10 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         const minRate=Number(generationSnapshot.minimumPayoutRateBps),maxRate=Number(generationSnapshot.maximumPayoutRateBps);
         const minDuration=Number(generationSnapshot.minimumTradeDurationSeconds),maxDuration=Number(generationSnapshot.maximumTradeDurationSeconds);
         const savedPackageVersion=Number(generationSnapshot.policyVersion),savedPackageMinimum=Number(generationSnapshot.packageMinimumMinor),savedPackageMaximum=Number(generationSnapshot.packageMaximumMinor);
-        const savedDisplaySeconds=Number(generationSnapshot.popupDisplayTargetSeconds),savedCurrencyRate=Number(generationSnapshot.currencyRateUsd);
+        const savedDurationSeconds=Number(generationSnapshot.configuredDurationSeconds),savedCurrencyRate=Number(generationSnapshot.currencyRateUsd);
         if(!Number.isSafeInteger(minRate)||!Number.isSafeInteger(maxRate)||!Number.isSafeInteger(minDuration)||!Number.isSafeInteger(maxDuration)||
           !Number.isSafeInteger(savedPackageVersion)||savedPackageVersion<1||!Number.isSafeInteger(savedPackageMinimum)||savedPackageMinimum<=0||
-          !Number.isSafeInteger(savedPackageMaximum)||savedPackageMaximum<savedPackageMinimum||!Number.isSafeInteger(savedDisplaySeconds)||savedDisplaySeconds<1||savedDisplaySeconds>86400||
+          !Number.isSafeInteger(savedPackageMaximum)||savedPackageMaximum<savedPackageMinimum||!Number.isSafeInteger(savedDurationSeconds)||savedDurationSeconds<minDuration||savedDurationSeconds>maxDuration||
           !Number.isFinite(savedCurrencyRate)||savedCurrencyRate<=0||generationSnapshot.currency!==offer.currency||generationSnapshot.symbol!==offer.symbol||
           generationSnapshot.companyReferenceId!==offer.companyReferenceId||
           Number(offer.expectedRewardBps)!==Number(generationAssignment.configuredProfitRateBps)||Number(offer.durationSeconds)!==Number(generationAssignment.configuredDurationSeconds)||
@@ -4275,8 +4277,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const savedBounds=generatedOffer?generationSnapshot:{minimumPayoutRateBps:configured.minimumPayoutRateBps,maximumPayoutRateBps:configured.maximumPayoutRateBps,minimumTradeDurationSeconds:configured.minimumTradeDurationSeconds,maximumTradeDurationSeconds:configured.maximumTradeDurationSeconds};
       if(!Number.isSafeInteger(configuredProfitRateBps)||configuredProfitRateBps<Number(savedBounds.minimumPayoutRateBps)||configuredProfitRateBps>Number(savedBounds.maximumPayoutRateBps)||
         !Number.isSafeInteger(configuredDurationSeconds)||configuredDurationSeconds<Number(savedBounds.minimumTradeDurationSeconds)||configuredDurationSeconds>Number(savedBounds.maximumTradeDurationSeconds)) continue;
-      const configuredPopupDisplaySeconds=generatedOffer?Number(generationSnapshot.popupDisplayTargetSeconds):Number(configured.popupDisplayTargetSeconds);
-      if(!Number.isSafeInteger(configuredPopupDisplaySeconds)||configuredPopupDisplaySeconds<1||configuredPopupDisplaySeconds>86400) continue;
+      const completionDisplaySeconds=generatedOffer?Number(generationSnapshot.completionDisplaySeconds??8):Number(configured.completionDisplaySeconds??8);
+      if(!Number.isSafeInteger(completionDisplaySeconds)||completionDisplaySeconds<1||completionDisplaySeconds>3600) continue;
+      const configuredPopupDisplaySeconds=configuredDurationSeconds+completionDisplaySeconds;
       newlyEligible.push({...offer,packageId:Number(subscription.packageId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
         minimumMinor:selected.minimumMinor,packageMinimumTradeMinor:selected.configuredMinimum,packageMaximumTradeMinor:selected.configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,

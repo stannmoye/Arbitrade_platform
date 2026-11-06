@@ -58,8 +58,8 @@ describe("administrator-configured Trading pop-up policy", () => {
   it("exposes admin controls with confirmation, help text, responsive spacing, and focus states", () => {
     expect(policyEditor).toContain("Minimum configured return rate (%)");
     expect(policyEditor).toContain("Maximum configured return rate (%)");
-    expect(policyEditor).toContain("Minimum trade duration (seconds)");
-    expect(policyEditor).toContain("Maximum trade duration (seconds)");
+    expect(policyEditor).toContain("Minimum opportunity / pop-up duration (seconds)");
+    expect(policyEditor).toContain("Maximum opportunity / pop-up duration (seconds)");
     expect(policyEditor).toContain("Badge label");
     expect(policyEditor).toContain("Reason for changing Trading tier policies (required for audit)");
     expect(policyEditor).toContain("onClick={onSave}");

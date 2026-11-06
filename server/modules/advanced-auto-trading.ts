@@ -9,7 +9,6 @@ export type PackageAutomationPolicy = {
   minIntervalSeconds: number;
   maxIntervalSeconds: number;
   randomizationEnabled: boolean;
-  popupDisplayTargetSeconds: number;
   completionDisplaySeconds: number;
   postCompletionIntervalSeconds: number;
   maxPendingDeliveries: number;
@@ -34,7 +33,6 @@ export function validatePackageAutomationPolicy(policy: PackageAutomationPolicy)
     ["daily popup target", policy.dailyPopupTarget, 0, 10000],
     ["minimum interval", policy.minIntervalSeconds, 0, 604800],
     ["maximum interval", policy.maxIntervalSeconds, 0, 604800],
-    ["popup display target", policy.popupDisplayTargetSeconds, 1, 86400],
     ["completion display duration", policy.completionDisplaySeconds, 1, 3600],
     ["post-completion interval", policy.postCompletionIntervalSeconds, 0, 604800],
     ["maximum pending deliveries", policy.maxPendingDeliveries, 0, 1000],

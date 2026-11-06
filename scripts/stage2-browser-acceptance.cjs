@@ -2471,22 +2471,25 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     record("opportunity-expiry-countdown-updates-in-real-time", countdownBefore !== countdownAfter, {
       countdownBefore, countdownAfter,
     });
-    // Match the mock delivery policy to the offer and allow the full configured window.
-    // The previous five-second wait expired before the eight-second auto-collapse timer.
-    await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: 12000 });
     const dock = page.locator(".opportunity-popup-dock");
+    // The offer expires in the future. The legacy 8-second popupDisplaySeconds mock
+    // must not override that saved expiry or collapse the still-open opportunity.
+    await page.waitForTimeout(8500);
+    const remainsExpandedUntilSavedExpiry = await popup.isVisible().catch(() => false) &&
+      !(await dock.isVisible().catch(() => false));
+    record("popup-remains-expanded-until-server-saved-expiry", remainsExpandedUntilSavedExpiry, {
+      popupVisible: await popup.isVisible().catch(() => false),
+      dockVisible: await dock.isVisible().catch(() => false),
+    });
+    await popup.getByRole("button", { name: "Minimize opportunity alert" }).click({ force: true });
+    await dock.waitFor({ state: "visible", timeout: 3000 });
     const dockText = await dock.innerText().catch(() => "");
     record("minimized-dock-keeps-live-expiry-countdown", dockText.includes("Opportunity expires in") || dockText.includes("Expiry time reached"), { dockText });
-    record("configured-display-duration-collapses-alert-into-dock", await dock.isVisible().catch(() => false), {
-      dockText: await dock.innerText().catch(() => ""), pageErrors,
-      expiryCountdownInDock: (await dock.innerText().catch(() => "")).includes("Opportunity expires in") || (await dock.innerText().catch(() => "")).includes("Expiry time reached"),
-    });
+    record("customer-can-minimize-alert-before-saved-expiry", await dock.isVisible().catch(() => false));
     await dock.getByRole("button", { name: "Maximize opportunity alert" }).click();
     await popup.waitFor({ state: "visible", timeout: 3000 });
     record("customer-can-maximize-docked-alert", await popup.isVisible().catch(() => false));
-    // The popup has a deliberate entrance/auto-collapse animation. Dispatch the
-    // visible control immediately so Playwright's stability wait cannot race the
-    // configured auto-collapse timer on narrow mobile viewports.
+    // Use the visible manual control; the server-saved expiry remains authoritative.
     await popup.getByRole("button", { name: "Minimize opportunity alert" }).click({ force: true });
     await dock.waitFor({ state: "visible", timeout: 3000 });
     record("customer-can-manually-minimize-alert", await dock.isVisible().catch(() => false));
@@ -2570,7 +2573,8 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     const staleFeedPopup = page.locator(".center-opportunity-toast").filter({ hasText: "Verified QA Company opportunity notice" });
     await staleFeedPopup.waitFor({ state: "visible", timeout: 10000 });
     const staleFeedDock = page.locator(".opportunity-popup-dock");
-    await staleFeedDock.waitFor({ state: "visible", timeout: 12000 });
+    await staleFeedPopup.getByRole("button", { name: "Minimize opportunity alert" }).click({ force: true });
+    await staleFeedDock.waitFor({ state: "visible", timeout: 3000 });
     await staleFeedDock.getByRole("button", { name: "Dismiss" }).click();
     await staleFeedDock.waitFor({ state: "detached", timeout: 3000 });
     await page.getByText("The alert was closed, but the server did not confirm the dismissal in opportunity history. It may not appear there.")
@@ -2588,8 +2592,11 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     failDismissalMutation = true;
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.getByRole("heading", { name: "Welcome back, Jordan." }).waitFor({ state: "visible", timeout: 15000 });
+    const failedMutationPopup = page.locator(".center-opportunity-toast").filter({ hasText: "Verified QA Company opportunity notice" });
+    await failedMutationPopup.waitFor({ state: "visible", timeout: 10000 });
     const failedMutationDock = page.locator(".opportunity-popup-dock");
-    await failedMutationDock.waitFor({ state: "visible", timeout: 12000 });
+    await failedMutationPopup.getByRole("button", { name: "Minimize opportunity alert" }).click({ force: true });
+    await failedMutationDock.waitFor({ state: "visible", timeout: 3000 });
     await failedMutationDock.getByRole("button", { name: "Dismiss" }).click();
     await failedMutationDock.waitFor({ state: "detached", timeout: 3000 });
     await page.getByText("The alert was closed, but the server did not confirm the dismissal in opportunity history. It may not appear there.")

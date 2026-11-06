@@ -27,7 +27,6 @@ const expectedPolicyOwners: Record<string, string> = {
   maxConcurrentActiveTrades: "trade-retries",
   minSettlementDelaySeconds: "trade-retries",
   maxSettlementDelaySeconds: "trade-retries",
-  popupDisplayTargetSeconds: "trade-popup-display",
   completionDisplaySeconds: "trade-popup-display",
   closePolicy: "trade-popup-display",
   badgeLabel: "trade-delivery-policy",
