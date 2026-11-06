@@ -2393,6 +2393,12 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
       detailsText.toLowerCase().includes("scheduled expiry") &&
       detailsText.toLowerCase().includes("server status"),
       { expandedState, detailsInteractiveControls, detailsText });
+    // The details panel is an intentional interaction state: keep it open long
+    // enough to verify its read-only metadata, then close it before asserting the
+    // independent display-duration auto-collapse behavior.
+    await detailsToggle.click();
+    record("customer-can-collapse-read-only-opportunity-details",
+      await detailsToggle.getAttribute("aria-expanded") === "false");
     const companyVisible = popupText.includes("Verified QA Company") &&
       await popup.locator(".popup-company-reference").isVisible().catch(() => false);
     const incorrectlyMissed = popupText.includes("Missed — insufficient balance");
