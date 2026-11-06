@@ -110,7 +110,7 @@ describe("administrator Trading delivery policy controls", () => {
     expect(staticGuide).not.toContain("not enforced by the delivery worker");
     expect(staticGuide).not.toContain("does not read this field");
     expect(staticGuide).toContain("Shared delivery retry policy");
-    expect(staticGuide).toContain("each new opportunity receives its own value within that range");
+    expect(staticGuide).toContain("each new opportunity receives its own trade-duration value within that range");
     expect(staticGuide).toContain("Post-completion card display delay");
   });
 });
