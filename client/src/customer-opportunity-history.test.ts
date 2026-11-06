@@ -20,6 +20,24 @@ describe("customer opportunity history", () => {
     expect(entries[2].occurredAt).toBe("2026-11-06T11:00:00.000Z");
   });
 
+  it("includes dismissed and expired only from explicit persisted delivery statuses", () => {
+    const entries = buildCustomerOpportunityHistory({
+      offers: [
+        { id: 30, status: "open", deliveryStatus: "dismissed", symbol: "DISMISSED", dismissedAt: "2026-11-06T14:00:00.000Z" },
+        { id: 31, offerStatus: "closed", deliveryStatus: "expired", symbol: "EXPIRED", closesAt: "2026-11-06T15:00:00.000Z" },
+        { id: 32, status: "closed", symbol: "CLOSED WITHOUT TERMINAL STATUS" },
+        { id: 33, status: "open", deliveryStatus: "failed", symbol: "RETRYABLE" },
+      ],
+    });
+
+    expect(entries.map(entry => entry.kind)).toEqual(["expired", "dismissed", "available"]);
+    expect(entries.find(entry => entry.kind === "dismissed")?.status).toBe("Dismissed · presentation only");
+    expect(entries.find(entry => entry.kind === "expired")?.status).toBe("Expired · delivery ended");
+    expect(entries.find(entry => entry.kind === "dismissed")?.occurredAt).toBe("2026-11-06T14:00:00.000Z");
+    expect(entries.find(entry => entry.kind === "expired")?.occurredAt).toBe("2026-11-06T15:00:00.000Z");
+    expect(entries.some(entry => entry.title === "CLOSED WITHOUT TERMINAL STATUS")).toBe(false);
+  });
+
   it("does not invent viewed, dismissed, expired or settled states", () => {
     const entries = buildCustomerOpportunityHistory({
       offers: [
