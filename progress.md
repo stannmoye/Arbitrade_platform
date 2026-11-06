@@ -1452,3 +1452,12 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - **Regression coverage:** added pure helper tests for matching persisted dismissal, mismatched IDs, delivered/non-terminal status, missing status, empty feeds and absent feed data.
 - **Safety/scope:** customer-side read-only confirmation, unit tests and progress documentation only. No server/API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, financial execution or settlement behavior changed. Automatic financial execution remains hard-disabled.
 - **Validation:** exact-head GitHub Actions are pending for the updated commit. No authenticated hosted-customer verification, merge or deployment is claimed.
+
+
+## Customer opportunity popup redesign — Stage 6: dismissal/history integration regression (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage6-integration-regression`, based on Stage 4/5 PR #305 head `e98d84ef24ba98213273ebd4b6f6a536b6b5ddfd`. PR #305 and `main` remain unchanged.
+- **Integration regression:** Extended the customer browser acceptance flow to exercise both outcomes of popup dismissal. The successful path still verifies explicit persisted dismissal appears in the read-only Dismissed history filter.
+- **Stale-feed protection:** Added a second browser pass where the lifecycle mutation reports success but the refreshed opportunity feed deliberately remains non-dismissed. The customer must receive the existing “not confirmed” warning, and the Dismissed history filter must not fabricate an entry.
+- **Scope/safeguards:** Browser fixture and progress documentation only. No server/API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. No financial action is initiated; automatic financial execution remains hard-disabled.
+- **Validation:** Exact-head browser acceptance, type-check, tests, build, application verification and MySQL 8.4 / MariaDB 11.4 integration checks are pending. The browser scenario uses a mocked customer session/feed and does not constitute authenticated hosted-customer verification. No merge or deployment performed.
