@@ -1536,3 +1536,13 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 
 - The first exact-head run passed TypeScript but failed two existing source-contract assertions that still expected the pre-refactor audio promise handler and timer guard. The new Stage 9 reliability tests passed; the failures were stale expectations, not a runtime or type error.
 - Updated those assertions to verify the new one-time blocked-playback handler, audio error event, and browser-safe opportunity-loop cleanup. A fresh exact-head CI run is required.
+
+
+## Stage 9 notification audio runtime verification follow-up (2026-11-06)
+
+- Added an injectable notification-audio controller so playback lifecycle behavior can be exercised directly without depending on source-text assertions or a live browser.
+- Added runtime tests for replacing active cues, ended-event cleanup, non-overlapping repeated cues, rejected autoplay promises, media-element errors, synchronous audio-construction failures, and explicit stop/loop cleanup.
+- Preserved notification category and preset identifiers in blocked-playback events so the existing customer recovery notice remains informative.
+- Corrected synchronous audio-construction failure handling so an opportunity loop is not started after playback has already failed.
+- Scope remains customer notification audio only. No trading execution, allocation, wallet, ledger, settlement, or financial state behavior changed. No merge or deployment performed.
+- Validation is pending fresh exact-head GitHub Actions after this commit series.
