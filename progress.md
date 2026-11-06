@@ -1400,3 +1400,10 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Updated the browser acceptance sequence to close the details panel after validating its metadata, explicitly assert that the details panel collapses, and then independently verify the configured popup auto-collapse into the minimized dock.
 - This isolates the details interaction from the display-duration assertion. It changes test sequencing only; no customer application, server/API, database, worker, wallet, ledger, allocation, trade execution, or settlement behavior changed. Financial execution remains hard-disabled.
 - Exact-head CI must confirm the correction. No live hosted customer verification, merge, or deployment is claimed.
+
+
+## 2026-11-06 — Popup auto-collapse browser timeout aligned with fixture
+
+- **Root cause confirmed from exact-head browser evidence:** the popup fixture configures an 8-second display duration, but the browser acceptance test waited only 5 seconds for the minimized dock. The failed run showed the full popup still visible and no page errors; the wait expired before the configured timer could fire. This was a test timing mismatch, not evidence of a customer popup runtime defect.
+- **Correction:** the browser check now derives its wait from `offer.configuredPopupDisplaySeconds` and adds a 5-second scheduling/rendering margin (with a 90-second safety cap). It also records an explicit assertion that the wait exceeds the configured display duration. The product popup timer and all server, database, worker, wallet, ledger, allocation, trade and settlement behavior are unchanged.
+- **Validation status:** the correction is committed to PR #300; exact-head GitHub Actions must complete before this repair is considered verified. No authenticated Blitz/customer environment was tested. No merge or deployment was performed; `main` remains unchanged.
