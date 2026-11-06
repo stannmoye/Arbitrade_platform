@@ -3318,7 +3318,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         minimumTradeUnits:opportunityPackagePolicies.minimumTradeUnits,maximumTradeUnits:opportunityPackagePolicies.maximumTradeUnits,
         minimumPayoutRateBps:opportunityPackagePolicies.minimumPayoutRateBps,maximumPayoutRateBps:opportunityPackagePolicies.maximumPayoutRateBps,
         minimumTradeDurationSeconds:opportunityPackagePolicies.minimumTradeDurationSeconds,maximumTradeDurationSeconds:opportunityPackagePolicies.maximumTradeDurationSeconds,
-        popupDisplayTargetSeconds:opportunityPackagePolicies.popupDisplayTargetSeconds,completionDisplaySeconds:opportunityPackagePolicies.completionDisplaySeconds,maxPendingDeliveries:opportunityPackagePolicies.maxPendingDeliveries,
+        completionDisplaySeconds:opportunityPackagePolicies.completionDisplaySeconds,maxPendingDeliveries:opportunityPackagePolicies.maxPendingDeliveries,
         companyRotationCountryNames:opportunityPackagePolicies.companyRotationCountryNames,
         companyRotationRepeatPolicy:opportunityPackagePolicies.companyRotationRepeatPolicy,badgeLabel:opportunityPackagePolicies.badgeLabel,
       }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
