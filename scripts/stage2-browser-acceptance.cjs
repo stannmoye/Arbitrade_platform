@@ -2309,6 +2309,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
   const pageErrors = [];
   const mutationCalls = [];
   let dismissalPersisted = false;
+  let persistDismissalToFeed = true;
   const offer = {
     id: 50501, offerId: 50501, deliveryEventId: 60501,
     packageName: "QA Eligible Tier", symbol: "BTC/USD", currency: "USD",
@@ -2367,7 +2368,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
         } else if (procedure === "customer.popupLifecycle" || procedure === "customer.popupDeliveryStatus") {
           const mutationInput = inputAt(index);
           mutationCalls.push({ procedure, input: mutationInput });
-          if (procedure === "customer.popupLifecycle" && mutationInput?.action === "dismissed") {
+          if (procedure === "customer.popupLifecycle" && mutationInput?.action === "dismissed" && persistDismissalToFeed) {
             dismissalPersisted = true;
           }
           data = { ok: true };
@@ -2455,6 +2456,29 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     record("popup-dismissal-is-reflected-in-read-only-opportunity-history",
       dismissalPersisted && (await dismissedHistoryItem.innerText()).includes("Dismissed · presentation only"),
       { dismissalPersisted, historyText: await dismissedHistoryItem.innerText().catch(() => "") });
+
+    // Re-run with a stale feed response: mutation succeeds, but persistence is not
+    // reflected by the server feed. The UI must not claim success or invent history.
+    dismissalPersisted = false;
+    persistDismissalToFeed = false;
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.getByRole("heading", { name: "Welcome back, Jordan." }).waitFor({ state: "visible", timeout: 15000 });
+    const staleFeedPopup = page.locator(".center-opportunity-toast").filter({ hasText: "Verified QA Company opportunity notice" });
+    await staleFeedPopup.waitFor({ state: "visible", timeout: 10000 });
+    const staleFeedDock = page.locator(".opportunity-popup-dock");
+    await staleFeedDock.waitFor({ state: "visible", timeout: 12000 });
+    await staleFeedDock.getByRole("button", { name: "Dismiss" }).click();
+    await staleFeedDock.waitFor({ state: "detached", timeout: 3000 });
+    await page.getByText("The alert was closed, but the server did not confirm the dismissal in opportunity history. It may not appear there.")
+      .waitFor({ state: "visible", timeout: 5000 });
+    record("stale-refreshed-feed-does-not-report-dismissal-success", !dismissalPersisted);
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("arbitrade:customer-navigate", { detail: "opportunities" })));
+    await page.getByRole("heading", { name: "Opportunity history" }).waitFor({ state: "visible", timeout: 5000 });
+    await page.getByRole("button", { name: /Dismissed/ }).click();
+    const falseDismissedEntry = page.locator(".customer-opportunity-history__item").filter({ hasText: "Verified QA Company" });
+    record("stale-refreshed-feed-does-not-create-dismissed-history-entry",
+      !(await falseDismissedEntry.isVisible().catch(() => false)),
+      { historyEntryVisible: await falseDismissedEntry.isVisible().catch(() => false) });
   } catch (error) {
     record("customer-opportunity-popup-interaction-completes", false, {
       error: error instanceof Error ? error.message : String(error),
