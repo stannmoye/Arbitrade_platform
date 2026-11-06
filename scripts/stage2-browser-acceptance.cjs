@@ -2374,16 +2374,17 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     const detailsPanel = popup.locator(".opportunity-popup-details__grid");
     const detailsVisible = await detailsPanel.isVisible().catch(() => false);
     const detailsText = detailsVisible ? await detailsPanel.innerText() : "";
+    const detailsInteractiveControls = await detailsPanel.locator("button,input,select,textarea,[contenteditable='true']").count();
     const expandedState = await detailsToggle.getAttribute("aria-expanded");
     record("popup-shows-live-connection-state", connectionVisible);
-    record("opportunity-details-expand-accessibly-with-server-metadata",
-      detailsVisible && expandedState === "true" &&
+    record("opportunity-details-expand-accessibly-with-read-only-server-metadata",
+      detailsVisible && expandedState === "true" && detailsInteractiveControls === 0 &&
       detailsText.includes("Verified QA Company") &&
       detailsText.includes("QA Eligible Tier") &&
       detailsText.includes(String(offer.id)) &&
       detailsText.includes("Scheduled expiry") &&
       detailsText.includes("Server status"),
-      { expandedState, detailsText });
+      { expandedState, detailsInteractiveControls, detailsText });
     const companyVisible = popupText.includes("Verified QA Company") &&
       await popup.locator(".popup-company-reference").isVisible().catch(() => false);
     const insufficientVisible = popupText.includes("Missed — insufficient balance") &&
