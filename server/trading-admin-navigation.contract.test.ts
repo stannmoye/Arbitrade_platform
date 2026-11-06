@@ -239,7 +239,7 @@ describe("Trading customer-display navigation", () => {
     expect(policyEditor).not.toContain("value={row.popupDisplayTargetSeconds}");
     expect(policyEditor).toContain("Post-completion card display delay (seconds)");
     expect(policyEditor).toContain("value={row.completionDisplaySeconds}");
-    expect(policyEditor).toContain("Controls display only; must not cancel an active trade.");
+    expect(policyEditor).toContain("This is the only separate presentation delay");
     expect(adminApp).toContain('(!focus||focus==="tiers")&&<AdminTradingPackageCatalogue/>');
   });
 });
