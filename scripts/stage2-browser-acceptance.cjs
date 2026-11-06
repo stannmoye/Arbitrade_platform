@@ -2369,7 +2369,7 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
               },
               {
                 // Malformed API data must remain visible without crashing the customer workspace.
-                id: 50507, offerId: 50507, offerStatus: "open", status: "open",
+                id: 50507, offerId: 50507, offerStatus: "pending", status: "pending",
                 popupEligible: false, deliveryStatus: "delivered",
                 minimumMinor: 2500, companyDisplayName: "Missing Currency QA Company", symbol: "NOCUR",
                 opensAt: "2026-11-06T09:30:00.000Z", closesAt: "2099-12-31T23:59:59.000Z",
