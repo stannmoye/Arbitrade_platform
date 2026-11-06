@@ -104,6 +104,12 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).not.toContain("Trade closes in");
   });
 
+  it("refreshes the visible popup with server-confirmed expiry and company status", () => {
+    expect(component).toContain('const refreshedFields=["expiryStatus","popupEligible","companyDisplayName","companyLogoUrl","deliveryStatus"]');
+    expect(component).toContain("current[key]!==popup[key]");
+    expect(component).toContain("Date.now()+serverClockOffsetMs.current");
+  });
+
   it("keeps the expiry countdown informational and respects reduced-motion styling", () => {
     expect(component).toContain('className="opportunity-expiry-panel"');
     expect(component).toContain("Expiry time reached · confirming status");
