@@ -384,6 +384,8 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   const deliveryStatus=trpc.customer.popupDeliveryStatus.useMutation();
   const [popup,setPopup]=useState<any>(null);
   const [minimized,setMinimized]=useState(false);
+  const [clockNow,setClockNow]=useState(()=>Date.now());
+  const serverClockOffsetMs=useRef(0);
   const popupRef=useRef<any>(null);
   const seen=useRef<Set<number>>(new Set());
   const dismissed=useRef<Set<number>>(new Set());
@@ -394,9 +396,20 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   const policy=delivery?.popupPolicy;
   const storageKey=`arbitrade_opportunity_popup_timing:${String(userEmail||"unknown").trim().toLowerCase()}`;
 
+  useEffect(()=>{
+    const serverTimeMs=Date.parse(String(opportunityData?.serverTime||""));
+    if(Number.isFinite(serverTimeMs))serverClockOffsetMs.current=serverTimeMs-Date.now();
+  },[opportunityData?.serverTime]);
+  useEffect(()=>{
+    setClockNow(Date.now());
+    if(!popup)return;
+    const interval=window.setInterval(()=>setClockNow(Date.now()),1000);
+    return()=>window.clearInterval(interval);
+  },[popup?.id]);
+
   const isOfferOpen=(offer:any)=>{
     const closesAt=new Date(offer.closesAt).getTime();
-    return String(offer.offerStatus||"").toLowerCase()==="open"&&Number.isFinite(closesAt)&&closesAt>Date.now();
+    return String(offer.offerStatus||"").toLowerCase()==="open"&&Number.isFinite(closesAt)&&closesAt>Date.now()+serverClockOffsetMs.current;
   };
   const isOfferCurrent=(offer:any)=>!dismissed.current.has(Number(offer.id))&&isOfferOpen(offer)&&isFreshCustomerPopupCandidate(offer)&&
     Boolean(opportunityData?.offers?.some((current:any)=>Number(current.id)===Number(offer.id)&&
@@ -520,7 +533,9 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   useEffect(()=>{
     if(!popup||!Array.isArray(opportunityData?.offers))return;
     const current=opportunityData.offers.find((offer:any)=>Number(offer.id)===Number(popup.id));
-    if(!current||current.popupEligible!==true||String(current.offerStatus||"").toLowerCase()!=="open")stop();
+    if(!current||String(current.offerStatus||"").toLowerCase()!=="open"){stop();return;}
+    const refreshedFields=["expiryStatus","popupEligible","companyDisplayName","companyLogoUrl","deliveryStatus"];
+    if(refreshedFields.some((key)=>current[key]!==popup[key]))setPopup((existing:any)=>existing?{...existing,...current}:current);
   },[popup,opportunityData]);
   useEffect(()=>()=> {
     stopConfiguredSound();
@@ -546,13 +561,27 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   const insufficientBalance=balanceStatus==="insufficient";
   const sufficientBalance=balanceStatus==="sufficient";
   const closesAt=new Date(popup.closesAt);
-  const closesLabel=Number.isFinite(closesAt.getTime())?closesAt.toLocaleString():"Unavailable";
+  const closesAtMs=closesAt.getTime();
+  const closesLabel=Number.isFinite(closesAtMs)?closesAt.toLocaleString():"Unavailable";
+  const remainingSeconds=Number.isFinite(closesAtMs)?Math.max(0,Math.ceil((closesAtMs-(clockNow+serverClockOffsetMs.current))/1000)):null;
+  const opensAtMs=Date.parse(String(popup.opensAt||""));
+  const expiryDurationMs=closesAtMs-opensAtMs;
+  const expiryProgress=Number.isFinite(expiryDurationMs)&&expiryDurationMs>0&&remainingSeconds!==null?Math.max(0,Math.min(100,(remainingSeconds*1000/expiryDurationMs)*100)):0;
+  const expiryConfirmed=String(popup.expiryStatus||"").toLowerCase()==="expired";
+  const expiryLabel=expiryConfirmed?"Opportunity expired":remainingSeconds===0?"Expiry time reached · confirming status":"Opportunity expires in";
+  const formatExpiry=(seconds:number|null)=>{
+    if(seconds===null)return "Unavailable";
+    const hours=Math.floor(seconds/3600),minutes=Math.floor((seconds%3600)/60),remainder=seconds%60;
+    return hours>0?`${String(hours).padStart(2,"0")}:${String(minutes).padStart(2,"0")}:${String(remainder).padStart(2,"0")}`:`${String(minutes).padStart(2,"0")}:${String(remainder).padStart(2,"0")}`;
+  };
+  const expiryCountdown=formatExpiry(remainingSeconds);
   const heading=String(popup.companyDisplayName||popup.symbol||"Opportunity")+" opportunity notice";
 
   if(minimized)return <div className="opportunity-popup-dock" role="region" aria-label="Minimized opportunity alert" aria-live="polite">
     <div className="opportunity-popup-dock__content">
       <strong>{insufficientBalance?"Missed — insufficient balance":sufficientBalance?"Opportunity available":"Opportunity status unavailable"}</strong>
-      <span>{String(popup.companyDisplayName||popup.symbol||"Opportunity")} · Closes: {closesLabel}</span>
+      <span>{String(popup.companyDisplayName||popup.symbol||"Opportunity")} · {expiryLabel}: {expiryCountdown}</span>
+      <span>Scheduled expiry: {closesLabel}</span>
       {insufficientBalance&&<span>Required: {requiredMoney} · Available: {availableMoney} · Shortfall: {shortfallMoney}</span>}
     </div>
     <div className="opportunity-popup-dock__actions">
@@ -564,10 +593,11 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   return <div className="center-opportunity-toast" role="region" aria-label="Customer opportunity alert">
     <div className="opportunity-popup-header">
       <div className="toast-live"><span className="pulse"/> OPPORTUNITY ALERT <span className="toast-live-status">Informational notice</span></div>
+      <span className={"opportunity-popup-status"+(insufficientBalance?" opportunity-popup-status--insufficient":"")}>{insufficientBalance?"MISSED · INSUFFICIENT BALANCE":"NEW OPPORTUNITY"}</span>
       <button type="button" className="opportunity-popup-minimize" aria-label="Minimize opportunity alert" onClick={()=>{stopConfiguredSound();if(timer.current!==null)window.clearTimeout(timer.current);timer.current=null;setMinimized(true);}}>Minimize</button>
     </div>
     {popup.badgeLabel&&<span className={"trading-package-badge trading-package-badge--"+(["neutral","blue","purple","gold","green"].includes(popup.badgeStyle)?popup.badgeStyle:"neutral")}>{popup.badgeLabel}</span>}
-    {popup.companyDisplayName&&<div className="trading-opportunity-identity popup-company-reference"><CompanyReferenceLogo name={String(popup.companyDisplayName)} logoUrl={popup.companyLogoUrl||null}/><div><strong>{popup.companyDisplayName}</strong></div></div>}
+    {popup.companyDisplayName&&<div className="trading-opportunity-identity popup-company-reference opportunity-popup-company"><CompanyReferenceLogo name={String(popup.companyDisplayName)} logoUrl={popup.companyLogoUrl||null}/><div className="opportunity-popup-company__details"><strong>{popup.companyDisplayName}</strong><span>{popup.symbol?`Supplied code: ${popup.symbol}`:"Company code unavailable"}</span></div><span className="opportunity-popup-package">{popup.packageName||"Assigned package"}</span></div>}
     <h3>{heading}</h3>
     <p>Opportunity {popup.id} · {popup.companyDisplayName||popup.symbol||"Company unavailable"}</p>
     {insufficientBalance?<section className="opportunity-balance-status opportunity-balance-status--insufficient" role="status">
@@ -585,7 +615,11 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
       <strong>Balance status unavailable</strong>
       <p>No funds were allocated or moved. Review the opportunity details for current information.</p>
     </section>}
-    <div className="toast-timing"><Clock size={14}/> Published opportunity closes: {closesLabel}</div>
+    <section className="opportunity-expiry-panel" role="group" aria-label={`Opportunity expiry countdown: ${expiryCountdown}`}>
+      <div className="opportunity-expiry-ring" aria-hidden="true"><svg viewBox="0 0 76 76"><circle className="opportunity-expiry-ring__track" cx="38" cy="38" r="31"/><circle className="opportunity-expiry-ring__value" cx="38" cy="38" r="31" style={{strokeDashoffset:194.78*(1-expiryProgress/100)}}/></svg><span>{remainingSeconds===null?"--":expiryCountdown}</span></div>
+      <div className="opportunity-expiry-copy"><span>{expiryLabel}</span><strong>{expiryCountdown}</strong><small>{expiryConfirmed?"The server has confirmed that this opportunity expired.":remainingSeconds===0?"The expiry time has passed; the server status is being confirmed.":"Countdown is synchronised to the server-saved expiry timestamp."}</small></div>
+    </section>
+    <div className="toast-timing"><Clock size={14}/> Scheduled expiry: {closesLabel}</div>
     <p className="opportunity-popup-disclaimer">Informational notice only. It does not execute a trade, allocate capital, or change a wallet balance.</p>
     <div className="toast-actions">
       <button className="primary-button" onClick={()=>{if(popup.deliveryEventId)void lifecycle.mutateAsync({eventId:popup.deliveryEventId,action:"opened"}).catch(()=>{});stop();onOpen();}}>Review details <ArrowUpRight size={14}/></button>

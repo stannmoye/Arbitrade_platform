@@ -93,6 +93,36 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain('status:"received",leaseToken:offer.deliveryLeaseToken');
   });
 
+  it("uses the server clock and persisted offer expiry for a live opportunity countdown", () => {
+    expect(database).toContain("serverTime:new Date().toISOString()");
+    expect(database).toContain("const responseNow=new Date();");
+    expect(database).toContain("serverTime:responseNow.toISOString()");
+    expect(database).toContain('expiryStatus:row.closesAt?');
+    expect(component).toContain("serverClockOffsetMs.current");
+    expect(component).toContain("popup.expiryStatus");
+    expect(component).toContain("Opportunity expires in");
+    expect(component).toContain("Countdown is synchronised to the server-saved expiry timestamp.");
+    expect(component).toContain("Scheduled expiry:");
+    expect(component).toContain("{expiryLabel}: {expiryCountdown}");
+    expect(component).toContain("Supplied code:");
+    expect(component).not.toContain("Trade closes in");
+  });
+
+  it("refreshes the visible popup with server-confirmed expiry and company status", () => {
+    expect(component).toContain('const refreshedFields=["expiryStatus","popupEligible","companyDisplayName","companyLogoUrl","deliveryStatus"]');
+    expect(component).toContain("current[key]!==popup[key]");
+    expect(component).toContain("Date.now()+serverClockOffsetMs.current");
+  });
+
+  it("keeps the expiry countdown informational and respects reduced-motion styling", () => {
+    expect(component).toContain('className="opportunity-expiry-panel"');
+    expect(component).toContain("Expiry time reached · confirming status");
+    expect(stylesheet).toContain("@keyframes opportunityPopupEnter");
+    expect(stylesheet).toContain("@keyframes opportunityPopupShimmer");
+    expect(stylesheet).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(stylesheet).toContain(".customer-portal .opportunity-expiry-ring__value");
+  });
+
   it("holds the browser tab lock until the opportunity alert is dismissed or withdrawn", () => {
     expect(component).toContain("ifAvailable:true");
     expect(component).toContain("await hold");
