@@ -1527,3 +1527,6 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - **Scope/safeguards:** Customer notification audio only. No popup delivery, server/API, database, migration, worker, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. Automatic financial execution remains hard-disabled.
 - **Validation:** Fresh exact-head type-check, automated tests, production build, browser acceptance and integration workflows are pending. No hosted sound/autoplay verification, merge or deployment is claimed.
 - **Known-good rollback baseline:** `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+- **CI branch-routing correction:** Stage 9 is on the repository's established `feat/customer-opportunity-popup-*` branch namespace so the existing push-triggered validation workflows include this stacked stage. The earlier temporary branch `feat/notification-sound-playback-stage9` is superseded; no code changes were lost.
