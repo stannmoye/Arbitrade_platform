@@ -74,6 +74,14 @@ describe("runtime Trading delivery quota semantics", () => {
     expect(editor).toContain('<option value="rolling_24h">Rolling 24 hours</option>');
     expect(editor).toContain('<option value="calendar_day">Calendar day (UTC)</option>');
   });
+
+  it("uses the saved subscription quota as generation and allocation entitlement", () => {
+    expect(database).toContain("const customerDailyQuota=resolveSavedEntitlementQuota(entitlementSnapshot,packageDailyQuota)");
+    expect(database).toContain("savedEntitlementQuota:customerDailyQuota");
+    expect(database).toContain("const dailyQuota=resolveSavedEntitlementQuota(snapshot,subscription.packageQuota)");
+    expect(database).not.toContain("Math.min(packageDailyQuota,policyDailyQuota)");
+    expect(helper).toContain("Mutable package quota is deliberately not an input");
+  });
 });
 
 

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  calculateEffectiveEntitlementQuota,
   calculateTierDeliveryCaps,
   countActiveVisiblePopupEvents,
   calculateTradingDeliveryCapacity,
   countConsumedDeliveryOffers,
+  resolveSavedEntitlementQuota,
   resolveTradingQuotaWindow,
   resolveTradingDeliverySchedule,
   resolveTradingBurstLimit,
@@ -22,6 +24,39 @@ describe("Trading quota windows", () => {
     const window = resolveTradingQuotaWindow(now, "calendar_day");
     expect(window.start.toISOString()).toBe("2026-10-31T00:00:00.000Z");
     expect(window.end.toISOString()).toBe("2026-11-01T00:00:00.000Z");
+  });
+});
+
+describe("Saved subscription entitlement quotas", () => {
+  it("keeps the saved quota authoritative when the current package quota is raised or lowered", () => {
+    const savedSnapshot = { opportunitiesPerDay: 6 };
+    const afterPackageQuotaLowered = resolveSavedEntitlementQuota(savedSnapshot, 2);
+    const afterPackageQuotaRaised = resolveSavedEntitlementQuota(savedSnapshot, 20);
+
+    expect(afterPackageQuotaLowered).toBe(6);
+    expect(afterPackageQuotaRaised).toBe(6);
+    expect(calculateEffectiveEntitlementQuota({ savedEntitlementQuota: afterPackageQuotaLowered })).toBe(6);
+    expect(calculateEffectiveEntitlementQuota({ savedEntitlementQuota: afterPackageQuotaRaised })).toBe(6);
+  });
+
+  it("lets operational delivery limits reduce, but never increase, the saved quota", () => {
+    expect(calculateEffectiveEntitlementQuota({
+      savedEntitlementQuota: 6,
+      policyDailyCap: 4,
+      packagePopupCap: 0,
+      dailyTargetCap: 3,
+    })).toBe(3);
+    expect(calculateEffectiveEntitlementQuota({
+      savedEntitlementQuota: 6,
+      policyDailyCap: 10,
+      packagePopupCap: 2,
+      dailyTargetCap: 0,
+    })).toBe(2);
+  });
+
+  it("uses the current package quota only when a legacy snapshot has no saved quota", () => {
+    expect(resolveSavedEntitlementQuota({}, 4)).toBe(4);
+    expect(resolveSavedEntitlementQuota({ opportunitiesPerDay: 0 }, 4)).toBe(0);
   });
 });
 

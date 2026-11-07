@@ -1,3 +1,14 @@
+## 2026-11-07 — Existing Trade entitlement quotas follow saved snapshots
+
+- **Branch/base:** `fix/tier-entitlement-quota-snapshot`, based on merged `main` commit `cda901316de10aed041a9e1f28418c8b6774ebc4`.
+- **Root cause:** automatic generation enforced the subscription's saved quota and also capped it using the mutable current package quota. Lowering the package quota could therefore reduce an existing entitlement, while raising it still could not increase the saved subscription snapshot.
+- **Rule/fix:** the saved `termsSnapshotJson.opportunitiesPerDay` is authoritative for every assigned subscription. Current package quota edits, both increases and decreases, apply only to future automatic assignments. Independent operational delivery caps may reduce the saved allowance but cannot increase it. Eligibility, generation, customer quota reads and allocation now share the same snapshot resolver.
+- **Regression coverage:** unit and contract tests cover saved-quota precedence, legacy fallback and reducing delivery caps. The disposable MySQL popup integration now lowers a live package quota while generating through its six saved slots, raises the current quota to 20, then verifies the existing six-slot entitlement is exhausted and the next package is selected. Canonical specification and both administrator guides state the rule explicitly.
+- **Local validation:** `pnpm check`, focused Trade quota/tier contracts (58 tests), full `pnpm test` (157 files passed, 1,258 passed; 5 files/27 cases skipped), `pnpm build`, and `git diff --check` passed.
+- **Not run locally:** The disposable MySQL/browser integration is not runnable because neither `DATABASE_URL` nor `MYSQL_URL` is configured. Its exact database scenario remains covered by the repository integration workflow; no deployment or live-database claim is made.
+
+---
+
 ## 2026-11-07 — Independent Trade package timing on current main
 
 - **Branch/base:** `feat/trade-settings-admin-blueprint`; integrated `origin/main` at `f4fce09a54081847eda0509c1bfde71b9b23d817` (279 main-only commits at merge time). History was merged normally; no force-push or rebase was used.
