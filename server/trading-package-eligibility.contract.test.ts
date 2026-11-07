@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { isTradingTierEnablingTransition } from "./modules/trading-tier-activation";
 
 const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const packagePolicySource = readFileSync(new URL("./modules/package-opportunity-policy.ts", import.meta.url), "utf8");
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const executionOffMigrationSource = readFileSync(new URL("../drizzle/0098_disable_automatic_financial_execution.sql", import.meta.url), "utf8");
 
@@ -30,7 +31,7 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(implementation).toContain("const autoTradeCandidates=tradeCandidates.filter((offer:any)=>");
     expect(implementation).toContain("if(offer.executionEligible!==true || allocationControls.allocationsPaused) return false;");
     expect(implementation).toContain("deliveryStatus:opportunityPopupEvents.deliveryStatus");
-    expect(implementation).toContain('["queued","in_progress","retry_wait","delivered","received","rendered"].includes(String(row.deliveryStatus))');
+    expect(implementation).toContain('["queued","in_progress","retry_wait","delivered","received","rendered","failed"].includes(String(row.deliveryStatus))');
     expect(implementation).toContain("Boolean(packagePolicy && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy))");
     expect(implementation).toContain("if(!subscription) return null;");
     expect(implementation).toContain(".filter((offer) => offer !== null)");
@@ -64,26 +65,30 @@ describe("server-side automatic Trading tier eligibility", () => {
   });
 
   it("creates policy rows with valid tier terms but inert legacy master placeholders", () => {
-    const start = source.indexOf("const DEFAULT_NEW_TIER_POLICY = {");
-    const end = source.indexOf("\n} as const;", start);
-    const defaults = source.slice(start, end);
-    expect(defaults).toContain("minimumPayoutRateBps:200,maximumPayoutRateBps:300");
-    expect(defaults).toContain("minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900");
-    expect(defaults).toContain("enabled:false,automaticDelivery:false");
-    expect(defaults).toContain("companyRotationEnabled:false");
-    expect(defaults).toContain("randomizationEnabled:false");
-    expect(defaults).toContain("burstEnabled:false,maxBurstSize:3");
-    expect(defaults).toContain("automaticTradingEnabled:false");
-    expect(defaults).toContain("requirePreviousSettlement:true");
-    expect(defaults).toContain("policyVersion:1");
+    const start = packagePolicySource.indexOf("export const DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY = {");
+    const end = packagePolicySource.indexOf("} as const satisfies", start);
+    const defaults = packagePolicySource.slice(start, end);
+    expect(defaults).toContain("minimumPayoutRateBps: 200");
+    expect(defaults).toContain("maximumPayoutRateBps: 300");
+    expect(defaults).toContain("minimumTradeDurationSeconds: 300");
+    expect(defaults).toContain("maximumTradeDurationSeconds: 900");
+    expect(defaults).toContain("enabled: false");
+    expect(defaults).toContain("automaticDelivery: false");
+    expect(defaults).toContain("companyRotationEnabled: false");
+    expect(defaults).toContain("randomizationEnabled: false");
+    expect(defaults).toContain("burstEnabled: false");
+    expect(defaults).toContain("maxBurstSize: 3");
+    expect(defaults).toContain("automaticTradingEnabled: false");
+    expect(defaults).toContain("requirePreviousSettlement: true");
+    expect(defaults).toContain("policyVersion: 1");
     expect(router).toContain("globalTradeControls: adminProcedure.query(() => getTradeGlobalControls())");
   });
 
   it("keeps unattended financial execution disabled while preserving informational delivery", () => {
     expect(source).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false;");
     expect(source).toContain("AUTOMATIC_FINANCIAL_EXECUTION_ENABLED && options.workerCycle");
-    expect(source).toContain("effective.automaticTradingEnabled=false;");
-    expect(source).toContain("requested.some(policy=>policy.automaticTradingEnabled===true)");
+    expect(packagePolicySource).toContain("automaticTradingEnabled: false");
+    expect(source).toContain("requested.some(policy=>(policy as Record<string,unknown>).automaticTradingEnabled===true)");
     expect(executionOffMigrationSource).toContain("SET `automaticTradingEnabled` = 0");
     expect(executionOffMigrationSource).toContain("WHERE `automaticTradingEnabled` <> 0");
   });

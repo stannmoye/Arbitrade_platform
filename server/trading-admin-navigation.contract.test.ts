@@ -59,6 +59,21 @@ describe("Administrator company catalogue navigation and pagination", () => {
   });
 });
 
+describe("Trading opportunity usage reset", () => {
+  it("routes the guarded reset to its dedicated admin screen and preserves trade records", () => {
+    expect(navigation).toContain('id: "trade-opportunity-usage-reset", target: "tradeOpportunityReset"');
+    expect(adminApp).toContain('section==="tradeOpportunityReset"&&<Suspense');
+    expect(operationsUi).toContain("trpc.adminOperations.resetOpportunityUsage.useMutation()");
+    expect(serverRouters).toContain("resetOpportunityUsage: adminProcedure.input");
+    expect(serverDb).toContain("resetTradeOpportunityUsage");
+    expect(serverDb).toContain("trading_opportunity_usage_reset");
+    expect(serverDb).toContain("preservedTradePositions");
+    expect(serverDb).toContain("ADMIN_OPPORTUNITY_USAGE_RESET");
+    expect(serverDb).toContain("candidateOfferIds.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS");
+    expect(operationsUi).toContain("Wallet balances, ledger entries, package settings/subscriptions, completed trades and open trade positions are preserved.");
+  });
+});
+
 describe("Trading tier creation defaults", () => {
   it("requires an administrator to explicitly enter threshold, duration, and daily quota", () => {
     const start = adminApp.indexOf("function AdminTradingPackageCatalogue()");
@@ -236,9 +251,10 @@ describe("Trading customer-display navigation", () => {
     const item = navigation.match(/id: "trade-popup-display", target: "([^"]+)"/);
     expect(item?.[1]).toBe("tradeCustomerDisplay");
     expect(adminApp).toContain('{section==="tradeCustomerDisplay"&&<AdminPackages focus="display"/>}');
-    expect(policyEditor).toContain("value={row.popupDisplayTargetSeconds}");
+    expect(policyEditor).not.toContain("value={row.popupDisplayTargetSeconds}");
+    expect(policyEditor).toContain("Post-completion card display delay (seconds)");
     expect(policyEditor).toContain("value={row.completionDisplaySeconds}");
-    expect(policyEditor).toContain("Controls display only; must not cancel an active trade.");
+    expect(policyEditor).toContain("This is the only separate presentation delay");
     expect(adminApp).toContain('(!focus||focus==="tiers")&&<AdminTradingPackageCatalogue/>');
   });
 });
@@ -271,7 +287,7 @@ describe("Trading navigation focus and plain-language controls", () => {
     expect(navigation.match(/id: "trade-history"/g)).toHaveLength(1);
     expect(navigation).toContain('label: "Tiers & Eligibility"');
     expect(navigation).toContain('label: "Per-tier Daily Delivery Caps"');
-    expect(navigation).toContain('label: "Publish & Manage Opportunities"');
+    expect(navigation).toContain('label: "Opportunity Generation & Management"');
     expect(navigation).toContain('label: "Per-tier Company Rotation Rules"');
     expect(navigation).toContain('label: "Settlement & Reconciliation"');
     expect(navigation).toContain('target: "packages", focus: "tiers"');
@@ -289,7 +305,7 @@ describe("Trading navigation focus and plain-language controls", () => {
 
   it("shows the explanation beside each Trading menu item", () => {
     expect(adminApp).toContain('className="admin-nav-item-detail"');
-    expect(navigation).toContain('label: "Publish & Manage Opportunities"');
+    expect(navigation).toContain('label: "Opportunity Generation & Management"');
     expect(navigation).toContain('label: "Retries & Carry-Forward"');
     expect(navigation).toContain('label: "Package Configuration"');
     expect(navigation).not.toContain('label: "System Pause & Safety"');
@@ -390,7 +406,7 @@ describe("Trading overview and duration navigation", () => {
     expect(navigation).toContain('label: "Global Trade Timing & Settlement"');
     expect(navigation).toContain('label: "Per-tier Offer Rules & Capital Limits"');
     expect(navigation).toContain('label: "Per-tier Delivery Schedule"');
-    expect(navigation).toContain('label: "Per-tier Pop-up Display"');
+    expect(navigation).toContain('label: "Post-completion Display Delay"');
     expect(adminApp).toContain('<AdminSettings focus="tradeDuration"/>');
     expect(adminApp).toContain('section==="tradeDurationRules"&&<Suspense');
     expect(operationsUi).toContain("Manage global settlement, wallet-credit and pop-up timing defaults.");

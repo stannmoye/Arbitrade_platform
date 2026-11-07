@@ -27,7 +27,6 @@ const expectedPolicyOwners: Record<string, string> = {
   maxConcurrentActiveTrades: "trade-retries",
   minSettlementDelaySeconds: "trade-retries",
   maxSettlementDelaySeconds: "trade-retries",
-  popupDisplayTargetSeconds: "trade-popup-display",
   completionDisplaySeconds: "trade-popup-display",
   closePolicy: "trade-popup-display",
   badgeLabel: "trade-delivery-policy",
@@ -61,6 +60,23 @@ describe("Trade Settings ownership registry contract", () => {
       expect(tradeRoutes.filter((route) => route.id === entry.ownerRoute)).toHaveLength(1);
       expect(entry.section.trim().length, `${entry.key} section`).toBeGreaterThan(0);
     }
+  });
+
+  it("registers opportunity usage reset as one guarded, audited operational owner", () => {
+    const resetOwner = tradeSettingsOwnershipRegistry.find((entry) => entry.key === "trade.opportunityUsage.reset");
+    expect(resetOwner).toMatchObject({
+      scope: "record",
+      ownerRoute: "trade-opportunity-usage-reset",
+      saveMutation: "adminOperations.resetOpportunityUsage",
+      readQuery: "adminOperations.customers",
+      risk: "high",
+      availability: "available",
+    });
+    expect(resetOwner?.validation).toContain("RESET ALL");
+    expect(resetOwner?.auditRequirement).toContain("Trade Audit & Policy History");
+    expect(resetOwner?.customerImpact).toContain("Wallet, ledger, packages, subscriptions and trade positions are preserved");
+    expect(operationsPagesSource).toContain("confirmAllCustomers: true");
+    expect(operationsPagesSource).toContain('scope === "all" ? "RESET ALL" : "RESET"');
   });
 
   it("requires complete scope, explanation, validation, read/write, audit, effect and availability metadata", () => {
@@ -139,13 +155,18 @@ describe("Trade Settings ownership registry contract", () => {
 
   it("registers locked and unavailable controls without mutation owners", () => {
     const byKey = new Map(tradeSettingsOwnershipRegistry.map((entry) => [entry.key, entry]));
-    for (const key of ["trade.global.requirePreviousSettlement", "trade.automaticFinancialExecution", "trade.retry.carryForward"]) {
+    for (const key of ["trade.automaticFinancialExecution", "trade.retry.carryForward"]) {
       const entry = byKey.get(key);
       expect(entry, `${key} is registered`).toBeDefined();
       expect(entry?.saveMutation, `${key} has no mutation`).toBeNull();
       expect(entry?.writeOwner, `${key} has no write owner`).toBeNull();
       expect(["locked", "not-available"]).toContain(entry?.availability);
     }
+    expect(byKey.get("trade.global.requirePreviousSettlement")).toMatchObject({
+      saveMutation: "adminOperations.updateGlobalTradeControl",
+      availability: "available",
+      risk: "high",
+    });
   });
 
   it("binds audited operational actions to their current owner route contracts", () => {
@@ -160,9 +181,14 @@ describe("Trade Settings ownership registry contract", () => {
     expect(recoveryAction?.saveMutation).toBe("adminOperations.requeueDeadQualificationJob");
     expect(recoveryAction?.readQuery).toBe("adminOperations.workerHealth");
 
+    for (const key of ["trade.opportunity.publishSingle", "trade.opportunity.publishBulk"] as const) {
+      const retiredAction = byKey.get(key);
+      expect(retiredAction?.saveMutation).toBeNull();
+      expect(retiredAction?.writeOwner).toBeNull();
+      expect(retiredAction?.availability).toBe("not-available");
+      expect(retiredAction?.risk).toBe("locked");
+    }
     for (const [key, mutation] of [
-      ["trade.opportunity.publishSingle", "adminOperations.createOffer"],
-      ["trade.opportunity.publishBulk", "adminOperations.bulkCreateOffers"],
       ["trade.opportunity.close", "adminOperations.closeOffer"],
       ["trade.opportunity.runRetentionCleanup", "adminOperations.runPopupRetention"],
     ] as const) {
@@ -189,19 +215,21 @@ describe("Trade Settings ownership registry contract", () => {
     expect(adminAppSource).toContain("initialFeeRateBps:");
   });
 
-  it("assigns opportunity publication to its single live route without claiming platform-verified evidence review", () => {
+  it("assigns generated opportunities and audited closure to their single live route", () => {
     const publish = tradeSettingsOwnershipRegistry.find((entry) => entry.key === "trade.opportunity.publishSingle");
     const publishRoute = tradeRoutes.filter((route) => route.id === "trade-opportunity-publishing");
     expect(publishRoute).toHaveLength(1);
     expect(publishRoute[0]?.target).toBe("opportunity");
     expect(publish).toMatchObject({
       ownerRoute: "trade-opportunity-publishing",
-      saveMutation: "adminOperations.createOffer",
+      saveMutation: null,
       readQuery: "adminOperations.offers",
-      label: "Publish one opportunity",
+      label: "Retired: publish one opportunity",
+      availability: "not-available",
+      risk: "locked",
     });
-    expect(publish?.explanation).toContain("source reference and operator review note are saved");
-    expect(publish?.explanation).toContain("does not independently verify the external evidence");
+    expect(publish?.explanation).toContain("Manual opportunity creation is retired");
+    expect(publish?.explanation).toContain("customer-specific offers are generated by the worker");
     const close = tradeSettingsOwnershipRegistry.find((entry) => entry.key === "trade.opportunity.close");
     expect(close).toMatchObject({
       ownerRoute: "trade-opportunity-publishing",

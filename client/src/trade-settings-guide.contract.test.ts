@@ -1,11 +1,13 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { adminNavigationGroups } from "./admin-navigation";
-import { fieldGlossary, ownerLinks, statusDefinitions, troubleshooting } from "./components/TradeSettingsAdminGuide";
+import { fieldGlossary, ownerLinks, relatedOwnerLinks, statusDefinitions, troubleshooting } from "./components/TradeSettingsAdminGuide";
 import { tradeSettingsOwnershipRegistry } from "./trade-settings-ownership";
 
 const guideSource = readFileSync(new URL("./components/TradeSettingsAdminGuide.tsx", import.meta.url), "utf8");
 const handbookSource = readFileSync(new URL("../../docs/admin-portal-menu-guide.md", import.meta.url), "utf8");
+const adminManualSource = readFileSync(new URL("../../docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md", import.meta.url), "utf8");
+const reconciliationSource = readFileSync(new URL("../../docs/trading/TRADE_SETTINGS_ADMIN_BLUEPRINT_RECONCILIATION.md", import.meta.url), "utf8");
 const tradeRoutes = adminNavigationGroups.find((group) => group.id === "trade-settings")?.items ?? [];
 const ownerRoutes = tradeRoutes.filter((route) => route.id !== "trade-admin-guide");
 const handbookTradeSubmenu = handbookSource.split("### Trade Settings submenu\n")[1]?.split("\n### One owner for each setting")[0] ?? "";
@@ -27,6 +29,27 @@ describe("mounted Trade Settings Guide contract", () => {
 
   it("keeps the handbook destination list aligned with current registered Trade Settings routes", () => {
     expect(handbookRouteLabels).toEqual(tradeRoutes.map((route) => route.label));
+  });
+
+  it("links to Finance as the sole Database Entries owner and keeps package fee editing under one owner", () => {
+    const financeWalletRoute = adminNavigationGroups.find((group) => group.id === "finance")?.items.find((route) => route.id === "wallet-ledger");
+    expect(financeWalletRoute).toBeDefined();
+    expect(relatedOwnerLinks.map(({ routeId, label, target, focus }) => ({ routeId, label, target, focus }))).toEqual([
+      { routeId: financeWalletRoute?.id, label: "Finance → Wallet & Ledger / Database Entries", target: financeWalletRoute?.target, focus: financeWalletRoute?.focus },
+    ]);
+    expect(tradeRoutes.some((route) => route.id === "wallet-ledger")).toBe(false);
+    expect(relatedOwnerLinks[0]?.description).toContain("Finance remains the sole owner");
+    expect(guideSource).toContain("Related owner outside Trade Settings");
+    expect(ownerLinks.find((link) => link.routeId === "trade-fees-earnings")?.description).toContain("single active package-specific fee editor is under Tiers & Eligibility");
+    expect(handbookTradeSubmenu).toContain("sole active package-specific fee editor is under Tiers & Eligibility");
+    expect(handbookSource).toContain("does not create a second Database Entries owner");
+    expect(adminManualSource).toContain("The only active package-specific, versioned fee editor is embedded under **Tiers & Eligibility**");
+    expect(adminManualSource).toContain("The **Trade Settings Guide** provides a navigation-only shortcut to **Finance → Wallet & Ledger / Database Entries**");
+    expect(adminManualSource).toContain("**Manual Payouts**");
+    expect(handbookSource).toContain("trading/TRADE_SETTINGS_ADMIN_BLUEPRINT_RECONCILIATION.md");
+    expect(reconciliationSource).toContain("The PDF is reconciled to the following map");
+    expect(reconciliationSource).toContain("Remains the sole read-only wallet-activity view.");
+    expect(reconciliationSource).toContain("The previous-settlement prerequisite is now an audited global ON/OFF control");
   });
 
   it("projects every ownership-registry entry into a complete glossary row with its registered owner link", () => {
@@ -91,7 +114,7 @@ describe("mounted Trade Settings Guide contract", () => {
 
   it("documents persisted delivery, funding, settlement and payout lifecycle states distinctly", () => {
     const expectedTerms = [
-      "Published / open offer",
+      "Generated / open customer offer",
       "Queued delivery",
       "Delivery in progress",
       "Delivery retry wait",
@@ -110,7 +133,7 @@ describe("mounted Trade Settings Guide contract", () => {
     ];
     expect(statusDefinitions.map((status) => status.term)).toEqual(expectedTerms);
 
-    expect(byTerm("Published / open offer")?.description).toContain("does not mean delivered");
+    expect(byTerm("Generated / open customer offer")?.description).toContain("does not mean delivered");
     expect(byTerm("Delivered")?.description).toContain("not a synthetic offer");
     expect(byTerm("Queued delivery")?.description).toContain("deliveryStatus=queued");
     expect(byTerm("Delivery in progress")?.description).toContain("deliveryStatus=in_progress");
@@ -129,17 +152,17 @@ describe("mounted Trade Settings Guide contract", () => {
     expect(byTerm("Payout requested")?.description).toContain("distinct from trade review/settlement");
   });
 
-  it("links offer publication to its owner while distinguishing operator review from platform verification", () => {
+  it("links generated customer offers to their owner and documents optional template provenance", () => {
     const publishRoute = ownerRoutes.find((route) => route.id === "trade-opportunity-publishing");
     const publishLink = ownerLinks.find((link) => link.routeId === "trade-opportunity-publishing");
     expect(publishRoute?.target).toBe("opportunity");
     expect(publishLink?.target).toBe(publishRoute?.target);
-    expect(publishLink?.description).toContain("Required source references and operator review notes are saved in Trade Audit History");
-    expect(publishLink?.description).toContain("does not independently verify the external evidence or the substance of the note");
-    expect(byTerm("Published / open offer")?.description).toContain("source reference and operator review note are saved in Trade Audit History");
-    expect(byTerm("Published / open offer")?.description).toContain("does not independently verify the external evidence");
+    expect(publishLink?.description).toContain("Optional display templates are not required");
+    expect(publishLink?.description).toContain("not independently verified");
+    expect(byTerm("Generated / open customer offer")?.description).toContain("worker-generated record assigned to a customer/package");
+    expect(byTerm("Generated / open customer offer")?.description).toContain("Historical unassigned manual/imported rows are not popup inputs");
     expect(troubleshooting.find((item) => item.routeId === "trade-opportunity-publishing")?.description)
-      .toContain("source reference and operator review note are recorded in Trade Audit History");
+      .toContain("Customer delivery uses only offers assigned to that customer");
   });
 
   it("explicitly identifies locked and unavailable functionality", () => {

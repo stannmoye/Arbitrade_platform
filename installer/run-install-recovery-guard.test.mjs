@@ -52,6 +52,7 @@ function runInstaller(root, overrides = {}) {
       SESSION_SECRET: "fixture-session-secret-long-enough-000000",
       PASSWORD_PEPPER: "fixture-password-pepper-long-enough-000000",
       PUBLIC_APP_URL: "https://example.test",
+      TOTP_ENCRYPTION_KEY: "a".repeat(64),
       ...overrides,
     },
     encoding: "utf8",

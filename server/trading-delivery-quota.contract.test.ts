@@ -32,9 +32,11 @@ describe("runtime Trading delivery quota semantics", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
     expect(delivery).toContain("resolveTradingQuotaWindow(now,effectiveSchedulingPeriod)");
-    expect(delivery).toContain("gte(opportunityDeliveryEvents.deliveredAt,quotaWindow.start)");
+    expect(delivery).toContain("opportunityUsageResetBoundary.resetAt>quotaWindow.start?opportunityUsageResetBoundary.resetAt:quotaWindow.start");
+    expect(delivery).toContain("gte(opportunityDeliveryEvents.deliveredAt,effectiveQuotaStart)");
+    expect(delivery).toContain("gt(opportunityDeliveryEvents.id,opportunityUsageResetBoundary?.deliveryEventMaxId??0)");
     expect(delivery).toContain("lt(opportunityDeliveryEvents.deliveredAt,quotaWindow.end)");
-    expect(delivery).toContain("confirmedAt>=${quotaWindow.start} AND confirmedAt<${quotaWindow.end}");
+    expect(delivery).toContain("confirmedAt>=${effectiveQuotaStart} AND confirmedAt<${quotaWindow.end}");
     expect(helper).toContain("now.getTime() - 24 * 60 * 60 * 1000");
     expect(helper).toContain("Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())");
   });
@@ -51,9 +53,15 @@ describe("runtime Trading delivery quota semantics", () => {
   it("keeps the daily quota independent from the simultaneous visible-offer limit", () => {
     expect(delivery).toContain("const dailyCap=maxPopupsPerDay");
     expect(delivery).toContain("calculateTradingDeliveryCapacity({dailyCap,deliveredOfferCount,maxVisibleOffers,activeVisibleCount})");
+    expect(delivery).toContain("countActiveVisiblePopupEvents(activePopupRows,now)");
+    expect(delivery).toContain("expiredAt:opportunityPopupEvents.expiredAt");
     expect(delivery).not.toContain("Math.min(maxPopupsPerDay,maxVisibleOffers)");
-    expect(delivery).toContain('["DELIVERED","NOTICED","OPENED"].includes(eventStatus)');
-    expect(delivery).toContain('["pending","delivered","received","rendered"].includes(deliveryStatus)');
+    expect(helper).toContain('["DELIVERED", "NOTICED", "OPENED"].includes(eventStatus)');
+    expect(helper).toContain('["pending", "delivered", "received", "rendered"].includes(deliveryStatus)');
+    expect(helper).toContain('String(row.offerStatus || "").toLowerCase() === "open"');
+    expect(helper).toContain("row.expiredAt == null");
+    expect(helper).toContain("opensAtMs <= nowMs");
+    expect(helper).toContain("closesAtMs > nowMs");
   });
 
   it("combines each tier's target and visible cap without replacing cumulative entitlement", () => {
@@ -104,5 +112,11 @@ describe("server-owned delivery cadence and completion timing", () => {
     expect(coolingCheck).toBeGreaterThan(candidateLoop);
     expect(coolingCheck).toBeLessThan(selectedAssignment);
     expect(delivery).not.toContain("if(packageSchedules.get(String(subscription.packageName))?.cooling===true) continue");
+  });
+  it("allows ready-package generation when another assigned package is cooling", () => {
+    expect(delivery).toContain("packageNames.length>0&&packageNames.every(packageName=>packageSchedules.get(packageName)?.cooling===true");
+    expect(delivery).toContain("eligibleSubscriptions.filter(subscription=>packageSchedules.get(String(subscription.packageName))?.cooling!==true)");
+    expect(delivery).toContain("const assignedPackageCooling=Boolean(assignedSubscription&&packageSchedules.get(String(assignedSubscription.packageName))?.cooling===true)");
+    expect(delivery).toContain("!assignedPackageCooling&&[\"generated\",\"delivered\"].includes(assignmentStatus)");
   });
 });

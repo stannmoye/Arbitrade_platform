@@ -9,6 +9,23 @@ import { assertWorkerSchemaContracts } from "./worker-schema-contracts.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 config({ path: resolve(root, ".env"), override: false });
 
+async function assertMiningCustomerPackagesTable(db) {
+  const requiredColumns = [
+    "id", "userId", "packageId", "packageVersionId", "status", "purchasedAt",
+    "startsAt", "expiresAt", "endedAt", "baseThsSnapshot", "boostBonusThsSnapshot",
+    "priceAmount", "priceAsset", "paymentAmount", "paymentAsset", "ledgerTransactionId",
+    "idempotencyKey", "termsSnapshot", "createdAt",
+  ];
+  const [rows] = await db.execute(
+    "SELECT column_name AS columnName FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='mining_customer_packages'",
+  );
+  const actual = new Set(rows.map(row => String(row.columnName)));
+  const missing = requiredColumns.filter(column => !actual.has(column));
+  if (missing.length) {
+    throw new Error(`Mining worker schema contract failed for mining_customer_packages; missing columns: ${missing.join(", ")}`);
+  }
+}
+
 async function hasColumn(db, table, column) {
   const [rows] = await db.execute(
     "SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1",
@@ -110,10 +127,10 @@ async function ensureDeliveryLifecycle(db) {
   ];
   for (const [name, sql] of indexes) if (await ensureIndex(db, "opportunity_popup_events", name, sql)) repairs++;
   await db.query("UPDATE opportunity_popup_events e JOIN packages p ON p.name COLLATE utf8mb4_unicode_ci=e.packageName COLLATE utf8mb4_unicode_ci SET e.packageId=p.id WHERE e.packageId IS NULL");
-  await db.query("UPDATE opportunity_popup_events e JOIN (SELECT userId,offerId,MIN(id) canonicalId FROM opportunity_popup_events GROUP BY userId,offerId HAVING COUNT(*)>1) d ON d.userId=e.userId AND d.offerId=e.offerId SET e.deliveryStatus='failed',e.deliveryRetryAfter=NULL,e.deliveryLeaseToken=NULL,e.deliveryLeaseExpiresAt=NULL,e.lastErrorCode='DELIVERY_DUPLICATE_LEGACY',e.updatedAt=CURRENT_TIMESTAMP WHERE e.id<>d.canonicalId AND e.tradeId IS NULL AND e.eventStatus NOT IN ('TRADED','SETTLED') AND e.executionStatus NOT IN ('RUNNING','SUCCEEDED') AND e.deliveryStatus IN ('queued','in_progress','retry_wait')");
-  await db.query("UPDATE opportunity_popup_events SET deliveryStatus='failed',deliveryRetryAfter=NULL,deliveryLeaseToken=NULL,deliveryLeaseExpiresAt=NULL,lastErrorCode='DELIVERY_PACKAGE_ID_UNRESOLVED',updatedAt=CURRENT_TIMESTAMP WHERE packageId IS NULL AND deliveryStatus IN ('queued','in_progress','retry_wait') AND tradeId IS NULL AND eventStatus NOT IN ('TRADED','SETTLED') AND executionStatus NOT IN ('RUNNING','SUCCEEDED')");
-  await db.query("INSERT INTO opportunity_delivery_idempotency (userId,offerId,popupEventId,packageId,packageName,createdAt) SELECT e.userId,e.offerId,e.id,COALESCE(e.packageId,0),e.packageName,e.createdAt FROM opportunity_popup_events e JOIN (SELECT userId,offerId,MIN(id) canonicalId FROM opportunity_popup_events GROUP BY userId,offerId) c ON c.canonicalId=e.id ON DUPLICATE KEY UPDATE userId=VALUES(userId)");
-  await db.query("UPDATE opportunity_delivery_idempotency d JOIN opportunity_popup_events e ON e.id=d.popupEventId SET d.packageId=COALESCE(e.packageId,0),d.packageName=e.packageName");
+  await db.query("UPDATE opportunity_popup_events e JOIN (SELECT userId,offerId,COALESCE(MIN(CASE WHEN deliveryStatus IN ('queued','in_progress','retry_wait') AND tradeId IS NULL AND eventStatus NOT IN ('TRADED','SETTLED','WITHDRAWN') AND executionStatus NOT IN ('RUNNING','SUCCEEDED') THEN id END),MIN(id)) canonicalId FROM opportunity_popup_events GROUP BY userId,offerId HAVING COUNT(*)>1) d ON d.userId=e.userId AND d.offerId=e.offerId SET e.deliveryStatus='failed',e.deliveryRetryAfter=NULL,e.deliveryLeaseToken=NULL,e.deliveryLeaseExpiresAt=NULL,e.lastErrorCode='DELIVERY_DUPLICATE_LEGACY',e.updatedAt=CURRENT_TIMESTAMP WHERE e.id<>d.canonicalId AND e.tradeId IS NULL AND e.eventStatus NOT IN ('TRADED','SETTLED','WITHDRAWN') AND e.executionStatus NOT IN ('RUNNING','SUCCEEDED') AND e.deliveryStatus IN ('queued','in_progress','retry_wait')");
+  await db.query("UPDATE opportunity_popup_events SET deliveryStatus='failed',deliveryRetryAfter=NULL,deliveryLeaseToken=NULL,deliveryLeaseExpiresAt=NULL,lastErrorCode='DELIVERY_PACKAGE_ID_UNRESOLVED',updatedAt=CURRENT_TIMESTAMP WHERE packageId IS NULL AND deliveryStatus IN ('queued','in_progress','retry_wait') AND tradeId IS NULL AND eventStatus NOT IN ('TRADED','SETTLED','WITHDRAWN') AND executionStatus NOT IN ('RUNNING','SUCCEEDED')");
+  await db.query("INSERT INTO opportunity_delivery_idempotency (userId,offerId,popupEventId,packageId,packageName,createdAt) SELECT e.userId,e.offerId,e.id,COALESCE(e.packageId,0),e.packageName,e.createdAt FROM opportunity_popup_events e JOIN (SELECT userId,offerId,COALESCE(MIN(CASE WHEN deliveryStatus IN ('queued','in_progress','retry_wait') AND tradeId IS NULL AND eventStatus NOT IN ('TRADED','SETTLED','WITHDRAWN') AND executionStatus NOT IN ('RUNNING','SUCCEEDED') THEN id END),MIN(id)) canonicalId FROM opportunity_popup_events GROUP BY userId,offerId) c ON c.canonicalId=e.id ON DUPLICATE KEY UPDATE userId=VALUES(userId)");
+  await db.query("UPDATE opportunity_delivery_idempotency d JOIN (SELECT userId,offerId,COALESCE(MIN(CASE WHEN deliveryStatus IN ('queued','in_progress','retry_wait') AND tradeId IS NULL AND eventStatus NOT IN ('TRADED','SETTLED','WITHDRAWN') AND executionStatus NOT IN ('RUNNING','SUCCEEDED') THEN id END),MIN(id)) canonicalId FROM opportunity_popup_events GROUP BY userId,offerId) c ON c.userId=d.userId AND c.offerId=d.offerId JOIN opportunity_popup_events e ON e.id=c.canonicalId SET d.popupEventId=e.id,d.packageId=COALESCE(e.packageId,0),d.packageName=e.packageName");
   await db.query("INSERT INTO app_settings (settingKey,settingValue,updatedBy) VALUES ('trade.deliveryRetryPolicy',JSON_OBJECT('policy','none','maxAttempts',1,'intervalsSeconds',JSON_ARRAY(),'version',1,'effectiveAt',NULL,'updatedBy',NULL,'updatedAt',NULL,'reason','Initial fail-closed delivery retry policy; explicit intervals have not been saved.','configured',FALSE),NULL) ON DUPLICATE KEY UPDATE settingKey=VALUES(settingKey)");
   return repairs;
 }
@@ -127,6 +144,21 @@ async function main() {
   const db = await mysql.createConnection(url.toString());
   let repairs = 0;
   try {
+    if (process.argv.includes("--verify-only")) {
+      await assertMiningCustomerPackagesTable(db);
+      const verified = await assertWorkerSchemaContracts(db);
+      console.log(`[worker-schema] PASS: read-only verification of ${verified.checkedTables} worker-critical table contracts plus the Mining customer-package table.`);
+      return;
+    }
+    // Blitz and other hosts may have completed the main Drizzle chain without
+    // applying the separate portal migration chain. MiningWorker directly reads
+    // mining_customer_packages, so bridge its canonical idempotent base migration
+    // before starting any worker. CREATE TABLE IF NOT EXISTS preserves existing
+    // customer-package rows and never resets the Mining catalogue or ledger.
+    const miningPortalMigration = await readFile(resolve(root, "drizzle/0036_crypto_mining_portal.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, miningPortalMigration);
+    await assertMiningCustomerPackagesTable(db);
+
     // This journaled bridge deliberately duplicates the worker-table DDL from the
     // standalone mining and portal migration files. It covers hosts that invoke a
     // different migration entry point; contract checks below detect shape drift.

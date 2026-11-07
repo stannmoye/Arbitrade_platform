@@ -2308,12 +2308,20 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
   const checks = [];
   const pageErrors = [];
   const mutationCalls = [];
+  let dismissalPersisted = false;
+  let persistDismissalToFeed = true;
+  let failDismissalMutation = false;
   const offer = {
     id: 50501, offerId: 50501, deliveryEventId: 60501,
     packageName: "QA Eligible Tier", symbol: "BTC/USD", currency: "USD",
-    minimumMinor: 10000, balanceAvailableMinor: 4500, balanceStatus: "insufficient",
-    currencyScale: 2, currencySymbol: "$", configuredPopupDisplaySeconds: 1,
-    closesAt: "2099-12-31T23:59:59.000Z", offerStatus: "open", popupEligible: true,
+    minimumMinor: 10000, balanceAvailableMinor: 15000, balanceStatus: "sufficient",
+    currencyScale: 2, currencySymbol: "$",
+    // Keep the alert expanded long enough to exercise its read-only details before
+    // the independent auto-collapse assertion below. One second caused the popup
+    // to detach while Playwright was interacting with the details toggle.
+    configuredPopupDisplaySeconds: 8,
+    opensAt: "2099-12-31T23:50:00.000Z", closesAt: "2099-12-31T23:59:59.000Z",
+    expiryStatus: "active", offerStatus: "open", popupEligible: true,
     eventStatus: "DELIVERED", deliveryStatus: "delivered",
     companyDisplayName: "Verified QA Company", companyLogoUrl: null,
     badgeLabel: "QA tier", badgeStyle: "green",
@@ -2336,25 +2344,78 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
         const item = Array.isArray(envelope) ? envelope[index] : envelope[String(index)];
         return item?.json ?? item?.input?.json ?? envelope?.json ?? envelope?.input?.json ?? {};
       };
+      if (failDismissalMutation && procedures.includes("customer.popupLifecycle") &&
+          procedures.some((procedure, index) => procedure === "customer.popupLifecycle" && inputAt(index)?.action === "dismissed")) {
+        await route.abort("failed");
+        return;
+      }
       const output = procedures.map((procedure, index) => {
         let data = null;
         if (procedure === "auth.me") {
           data = { id: 90501, email: "popup-qa@example.test", name: "Popup QA Customer", role: "customer" };
         } else if (procedure === "customer.opportunities") {
           data = {
-            offers: [{ ...offer }], missed: [], autoTrades: [], settled: [],
+            serverTime: new Date().toISOString(),
+            offers: [
+              { ...offer, ...(dismissalPersisted ? {
+                offerStatus: "closed", deliveryStatus: "dismissed",
+                dismissedAt: "2026-11-06T12:00:00.000Z",
+              } : {}) },
+              {
+                id: 50502, offerId: 50502, offerStatus: "open", status: "open",
+                popupEligible: false, deliveryStatus: "delivered", currency: "USD",
+                minimumMinor: 10000, companyDisplayName: "Available QA Company", symbol: "AVAIL",
+                opensAt: "2026-11-06T10:00:00.000Z", closesAt: "2099-12-31T23:59:59.000Z",
+              },
+              {
+                // Malformed API data must remain visible without crashing the customer workspace.
+                id: 50507, offerId: 50507, offerStatus: "pending", status: "pending",
+                popupEligible: false, deliveryStatus: "delivered",
+                minimumMinor: 2500, companyDisplayName: "Missing Currency QA Company", symbol: "NOCUR",
+                opensAt: "2026-11-06T09:30:00.000Z", closesAt: "2099-12-31T23:59:59.000Z",
+              },
+              {
+                id: 50503, offerId: 50503, offerStatus: "closed", status: "closed", currency: "USD",
+                deliveryStatus: "expired", expiredAt: "2026-11-06T09:00:00.000Z",
+                companyDisplayName: "Expired QA Company", symbol: "EXPIRE",
+              },
+            ],
+            missed: [{
+              id: 50504, offerId: 50504, companyName: "Missed QA Company", currency: "USD",
+              amountMinor: 10000, availableMinorAtOpportunity: 4500, shortfallMinor: 5500,
+              symbol: "MISSED", reason: "INSUFFICIENT_AVAILABLE_BALANCE",
+              createdAt: "2026-11-06T08:00:00.000Z",
+            }],
+            autoTrades: [], settled: [],
             delivery: {
               enabled: true, packageName: "QA Eligible Tier", maxPopupsPerDay: 6,
               maxVisibleOffers: 2, remainingDailyQuota: 6, remainingVisibleSlots: 2,
-              popupPolicy: { popupDisplaySeconds: 1 },
+              popupPolicy: { popupDisplaySeconds: 8 },
             },
           };
         } else if (procedure === "customer.soundSettings") {
           data = { enabled: false, opportunity: "soft-chime", loopOpportunity: false };
         } else if (procedure === "customer.balances") {
           data = { balances: [], currencies: [], summary: { availableUsd: 0, totalUsd: 0 } };
+        } else if (procedure === "customer.trades") {
+          data = [
+            {
+              id: 50505, status: "confirmed", symbol: "ALLOC", currency: "USD",
+              principalMinor: 10000, companyDisplayName: "Allocated QA Company",
+              confirmedAt: "2026-11-06T07:00:00.000Z", stage: "Awaiting settlement",
+            },
+            {
+              id: 50506, status: "settled", symbol: "SETTLED", currency: "USD",
+              principalMinor: 10000, companyDisplayName: "Settled QA Company",
+              settledAt: "2026-11-06T06:00:00.000Z", stage: "Settlement recorded",
+            },
+          ];
         } else if (procedure === "customer.popupLifecycle" || procedure === "customer.popupDeliveryStatus") {
-          mutationCalls.push({ procedure, input: inputAt(index) });
+          const mutationInput = inputAt(index);
+          mutationCalls.push({ procedure, input: mutationInput });
+          if (procedure === "customer.popupLifecycle" && mutationInput?.action === "dismissed" && persistDismissalToFeed) {
+            dismissalPersisted = true;
+          }
           data = { ok: true };
         }
         return { result: { data: { json: data } } };
@@ -2363,30 +2424,73 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     });
     await page.goto(new URL("/customer", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.getByRole("heading", { name: "Welcome back, Jordan." }).waitFor({ state: "visible", timeout: 15000 });
-    const popup = page.locator(".center-opportunity-toast").filter({ hasText: "BTC/USD opportunity notice" });
+    const minimizedDock = page.locator(".opportunity-popup-dock");
+    if (await minimizedDock.isVisible().catch(() => false)) {
+      await minimizedDock.getByRole("button", { name: "Maximize opportunity alert" }).click();
+    }
+    const popup = page.locator(".center-opportunity-toast").filter({ hasText: "Verified QA Company opportunity notice" });
     await popup.waitFor({ state: "visible", timeout: 10000 });
-    const companyVisible = await popup.getByText("Verified QA Company").isVisible().catch(() => false);
     const popupText = await popup.innerText();
-    const insufficientVisible = popupText.includes("Missed — insufficient balance") &&
-      popupText.includes("$ 100.00") && popupText.includes("$ 45.00") && popupText.includes("$ 55.00");
+    const connectionVisible = await popup.getByRole("status")
+      .filter({ hasText: "Live status connected" }).isVisible().catch(() => false);
+    const detailsToggle = popup.locator(".opportunity-popup-details__toggle");
+    await detailsToggle.click();
+    const detailsPanel = popup.locator(".opportunity-popup-details__grid");
+    const detailsVisible = await detailsPanel.isVisible().catch(() => false);
+    const detailsText = detailsVisible ? await detailsPanel.innerText() : "";
+    const detailsInteractiveControls = await detailsPanel.locator("button,input,select,textarea,[contenteditable='true']").count();
+    const expandedState = await detailsToggle.getAttribute("aria-expanded");
+    record("popup-shows-live-connection-state", connectionVisible);
+    record("opportunity-details-expand-accessibly-with-read-only-server-metadata",
+      detailsVisible && expandedState === "true" && detailsInteractiveControls === 0 &&
+      detailsText.includes("Verified QA Company") &&
+      detailsText.includes("QA Eligible Tier") &&
+      detailsText.includes(String(offer.id)) &&
+      detailsText.toLowerCase().includes("scheduled expiry") &&
+      detailsText.toLowerCase().includes("server status"),
+      { expandedState, detailsInteractiveControls, detailsText });
+    const companyVisible = popupText.includes("Verified QA Company") &&
+      await popup.locator(".popup-company-reference").isVisible().catch(() => false);
+    const incorrectlyMissed = popupText.includes("Missed — insufficient balance");
+    const expiryCountdownVisible = popupText.includes("Opportunity expires in") &&
+      popupText.includes("Countdown is synchronised to the server-saved expiry timestamp.") &&
+      await popup.locator(".opportunity-expiry-panel").isVisible().catch(() => false);
     const informationalOnly = popupText.includes("Informational notice only") &&
       !popupText.includes("AUTOMATED OPPORTUNITY") && !popupText.includes("Configured return rate:");
     record("eligible-open-opportunity-renders-informational-customer-popup", await popup.isVisible().catch(() => false), {
-      offerId: offer.id, companyVisible, insufficientVisible, informationalOnly,
+      offerId: offer.id, companyVisible, incorrectlyMissed, informationalOnly,
       note: "Customer session and opportunity API are mocked; this verifies React rendering and the client eligibility gate, not live server publication or account authorization.",
     });
     record("verified-company-reference-is-rendered", companyVisible, { companyName: offer.companyDisplayName });
-    record("insufficient-balance-is-explained-with-required-available-and-shortfall", insufficientVisible);
+    record("active-open-offer-is-not-misclassified-as-insufficient-balance", !incorrectlyMissed);
     record("popup-makes-no-financial-execution-claim", informationalOnly);
-    await page.locator(".opportunity-popup-dock").waitFor({ state: "visible", timeout: 5000 });
-    const dock = page.locator(".opportunity-popup-dock");
-    record("configured-display-duration-collapses-alert-into-dock", await dock.isVisible().catch(() => false), {
-      dockText: await dock.innerText().catch(() => ""), pageErrors,
+    record("opportunity-popup-renders-server-synchronised-expiry-countdown", expiryCountdownVisible);
+    const countdownBefore = await popup.locator(".opportunity-expiry-ring span").innerText();
+    await page.waitForTimeout(1100);
+    const countdownAfter = await popup.locator(".opportunity-expiry-ring span").innerText();
+    record("opportunity-expiry-countdown-updates-in-real-time", countdownBefore !== countdownAfter, {
+      countdownBefore, countdownAfter,
     });
+    const dock = page.locator(".opportunity-popup-dock");
+    // The offer expires in the future. The legacy 8-second popupDisplaySeconds mock
+    // must not override that saved expiry or collapse the still-open opportunity.
+    await page.waitForTimeout(8500);
+    const remainsExpandedUntilSavedExpiry = await popup.isVisible().catch(() => false) &&
+      !(await dock.isVisible().catch(() => false));
+    record("popup-remains-expanded-until-server-saved-expiry", remainsExpandedUntilSavedExpiry, {
+      popupVisible: await popup.isVisible().catch(() => false),
+      dockVisible: await dock.isVisible().catch(() => false),
+    });
+    await popup.getByRole("button", { name: "Minimize opportunity alert" }).click({ force: true });
+    await dock.waitFor({ state: "visible", timeout: 3000 });
+    const dockText = await dock.innerText().catch(() => "");
+    record("minimized-dock-keeps-live-expiry-countdown", dockText.includes("Opportunity expires in") || dockText.includes("Expiry time reached"), { dockText });
+    record("customer-can-minimize-alert-before-saved-expiry", await dock.isVisible().catch(() => false));
     await dock.getByRole("button", { name: "Maximize opportunity alert" }).click();
     await popup.waitFor({ state: "visible", timeout: 3000 });
     record("customer-can-maximize-docked-alert", await popup.isVisible().catch(() => false));
-    await popup.getByRole("button", { name: "Minimize opportunity alert" }).click();
+    // Use the visible manual control; the server-saved expiry remains authoritative.
+    await popup.getByRole("button", { name: "Minimize opportunity alert" }).click({ force: true });
     await dock.waitFor({ state: "visible", timeout: 3000 });
     record("customer-can-manually-minimize-alert", await dock.isVisible().catch(() => false));
     record("popup-delivery-lifecycle-is-acknowledged", mutationCalls.some(call =>
@@ -2397,10 +2501,243 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     record("customer-can-dismiss-opportunity-alert", mutationCalls.some(call =>
       call.procedure === "customer.popupLifecycle" && call.input?.action === "dismissed"
     ), { mutationCalls });
+    await page.getByText("Dismissal saved and refreshed in opportunity history.").waitFor({ state: "visible", timeout: 5000 });
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("arbitrade:customer-navigate", { detail: "opportunities" })));
+    await page.getByRole("heading", { name: "Opportunity history" }).waitFor({ state: "visible", timeout: 5000 });
+    await page.getByRole("button", { name: /Dismissed/ }).click();
+    const dismissedHistoryItem = page.locator(".customer-opportunity-history__item").filter({ hasText: "Verified QA Company" });
+    await dismissedHistoryItem.waitFor({ state: "visible", timeout: 5000 });
+    record("popup-dismissal-is-reflected-in-read-only-opportunity-history",
+      dismissalPersisted && (await dismissedHistoryItem.innerText()).includes("Dismissed · presentation only"),
+      { dismissalPersisted, historyText: await dismissedHistoryItem.innerText().catch(() => "") });
+
+    // Review the complete six-category history from one combined mocked feed.
+    await page.getByRole("button", { name: /All activity/ }).click();
+    const historyPanel = page.locator(".customer-opportunity-history");
+    const historyItems = historyPanel.locator(".customer-opportunity-history__item");
+    const expectedHistoryCategories = ["available", "missed", "allocated", "settled", "dismissed", "expired"];
+    const categoryCounts = {};
+    for (const category of expectedHistoryCategories) {
+      categoryCounts[category] = await historyPanel.locator(
+        `.customer-opportunity-history__metric--${category} strong`
+      ).innerText().catch(() => "0");
+    }
+    const combinedHistoryTitles = await historyItems.locator(
+      ".customer-opportunity-history__topline > strong"
+    ).allTextContents();
+    record("combined-history-shows-all-six-server-recorded-categories",
+      expectedHistoryCategories.every(category => categoryCounts[category] === "1") &&
+      combinedHistoryTitles.length === 6 &&
+      new Set(combinedHistoryTitles).size === 6 &&
+      ["Available QA Company", "Missed QA Company", "Allocated QA Company",
+        "Settled QA Company", "Verified QA Company", "Expired QA Company"]
+        .every(title => combinedHistoryTitles.includes(title)),
+      { categoryCounts, combinedHistoryTitles });
+    const historySearch = historyPanel.getByRole("searchbox", {
+      name: "Search company, reference or status",
+    });
+    await historySearch.fill("Expired QA Company");
+    const filteredHistoryCount = await historyItems.count();
+    const filteredHistorySummary = await historyPanel.locator(
+      ".customer-opportunity-history__summary"
+    ).innerText().catch(() => "");
+    const categoryCountsAfterSearch = {};
+    for (const category of expectedHistoryCategories) {
+      categoryCountsAfterSearch[category] = await historyPanel.locator(
+        `.customer-opportunity-history__metric--${category} strong`
+      ).innerText().catch(() => "0");
+    }
+    record("combined-history-search-filters-without-changing-category-totals",
+      filteredHistoryCount === 1 && filteredHistorySummary.includes("1–1 of 1") &&
+      expectedHistoryCategories.every(category =>
+        categoryCounts[category] === "1" && categoryCountsAfterSearch[category] === categoryCounts[category]
+      ),
+      { filteredHistoryCount, filteredHistorySummary, categoryCounts, categoryCountsAfterSearch });
+    await historySearch.fill("");
+    const historyLayout = await historyPanel.evaluate(element => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      viewportWidth: window.innerWidth,
+    }));
+    record("combined-history-fits-mobile-viewport-without-panel-overflow",
+      historyLayout.scrollWidth <= historyLayout.clientWidth + 1 &&
+      historyLayout.clientWidth <= historyLayout.viewportWidth + 1,
+      historyLayout);
+
+    // Re-run with a stale feed response: mutation succeeds, but persistence is not
+    // reflected by the server feed. The UI must not claim success or invent history.
+    dismissalPersisted = false;
+    persistDismissalToFeed = false;
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.getByRole("heading", { name: "Welcome back, Jordan." }).waitFor({ state: "visible", timeout: 15000 });
+    const staleFeedPopup = page.locator(".center-opportunity-toast").filter({ hasText: "Verified QA Company opportunity notice" });
+    await staleFeedPopup.waitFor({ state: "visible", timeout: 10000 });
+    const staleFeedDock = page.locator(".opportunity-popup-dock");
+    await staleFeedPopup.getByRole("button", { name: "Minimize opportunity alert" }).click({ force: true });
+    await staleFeedDock.waitFor({ state: "visible", timeout: 3000 });
+    await staleFeedDock.getByRole("button", { name: "Dismiss" }).click();
+    await staleFeedDock.waitFor({ state: "detached", timeout: 3000 });
+    await page.getByText("The alert was closed, but the server did not confirm the dismissal in opportunity history. It may not appear there.")
+      .waitFor({ state: "visible", timeout: 5000 });
+    record("stale-refreshed-feed-does-not-report-dismissal-success", !dismissalPersisted);
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("arbitrade:customer-navigate", { detail: "opportunities" })));
+    await page.getByRole("heading", { name: "Opportunity history" }).waitFor({ state: "visible", timeout: 5000 });
+    await page.getByRole("button", { name: /Dismissed/ }).click();
+    const falseDismissedEntry = page.locator(".customer-opportunity-history__item").filter({ hasText: "Verified QA Company" });
+    record("stale-refreshed-feed-does-not-create-dismissed-history-entry",
+      !(await falseDismissedEntry.isVisible().catch(() => false)),
+      { historyEntryVisible: await falseDismissedEntry.isVisible().catch(() => false) });
+
+    // A transport failure must also remain explicitly unconfirmed.
+    failDismissalMutation = true;
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.getByRole("heading", { name: "Welcome back, Jordan." }).waitFor({ state: "visible", timeout: 15000 });
+    const failedMutationPopup = page.locator(".center-opportunity-toast").filter({ hasText: "Verified QA Company opportunity notice" });
+    await failedMutationPopup.waitFor({ state: "visible", timeout: 10000 });
+    const failedMutationDock = page.locator(".opportunity-popup-dock");
+    await failedMutationPopup.getByRole("button", { name: "Minimize opportunity alert" }).click({ force: true });
+    await failedMutationDock.waitFor({ state: "visible", timeout: 3000 });
+    await failedMutationDock.getByRole("button", { name: "Dismiss" }).click();
+    await failedMutationDock.waitFor({ state: "detached", timeout: 3000 });
+    await page.getByText("The alert was closed, but the server did not confirm the dismissal in opportunity history. It may not appear there.")
+      .waitFor({ state: "visible", timeout: 5000 });
+    record("failed-dismissal-request-does-not-report-persistence", failDismissalMutation);
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent("arbitrade:customer-navigate", { detail: "opportunities" })));
+    await page.getByRole("heading", { name: "Opportunity history" }).waitFor({ state: "visible", timeout: 5000 });
+    await page.getByRole("button", { name: /Dismissed/ }).click();
+    const failedMutationHistoryItem = page.locator(".customer-opportunity-history__item").filter({ hasText: "Verified QA Company" });
+    record("failed-dismissal-request-does-not-create-history-entry",
+      !(await failedMutationHistoryItem.isVisible().catch(() => false)),
+      { historyEntryVisible: await failedMutationHistoryItem.isVisible().catch(() => false) });
   } catch (error) {
     record("customer-opportunity-popup-interaction-completes", false, {
       error: error instanceof Error ? error.message : String(error),
       mutationCalls, pageErrors, bodyText: await page.locator("body").innerText().catch(() => ""),
+    });
+  } finally {
+    await page.close();
+  }
+  return checks;
+}
+
+async function runCustomerOpportunityPopupSlotReplacementCheck(browser) {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  page.setDefaultTimeout(10000);
+  const checks = [];
+  const pageErrors = [];
+  const lifecycleCalls = [];
+  let serverConfirmedExpired = false;
+  let latestExpiredOffer = null;
+  const now = Date.now();
+  const activeOffer = {
+    id: 50601, offerId: 50601, deliveryEventId: 60601,
+    packageName: "QA Slot Tier", symbol: "BTC/USD", currency: "USD",
+    minimumMinor: 10000, balanceAvailableMinor: 15000, balanceStatus: "sufficient",
+    currencyScale: 2, currencySymbol: "$", configuredPopupDisplaySeconds: 30,
+    configuredDurationSeconds: 90,
+    opensAt: new Date(now - 5000).toISOString(), closesAt: new Date(now + 60_000).toISOString(),
+    expiryStatus: "active", offerStatus: "open", popupEligible: true,
+    eventStatus: "DELIVERED", deliveryStatus: "delivered",
+    companyDisplayName: "Stale QA Company", companyLogoUrl: null,
+    badgeLabel: "QA tier", badgeStyle: "green",
+  };
+  const replacementOffer = {
+    ...activeOffer,
+    id: 50602, offerId: 50602, deliveryEventId: 60602,
+    closesAt: new Date(now + 120_000).toISOString(),
+    companyDisplayName: "Replacement QA Company",
+  };
+  const record = (check, passed, details = {}) => checks.push({
+    route: "/customer", routeName: "customer", width: 390, check, passed, ...details,
+  });
+  page.on("pageerror", error => pageErrors.push(error.message));
+  try {
+    await page.route(/\/api\/trpc(?:\/|$)/, async route => {
+      const request = route.request();
+      const url = new URL(request.url());
+      const procedures = decodeURIComponent(url.pathname.split("/api/trpc/")[1] || "").split(",").filter(Boolean);
+      let envelope = {};
+      try {
+        const raw = request.method() === "GET" ? url.searchParams.get("input") : request.postData();
+        envelope = raw ? JSON.parse(raw) : {};
+      } catch {}
+      const output = procedures.map((procedure, index) => {
+        const item = Array.isArray(envelope) ? envelope[index] : envelope[String(index)];
+        const input = item?.json ?? item?.input?.json ?? envelope?.json ?? envelope?.input?.json ?? {};
+        let data = null;
+        if (procedure === "auth.me") {
+          data = { id: 90502, email: "popup-slot-qa@example.test", name: "Popup Slot QA Customer", role: "customer" };
+        } else if (procedure === "customer.opportunities") {
+          const expiredOwner = serverConfirmedExpired ? {
+            ...activeOffer,
+            closesAt: new Date(Date.now() - 1000).toISOString(),
+            expiryStatus: "expired", offerStatus: "open", popupEligible: false,
+            deliveryStatus: "rendered",
+          } : null;
+          if (expiredOwner) latestExpiredOffer = expiredOwner;
+          data = {
+            serverTime: new Date().toISOString(),
+            offers: serverConfirmedExpired ? [expiredOwner, replacementOffer] : [activeOffer, replacementOffer],
+            missed: [], autoTrades: [], settled: [],
+            delivery: {
+              enabled: true, packageName: "QA Slot Tier", maxPopupsPerDay: 6,
+              maxVisibleOffers: 3, remainingDailyQuota: 6, remainingVisibleSlots: 3,
+              popupPolicy: { popupDisplaySeconds: 30 },
+            },
+          };
+        } else if (procedure === "customer.soundSettings") {
+          data = { enabled: false, opportunity: "soft-chime", loopOpportunity: false };
+        } else if (procedure === "customer.balances") {
+          data = { balances: [], currencies: [], summary: { availableUsd: 0, totalUsd: 0 } };
+        } else if (procedure === "customer.trades") {
+          data = [];
+        } else if (procedure === "customer.popupLifecycle" || procedure === "customer.popupDeliveryStatus") {
+          if (procedure === "customer.popupLifecycle") lifecycleCalls.push(input);
+          data = { ok: true };
+        }
+        return { result: { data: { json: data } } };
+      });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(output) });
+    });
+    await page.goto(new URL("/customer", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.getByRole("heading", { name: "Welcome back, Jordan." }).waitFor({ state: "visible", timeout: 15000 });
+    const stalePopup = page.locator(".center-opportunity-toast").filter({ hasText: "Stale QA Company opportunity notice" });
+    const replacementPopup = page.locator(".center-opportunity-toast").filter({ hasText: "Replacement QA Company opportunity notice" });
+    await stalePopup.waitFor({ state: "visible", timeout: 10000 });
+    const replacementPreempted = await replacementPopup.isVisible().catch(() => false);
+    record("new-opportunity-waits-without-preempting-active-popup",
+      await stalePopup.isVisible().catch(() => false) && !replacementPreempted,
+      { secondOpportunityPresentInFeed: true, pageErrors });
+    const staleDock = page.locator(".opportunity-popup-dock");
+    await stalePopup.getByRole("button", { name: "Minimize opportunity alert" }).click({ force: true });
+    await staleDock.waitFor({ state: "visible", timeout: 3000 });
+
+    // The offer remains offerStatus=open after the server confirms its expiry,
+    // matching the stale-reference state that previously blocked the next card.
+    serverConfirmedExpired = true;
+    await replacementPopup.waitFor({ state: "visible", timeout: 15000 });
+    const staleCardStillVisible = await staleDock.isVisible().catch(() => false) ||
+      await stalePopup.isVisible().catch(() => false);
+    record("server-expired-open-popup-releases-slot-for-next-eligible-opportunity",
+      await replacementPopup.isVisible().catch(() => false) && !staleCardStillVisible,
+      {
+        expiredOwnerStatus: latestExpiredOffer?.offerStatus,
+        expiredOwnerExpiry: latestExpiredOffer?.expiryStatus,
+        expiredOwnerPopupEligible: latestExpiredOffer?.popupEligible,
+        replacementVisible: await replacementPopup.isVisible().catch(() => false),
+        staleCardStillVisible,
+        lifecycleCalls,
+        pageErrors,
+      });
+    record("slot-release-does-not-falsely-dismiss-expired-opportunity",
+      latestExpiredOffer?.offerStatus === "open" && latestExpiredOffer?.expiryStatus === "expired" &&
+      !lifecycleCalls.some(call => call?.action === "dismissed" && Number(call?.eventId) === activeOffer.deliveryEventId),
+      { lifecycleCalls, pageErrors });
+  } catch (error) {
+    record("customer-popup-slot-replacement-completes", false, {
+      error: error instanceof Error ? error.message : String(error),
+      lifecycleCalls, pageErrors,
+      bodyText: await page.locator("body").innerText().catch(() => ""),
     });
   } finally {
     await page.close();
@@ -2941,6 +3278,9 @@ async function main() {
     const popupChecks = await runCustomerOpportunityPopupInteractionCheck(browser);
     results.push(...popupChecks);
     failures.push(...popupChecks.filter(check => !check.passed));
+    const popupSlotChecks = await runCustomerOpportunityPopupSlotReplacementCheck(browser);
+    results.push(...popupSlotChecks);
+    failures.push(...popupSlotChecks.filter(check => !check.passed));
     const tradingControlChecks = await runAdminTradingControlsInteractionCheck(browser);
     results.push(...tradingControlChecks);
     failures.push(...tradingControlChecks.filter(check => !check.passed));

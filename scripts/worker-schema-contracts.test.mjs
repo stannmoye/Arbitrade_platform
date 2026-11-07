@@ -38,6 +38,24 @@ describe("worker schema contracts", () => {
     expect(findWorkerSchemaContractFailures(columns, indexes)).toEqual([]);
   });
 
+  it("bridges and verifies the Mining customer-package base table before workers start", async () => {
+    const root = new URL("../", import.meta.url);
+    const [runtimeSchema, miningMigration, startupWrapper] = await Promise.all([
+      readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
+      readFile(new URL("drizzle/0036_crypto_mining_portal.sql", root), "utf8"),
+      readFile(new URL("scripts/start-with-diagnostics.mjs", root), "utf8"),
+    ]);
+    expect(runtimeSchema).toContain('drizzle/0036_crypto_mining_portal.sql');
+    expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, miningPortalMigration)");
+    expect(runtimeSchema).toContain("await assertMiningCustomerPackagesTable(db)");
+    expect(miningMigration).toContain("CREATE TABLE IF NOT EXISTS mining_customer_packages");
+    expect(runtimeSchema.indexOf("await executeCompatibleMigrationSql(db, miningPortalMigration)"))
+      .toBeLessThan(runtimeSchema.lastIndexOf("await assertWorkerSchemaContracts(db)"));
+    expect(startupWrapper).toContain('runPhase("worker-runtime-schema-repair", ["scripts/ensure-worker-runtime-schema.mjs"])');
+    expect(startupWrapper.indexOf('runPhase("worker-runtime-schema-repair"'))
+      .toBeLessThan(startupWrapper.indexOf('runPhase("worker-runtime-schema-preflight"'));
+  });
+
   it("creates and validates the durable Trading tier queue in the runtime schema bridge", async () => {
     const root = new URL("../", import.meta.url);
     const [runtimeSchema, mainMigrationRunner, migration, opportunityWorkerMigration, healthMigration, deliveryDiagnosticsMigration, mainPopupPolicySnapshotMigration, executionLeaseMigration, packagePolicySchemaMigration, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration, walletFundingPlanMigration, walletAdjustmentIdempotencyMigration, nullablePolicyDurationBoundsMigration, fxSnapshotSourceTimestampMigration, settlementReviewTimestampMigration, dailyAttemptAccountingMigration, automaticFinancialExecutionOffMigration, portalRunner, installerRecovery] = await Promise.all([
@@ -227,7 +245,9 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(last.tag).toBe("0102_opportunity_delivery_retry_lifecycle");
+    expect(last.tag).toBe("0106_package_popup_defaults");
+    expect(journal.entries.at(-2).tag).toBe("0105_default_on_global_information_delivery");
+    expect(journal.entries.at(-3).tag).toBe("0104_catalogue_native_opportunity_generation");
     const firstTradingMigration = journal.entries.findIndex((entry) => entry.tag === "0072_wallet_ledger_reconciliation_indexes");
     const masterIndex = journal.entries.findIndex((entry) => entry.tag === "0100_global_trade_master_controls");
     const feeIndex = journal.entries.findIndex((entry) => entry.tag === "0101_package_fee_policy_versions");

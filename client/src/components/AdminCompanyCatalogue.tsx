@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { getPageCount } from "../trading-catalogue-pagination";
+import { encodeCompanyCatalogueSelection } from "@shared/company-catalogue-selection";
 
 const PAGE_SIZE = 10;
 type AdminCompanyStatus = "verified" | "unverified" | "disabled" | "archived";
@@ -89,7 +90,7 @@ export default function AdminCompanyCatalogue() {
       return;
     }
     setReasonError(null);
-    await updateStatus.mutateAsync({ ids, status, reason });
+    await updateStatus.mutateAsync({ ...encodeCompanyCatalogueSelection(ids), status, reason });
   };
 
   return <div className="arb-page portal-page admin-company-catalogue">

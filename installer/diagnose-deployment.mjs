@@ -92,14 +92,26 @@ report("Application metadata", Boolean(packageJson), packageJson ? "package.json
 const start = String(packageJson?.scripts?.start || "");
 report("Production startup command", start.includes("scripts/start-with-diagnostics.mjs"),
   start.includes("scripts/start-with-diagnostics.mjs")
-    ? "Supported startup wrapper is configured; it runs guarded migrations and worker-schema preflight before the persistent production server."
-    : "Expected start script to use scripts/start-with-diagnostics.mjs so guarded migrations and worker-schema preflight run before the persistent server.");
+    ? "Supported startup wrapper is configured; guarded migrations run before startup and worker-schema contracts are checked read-only before the persistent production server."
+    : "Expected start script to use scripts/start-with-diagnostics.mjs so guarded migrations run before startup and worker-schema contracts are checked read-only before the persistent server.");
 report("Production build", await fileExists("dist/index.js"),
   await fileExists("dist/index.js") ? "dist/index.js exists." : "dist/index.js is missing; run pnpm build.");
+
+function isValidTotpEncryptionKey(value) {
+  if (typeof value !== "string" || !value) return false;
+  if (/^[a-f0-9]{64}$/i.test(value)) return true;
+  if (!/^[A-Za-z0-9+/]{43}=?$/.test(value)) return false;
+  const decoded = Buffer.from(value, "base64");
+  return decoded.length === 32 && decoded.toString("base64").replace(/=+$/, "") === value.replace(/=+$/, "");
+}
 
 for (const name of ["DATABASE_URL", "SESSION_SECRET", "PASSWORD_PEPPER", "PUBLIC_APP_URL"]) {
   report(`Environment: ${name}`, secretPresent(name), secretPresent(name) ? "Configured (value hidden)." : "Missing or empty; configure it in the private .env or host environment.");
 }
+report("Authenticator encryption key", isValidTotpEncryptionKey(process.env.TOTP_ENCRYPTION_KEY || ""),
+  isValidTotpEncryptionKey(process.env.TOTP_ENCRYPTION_KEY || "")
+    ? "A valid 32-byte hex or base64 key is configured; value hidden."
+    : "TOTP_ENCRYPTION_KEY is missing or invalid; restore the original key for existing installations. Value hidden.");
 if (secretPresent("PUBLIC_APP_URL")) {
   try {
     const appUrl = new URL(process.env.PUBLIC_APP_URL);

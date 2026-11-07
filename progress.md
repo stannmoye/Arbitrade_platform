@@ -1,3 +1,60 @@
+## 2026-11-07 — Independent Trade package timing on current main
+
+- **Branch/base:** `feat/trade-settings-admin-blueprint`; integrated `origin/main` at `f4fce09a54081847eda0509c1bfde71b9b23d817` (279 main-only commits at merge time). History was merged normally; no force-push or rebase was used.
+- **Conflict resolution:** Preserved current-main opportunity generation, immutable package assignments, per-subscription quota checks, usage-reset boundaries, delivery lifecycle, and existing integration coverage. Re-applied package-owned delivery and settled-trade schedules on top of that implementation.
+- **Scheduling behavior:** Each eligible package now uses its own saved delivery interval and latest settled-trade completion. Generation excludes cooling packages; an open opportunity assigned to a cooling package does not block generation for a ready package; the delivery selector also skips a cooling candidate locally. The global cooldown gate applies only when every eligible package is cooling. Per-package saved interval values, cooldown state, and readiness are returned in delivery diagnostics.
+- **Regression coverage:** Extended the disposable database popup-delivery scenario with three active package entitlements. It retains a cooling Package A offer and verifies generation to ready Package B, then makes A and B cooling and verifies generation to ready Package C. It separately checks each package's min/max and post-completion timing, verifies changing A leaves B/C unchanged, and cleans up generated offers, assignments, and synthetic settled trades.
+- **Local validation:** `pnpm check` passed; focused Trade tests passed (7 files, 86 tests); full `pnpm test` passed (157 files, 1,254 passed, 27 skipped); `pnpm build` passed. Focused modified-file whitespace checks passed.
+- **Not run locally:** The disposable MySQL-backed integration script cannot run in this sandbox because no `DATABASE_URL` or `MYSQL_URL` is configured. Its database scenario is intended for the repository's MySQL integration workflow; no hosted browser acceptance or deployment is claimed.
+
+---
+
+## 2026-11-07 — Trade opportunity duration snapshot validation
+
+- Working branch: `fix/opportunity-duration-snapshot-validation`, based on GitHub-verified `main` commit `73a0a8f6129c242219a9c9713cd33fb6fcdac726`.
+- Root cause: generated assignment snapshots already persisted original minimum/maximum duration bounds, but allocation compared a pending opportunity's selected duration to the package's mutable current bounds. Original `rewardAt`/`closesAt` consistency was not checked against the saved generation timestamp and duration.
+- Implementation: use the per-opportunity saved package snapshot at delivery, customer reads and allocation; reject missing/corrupted duration or timestamp data; persist timing at database whole-second precision; use the same stored `closesAt` for customer countdowns without a duration fallback. New opportunities continue to select from the latest saved package policy.
+- Added regression coverage for bounds, admin edits during a pending opportunity, saved-snapshot allocation validation, independently corrupted timestamps, refreshed countdowns and updated settings for new opportunities. Updated the canonical specification and admin manual.
+- Local validation: `pnpm test` passed (157 files, 1,250 tests passed; 5 integration files/27 tests skipped), `pnpm exec vitest run --config vitest.installer.config.ts` passed (31 files, 177 tests), `pnpm check`, `pnpm build`, `git diff --check`, YAML workflow parsing and browser-runner syntax check passed. Fixed one pre-existing installer safety test's source range so it no longer includes the adjacent popup-balance helper.
+- GitHub verification for PR #317 completed successfully: all 25 checks passed, including the production source verification, database-backed integration jobs, and customer-portal real-browser acceptance against the built static client.
+- Not run locally: live MySQL integration or authenticated/live-host browser acceptance. The local full-suite skips were the appearance-settings, manual-payout MySQL, mining MySQL, global-controls API, and global-policy migration integration files (27 cases). Separate database-backed PR integration workflows passed.
+
+---
+
+## 2026-11-07 — Expired opportunities release visible capacity
+
+- Working branch: `fix/expired-visible-capacity`, based on verified current `main` commit `ac0eacc598e0543623368be946415e54cefd320a`.
+- Root cause: `listCustomerOpportunities` counted retained popup statuses without considering the joined offer's open state, start/expiry timestamps, or persisted popup expiry marker. Retention closed expired offers but left already rendered popup rows in active-looking delivery/event states.
+- Fix: centralize visible-slot eligibility in an expiry-aware helper and have lifecycle retention stamp `expiredAt` on visible popup history when a generated offer expires. Delivery acknowledgement/history and daily delivery quota accounting remain unchanged; no schema migration, customer wallet, ledger, execution, settlement, or other accepted workstream behavior is changed.
+- Reproduced before editing: three retained active-looking popup rows for closed/expired offers yielded `activeVisibleCount=3`, `visibleRemaining=0`, and `remainingQuota=0` with daily quota remaining. Regression coverage proves those three rows now free all visible slots while three valid open offers still fill the cap.
+- Validation on the isolated fix worktree: locked dependency install, TypeScript check, focused expiry/capacity and lifecycle tests (43 passed), full test suite (1,233 passed, 27 skipped), and production build passed. Deployed to the temporary sandbox using the existing protected sandbox environment; `/api/health`, admin portal and customer portal each returned HTTP 200. Published on draft PR #315; exact-head GitHub Actions are pending. PR remains unmerged.
+
+---
+
+## 2026-11-07 — Release stale customer popup ownership after server-confirmed expiry
+
+- Working branch: `fix/customer-popup-slot-expiry-reconciliation`, based on latest verified `main` commit `ed090057b566b4ee09fdcb3683081226409d8a10`.
+- Root cause: the customer alert effect released its active reference only when the offer disappeared or `offerStatus` stopped being `open`. The server can report `expiryStatus=expired` and `popupEligible=false` while the persisted offer remains `open` until retention runs, leaving `popupRef` and the browser tab lock held and blocking the next eligible opportunity.
+- Fix: retain the alert only while the latest server feed reports it open and active and its event/delivery state is nonterminal. A local countdown alone cannot release it. On server-confirmed expiry, release the local presentation slot/lock without submitting a dismissal, then immediately retry the next eligible offer.
+- Regression coverage: standard-discovered behavioral and source-contract tests plus a mocked Chromium Stage 2 customer journey prove a second offer waits behind a valid active popup, then replaces an expired-but-still-open offer after server confirmation. Slot release does not submit a customer dismissal. No database schema, wallet, ledger, execution, or settlement behavior changed.
+- Validation: frozen-lockfile install, `pnpm check`, full Vitest suite (1,237 passed, 27 skipped), `pnpm build`, browser-runner syntax check, and `git diff --check` passed. The Stage 2 Chromium browser acceptance passed all 1,052 checks with zero failures.
+- PR review: no open PR targets this stale-slot expiry condition. Draft PR #280 concerns delivery retry/skip diagnostics; draft PR #238 is a separate company-rotation/presentation workstream based on an older branch.
+- Next: stage and commit the focused changes, push a PR, wait for exact-head GitHub checks, and merge only when they pass; deploy the merged `main` commit to the temporary sandbox and verify health plus both portals.
+
+---
+
+## 2026-11-06 — Customer opportunity popup redesign, Stage 1
+
+- Working branch: `feat/customer-opportunity-popup-redesign-stage1`, based on the known-good merged `main` baseline `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+- Stage 1 scope: premium visual hierarchy, verified company identity already supplied by the server, clear available/missed status, restrained entrance/shimmer/dock motion, and a live expiry countdown.
+- The customer opportunities API now returns its server timestamp and a server-derived expiry status. The countdown is anchored to the persisted offer `closesAt`, corrected using the server clock sample, and interpolated locally once per second. At zero it distinguishes server-confirmed expiry from a pending status confirmation.
+- This is an informational opportunity card, not a started trade; it therefore displays an **opportunity expiry** countdown only. A trade-close countdown requires an actual persisted trade with authoritative start/close timestamps.
+- Preserved the known-good rollback commit and all delivery, eligibility, wallet, ledger, settlement, and automatic-financial-execution safeguards. No schema migration or financial operation is part of this UI increment.
+- Added customer popup contract coverage and mocked browser acceptance for the server-synchronised expiry display. Reduced-motion styling is included.
+- Final Stage 1 branch head: `324aa7531ba91af8a4a70b7c35aedcfd7e287fd7`; PR #298 is open as a draft. Exact-head GitHub Actions were queued when this handoff was recorded. Source changes are not deployed or authenticated-host verified by this entry.
+
+---
+
 ## 2026-11-02 — Customer informational pop-up persistence and clarity
 ## 2026-11-03 — MySQL/MariaDB-safe global controls migration
 
@@ -1285,5 +1342,275 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - **Validation:** `pnpm install --frozen-lockfile` passed. `pnpm test -- server/trading-admin-delivery-policy.contract.test.ts` ran the full repository suite: 146 files passed, 5 skipped; 1,135 tests passed, 27 skipped. `pnpm check`, `pnpm build`, and `git diff --check` passed. No local disposable database was configured. GitHub Actions on exact code commit `5307193bd70cfd481b6c9496ee4bc95024df7852` completed with 25 successful checks, 0 failures, 0 skipped, 0 pending.
 - **Not changed:** No retry semantics, default intervals, fees, previous-settlement gate, menu ownership, database schema/data, production settings, or financial behavior.
 
-### 2026-11-07 — Per-package scheduling reconciliation
-Fixed customer opportunity scheduling so each subscribed package uses its own delivery interval, randomized timing seed, and post-completion delay. Package A/B/C schedules no longer share the first package's timing gate. Persisted delivery and settled-trade history are grouped by package, package-specific cooling is applied during offer selection, and the response exposes package schedule status for reconciliation with the administrator controls. Validation passed: `pnpm check`, `pnpm test` (144 files / 1,123 tests; 5 database-dependent files skipped), `pnpm build:static`, and `git diff --check`.
+
+### 2026-11-03 — Blueprint route ownership reconciliation and Finance shortcut
+- **Branch / base:** `docs/trade-settings-ownership-reconciliation`, based on `main` at `66a25a6fb507ddf3179007bb276d0b6bff214f09` (the merged PR #275 head). No follow-up commit has been created or pushed yet.
+- **User-approved direction:** Preserve canonical ownership boundaries. Added a repository-side route reconciliation matrix for the attached, untracked PDF; the source PDF itself was not modified.
+- **Change:** The mounted Trade Settings Guide now links to the existing Finance → Wallet & Ledger / Database Entries destination as a navigation-only cross-reference. Clarified that Fees & Earnings Limits is read-only and that the sole package-specific fee editor remains under Tiers & Eligibility. Added Manual Payouts to the canonical manual's submenu list, corrected the admin menu guide's unavailable-funding wording, and documented history/settlement/ledger, payout, fee and funding ownership boundaries. No financial, settlement, ledger, funding, payout, retry, fee-calculation, migration or database behavior changed.
+- **Validation:** Focused Guide contract passed (11/11). Full `pnpm test` passed (146 files passed, 5 skipped; 1,136 tests passed, 27 skipped). `pnpm check`, `pnpm build`, and `git diff --check` passed. Hosted CI has not run for this follow-up branch; no browser/staging/production acceptance is claimed.
+- **Next at that checkpoint:** Finish parallel read-only review, then commit/push the focused branch and open a PR. Merge to `main` only after exact-head GitHub checks pass. At that time the previous-settlement prerequisite remained locked ON; the later user decision and implementation are recorded in the newer progress entry below. Funding queue remains unavailable; deployment/release remains separate.
+
+
+### 2026-11-03 — Global previous-settlement ON/OFF control
+- **Branch/base:** `feat/previous-settlement-admin-toggle`, based on GitHub `main` at `f82b6bcedc035f6d249bd2495c8066ca90b06429`.
+- **User decision:** The global **Require previous settlement** setting is ON by default and can be changed ON or OFF in Package Configuration. OFF bypasses only this prerequisite for future allocation checks; missing/malformed global policy treats it as ON. The independent block-until-settled opportunity-delivery pause remains separate. Automatic financial execution/allocation remains hard-disabled.
+- **Implementation:** Added the setting to the audited global switch UI and ownership registry; existing mutation persists it with required reason, optimistic policy version, transactional audit event and fresh read-back. The global policy parser accepts a valid saved false; `createTrade` now consumes the canonical global value instead of combining it with the independent delivery-pause setting. Removed stale per-tier fixed-ON presentations and updated canonical requirements, admin manual, guide and blueprint decision records. No schema migration was added.
+- **Validation:** `pnpm install --frozen-lockfile` passed; full `pnpm test` — 146 files passed, 5 skipped; 1,137 tests passed, 27 skipped; `pnpm check`, `pnpm build`, and `git diff --check` passed. Database-dependent integration tests were skipped; no authenticated browser/staging acceptance is claimed.
+- **Independent review:** No blocking implementation issue found. Review confirmed the canonical audited setting, ON/OFF runtime policy, fail-closed behavior, independent delivery pause and unchanged hard-disabled financial guard. It also prompted a clarification in `docs/trading/IMPLEMENTATION_COORDINATION.md` so the historical per-tier description is marked superseded.
+- **Safety/status:** No application database, migration, wallet/ledger/trade/settlement/payout mutation, production setting, merge or deployment was performed. Automatic financial execution remains hard-disabled. No tracked companion specification PDF exists in the repository; Markdown requirements were updated, and no absent PDF is claimed as changed.
+- **Delivery:** Source commit `fa01575485545e2d853bcf875e858dcc5143ada4` was pushed to `feat/previous-settlement-admin-toggle`; GitHub returned no Actions run for that exact SHA. No PR was opened, and `main` remains unchanged.
+- **Next:** Open a PR for review when desired. Merge/release remains separate and requires exact-head CI; no deployment was performed.
+
+
+---
+
+## 2026-11-05 — Automatic opportunity generation skip diagnostics and stale-offer guard
+
+- Working branch: `fix/automatic-opportunity-generation-diagnostics-2026-11-05`, based on latest observed main commit `1cb0adb65d81e3faa4289a57c39c0a0aa1f9d4e5`.
+- Added explicit worker-cycle generation diagnostics. Every scanned eligible customer now reports a reason code when generation is skipped, including disabled/malformed generation control, unavailable global controls, disabled tier-policy or popup-delivery masters, delivery cooldown, exhausted quota/visible capacity, and an already-open generated assignment.
+- Added generator-level skip reasons for missing/invalid package policy, exhausted customer/package quota, zero pending allowance, full pending capacity, an empty currently approved country-filtered catalogue pool, and missing enabled package currency. The worker aggregates skip reasons and reports generation controls, popup-delivery state, offers seen, and popup rows persisted in the `[AutoTrade] cycle` log.
+- Corrected a stale-offer guard: an open offer now suppresses a new generation only when it has a matching persisted generated/delivered assignment. An orphaned or legacy open offer without that assignment no longer blocks the automatic generator; the generator's reusable-offer query applies the same assignment requirement.
+- Renamed the market-data cleanup result in worker logs from the ambiguous `opportunities` label to `marketReferenceOffers`. `ensureMarketDrivenOpportunities()` remains intentionally separate and still does not create customer offers from market snapshots.
+- Added contract coverage for the skip reasons, assignment-aware stale-offer guard, and runtime log distinction. Automatic financial execution remains hard-disabled.
+- **Validation status:** changes are committed to this branch; exact-head GitHub Actions and type/build/test verification are pending. No live database access, production-setting changes, migrations, deployment, customer wallet/ledger mutation, trade execution, or settlement was performed. Existing package/company/customer data was not touched.
+- **Important acceptance boundary:** this change makes the next Blitz worker cycle explain why an eligible customer is skipped and removes the orphan-offer blocker. It does not claim a production popup has been generated or verified; production configuration and eligible-customer data must be checked using the new reason-coded cycle diagnostics after deployment.
+
+
+## 2026-11-05 — Popup persistence missing-delivery-ID guard correction
+
+- Corrected the persistence guard in `server/db.ts`: missing lifecycle/delivery IDs are now computed from the complete `newlyEligible` set and cause an error before any delivery-event rows are marked delivered or any offers are reported as delivered. Removed the premature filter that made the missing-ID check vacuous.
+- Added a contract regression test asserting that the missing-ID check occurs before delivery-event persistence and delivered-assignment processing, and that no pre-check filtering remains.
+- Validation for this correction is pending on the updated exact PR head. PR remains draft; no merge, deployment, production setting change, or production data mutation performed.
+
+
+## 2026-11-05 — PR #291 exact-head validation completed
+
+- Exact reviewed head: `ac27e769471f3f9d6f7dddf142bd3e1ccaf09df1`.
+- GitHub Actions: all 10 workflows completed successfully. The hosted matrix includes TypeScript, automated tests, production build, customer-portal browser recovery, installer/migration validation, and MySQL 8.4 / MariaDB 11.4 trading integration checks for wallet idempotency, company rotation, tier qualification, settlement reconciliation, and opportunity-worker concurrency/recovery.
+- No failed, cancelled, skipped, or still-running jobs were reported in the exact-head workflow review.
+- This validates the source commit and hosted checks only. Authenticated Blitz customer-popup delivery has not been verified; deploy and inspect this exact commit in an isolated/staging environment before making any production claim.
+- No merge, deployment, production database/configuration change, customer-data change, wallet/ledger mutation, trade execution, or settlement was performed. Automatic financial execution remains hard-disabled.
+
+
+## Customer opportunity popup redesign — Stage 2 (2026-11-06)
+
+- Started a separate stacked draft branch from Stage 1 head `61e73b79c6feb2a142d54dc7d332cc1b679be267`; Stage 1 PR #298 and `main` remain untouched.
+- Added a visible customer popup connection indicator with connected, refreshing, and interrupted states, driven by the existing customer opportunity query's polling/error state. The last successfully loaded notice remains visible if a refresh fails; no false claim of fresh server confirmation is made.
+- Added a keyboard-operable expandable details panel showing only informational metadata: company, assigned package, opportunity reference, opening time, scheduled expiry, and server status.
+- Added responsive styling, visible keyboard focus, and reduced-motion handling.
+- Added contract coverage for the connection states, accessible details toggle, read-only fields, and informational-only boundary.
+- No new API, schema, migration, worker, trade, wallet, balance, ledger, or settlement behavior. No financial execution or allocation is introduced.
+- Validation is pending exact-head GitHub Actions and browser acceptance. Hosted authenticated customer verification remains outstanding.
+
+
+## Customer opportunity popup redesign — Stage 2 validation hardening (2026-11-06)
+
+- Extended the mocked customer browser acceptance flow to assert the live connection indicator and expanded opportunity details, including company, assigned package, opportunity reference, scheduled expiry and server status. It also verifies that the expanded metadata panel contains no interactive controls.
+- Enabled the existing production/typecheck/test/browser workflow, application verification workflow, and Trading worker integration workflow on pushes to `feat/customer-opportunity-popup-*`. This makes the stacked Stage 2 branch independently trigger the same automated checks without changing its base branch or merging Stage 1.
+- Stage 2 remains informational-only. No trade execution, allocation, wallet, ledger, settlement, API, database schema, migration, or worker behavior was added or changed by the popup UI.
+- Validation is pending on the exact resulting branch head. Do not treat the source or mocked browser checks as hosted authenticated customer verification.
+- Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`; neither PR #298 nor PR #299 has been merged.
+
+
+## Customer opportunity popup redesign — Stage 3A: read-only opportunity history (2026-11-06)
+
+- Working branch: `feat/customer-opportunity-popup-stage3-history`, stacked on Stage 2 PR #299 head `21fde58ca9b8935b08ebcaa1453596db7ca0edf7`. Stage 1 PR #298, Stage 2 PR #299, and `main` remain unchanged.
+- Added a customer-facing Opportunity History panel to the Trading Opportunities workspace. It combines only records already returned by the authenticated customer opportunity feed and persisted trade-history query: currently open opportunities, recorded missed events, allocated trades, and server-confirmed settled trades.
+- Added accessible category filters, per-category counts, company/reference/status search, newest-first ordering, timestamp display, empty states, and responsive styling.
+- State labels are deliberately conservative: no viewed, dismissed, expired, or settled state is invented. A trade is labelled settled only when the persisted trade status says `settled`; other persisted trades remain allocated/awaiting settlement. Closed offers are excluded from the available category.
+- Added unit coverage for category mapping, ordering, absent/malformed timestamps, absent API collections, and the prohibition on inferred lifecycle states.
+- **Safety:** this is a read-only presentation of existing server data. No new API, database table, migration, worker, delivery lifecycle, wallet, balance, ledger, trade execution, allocation, or settlement behavior was added. Financial execution remains hard-disabled.
+- **Validation:** exact-head CI and browser acceptance are pending. No hosted authenticated customer verification is claimed. No merge or deployment performed.
+- Known-good rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+## Customer opportunity popup redesign — Stage 3B: persisted delivery history (2026-11-06)
+
+- Working branch: `feat/customer-opportunity-popup-stage3b-delivery-history`, based on Stage 3A PR #300 head `cdf2e6f83688bf9a4c9b215d6880fb14d40b47f1`. This is a separate stacked draft; Stage 1, Stage 2, Stage 3A, and `main` remain unchanged.
+- Extended the existing read-only history mapper to include delivery events only when the authenticated customer feed already returns the explicit persisted `deliveryStatus=dismissed` or `deliveryStatus=expired` value.
+- Added separate Dismissed and Expired filters, counts, search terms, conservative labels, and status styling. Closed offers without an explicit terminal delivery status remain excluded; failed delivery remains retryable/available and is not mislabelled as dismissed or expired.
+- Timestamps are shown only when the existing response supplies a matching timestamp field. Expiry may use the persisted offer close boundary; dismissal shows the timestamp as unavailable unless a dedicated dismissal timestamp is present.
+- Added unit tests proving explicit-state mapping and preventing inference from closed offers or unrelated delivery statuses.
+- **Safety and scope:** client presentation and tests only. No server query, API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. No financial actions are initiated. The customer panel remains read-only.
+- **Validation:** exact-head typecheck, unit tests, build, browser acceptance, and database workflow checks are pending. No hosted customer verification, merge, or deployment is claimed.
+- Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+## Customer opportunity popup redesign — Stage 3C: grouped, paginated read-only history (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage3c-history-ux`, stacked on Stage 3B PR #301 branch `feat/customer-opportunity-popup-stage3b-delivery-history` at `3277b852934de985ec2d0115967889d61363924e`. Stage 1–3B PRs and `main` are unchanged.
+- **History navigation:** Added client-side pagination (8 records per page), result-range feedback, accessible Previous/Next controls, and automatic page clamping when a filter/search result shrinks.
+- **Event grouping:** Current page records are grouped by local calendar date, with explicit event counts and a separate “Date unavailable” group. Existing newest-first ordering is preserved within the page.
+- **Mobile presentation:** Tightened event-card spacing and status wrapping; date-group headings and pagination controls adapt to narrow screens. Keyboard focus and disabled pagination states remain visible.
+- **Regression coverage:** Added tests for date grouping, missing timestamps, page boundaries, no duplicate records across pages, stale-page clamping, and empty results.
+- **Safety/scope:** Read-only client presentation and tests only. Uses the existing customer feed and persisted trade query; no API, server query, schema, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. No lifecycle state is inferred. Automatic financial execution remains hard-disabled.
+- **Validation:** Exact-head GitHub Actions and browser acceptance are pending. No authenticated hosted-customer verification, merge, or deployment is claimed.
+- Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+## PR #302 browser acceptance timing correction (2026-11-06)
+
+- Updated the mocked customer delivery policy to use the same eight-second popup display duration as the mocked offer. The fixture previously specified conflicting values (offer: 8 seconds; delivery policy: 1 second), which obscured the intended test timing.
+- Extended the dock-visibility wait to 12 seconds so it covers the configured eight-second auto-collapse window plus browser render margin. The earlier five-second wait could expire while the popup was correctly still expanded.
+- This changes browser acceptance fixture timing only; production popup behavior and financial safeguards are unchanged.
+- Exact-head CI is pending for commit `175d2f1fbcb0723516f29762869d68f87ab5fe8e`. No merge or deployment performed.
+
+
+## Customer opportunity popup redesign — Stage 3D: history overview and record details (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage3d-history-details`, stacked on Stage 3C PR #302 head `5f79f18b146fd1bef43722ed56d14eeb93bde33e`. PR #298–#302 and `main` remain untouched.
+- Added a six-category overview showing counts for available, missed, allocated, settled, dismissed and expired records. Counts are derived exclusively from the existing read-only history mapper.
+- Added keyboard-accessible expandable record details showing the mapped reference, recorded category/status and supplied timestamp. Missing timestamps remain explicitly unavailable; no lifecycle status is inferred.
+- Added responsive summary/detail styling and unit coverage for category totals and reference mapping.
+- **Safety/scope:** customer-side read-only presentation, tests and documentation only. No server/API/query/database/worker changes and no wallet, balance, ledger, allocation, trade execution or settlement actions. Automatic financial execution remains hard-disabled.
+- **Validation:** exact-head GitHub Actions pending. No authenticated hosted-customer verification, merge or deployment is claimed.
+
+## Customer opportunity popup redesign — Stage 3E: final history regression and accessibility hardening (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage3e-history-a11y`, stacked on Stage 3D PR #303 head `51d2539f6408ab0eb3f378479835b6f4e88c34e7`. PR #298–#303 and `main` remain untouched.
+- **Lifecycle correctness:** Removed the implicit default that treated offers with a missing status as open. Only explicit `open` offer status appears in Available. Trade rows are included only for explicit `confirmed` or `settled` statuses; pending and cancelled records are not mislabeled as allocated. Missing missed-event reasons now display “reason not supplied” rather than assuming an insufficient-balance cause.
+- **Pagination robustness:** Invalid/NaN page indexes now safely resolve to the first page. Added regression coverage.
+- **Accessibility:** Connected the history search input to its live results region and made live announcements include removals as filters change. Increased the record-details disclosure touch target to 44px and improved detail text legibility while retaining native keyboard-operable `details/summary` behavior and visible focus styling.
+- **Regression tests:** Added coverage for missing offer status, pending/cancelled trade exclusion, unknown missed-event reason, and invalid pagination input.
+- **Safety/scope:** Read-only customer presentation, styling, tests and documentation only. No server/API/query/database/worker, wallet, balance, ledger, allocation, trade execution or settlement behavior changed. Automatic financial execution remains hard-disabled.
+- **Validation:** Exact-head GitHub Actions, type-check, tests, build, browser acceptance and database integration checks are pending for this Stage 3E branch. No authenticated hosted-customer verification, merge or deployment is claimed.
+- Known-good `main` rollback baseline remains `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+## Customer opportunity popup redesign — Stage 4: popup-to-history integration (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage4-history-sync`, stacked directly on Stage 3E PR #304 head `45196db54aff6801bf2113108af127f3f75b5588`. PR #298–#304 and `main` remain untouched.
+- **Integration correction:** Customer popup dismissal now waits for the server lifecycle mutation to succeed, then immediately refetches the same authenticated customer opportunity feed consumed by the read-only history panel. A successful server confirmation produces a customer-visible status message after refresh.
+- **Failure handling:** If the lifecycle mutation fails, the alert still closes locally, but the customer is explicitly told that server dismissal was not confirmed and that the event may not yet appear in history. Alerts without a persisted delivery-event reference are identified as local-only rather than being presented as durably recorded.
+- **Scope:** Client-side popup/history coordination and status messaging only. No server query/API, database, migration, worker, delivery lifecycle semantics, wallet, balance, ledger, allocation, trade execution or settlement behavior changed. The history mapper continues to include dismissed events only when the server returns the explicit persisted dismissed status. Financial execution remains hard-disabled.
+- **Validation:** Exact-head type-check, tests, build, browser acceptance and database integration checks are pending. No authenticated hosted-customer verification, merge or deployment is claimed.
+- **Next:** Add regression coverage for the popup dismissal → server confirmation → feed refresh → history visibility path, then review exact-head CI.
+
+- **Regression coverage added:** Extended the mobile customer browser acceptance scenario with a stateful server-feed fixture. It now verifies the dismissal lifecycle request, successful confirmation message, immediate customer opportunity-feed refresh, and appearance of the explicitly persisted dismissed record in the history filter. The fixture does not create any financial records or invoke financial actions.
+
+
+## Customer opportunity popup redesign — Stage 5: dismissal confirmation regression hardening (2026-11-06)
+
+- **Branch:** `feat/customer-opportunity-popup-stage4-history-sync`, continuing the Stage 4 stack on PR #304. This is a focused hardening update to PR #305; no new PR or merge was created.
+- **Issue found in review:** a successful lifecycle mutation followed by a completed query refetch was treated as full confirmation without checking whether the returned feed actually contained the dismissed record. Query refetches can complete with stale data or an error result.
+- **Correction:** the customer popup now requires a non-error refresh result and an exact matching offer ID with explicit persisted `deliveryStatus=dismissed` before displaying the success message. A failed refresh or stale/missing record now produces a warning instead of a false success.
+- **Regression coverage:** added pure helper tests for matching persisted dismissal, mismatched IDs, delivered/non-terminal status, missing status, empty feeds and absent feed data.
+- **Safety/scope:** customer-side read-only confirmation, unit tests and progress documentation only. No server/API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, financial execution or settlement behavior changed. Automatic financial execution remains hard-disabled.
+- **Validation:** exact-head GitHub Actions are pending for the updated commit. No authenticated hosted-customer verification, merge or deployment is claimed.
+
+
+## Customer opportunity popup redesign — Stage 6: dismissal/history integration regression (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage6-integration-regression`, based on Stage 4/5 PR #305 head `e98d84ef24ba98213273ebd4b6f6a536b6b5ddfd`. PR #305 and `main` remain unchanged.
+- **Integration regression:** Extended the customer browser acceptance flow to exercise both outcomes of popup dismissal. The successful path still verifies explicit persisted dismissal appears in the read-only Dismissed history filter.
+- **Stale-feed protection:** Added a second browser pass where the lifecycle mutation reports success but the refreshed opportunity feed deliberately remains non-dismissed. The customer must receive the existing “not confirmed” warning, and the Dismissed history filter must not fabricate an entry.
+- **Scope/safeguards:** Browser fixture and progress documentation only. No server/API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. No financial action is initiated; automatic financial execution remains hard-disabled.
+- **Validation:** Exact-head browser acceptance, type-check, tests, build, application verification and MySQL 8.4 / MariaDB 11.4 integration checks are pending. The browser scenario uses a mocked customer session/feed and does not constitute authenticated hosted-customer verification. No merge or deployment performed.
+
+
+## Customer opportunity popup redesign — Stage 7: dismissal transport-failure regression (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage7-dismissal-failure-regression`, based on Stage 6 PR #306 head `2ba45e1c3a2bf80978b55265d44c7a4fde476e19`.
+- **Failure-path coverage:** Extended the mocked customer browser acceptance to abort the dismissal lifecycle request at the transport layer. The alert may close locally, but the customer must receive the existing unconfirmed warning and the Dismissed history filter must not show a fabricated record.
+- **Combined coverage:** The browser flow now exercises confirmed persistence, a successful mutation with a stale/non-dismissed refreshed feed, and a failed dismissal request.
+- **Scope/safeguards:** Browser fixture and progress documentation only. No server/API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. No financial action is initiated; automatic financial execution remains hard-disabled.
+- **Validation:** Exact-head type-check, automated tests, production build, browser acceptance, application verification, and MySQL 8.4 / MariaDB 11.4 integration checks are pending. Browser acceptance uses mocked customer data and is not authenticated hosted-customer verification. No merge or deployment performed.
+
+
+### Stage 7 validation correction — dismissal failure fixture scope (2026-11-06)
+
+- Exact-head browser acceptance initially failed because the transport-abort guard referenced `failDismissalMutation` from the unrelated admin browser route, outside the customer popup test's scope.
+- Moved the guard into `runCustomerOpportunityPopupInteractionCheck` beside the customer fixture state and request handler. The admin route no longer references the customer-only flag.
+- Correction commit: `02f333d458d74851460c2c1c9509d018e1f127d1`.
+- Fresh exact-head CI is required; previous browser failure is not considered resolved until the new head's browser acceptance passes.
+
+
+## Customer opportunity popup redesign — Stage 8: combined lifecycle and mobile regression review (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage8-combined-regression`, based on Stage 7 PR #307 head `9d7c0e56cf650618e3864ccb268db0d7d55d294f`. PR #298–#307 and `main` remain unchanged.
+- **Combined lifecycle fixture:** Extended the customer browser acceptance fixture to return an explicitly open opportunity, a persisted expired delivery, a recorded missed event, confirmed and settled trade-history rows, and the dismissal produced by the successful popup flow.
+- **Six-category regression:** After successful popup dismissal and feed refresh, the browser test checks that Available, Missed, Allocated, Settled, Dismissed and Expired each show exactly one record; verifies six distinct visible history records; and checks company labels across the combined timeline.
+- **Search and mobile layout:** Added a browser assertion that searching the combined timeline narrows visible results without changing the server-derived category totals, plus a narrow-viewport history-panel overflow check.
+- **Countdown regression:** Added a real-time browser assertion that the server-synchronised opportunity expiry countdown changes between consecutive ticks. Existing auto-collapse, dock, maximize, minimize, details, and dismissal outcome scenarios remain in the same acceptance flow.
+- **Scope/safeguards:** Browser fixture and progress documentation only. No server/API, database, migration, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution or settlement behavior changed. All history records remain read-only and require explicit source statuses. Automatic financial execution remains hard-disabled.
+- **Validation:** Exact-head type-check, automated tests, production build, browser acceptance, application verification, and MySQL 8.4 / MariaDB 11.4 integration checks are pending. The browser uses mocked customer data and does not constitute authenticated hosted-customer verification. No merge or deployment performed.
+- **Known-good rollback baseline:** `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+### Stage 8 review hardening — verify category totals after search (2026-11-06)
+
+- Review found the initial search assertion compared the pre-search category counts to themselves, so it did not prove the rendered overview stayed unchanged after filtering.
+- Updated the browser acceptance to re-read all six rendered category totals after the search is applied and compare them to the pre-search values. The result-range assertion now checks the exact rendered range text for the single filtered record.
+- This is browser-test-only hardening; production behavior and financial boundaries are unchanged. Fresh exact-head CI is required.
+
+
+### Stage 8 browser fixture correction — complete currency fields (2026-11-06)
+
+- The combined lifecycle browser fixture exposed a customer workspace render error when navigating from popup dismissal to history. The added available, missed, allocated, and settled fixture rows omitted the currency field consumed by the existing customer opportunity and trade-history presentation formatters.
+- Completed the fixture with explicit USD currency and representative amount fields for all rows. This corrects test data to satisfy the existing customer API contract; it does not alter application runtime behavior, persisted data, or financial logic.
+- The fixture remains mocked and read-only. Exact-head browser, build, application, MySQL 8.4, and MariaDB 11.4 checks must pass before Stage 8 is considered validated.
+
+
+### Stage 8 customer workspace crash fix — currency input hardening (2026-11-06)
+
+- Root cause: the combined browser fixture included an expired opportunity without a currency code. The customer Trading Opportunities view formatted every offer and called uppercase conversion on the missing currency, causing the customer portal render boundary to replace the workspace after popup dismissal/navigation.
+- Hardened customer opportunity amount formatting: currency codes are normalized and validated before lookup/formatting; missing codes now render a neutral “Currency unavailable” label and do not crash the customer workspace. Balance lookup safely returns zero when no valid currency code is present.
+- Corrected the expired fixture to include USD and added a separate deliberately malformed open-offer fixture to prove missing currency data is handled without a render crash.
+- Scope: customer presentation formatting and mocked browser fixture only. No server/API, database, worker, delivery lifecycle, wallet, balance, ledger, allocation, trade execution or settlement behavior changed. Financial execution remains hard-disabled.
+- Stage 8 remains pending until exact-head browser acceptance and all other required workflows complete successfully.
+
+- Follow-up regression refinement: the deliberately malformed-currency offer fixture is marked pending, so it exercises defensive customer-page formatting without being counted as an available lifecycle-history record. The browser test caught and corrected this fixture/category mismatch.
+
+
+## Notification sound library and playback engine — Stage 9 (2026-11-06)
+
+- **Branch/base:** `feat/customer-opportunity-popup-stage9-sound-playback`, stacked on Stage 8 PR #308 head `14f9e05cd0c4afc44f9e54cc0a06faffe4040f27`. PR #308 and `main` remain untouched.
+- **Playback reliability:** Centralized customer notification playback now stops the previous cue before a new event sound starts, clears the active-audio reference when playback ends, and prevents repeated opportunity-alert cues from overlapping or cutting off a cue that is still playing.
+- **Failure handling:** Audio element errors, synchronous playback errors, and rejected autoplay promises share a one-time blocked-playback notification path. Opportunity looping stops on playback failure; the visible notification remains available.
+- **Policy preservation:** Customer sound opt-in, administrator enablement, administrator-selected sound mapping, configured volume, and existing event-ID deduplication remain in force. No notification sound is used as evidence of a financial operation.
+- **Regression coverage:** Added checks for all five configured public WAV assets, single-active-cue behaviour, non-overlapping repeated cues, blocked-playback handling, and customer/admin sound gates. Existing category mapping and reconnect-deduplication tests remain unchanged.
+- **Scope/safeguards:** Customer notification audio only. No popup delivery, server/API, database, migration, worker, wallet, balance, ledger, allocation, trade execution, or settlement behavior changed. Automatic financial execution remains hard-disabled.
+- **Validation:** A review caught and corrected an over-escaped asset-path matcher in the new regression test before validation. Fresh exact-head type-check, automated tests, production build, browser acceptance and integration workflows remain pending. No hosted sound/autoplay verification, merge or deployment is claimed.
+- **Known-good rollback baseline:** `592aba30d69b6eb1ada188fadaa882d48540bb9a`.
+
+
+- **CI branch-routing correction:** Stage 9 is on the repository's established `feat/customer-opportunity-popup-*` branch namespace so the existing push-triggered validation workflows include this stacked stage. The earlier temporary branch `feat/customer-opportunity-popup-stage9-sound-playback` is superseded; no code changes were lost.
+
+
+### Stage 9 CI correction — update playback contract assertions (2026-11-06)
+
+- The first exact-head run passed TypeScript but failed two existing source-contract assertions that still expected the pre-refactor audio promise handler and timer guard. The new Stage 9 reliability tests passed; the failures were stale expectations, not a runtime or type error.
+- Updated those assertions to verify the new one-time blocked-playback handler, audio error event, and browser-safe opportunity-loop cleanup. A fresh exact-head CI run is required.
+
+
+## Stage 9 notification audio runtime verification follow-up (2026-11-06)
+
+- Added an injectable notification-audio controller so playback lifecycle behavior can be exercised directly without depending on source-text assertions or a live browser.
+- Added runtime tests for replacing active cues, ended-event cleanup, non-overlapping repeated cues, rejected autoplay promises, media-element errors, synchronous audio-construction failures, and explicit stop/loop cleanup.
+- Preserved notification category and preset identifiers in blocked-playback events so the existing customer recovery notice remains informative.
+- Corrected synchronous audio-construction failure handling so an opportunity loop is not started after playback has already failed.
+- Scope remains customer notification audio only. No trading execution, allocation, wallet, ledger, settlement, or financial state behavior changed. No merge or deployment performed.
+- Validation is pending fresh exact-head GitHub Actions after this commit series.
+
+
+### Stage 9 runtime verification — source-contract alignment (2026-11-06)
+
+- Updated the legacy notification playback contract tests to inspect the extracted `notification-audio-controller.ts` implementation and the `App.tsx` integration boundary instead of expecting playback internals to remain inline in `App.tsx`.
+- Retained checks for customer opt-in, administrator sound policy, event context, WAV assets, single-active-cue behavior, loop cleanup, and blocked-playback handling. Runtime behavior remains covered by the dedicated controller tests.
+- Corrected the asset-path matcher after review of the updated test source.
+- Fresh exact-head GitHub Actions validation is pending. No merge or deployment performed; `main` remains untouched.
+
+
+### Stage 9 runtime verification — rejected-playback assertion correction (2026-11-06)
+
+- Exact-head CI isolated one remaining test failure: the controller correctly calls `audio.play().catch(() => {` but the contract test expected the older compact spelling `void audio.play().catch(() =>` with no whitespace.
+- Replaced the brittle literal substring check with a whitespace-tolerant regular expression that verifies the rejected-promise handler structure without requiring formatting.
+- No runtime implementation or financial behavior changed. Fresh exact-head CI is pending; no merge or deployment performed.
+
+
+## 2026-11-06 — Popup browser fixture eligibility correction
+
+- Corrected the mocked active-offer fixture in the customer popup browser acceptance check: its available amount now exceeds the minimum required amount and its balance status is `sufficient`. The previous fixture marked the same open, popup-eligible offer as `insufficient`, so the customer UI correctly rendered a missed/insufficient-balance event instead of the active opportunity notice the test tried to expand.
+- Updated the assertion to verify that an active eligible offer is not misclassified as insufficient balance. Existing popup metadata, expiry, read-only details, lifecycle acknowledgement, minimize/maximize and dismiss checks remain in place.
+- Test fixture and assertions only; no customer/server business logic, database, worker, wallet, ledger, allocation, trade execution or settlement behavior changed. Automatic financial execution remains hard-disabled.
+- Exact-head GitHub Actions are pending for this correction. This is mocked browser acceptance evidence only, not live customer or hosted production verification.

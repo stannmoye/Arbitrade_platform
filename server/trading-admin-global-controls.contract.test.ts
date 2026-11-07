@@ -22,6 +22,7 @@ describe("Package Configuration global Trade controls", () => {
     expect(adminApp).not.toContain("Per-package delivery controls");
     expect(adminApp).toContain("trpc.adminOperations.globalTradeControls.useQuery");
     expect(adminApp).toContain("trpc.adminOperations.updateGlobalTradeControl.useMutation");
+    expect(adminApp).toContain('key:"requirePreviousSettlement",label:"Require previous settlement"');
     expect(adminApp).toContain("expectedPolicyVersion:Number(policy.policyVersion)");
     expect(adminApp).toContain("fresh database read did not confirm the requested value and a newer policy version");
     expect(adminApp).toContain("Administrator reason (required, 5–500 characters)");
@@ -38,16 +39,16 @@ describe("Package Configuration global Trade controls", () => {
     expect(adminApp).toContain("The canonical global policy is not installed or is malformed");
     expect(adminApp).toContain("no defaults were created");
     expect(adminApp).toContain("requirePreviousSettlement");
-    expect(adminApp).toContain("ON · locked");
     expect(adminApp).toContain("OFF · locked");
-    expect(database).toContain('if(input.key==="requirePreviousSettlement"&&input.enabled===false)');
+    expect(adminApp).not.toContain("This safety prerequisite cannot be switched OFF through this route.");
+    expect(database).not.toContain('if(input.key==="requirePreviousSettlement"&&input.enabled===false)');
     expect(database).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false");
     expect(adminApp).not.toContain("automaticTradingEnabled: true");
   });
 
   it("keeps the package editor settlement guard locked and documents the owner boundary", () => {
-    expect(policyEditor).toContain("ON — global guard required");
-    expect(policyEditor).not.toContain("Enable settlement guard");
+    expect(policyEditor).toContain("Previous-settlement prerequisite is global.");
+    expect(policyEditor).not.toContain("ON — global guard required");
     expect(policyEditor).not.toContain('onChange={e=>updateRow(index,"requirePreviousSettlement"');
     expect(adminCss).toContain(".admin-trading-global-controls");
     expect(adminCss).toContain(".admin-trading-global-controls__grid");

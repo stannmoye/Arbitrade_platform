@@ -17,7 +17,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { normalizeGlobalTradeTimingSettings } from "../trading-settings-client-contracts";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 type CustomerRecord = {
   id: number;
@@ -128,12 +129,12 @@ function durationLabel(milliseconds: number | null | undefined) {
   return `${hours}h ${minutes}m`;
 }
 
-export function AdminSettings({focus}:{focus?:"tradeDuration"}={}){ const q=trpc.adminOperations.settings.useQuery(); const save=trpc.adminOperations.updateSettings.useMutation(); const [tab,setTab]=useState<"ticket"|"trade"|"password">(focus==="tradeDuration"?"trade":"ticket"); useEffect(()=>{if(focus==="tradeDuration")setTab("trade")},[focus]); const [maxMb,setMaxMb]=useState(25); const [types,setTypes]=useState("image/*,application/pdf,text/plain,.doc,.docx,.xls,.xlsx");  const [settlementMinutes,setSettlementMinutes]=useState(15); const [creditDelaySeconds,setCreditDelaySeconds]=useState(0); const [cooldownSeconds,setCooldownSeconds]=useState(30); const [nextPopupFormulaDelaySeconds,setNextPopupFormulaDelaySeconds]=useState(30); const [popupCooldownSeconds,setPopupCooldownSeconds]=useState(45); const [popupDisplaySeconds,setPopupDisplaySeconds]=useState(8); const [popupPreAlertSeconds,setPopupPreAlertSeconds]=useState(4); const [popupJitterSeconds,setPopupJitterSeconds]=useState(90); const [popupMaxPerHour,setPopupMaxPerHour]=useState(12); const [marketRefreshIntervalMinutes,setMarketRefreshIntervalMinutes]=useState(120); const [blockUntilSettled,setBlockUntilSettled]=useState(true); const [tradeReason,setTradeReason]=useState(""); const hydratedSettings=useRef(false); const [saved,setSaved]=useState(false); const [settingsMessage,setSettingsMessage]=useState(""); const [settingsMessageKind,setSettingsMessageKind]=useState<"success"|"error">("success"); useEffect(()=>{if(q.data&&!hydratedSettings.current){hydratedSettings.current=true;setMaxMb(q.data.ticket.maxAttachmentMb);setTypes(q.data.ticket.allowedMimeTypes.join(","));setSettlementMinutes(Math.max(15,Math.ceil(Number(q.data.trade?.settlementDelaySeconds||900)/60)));setCreditDelaySeconds(Number(q.data.trade?.creditDelaySeconds||0));setCooldownSeconds(Number(q.data.trade?.cooldownSeconds||30));setNextPopupFormulaDelaySeconds(Number(q.data.trade?.nextPopupFormulaDelaySeconds||30));setPopupCooldownSeconds(Number(q.data.trade?.popupCooldownSeconds||45));setPopupDisplaySeconds(Number(q.data.trade?.popupDisplaySeconds||8));setPopupPreAlertSeconds(Number(q.data.trade?.popupPreAlertSeconds||4));setPopupJitterSeconds(Number(q.data.trade?.popupJitterSeconds||90));setPopupMaxPerHour(Number(q.data.trade?.popupMaxPerHour||12));setMarketRefreshIntervalMinutes(Number(q.data.trade?.marketRefreshIntervalMinutes||120));setBlockUntilSettled(q.data.trade?.blockUntilSettled!==false)}},[q.data]); const submit=async()=>{
+export function AdminSettings({focus}:{focus?:"tradeDuration"}={}){ const q=trpc.adminOperations.settings.useQuery(); const save=trpc.adminOperations.updateSettings.useMutation(); const [tab,setTab]=useState<"ticket"|"trade"|"password">(focus==="tradeDuration"?"trade":"ticket"); useEffect(()=>{if(focus==="tradeDuration")setTab("trade")},[focus]); const [maxMb,setMaxMb]=useState(25); const [types,setTypes]=useState("image/*,application/pdf,text/plain,.doc,.docx,.xls,.xlsx");  const [settlementMinutes,setSettlementMinutes]=useState(15); const [creditDelaySeconds,setCreditDelaySeconds]=useState(0); const [cooldownSeconds,setCooldownSeconds]=useState(30); const [nextPopupFormulaDelaySeconds,setNextPopupFormulaDelaySeconds]=useState(30); const [popupCooldownSeconds,setPopupCooldownSeconds]=useState(45);  const [popupPreAlertSeconds,setPopupPreAlertSeconds]=useState(4); const [popupJitterSeconds,setPopupJitterSeconds]=useState(90); const [popupMaxPerHour,setPopupMaxPerHour]=useState(12); const [marketRefreshIntervalMinutes,setMarketRefreshIntervalMinutes]=useState(120); const [blockUntilSettled,setBlockUntilSettled]=useState(true); const [tradeReason,setTradeReason]=useState(""); const hydratedSettings=useRef(false); const [saved,setSaved]=useState(false); const [settingsMessage,setSettingsMessage]=useState(""); const [settingsMessageKind,setSettingsMessageKind]=useState<"success"|"error">("success"); useEffect(()=>{if(q.data&&!hydratedSettings.current){hydratedSettings.current=true;setMaxMb(q.data.ticket.maxAttachmentMb);setTypes(q.data.ticket.allowedMimeTypes.join(","));const tradeForm=normalizeGlobalTradeTimingSettings(q.data.trade);setSettlementMinutes(tradeForm.settlementMinutes);setCreditDelaySeconds(tradeForm.creditDelaySeconds);setCooldownSeconds(tradeForm.cooldownSeconds);setNextPopupFormulaDelaySeconds(tradeForm.nextPopupFormulaDelaySeconds);setPopupCooldownSeconds(tradeForm.popupCooldownSeconds);setPopupPreAlertSeconds(tradeForm.popupPreAlertSeconds);setPopupJitterSeconds(tradeForm.popupJitterSeconds);setPopupMaxPerHour(tradeForm.popupMaxPerHour);setMarketRefreshIntervalMinutes(tradeForm.marketRefreshIntervalMinutes);setBlockUntilSettled(tradeForm.blockUntilSettled)}},[q.data]); const submit=async()=>{
     setSaved(false);
     setSettingsMessage("");
     try{
       if(focus==="tradeDuration"){
-        const trade={settlementDelaySeconds:Math.round(settlementMinutes*60),creditDelaySeconds,cooldownSeconds,nextPopupFormulaDelaySeconds,popupCooldownSeconds,popupDisplaySeconds,popupPreAlertSeconds,popupJitterSeconds,popupMaxPerHour,marketRefreshIntervalMinutes,blockUntilSettled};
+        const trade={settlementDelaySeconds:Math.round(settlementMinutes*60),creditDelaySeconds,cooldownSeconds,nextPopupFormulaDelaySeconds,popupCooldownSeconds,popupDisplaySeconds:Number(q.data?.trade?.popupDisplaySeconds??8),popupPreAlertSeconds,popupJitterSeconds,popupMaxPerHour,marketRefreshIntervalMinutes,blockUntilSettled};
         const expectedPolicyVersion=Number(q.data?.trade?.policyVersion??1);
         await save.mutateAsync({trade:{...trade,reason:tradeReason.trim(),expectedPolicyVersion}});
         const refreshed=await q.refetch();
@@ -162,7 +163,7 @@ export function AdminSettings({focus}:{focus?:"tradeDuration"}={}){ const q=trpc
       setSettingsMessage(error instanceof Error?error.message:"Settings could not be saved.");
     }
   }; return <div className="arb-page portal-page settings-page"><div className="portal-page-top"><div><div className="eyebrow">Administration</div><h1>{focus==="tradeDuration"?"Global Trade Timing & Settlement":"Settings"}</h1><p>{focus==="tradeDuration"?"Manage global settlement, wallet-credit and pop-up timing defaults. Per-tier daily caps, delivery schedules and display overrides are configured in their dedicated Trade Settings pages. Scheduled time is not proof of execution or settlement.":"Manage application settings. Each save updates only the section currently open."}</p></div><span className="admin-live-chip"><span className="pulse"/> Policy control</span></div>{settingsMessage&&<div className={"test-notice "+(settingsMessageKind==="error"?"error":"success")} role={settingsMessageKind==="error"?"alert":"status"} aria-live="polite">{settingsMessage}</div>}{!focus&&<div className="settings-tabs"><button className={tab==="ticket"?"active":""} onClick={()=>setTab("ticket")}>Ticket settings</button><button className={tab==="password"?"active":""} onClick={()=>setTab("password")}>Password & security</button></div>}{tab==="ticket"&&!focus&&<div className="settings-card"><div className="eyebrow">Customer support uploads</div><h2>Attachment policy</h2><label>Maximum attachment size (MB)<input type="number" min="1" max="100" value={maxMb} onChange={e=>setMaxMb(Number(e.target.value))}/></label><label>Accepted file types<input value={types} onChange={e=>setTypes(e.target.value)}/></label></div>}{tab==="trade"&&focus==="tradeDuration"&&<div className="settings-card"><div className="eyebrow">Wallet settlement gate</div><h2>Global timing and settlement defaults</h2><p>The scheduled time is an estimate only; elapsed time never confirms execution or credits funds. An authorized administrator must record the actual settlement result and reference before principal or realized profit is posted. While a confirmed trade is outstanding, new opportunities are blocked globally.</p><label>Settlement review delay (minutes)<input type="number" min="15" max="10080" value={settlementMinutes} onChange={e=>setSettlementMinutes(Math.max(15,Number(e.target.value)||15))}/><small>Wait after trade completion before an administrator may review the actual result. Saved as settlementReviewAt.</small></label><label>Wallet credit delay after review becomes due (seconds)<input type="number" min="0" max="604800" value={creditDelaySeconds} onChange={e=>setCreditDelaySeconds(Math.max(0,Number(e.target.value)||0))}/><small>Added to settlementReviewAt to create creditAt. The result must still be administrator-confirmed before the worker can post it.</small></label><label>Global cooldown before the next opportunity (seconds)<input type="number" min="0" max="604800" value={cooldownSeconds} onChange={e=>setCooldownSeconds(Math.max(0,Number(e.target.value)||0))}/><small>After wallet credit, wait before allowing the next eligible opportunity window.</small></label><>
-<div className="form-two"><label>Global formula delay before next pop-up (seconds)<input type="number" min="0" max="604800" value={nextPopupFormulaDelaySeconds} onChange={e=>setNextPopupFormulaDelaySeconds(Math.max(0,Number(e.target.value)||0))}/><small>Server-side delay before the next opportunity calculation can deliver.</small></label><label>Global notification gap (seconds)<input type="number" min="0" max="604800" value={popupCooldownSeconds} onChange={e=>setPopupCooldownSeconds(Math.max(0,Number(e.target.value)||0))}/><small>Minimum client notification spacing.</small></label></div><div className="form-two"><label>Global pop-up display default (seconds)<input type="number" min="1" max="3600" value={popupDisplaySeconds} onChange={e=>setPopupDisplaySeconds(Math.max(1,Number(e.target.value)||1))}/></label><label>Global pre-alert duration (seconds)<input type="number" min="0" max="3600" value={popupPreAlertSeconds} onChange={e=>setPopupPreAlertSeconds(Math.max(0,Number(e.target.value)||0))}/></label></div><div className="form-two"><label>Global pop-up timing jitter (seconds)<input type="number" min="0" max="604800" value={popupJitterSeconds} onChange={e=>setPopupJitterSeconds(Math.max(0,Number(e.target.value)||0))}/></label><label>Global pop-up hourly ceiling<input type="number" min="1" max="10000" value={popupMaxPerHour} onChange={e=>setPopupMaxPerHour(Math.max(1,Number(e.target.value)||1))}/></label></div><label>Market-data refresh interval (minutes)<input type="number" min="1" max="10080" value={marketRefreshIntervalMinutes} onChange={e=>setMarketRefreshIntervalMinutes(Math.max(1,Number(e.target.value)||1))}/><small>Worker restart is not required; future refresh scheduling uses the persisted value.</small></label>
+<div className="form-two"><label>Global formula delay before next pop-up (seconds)<input type="number" min="0" max="604800" value={nextPopupFormulaDelaySeconds} onChange={e=>setNextPopupFormulaDelaySeconds(Math.max(0,Number(e.target.value)||0))}/><small>Server-side delay before the next opportunity calculation can deliver.</small></label><label>Global notification gap (seconds)<input type="number" min="0" max="604800" value={popupCooldownSeconds} onChange={e=>setPopupCooldownSeconds(Math.max(0,Number(e.target.value)||0))}/><small>Minimum client notification spacing.</small></label></div><div className="form-two"><label>Global pre-alert duration (seconds)<input type="number" min="0" max="3600" value={popupPreAlertSeconds} onChange={e=>setPopupPreAlertSeconds(Math.max(0,Number(e.target.value)||0))}/></label></div><div className="form-two"><label>Global pop-up timing jitter (seconds)<input type="number" min="0" max="604800" value={popupJitterSeconds} onChange={e=>setPopupJitterSeconds(Math.max(0,Number(e.target.value)||0))}/></label><label>Global pop-up hourly ceiling<input type="number" min="1" max="10000" value={popupMaxPerHour} onChange={e=>setPopupMaxPerHour(Math.max(1,Number(e.target.value)||1))}/></label></div><label>Market-data refresh interval (minutes)<input type="number" min="1" max="10080" value={marketRefreshIntervalMinutes} onChange={e=>setMarketRefreshIntervalMinutes(Math.max(1,Number(e.target.value)||1))}/><small>Worker restart is not required; future refresh scheduling uses the persisted value.</small></label>
 </><div className="admin-toggle-row"><div><strong>Block opportunities until all trades settle</strong><span>No new offers are published or delivered while principal and profit remain outstanding.</span></div><button className={`toggle-switch ${blockUntilSettled?"on":""}`} onClick={()=>setBlockUntilSettled(!blockUntilSettled)}>{blockUntilSettled?<ToggleRight size={28}/>:<ToggleLeft size={28}/>}</button></div><label>Reason for this global policy change (required)<textarea value={tradeReason} onChange={event=>setTradeReason(event.target.value)} minLength={5} maxLength={500} rows={3} placeholder="Explain why this timing or safety policy is changing"/><small>5–500 characters. This reason is stored in the immutable audit history. Policy version: {q.data?.trade?.policyVersion??"loading"}. Changes apply to future timing decisions; existing trade snapshots are not rewritten.</small></label></div>}{tab==="password"&&!focus&&<div className="settings-card"><div className="eyebrow">Identity security</div><h2>Password & security</h2><p>The admin password is managed by the configured local identity session. Passwords are stored as salted hashes.</p></div>}{(focus==="tradeDuration"||tab==="ticket")&&<div className="settings-actions"><button className="primary-button" onClick={submit} disabled={save.isPending||q.isLoading||q.isError||(focus==="tradeDuration"&&(tradeReason.trim().length<5||tradeReason.trim().length>500))}>{save.isPending?"Saving…":saved?"Saved":focus?"Save global Trade timing settings":"Save ticket settings"} <Check size={14}/></button><span>Only the section shown on this page is submitted; other saved settings are left unchanged.</span></div>}</div>; }
 
 export function AdminOpportunityDelivery() {
@@ -251,7 +252,7 @@ export function AdminTradeSettingsOverview() {
   const ownerRoutes = [
     { label: "Allocation & package configuration", menuLabel: "Package Configuration", source: "Allocation controls", checkedAt: clientCheckedAt(allocation) },
     { label: "Tiers & packages", menuLabel: "Tiers & Eligibility", source: "Package policies", checkedAt: clientCheckedAt(policies) },
-    { label: "Opportunity publishing", menuLabel: "Publish & Manage Opportunities", source: "Open opportunities", checkedAt: clientCheckedAt(offers) },
+    { label: "Opportunity generation", menuLabel: "Opportunity Generation & Management", source: "Generated customer opportunities", checkedAt: clientCheckedAt(offers) },
     { label: "Trade history", menuLabel: "Trading History", source: "Lifecycle events", checkedAt: clientCheckedAt(lifecycle) },
     { label: "Settlement & reconciliation", menuLabel: "Settlement & Reconciliation", source: "Settlement queue", checkedAt: clientCheckedAt(pending) },
   ];
@@ -691,6 +692,7 @@ type WorkerHealthEntry = {
   expectedIntervalMs: number;
   staleAfterMs: number;
   instanceId: string;
+  isCurrentInstance: boolean;
   status: "running" | "healthy" | "degraded" | "stale" | "not_started";
   healthRecordAvailable: boolean;
   heartbeatAt: string | null;
@@ -872,8 +874,8 @@ export function AdminWorkerHealth() {
           ["Feature", "Status", "Evidence note"],
           ...(report.featureCoverage ?? []).map((feature: any) => [feature.label, diagnosticFeatureState(feature, report.checks ?? []), feature.note ?? ""]),
           [],
-          ["Worker", "Runtime record", "Status", "Instance", "Heartbeat", "Last attempt", "Last success", "Failures", "Safe error code"],
-          ...workerRows.map((worker: any) => [worker.displayName, worker.runtimeRecord, worker.status, worker.instanceId, worker.heartbeatAt, worker.lastAttemptAt, worker.lastSuccessAt, worker.consecutiveFailures, worker.lastErrorCode]),
+          ["Worker", "Runtime record", "Status", "Instance scope", "Instance", "Heartbeat", "Last attempt", "Last success", "Failures", "Safe error code"],
+          ...workerRows.map((worker: any) => [worker.displayName, worker.runtimeRecord, worker.status, worker.isCurrentInstance ? "Current" : "Historical", worker.instanceId, worker.heartbeatAt, worker.lastAttemptAt, worker.lastSuccessAt, worker.consecutiveFailures, worker.lastErrorCode]),
           [],
           ["Source file", "Code area", "Bytes", "Test file"],
           ...(report.sourceInventory?.files ?? []).map((file: any) => [file.path, file.area, file.bytes, file.testFile ? "Yes" : "No"]),
@@ -910,11 +912,11 @@ export function AdminWorkerHealth() {
         if (!printWindow) throw new Error("The PDF print window is unavailable.");
         const checks = (report.checks ?? []).map((item: any) => `<tr><td>${escapeReportHtml(diagnosticSeverity(item))}</td><td>${escapeReportHtml(item.status)}</td><td>${escapeReportHtml(item.area)}</td><td><strong>${escapeReportHtml(item.title)}</strong><br>${escapeReportHtml(item.detail)}${item.recommendation ? `<br><em>Action: ${escapeReportHtml(item.recommendation)}</em>` : ""}</td></tr>`).join("");
         const features = (report.featureCoverage ?? []).map((feature: any) => `<tr><td>${escapeReportHtml(feature.label)}</td><td>${escapeReportHtml(diagnosticFeatureState(feature, report.checks ?? []))}</td><td>${escapeReportHtml(feature.note)}</td></tr>`).join("");
-        const workers = workerRows.map((worker: any) => `<tr><td>${escapeReportHtml(worker.reportLabel)}</td><td>${escapeReportHtml(worker.status)}</td><td>${escapeReportHtml(worker.instanceId)}</td><td>${escapeReportHtml(worker.heartbeatAt ?? "—")}</td><td>${escapeReportHtml(worker.lastAttemptAt ?? "—")}</td><td>${escapeReportHtml(worker.lastSuccessAt ?? "—")}</td><td>${escapeReportHtml(worker.consecutiveFailures ?? "Unavailable")}</td><td>${escapeReportHtml(worker.lastErrorCode ?? "—")}</td></tr>`).join("");
+        const workers = workerRows.map((worker: any) => `<tr><td>${escapeReportHtml(worker.reportLabel)}</td><td>${escapeReportHtml(worker.status)}</td><td>${worker.isCurrentInstance ? "Current" : "Historical"}</td><td>${escapeReportHtml(worker.instanceId)}</td><td>${escapeReportHtml(worker.heartbeatAt ?? "—")}</td><td>${escapeReportHtml(worker.lastAttemptAt ?? "—")}</td><td>${escapeReportHtml(worker.lastSuccessAt ?? "—")}</td><td>${escapeReportHtml(worker.consecutiveFailures ?? "Unavailable")}</td><td>${escapeReportHtml(worker.lastErrorCode ?? "—")}</td></tr>`).join("");
         const sourceFiles = (report.sourceInventory?.files ?? []).map((file: any) => `<tr><td>${escapeReportHtml(file.path)}</td><td>${escapeReportHtml(file.area)}</td><td>${escapeReportHtml(file.bytes)}</td><td>${file.testFile ? "Yes" : "No"}</td></tr>`).join("");
         const markers = (report.sourceInventory?.reviewMarkers ?? []).map((marker: any) => `<tr><td>${escapeReportHtml(marker.path)}</td><td>${escapeReportHtml(marker.line)}</td><td>${escapeReportHtml(marker.marker)}</td></tr>`).join("");
         const recommendations = (report.recommendations ?? []).map((item: string) => `<li>${escapeReportHtml(item)}</li>`).join("");
-        printWindow.document.write(`<!doctype html><html><head><title>Arbitrade System Diagnostics</title><style>body{font:12px Arial,sans-serif;color:#172033;margin:28px}h1{font-size:22px}h2{font-size:16px;margin-top:24px}.meta{color:#526078}table{width:100%;border-collapse:collapse;margin:12px 0 20px}th,td{border:1px solid #cbd5e1;padding:7px;text-align:left;vertical-align:top}th{background:#eef2f7}em{display:block;margin-top:5px;color:#475569}.summary{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0}.summary b{font-size:18px}footer{margin-top:24px;color:#64748b}@media print{body{margin:12mm}tr{break-inside:avoid}}</style></head><body><h1>Arbitrade — Full System Diagnostics</h1><p class="meta">Generated: ${escapeReportHtml(report.generatedAt)} · Revision: ${escapeReportHtml(report.application?.sourceRevision || "Not supplied")} · Overall: ${escapeReportHtml(report.overallStatus)}</p><div class="summary"><span>Critical/High findings: <b>${(report.summary?.fail ?? 0)}</b></span><span>Warnings: <b>${(report.summary?.warning ?? 0)}</b></span><span>Not run: <b>${(report.summary?.not_run ?? 0)}</b></span><span>Passed: <b>${(report.summary?.pass ?? 0)}</b></span></div><h2>Detected issues and corrective actions</h2><table><thead><tr><th>Severity</th><th>Status</th><th>Area</th><th>Finding and recommended correction</th></tr></thead><tbody>${checks}</tbody></table><h2>Feature health assessment</h2><p>“Not Verified” means source files are present but live feature acceptance has not been proven by this diagnostic.</p><table><thead><tr><th>Feature</th><th>Assessment</th><th>Evidence</th></tr></thead><tbody>${features}</tbody></table><h2>Server and database details</h2><table><tbody><tr><th>Node / platform</th><td>${escapeReportHtml(report.server?.nodeVersion)} / ${escapeReportHtml(report.server?.platform)} (${escapeReportHtml(report.server?.architecture)})</td></tr><tr><th>Uptime / process</th><td>${escapeReportHtml(report.server?.uptimeSeconds)} seconds / PID ${escapeReportHtml(report.server?.pid)}</td></tr><tr><th>CPU cores / load avg (1m, 5m, 15m)</th><td>${escapeReportHtml(report.server?.cpuCount)} / ${escapeReportHtml(JSON.stringify(report.server?.cpuLoadAverage ?? []))}</td></tr><tr><th>System RAM total / free</th><td>${escapeReportHtml(report.server?.totalMemoryBytes)} / ${escapeReportHtml(report.server?.freeMemoryBytes)} bytes</td></tr><tr><th>Process memory bytes</th><td>${escapeReportHtml(JSON.stringify(report.server?.memoryBytes ?? {}))}</td></tr><tr><th>Database</th><td>${escapeReportHtml(report.database?.status)} · checked ${escapeReportHtml(report.database?.checkedAt ?? report.generatedAt)}</td></tr><tr><th>Available tables</th><td>${escapeReportHtml((report.database?.schema?.available ?? []).join(", "))}</td></tr><tr><th>Missing tables</th><td>${escapeReportHtml((report.database?.schema?.missing ?? []).join(", ") || "None reported")}</td></tr></tbody></table><h2>Worker detail</h2><table><thead><tr><th>Worker</th><th>Status</th><th>Instance</th><th>Heartbeat</th><th>Last attempt</th><th>Last success</th><th>Failures</th><th>Safe error code</th></tr></thead><tbody>${workers}</tbody></table><h2>Source inventory (${escapeReportHtml(report.sourceInventory?.filesScanned ?? 0)} files)</h2><p>Scan complete: ${escapeReportHtml(report.sourceInventory?.complete ? "Yes" : "No")} · Test files: ${escapeReportHtml(report.sourceInventory?.testFiles ?? 0)} · Total bytes: ${escapeReportHtml(report.sourceInventory?.totalBytes ?? 0)}</p><table><thead><tr><th>Source path</th><th>Area</th><th>Bytes</th><th>Test</th></tr></thead><tbody>${sourceFiles}</tbody></table><h2>Potential source review markers</h2><table><thead><tr><th>File</th><th>Line</th><th>Marker</th></tr></thead><tbody>${markers}</tbody></table><h2>Recommended corrections</h2><ul>${recommendations}</ul><h2>Deployment readiness</h2><p>${escapeReportHtml(report.overallStatus)} — ${(report.summary?.fail ?? 0) ? "Do not treat this deployment as ready until critical/high findings are corrected and rechecked." : (report.summary?.warning ?? 0) || (report.summary?.not_run ?? 0) ? "Review warnings and complete checks not run before release." : "No issues were detected by the checks that ran; complete CI and hosted acceptance before production sign-off."}</p><h2>Required configuration presence (values redacted)</h2><ul>${(report.configuration?.requiredVariables ?? []).map((item: any) => `<li>${escapeReportHtml(item.name)}: ${item.configured ? "Configured" : "Missing"}</li>`).join("")}</ul><h2>Scope and limitations</h2><ul>${(report.scope?.limitations ?? []).map((item: string) => `<li>${escapeReportHtml(item)}</li>`).join("")}</ul><footer>Read-only diagnostic snapshot. Recommendations do not modify production code or database records.</footer></body></html>`);
+        printWindow.document.write(`<!doctype html><html><head><title>Arbitrade System Diagnostics</title><style>body{font:12px Arial,sans-serif;color:#172033;margin:28px}h1{font-size:22px}h2{font-size:16px;margin-top:24px}.meta{color:#526078}table{width:100%;border-collapse:collapse;margin:12px 0 20px}th,td{border:1px solid #cbd5e1;padding:7px;text-align:left;vertical-align:top}th{background:#eef2f7}em{display:block;margin-top:5px;color:#475569}.summary{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0}.summary b{font-size:18px}footer{margin-top:24px;color:#64748b}@media print{body{margin:12mm}tr{break-inside:avoid}}</style></head><body><h1>Arbitrade — Full System Diagnostics</h1><p class="meta">Generated: ${escapeReportHtml(report.generatedAt)} · Revision: ${escapeReportHtml(report.application?.sourceRevision || "Not supplied")} · Overall: ${escapeReportHtml(report.overallStatus)}</p><div class="summary"><span>Critical/High findings: <b>${(report.summary?.fail ?? 0)}</b></span><span>Warnings: <b>${(report.summary?.warning ?? 0)}</b></span><span>Not run: <b>${(report.summary?.not_run ?? 0)}</b></span><span>Passed: <b>${(report.summary?.pass ?? 0)}</b></span></div><h2>Detected issues and corrective actions</h2><table><thead><tr><th>Severity</th><th>Status</th><th>Area</th><th>Finding and recommended correction</th></tr></thead><tbody>${checks}</tbody></table><h2>Feature health assessment</h2><p>“Not Verified” means source files are present but live feature acceptance has not been proven by this diagnostic.</p><table><thead><tr><th>Feature</th><th>Assessment</th><th>Evidence</th></tr></thead><tbody>${features}</tbody></table><h2>Server and database details</h2><table><tbody><tr><th>Node / platform</th><td>${escapeReportHtml(report.server?.nodeVersion)} / ${escapeReportHtml(report.server?.platform)} (${escapeReportHtml(report.server?.architecture)})</td></tr><tr><th>Uptime / process</th><td>${escapeReportHtml(report.server?.uptimeSeconds)} seconds / PID ${escapeReportHtml(report.server?.pid)}</td></tr><tr><th>CPU cores / load avg (1m, 5m, 15m)</th><td>${escapeReportHtml(report.server?.cpuCount)} / ${escapeReportHtml(JSON.stringify(report.server?.cpuLoadAverage ?? []))}</td></tr><tr><th>System RAM total / free</th><td>${escapeReportHtml(report.server?.totalMemoryBytes)} / ${escapeReportHtml(report.server?.freeMemoryBytes)} bytes</td></tr><tr><th>Process memory bytes</th><td>${escapeReportHtml(JSON.stringify(report.server?.memoryBytes ?? {}))}</td></tr><tr><th>Database</th><td>${escapeReportHtml(report.database?.status)} · checked ${escapeReportHtml(report.database?.checkedAt ?? report.generatedAt)}</td></tr><tr><th>Available tables</th><td>${escapeReportHtml((report.database?.schema?.available ?? []).join(", "))}</td></tr><tr><th>Missing tables</th><td>${escapeReportHtml((report.database?.schema?.missing ?? []).join(", ") || "None reported")}</td></tr></tbody></table><h2>Worker detail</h2><table><thead><tr><th>Worker</th><th>Status</th><th>Instance scope</th><th>Instance</th><th>Heartbeat</th><th>Last attempt</th><th>Last success</th><th>Failures</th><th>Safe error code</th></tr></thead><tbody>${workers}</tbody></table><h2>Source inventory (${escapeReportHtml(report.sourceInventory?.filesScanned ?? 0)} files)</h2><p>Scan complete: ${escapeReportHtml(report.sourceInventory?.complete ? "Yes" : "No")} · Test files: ${escapeReportHtml(report.sourceInventory?.testFiles ?? 0)} · Total bytes: ${escapeReportHtml(report.sourceInventory?.totalBytes ?? 0)}</p><table><thead><tr><th>Source path</th><th>Area</th><th>Bytes</th><th>Test</th></tr></thead><tbody>${sourceFiles}</tbody></table><h2>Potential source review markers</h2><table><thead><tr><th>File</th><th>Line</th><th>Marker</th></tr></thead><tbody>${markers}</tbody></table><h2>Recommended corrections</h2><ul>${recommendations}</ul><h2>Deployment readiness</h2><p>${escapeReportHtml(report.overallStatus)} — ${(report.summary?.fail ?? 0) ? "Do not treat this deployment as ready until critical/high findings are corrected and rechecked." : (report.summary?.warning ?? 0) || (report.summary?.not_run ?? 0) ? "Review warnings and complete checks not run before release." : "No issues were detected by the checks that ran; complete CI and hosted acceptance before production sign-off."}</p><h2>Required configuration presence (values redacted)</h2><ul>${(report.configuration?.requiredVariables ?? []).map((item: any) => `<li>${escapeReportHtml(item.name)}: ${item.configured ? "Configured" : "Missing"}</li>`).join("")}</ul><h2>Scope and limitations</h2><ul>${(report.scope?.limitations ?? []).map((item: string) => `<li>${escapeReportHtml(item)}</li>`).join("")}</ul><footer>Read-only diagnostic snapshot. Recommendations do not modify production code or database records.</footer></body></html>`);
         printWindow.document.close();
         printWindow.focus();
         printWindow.print();
@@ -956,9 +958,11 @@ export function AdminWorkerHealth() {
 
   const data = (query.data ?? {}) as unknown as WorkerHealthData;
   const workers = data.workers ?? [];
-  const recordedWorkers = workers.filter((worker) => worker.healthRecordAvailable);
+  const currentWorkers = workers.filter((worker) => worker.isCurrentInstance);
+  const historicalWorkers = workers.filter((worker) => !worker.isCurrentInstance);
+  const recordedWorkers = currentWorkers.filter((worker) => worker.healthRecordAvailable);
   const healthy = recordedWorkers.filter((worker) => worker.status === "healthy").length;
-  const attention = recordedWorkers.filter((worker) => worker.status === "degraded" || worker.status === "stale").length;
+  const attention = currentWorkers.filter((worker) => worker.status === "degraded" || worker.status === "stale" || worker.status === "not_started").length;
   const queue = data.qualificationQueue;
   const queueDiagnostics = data.qualificationQueueDiagnostics;
   const opportunityDelivery = data.opportunityDelivery;
@@ -1048,21 +1052,22 @@ export function AdminWorkerHealth() {
         <div className="admin-ops-empty error" role="alert">Worker health could not be loaded. Verify migration 0084 and the database connection; an unavailable monitor must not be interpreted as a healthy worker.</div>
       ) : <>
         <section className="admin-ops-metrics">
-          <Metric label="Worker records" value={recordedWorkers.length} detail={`${workers.length - recordedWorkers.length} configured definitions without a runtime record`} icon={Activity} />
-          <Metric label="Healthy workers" value={recordedWorkers.length ? healthy : "Unavailable"} detail="A health record is required to count a worker as healthy" icon={CheckCircle2} />
-          <Metric label="Needs attention" value={recordedWorkers.length ? attention : "Unavailable"} detail={`${workers.filter((worker) => !worker.healthRecordAvailable).length} configured definitions have no recent health record`} icon={AlertTriangle} />
+          <Metric label="Worker records" value={recordedWorkers.length} detail={`${historicalWorkers.length} historical rows retained; ${currentWorkers.filter((worker) => !worker.healthRecordAvailable).length} current definitions without a record`} icon={Activity} />
+          <Metric label="Healthy workers" value={recordedWorkers.length ? healthy : "Unavailable"} detail="Current server instance only" icon={CheckCircle2} />
+          <Metric label="Needs attention" value={currentWorkers.length ? attention : "Unavailable"} detail={`${historicalWorkers.length} historical rows excluded from live health counts`} icon={AlertTriangle} />
           <Metric label="Dead-lettered qualification jobs" value={queue === null ? "Unavailable" : queue.dead.toLocaleString()} detail="Requires operator review" icon={FileText} />
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Background services</span><h2>Worker status</h2></div><span className="admin-ops-subtle">{workers.length} rows</span></div>
-          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Background worker health"><table className="admin-ops-table"><thead><tr><th>Worker</th><th>Status</th><th>Instance</th><th>Last heartbeat</th><th>Last attempt started</th><th>Last success</th><th>Failures</th><th>Last cycle</th><th>Safe error code</th></tr></thead><tbody>
+          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Background worker health"><table className="admin-ops-table"><thead><tr><th>Worker</th><th>Status</th><th>Instance scope</th><th>Instance</th><th>Last heartbeat</th><th>Last attempt started</th><th>Last success</th><th>Failures</th><th>Last cycle</th><th>Safe error code</th></tr></thead><tbody>
             {workers.map((worker) => <tr key={worker.workerKey + ":" + worker.instanceId}>
               <td><strong>{worker.displayName}</strong><small>{worker.description}</small><small>Expected interval: {Math.max(1, Math.round(worker.expectedIntervalMs / 1000))} seconds</small></td>
               <td><StatusPill tone={workerStatusTone(worker.status)}>{workerStatusLabel(worker.status)}</StatusPill></td>
+              <td><StatusPill tone={worker.isCurrentInstance ? "good" : "neutral"}>{worker.isCurrentInstance ? "Current" : "Historical"}</StatusPill></td>
               <td><code>{worker.instanceId}</code></td><td>{worker.healthRecordAvailable ? timestamp(worker.heartbeatAt) : "Unavailable"}</td><td>{worker.healthRecordAvailable ? worker.lastAttemptAt ? timestamp(worker.lastAttemptAt) : "Unavailable" : "Unavailable"}</td><td>{worker.healthRecordAvailable ? timestamp(worker.lastSuccessAt) : "Unavailable"}</td>
               <td>{worker.healthRecordAvailable ? worker.consecutiveFailures : "Unavailable"}</td><td>{worker.healthRecordAvailable && worker.lastDurationMs !== null ? worker.lastDurationMs.toLocaleString() + " ms" : "Unavailable"}</td><td>{worker.healthRecordAvailable ? worker.lastErrorCode || "—" : "Unavailable"}</td>
             </tr>)}
-            {!workers.length && <tr><td colSpan={9} className="admin-ops-table-empty">No worker records are available yet.</td></tr>}
+            {!workers.length && <tr><td colSpan={10} className="admin-ops-table-empty">No worker records are available yet.</td></tr>}
           </tbody></table></div>
         </section>
         <section className="admin-ops-panel">
@@ -1124,6 +1129,112 @@ export function AdminWorkerHealth() {
           <div className="admin-ops-note"><ShieldCheck size={16} /><span>Retry requires an administrator session and a reason. The server locks the job, revalidates its original attributed ledger event, and writes the audit event in the same transaction as the queue update. Only jobs still marked dead can be retried.</span></div>
         </section>
       </>}
+    </ToolPage>
+  );
+}
+
+
+export function AdminTradeOpportunityReset() {
+  const customers = trpc.adminOperations.customers.useQuery(undefined, { refetchInterval: 60_000 });
+  const reset = trpc.adminOperations.resetOpportunityUsage.useMutation();
+  const utils = trpc.useUtils();
+  const customerRows = customers.data ?? [];
+  const [scope, setScope] = useState<"customer" | "all">("customer");
+  const [customerId, setCustomerId] = useState("");
+  const [reason, setReason] = useState("");
+  const [confirmationText, setConfirmationText] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const operationId = useRef("");
+  const selectedCustomer = customerRows.find((row) => String(row.id) === customerId);
+  const requiredPhrase = scope === "all" ? "RESET ALL" : "RESET";
+  const canReview = reason.trim().length >= 8 && reason.trim().length <= 500 &&
+    (scope === "all" ? customers.isSuccess && customerRows.length > 0 : Boolean(selectedCustomer));
+
+  const openConfirmation = (event: FormEvent) => {
+    event.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
+    setConfirmationText("");
+    operationId.current = crypto.randomUUID();
+    setConfirming(true);
+  };
+
+  const submitReset = async () => {
+    if (confirmationText !== requiredPhrase || !canReview) return;
+    setErrorMessage("");
+    try {
+      const summary = scope === "all"
+        ? await reset.mutateAsync({ scope: "all", confirmAllCustomers: true, reason: reason.trim(), operationId: operationId.current })
+        : await reset.mutateAsync({ scope: "customer", customerId: Number(customerId), reason: reason.trim(), operationId: operationId.current });
+      setSuccessMessage(`Reset applied to ${summary.customerCount.toLocaleString()} customer${summary.customerCount === 1 ? "" : "s"}. ${summary.withdrawnOpportunities.toLocaleString()} active opportunities withdrawn, ${summary.clearedPendingDeliveries.toLocaleString()} pending deliveries cleared, ${summary.closedOffers.toLocaleString()} offers closed, and ${summary.cancelledAssignments.toLocaleString()} generation assignments cancelled. ${summary.preservedTradePositions.toLocaleString()} linked trade positions were left untouched. Reset time: ${new Date(summary.resetAt).toLocaleString()}.`);
+      setConfirming(false);
+      setReason("");
+      setConfirmationText("");
+      await utils.adminOperations.popupLifecycleSummary.invalidate();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "The reset could not be completed. No partial reset was committed.");
+    }
+  };
+
+  return (
+    <ToolPage
+      eyebrow="Trading operations · guarded action"
+      title="Opportunity usage reset"
+      description="Restart opportunity-generation and delivery usage for one customer or all customers without deleting trade, wallet, subscription, or audit history."
+      icon={Users}
+    >
+      {successMessage && <div className="admin-ops-note" role="status" aria-live="polite"><CheckCircle2 size={16} /><span>{successMessage}</span></div>}
+      {errorMessage && !confirming && <div className="admin-ops-empty error" role="alert">{errorMessage}</div>}
+      <section className="admin-ops-panel" aria-label="Reset opportunity usage">
+        <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Audited reset</span><h2>Choose the reset scope</h2></div></div>
+        <form onSubmit={openConfirmation}>
+          <label style={{ display: "grid", gap: 7, marginBottom: 14 }}>
+            Reset scope
+            <select aria-label="Reset scope" value={scope} onChange={(event) => { setScope(event.target.value as "customer" | "all"); setErrorMessage(""); setSuccessMessage(""); }}>
+              <option value="customer">One customer</option>
+              <option value="all">All customers</option>
+            </select>
+          </label>
+          {scope === "customer" && <label style={{ display: "grid", gap: 7, marginBottom: 14 }}>
+            Customer
+            <select aria-label="Customer" value={customerId} onChange={(event) => setCustomerId(event.target.value)} disabled={customers.isLoading || customers.isError}>
+              <option value="">Select a customer</option>
+              {customerRows.map((row) => <option key={row.id} value={row.id}>{row.name || "Unnamed customer"} · {row.email || `ID ${row.id}`}</option>)}
+            </select>
+            {customers.isLoading && <small>Loading customer directory…</small>}
+            {customers.isError && <small role="alert">Customer directory could not be loaded. Reset is unavailable until it can be verified.</small>}
+          </label>}
+          {scope === "all" && <div className="admin-ops-note"><Users size={16} /><span>{customers.isLoading ? "Loading the customer directory to verify the all-customer scope…" : customers.isError ? "The customer directory is unavailable; the reset is blocked until the scope can be verified." : `This scope includes all ${customerRows.length.toLocaleString()} customer accounts in one atomic operation. The atomic reset supports up to 5,000 accounts; larger scopes fail safely without changes.`}</span></div>}
+          <label style={{ display: "grid", gap: 7, margin: "14px 0" }}>
+            Reason for reset (required)
+            <textarea aria-label="Reason for reset" value={reason} onChange={(event) => setReason(event.target.value)} minLength={8} maxLength={500} rows={3} placeholder="Explain why opportunity usage is being restarted" />
+            <small>8–500 characters. The reason and resulting counts are recorded in Trade Audit &amp; Policy History.</small>
+          </label>
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Financial safeguards:</strong> this resets opportunity allowance and delivery cooldown accounting only. Wallet balances, ledger entries, package settings/subscriptions, completed trades and open trade positions are preserved. Opportunities linked to a trade or an in-flight execution are skipped; normal settlement and active-position gates remain in force.</span></div>
+          <div className="admin-payout-actions" style={{ marginTop: 16 }}>
+            <button className="primary-button" type="submit" disabled={!canReview || reset.isPending}>Review reset</button>
+          </div>
+        </form>
+      </section>
+      {confirming && <div role="presentation" style={{ position: "fixed", inset: 0, zIndex: 1000, display: "grid", placeItems: "center", padding: 18, background: "rgba(2, 8, 14, .82)" }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="opportunity-reset-confirm-title" className="admin-ops-panel" style={{ width: "min(620px, 100%)", margin: 0, maxHeight: "90vh", overflow: "auto" }}>
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Final confirmation</span><h2 id="opportunity-reset-confirm-title">Confirm opportunity usage reset</h2></div></div>
+          <p>{scope === "all" ? `This will reset usage for all ${customerRows.length.toLocaleString()} customer accounts.` : `This will reset usage for ${selectedCustomer?.name || "the selected customer"} (${selectedCustomer?.email || `ID ${selectedCustomer?.id}`}).`}</p>
+          <p><strong>Reason:</strong> {reason.trim()}</p>
+          <div className="admin-ops-note"><AlertTriangle size={16} /><span>Historical trades and financial records will remain unchanged. The reset only establishes a new usage/cooldown boundary and withdraws eligible untraded opportunities.</span></div>
+          {errorMessage && <div className="admin-ops-empty error" role="alert">{errorMessage}</div>}
+          <label style={{ display: "grid", gap: 7, margin: "14px 0" }}>
+            Type <strong>{requiredPhrase}</strong> to confirm
+            <input aria-label={`Type ${requiredPhrase} to confirm`} value={confirmationText} onChange={(event) => setConfirmationText(event.target.value)} autoComplete="off" />
+          </label>
+          <div className="admin-payout-actions">
+            <button className="admin-ops-button" type="button" onClick={() => { setConfirming(false); setConfirmationText(""); setErrorMessage(""); }} disabled={reset.isPending}>Cancel</button>
+            <button className="primary-button" type="button" onClick={() => void submitReset()} disabled={reset.isPending || confirmationText !== requiredPhrase || !canReview}>{reset.isPending ? "Resetting…" : scope === "all" ? "Reset all customer usage" : "Reset customer usage"}</button>
+          </div>
+        </section>
+      </div>}
     </ToolPage>
   );
 }

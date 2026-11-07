@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const databaseSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const packagePolicySource = readFileSync(new URL("./modules/package-opportunity-policy.ts", import.meta.url), "utf8");
 const deliveryQuotaSource = readFileSync(new URL("./modules/trading-delivery-quota.ts", import.meta.url), "utf8");
 const qualificationWorkerStart = databaseSource.indexOf("export async function runTradingTierQualificationWorkerCycle(");
 const qualificationWorkerEnd = databaseSource.indexOf("\nexport async function getCustomerTradingEligibility(", qualificationWorkerStart);
@@ -149,7 +150,7 @@ describe("Automatic Trading tier qualification", () => {
 
   it("keeps allocation and due-trade processing in the scheduled worker", () => {
     expect(databaseSource).toContain("workerCycle?:boolean");
-    expect(databaseSource).toContain("if(options.workerCycle===true) await markDueTradesAwaitingConfirmation(userId)");
+    expect(databaseSource.slice(databaseSource.indexOf("export async function listCustomerOpportunities("), databaseSource.indexOf("\nexport async function ", databaseSource.indexOf("export async function listCustomerOpportunities(") + 1))).not.toContain("markDueTradesAwaitingConfirmation");
     expect(databaseSource).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false;");
     expect(databaseSource).toContain("const auto=AUTOMATIC_FINANCIAL_EXECUTION_ENABLED && options.workerCycle===true && options.allowAutomaticExecution!==false");
     expect(databaseSource).toContain("await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls)");
@@ -181,8 +182,8 @@ describe("Automatic Trading tier qualification", () => {
   });
 
   it("keeps opportunity generation and customer responses read-only", () => {
-    expect(databaseSource).toContain("if(options.workerCycle===true&&globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&remainingQuota>0)");
-    expect(databaseSource).toContain("if(options.workerCycle===true) await markDueTradesAwaitingConfirmation(userId)");
+    expect(databaseSource).toContain("if(options.workerCycle===true&&globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&!formulaCooling&&remainingQuota>0)");
+    expect(databaseSource.slice(databaseSource.indexOf("export async function listCustomerOpportunities("), databaseSource.indexOf("\nexport async function ", databaseSource.indexOf("export async function listCustomerOpportunities(") + 1))).not.toContain("markDueTradesAwaitingConfirmation");
     expect(databaseSource).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false;");
     expect(databaseSource).toContain("const auto=AUTOMATIC_FINANCIAL_EXECUTION_ENABLED && options.workerCycle===true && options.allowAutomaticExecution!==false");
     expect(databaseSource).toContain("await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls)");
@@ -238,16 +239,21 @@ describe("Automatic Trading tier qualification", () => {
     expect(policyReader).not.toContain(".insert(");
 
     expect(routerSource).toContain("packagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),");
-    expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy,...DEFAULT_NEW_TIER_POLICY})");
-    expect(databaseSource).toContain("const DEFAULT_NEW_TIER_POLICY = {");
-    expect(databaseSource).toContain("minimumPayoutRateBps:200,maximumPayoutRateBps:300");
-    expect(databaseSource).toContain("minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900");
-    expect(databaseSource).toContain("automaticTradingEnabled:false");
+    expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy,...DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY})");
+    expect(databaseSource).toContain("DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY");
+    expect(packagePolicySource).toContain("DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY");
+    expect(packagePolicySource).toContain("minimumPayoutRateBps: 200");
+    expect(packagePolicySource).toContain("maximumPayoutRateBps: 300");
+    expect(packagePolicySource).toContain("minimumTradeDurationSeconds: 300");
+    expect(packagePolicySource).toContain("maximumTradeDurationSeconds: 900");
+    expect(packagePolicySource).toContain("automaticTradingEnabled: false");
     expect(databaseSource).not.toContain("New Trading tiers must be created disabled.");
-    expect(databaseSource).toContain("companyRotationEnabled:false");
-    expect(databaseSource).toContain("burstEnabled:false,maxBurstSize:3");
-    expect(databaseSource).toContain("enabled:false,automaticDelivery:false");
-    expect(databaseSource).toContain("randomizationEnabled:false");
+    expect(packagePolicySource).toContain("companyRotationEnabled: false");
+    expect(packagePolicySource).toContain("burstEnabled: false");
+    expect(packagePolicySource).toContain("maxBurstSize: 3");
+    expect(packagePolicySource).toContain("enabled: false");
+    expect(packagePolicySource).toContain("automaticDelivery: false");
+    expect(packagePolicySource).toContain("randomizationEnabled: false");
     expect(databaseSource).toContain("expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1");
     expect(databaseSource).toContain("Save and enable a valid pop-up delivery policy with payout-rate and duration bounds before enabling this Trading tier.");
     expect(databaseSource).toContain("Automatic financial execution is a separate control");
@@ -269,7 +275,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(routerSource).toContain("updateOpportunityPackagePolicies(ctx.user.id, input.policies, input.reason)");
     expect(databaseSource).toContain("Opportunity policy references an unknown Trading tier");
     expect(databaseSource).toContain('where(eq(opportunityPackagePolicies.packageName,policy.packageName)).limit(1).for("update")');
-    expect(databaseSource).toContain("const effective:any={...DEFAULT_NEW_TIER_POLICY,...(current||{}),...supplied,packageName:policy.packageName,updatedBy}");
+    expect(databaseSource).toContain("resolveEffectivePackageOpportunityPolicy(policy.packageName,current,supplied,updatedBy)");
     expect(routerSource).toContain("createAdminTradingPackage(ctx.user.id");
     expect(databaseSource).toContain('action:"trading_package_created"');
     expect(customerAppSource).toContain("New administrator-managed tier");
@@ -279,7 +285,8 @@ describe("Automatic Trading tier qualification", () => {
     expect(customerAppSource).toContain('startsAt:"",expiresAt:"",reason:"",initialFeePercent:"",initialFeeRoundingMode:"half_up" as FeeRoundingMode,initialFeeReason:"",enabled:true}');
     expect(customerAppSource).toContain('maxPopupsPerDay:0,maxActiveInvestments:0');
     expect(customerAppSource).toContain("New tiers are enabled when created.");
-    expect(databaseSource).toContain("const DEFAULT_NEW_TIER_POLICY = {");
+    expect(databaseSource).toContain("DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY");
+    expect(packagePolicySource).toContain("DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY");
   });
 
   it("persists administrator-controlled effective dates and tier caps", () => {

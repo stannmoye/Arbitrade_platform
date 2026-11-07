@@ -3,34 +3,39 @@ import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, not
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool, type Pool } from "mysql2/promise";
 import { ENV } from "./_core/env";
-import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityDeliveryIdempotency, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, tradingTierQualificationJobs, tradingPackageFeePolicyVersions, adminWalletAdjustmentIdempotency, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
+import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityDeliveryIdempotency, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, opportunityGenerationTemplates, opportunityGenerationAssignments, opportunityGenerationBatches, balanceLedger, tradingTierQualificationJobs, tradingPackageFeePolicyVersions, adminWalletAdjustmentIdempotency, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
 import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostings, inspectWalletLedgerSnapshot } from "./modules/wallet-ledger-reconciliation";
 import { addCalendarMonths } from "./modules/calendar-months";
 import { validateOpportunityOfferClosure, validateOpportunityOfferPublication, type OpportunityOfferClosureInput, type OpportunityOfferPublicationInput } from "./modules/opportunity-publication";
+import { createCatalogueIdentityOpportunityTemplate, selectOpportunityGenerationTerms, validateOpportunityGenerationTemplate, type OpportunityGenerationTemplate } from "./modules/opportunity-generation-template";
 import { assessOpportunityPackageCompatibility, type OpportunityPackageCompatibility } from "./modules/opportunity-package-compatibility";
 import { claimPopupDeliveryDispatches, ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { calculateConfiguredProfitMinor, chooseInclusiveInteger } from "./modules/trading-popup-policy";
-import { planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
+import { isOpportunityDurationWithinBounds, validateOpportunityDurationSnapshot } from "./modules/opportunity-duration-snapshot";
+import { calculateCombinedAvailableTargetMinor, planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, usdUnitsToNativeMinor } from "../shared/money";
-import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, createCompanySpotlightDisplayGuard, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
-import { normalizeCompanyCatalogueActionReason, transitionCompanyCatalogueAdminState, type CompanyCatalogueStatusAction } from "./modules/company-catalogue-reference";
+import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, createCompanySpotlightDisplayGuard, isCompanySpotlightDisplayAllowed, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
+import { COMPANY_REFERENCE_CATALOGUE, getCompanyReferenceById, normalizeCompanyCatalogueActionReason, transitionCompanyCatalogueAdminState, type CompanyCatalogueStatusAction } from "./modules/company-catalogue-reference";
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
-import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule, resolveTradingBurstLimit } from "./modules/trading-delivery-quota";
+import { DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY, PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS, resolveEffectivePackageOpportunityPolicy, type PackageOpportunityPolicyPatch } from "./modules/package-opportunity-policy";
+import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countActiveVisiblePopupEvents, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule, resolveTradingBurstLimit } from "./modules/trading-delivery-quota";
+import { indexTradingPackagePolicies, normalizeTradingPackagePolicyKey } from "./modules/trading-package-policy-index";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry, MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY } from "./modules/trade-execution-retry";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
 import { isAllowedAttachmentRequest, isSupportAttachmentStorageKeyForTicket, isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 import { assertNotificationPayloadMatches, buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
+import { deliveryAdmissionLockKey } from "./modules/opportunity-delivery-lifecycle";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 import { isTradingTierEnablingTransition } from "./modules/trading-tier-activation";
-import { FAIL_CLOSED_TRADE_GLOBAL_CONTROLS, TRADE_GLOBAL_CONTROL_MIGRATION_DIAGNOSTIC_KEY, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, TRADE_GLOBAL_MASTER_KEYS, parseTradeGlobalControlPolicy, type TradeGlobalMasterKey, type TradeGlobalControlStatus } from "./trading-global-policy";
+import { FAIL_CLOSED_TRADE_GLOBAL_CONTROLS, TRADE_GLOBAL_CONTROL_MIGRATION_DIAGNOSTIC_KEY, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, TRADE_GLOBAL_MASTER_KEYS, parseTradeGlobalControlPolicy, requiresPreviousSettlementForAllocation, type TradeGlobalMasterKey, type TradeGlobalControlStatus } from "./trading-global-policy";
 import { classifyTradeFeeSnapshot, normalizeImmutableTradeFeeSnapshot, normalizeLegacyTradeFeePolicy, resolvePackageFeePolicyWrite, selectLatestEffectivePackageFeePolicy } from "./modules/package-fee-policy";
 const TRADE_FEE_SETTING_KEYS = ["trade.platformFeeBps", "trade.feeRoundingMode", "trade.feePolicyVersion"] as const;
 const READ_ONLY_LEGACY_TRADE_FEE_SETTING_KEYS = new Set<string>(TRADE_FEE_SETTING_KEYS);
@@ -174,7 +179,7 @@ export async function updateCompanyCatalogueAdminState(input: {
 }
 
 export async function listAdminAuditEvents(){ const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(v5AuditEvents).orderBy(desc(v5AuditEvents.createdAt)).limit(200); }
-const TRADE_SETTINGS_AUDIT_ACTIONS = ["trade_fee_policy_updated", "trade_global_timing_policy_updated", "trade_global_control_updated", "trade_global_controls_migrated", "trade_delivery_retry_policy_updated", "trading_new_allocations_paused", "trading_new_allocations_resumed", "trading_package_created", "trading_package_terms_updated", "trading_package_fee_policy_initialized", "trading_package_fee_policy_updated", "trading_delivery_policy_updated", "company_catalogue.bulk_status_updated", "trading_opportunity_published", "trading_opportunity_closed"] as const;
+const TRADE_SETTINGS_AUDIT_ACTIONS = ["trade_fee_policy_updated", "trade_global_timing_policy_updated", "trade_global_control_updated", "trade_global_controls_migrated", "trade_delivery_retry_policy_updated", "trading_new_allocations_paused", "trading_new_allocations_resumed", "trading_package_created", "trading_package_terms_updated", "trading_package_fee_policy_initialized", "trading_package_fee_policy_updated", "trading_delivery_policy_updated", "company_catalogue.bulk_status_updated", "trading_opportunity_published", "trading_opportunity_closed", "trading_opportunity_usage_reset"] as const;
 export type TradeAuditScope = "global" | "package" | "record";
 export type AdminTradeAuditHistoryFilters = { actorUserId?: number; fromDate?: string; toDate?: string; key?: string; entityType?: string; entityId?: string; package?: string; scope?: TradeAuditScope; cursor?: string; pageSize?: number };
 type TradeAuditCursor = { createdAt: string; id: number };
@@ -198,7 +203,7 @@ function auditString(record: Record<string, unknown> | null, ...keys: string[]):
 }
 function parseTradeAuditMetadata(raw: string | null) { try { return raw ? auditRecord(JSON.parse(raw)) : null; } catch { return null; } }
 export function deriveTradeAuditScope(action: string, entityType: string): TradeAuditScope | null {
-  if (action === "company_catalogue.bulk_status_updated" || entityType === "company_catalogue" || entityType === "opportunity_offer") return "record";
+  if (action === "company_catalogue.bulk_status_updated" || entityType === "company_catalogue" || entityType === "opportunity_offer" || entityType === "opportunity_usage_reset") return "record";
   if (["trading_package_created", "trading_package_terms_updated", "trading_package_fee_policy_initialized", "trading_package_fee_policy_updated", "trading_delivery_policy_updated"].includes(action)
     || entityType === "trading_package" || entityType === "opportunity_package_policy") return "package";
   return TRADE_SETTINGS_AUDIT_ACTIONS.includes(action as typeof TRADE_SETTINGS_AUDIT_ACTIONS[number]) ? "global" : null;
@@ -386,8 +391,56 @@ export async function updatePackageFeePolicy(input:{packageId:number;expectedVer
 export async function getTradeSettlementPolicy() {
   const db = await getDb();
   const keys = [...TRADE_SETTLEMENT_POLICY_SETTING_KEYS, TRADE_SETTLEMENT_POLICY_VERSION_KEY];
-  const rows = db ? await db.select().from(appSettings).where(inArray(appSettings.settingKey, keys)) : [];
-  const settings = new Map(rows.map(row => [row.settingKey, row.settingValue]));
+  let rows = db ? await db.select().from(appSettings).where(inArray(appSettings.settingKey, keys)) : [];
+  let settings = new Map(rows.map(row => [row.settingKey, row.settingValue]));
+  const rawSettlementDelay = settings.get("trade.settlementDelaySeconds");
+  const parsedSettlementDelay = Number(rawSettlementDelay);
+
+  // Older Blitz databases can contain a stale/out-of-range global delay even
+  // though the current API only accepts 900–604800 seconds. Do not let one bad
+  // legacy setting crash every AutoTrade cycle. Repair only this invalid key to
+  // the documented 15-minute minimum, preserve every valid setting, and record
+  // the previous value in the immutable audit stream. Lock/recheck to make the
+  // repair safe when multiple app instances start at the same time.
+  if (db && rawSettlementDelay !== undefined && rawSettlementDelay !== null &&
+      (!Number.isSafeInteger(parsedSettlementDelay) || parsedSettlementDelay < 900 || parsedSettlementDelay > 604800)) {
+    await db.transaction(async tx => {
+      await tx.insert(appSettings).values({
+        settingKey: "trade.settlementDelaySeconds",
+        settingValue: "900",
+        updatedBy: null,
+      }).onDuplicateKeyUpdate({ set: { settingKey: "trade.settlementDelaySeconds" } });
+      const locked = (await tx.select().from(appSettings)
+        .where(eq(appSettings.settingKey, "trade.settlementDelaySeconds"))
+        .limit(1).for("update"))[0];
+      const lockedValue = locked?.settingValue;
+      const lockedNumber = Number(lockedValue);
+      if (lockedValue !== undefined && lockedValue !== null &&
+          (!Number.isSafeInteger(lockedNumber) || lockedNumber < 900 || lockedNumber > 604800)) {
+        const repairedAt = new Date();
+        await tx.update(appSettings).set({
+          settingValue: "900",
+          updatedBy: null,
+          updatedAt: repairedAt,
+        }).where(eq(appSettings.settingKey, "trade.settlementDelaySeconds"));
+        await tx.insert(v5AuditEvents).values({
+          actorUserId: null,
+          action: "trade_global_timing_policy_repaired",
+          entityType: "trade_global_timing_policy",
+          entityId: "settlement-review-delay",
+          reason: "Invalid persisted settlement review delay repaired to the documented safe minimum of 900 seconds during policy read.",
+          reference: `trade-global-timing-repair:${repairedAt.toISOString()}`,
+          metadataJson: JSON.stringify({
+            settingKey: "trade.settlementDelaySeconds",
+            previousValue: lockedValue,
+            repairedValue: "900",
+          }),
+        });
+      }
+    });
+    rows = await db.select().from(appSettings).where(inArray(appSettings.settingKey, keys));
+    settings = new Map(rows.map(row => [row.settingKey, row.settingValue]));
+  }
   const policy = normalizeTradeSettlementPolicy({
     delaySeconds: settings.get("trade.settlementDelaySeconds") ?? "900",
     creditDelaySeconds: settings.get("trade.creditDelaySeconds") ?? "0",
@@ -512,7 +565,6 @@ export async function setTradeGlobalControl(input:{key:TradeGlobalMasterKey;enab
   if(auditReason.length<5||auditReason.length>500) throw new Error("A 5–500 character administrator reason is required for global Trade control changes");
   if(!Number.isSafeInteger(input.expectedPolicyVersion)||input.expectedPolicyVersion<1) throw new Error("A valid saved global Trade policy version is required");
   if(!TRADE_GLOBAL_MASTER_KEYS.includes(input.key)) throw new Error("Unknown global Trade control key");
-  if(input.key==="requirePreviousSettlement"&&input.enabled===false) throw new Error("The global settlement prerequisite remains ON until a separately approved safety workflow is available.");
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const saved=await db.transaction(async tx=>{
     const currentRow=(await tx.select().from(appSettings).where(eq(appSettings.settingKey,TRADE_GLOBAL_CONTROL_SETTINGS_KEY)).limit(1).for("update"))[0];
@@ -2632,7 +2684,7 @@ export async function adjustCustomerBalance(adminId:number,input:{
   return result;
 }
 
-export async function listOpenOffers(){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();return db.select().from(opportunityOffers).where(and(eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt);}
+export async function listOpenOffers(){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();return db.select().from(opportunityOffers).where(and(isNotNull(opportunityOffers.assignedUserId),isNotNull(opportunityOffers.generationKey),eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt);}
 /**
  * Use only values explicitly published on the opportunity. These are estimates
  * for reservation and display; they are not evidence of a realized outcome.
@@ -2763,28 +2815,6 @@ export async function listAdminTradingPackages() {
     throw new Error("Unable to load the Trading package catalogue. Check server logs for the underlying database error.");
   }
 }
-const DEFAULT_NEW_TIER_POLICY = {
-  badgeLabel:null,badgeStyle:"neutral",
-  minimumPayoutRateBps:200,maximumPayoutRateBps:300,
-  minimumTradeDurationSeconds:300,maximumTradeDurationSeconds:900,
-  companyRotationEnabled:false,companyRotationCountryNames:null,
-  companyRotationRepeatPolicy:"avoid_until_exhausted" as const,
-  maxPopupsPerDay:10,maxVisibleOffers:3,minimumTradeUnits:1000,maximumTradeUnits:100000,
-  minHourlyTarget:0,normalHourlyTarget:0,marketInfluenceBps:0,burstEnabled:false,maxBurstSize:3,
-  enabled:false,automaticDelivery:false,dailyPopupTarget:0,schedulingPeriod:"rolling_24h" as const,
-  minIntervalSeconds:45,maxIntervalSeconds:3600,randomizationEnabled:false,popupDisplayTargetSeconds:120,
-  completionDisplaySeconds:8,postCompletionIntervalSeconds:30,maxPendingDeliveries:3,
-  deliveryRetryPolicy:"temporary" as const,maxDeliveryAttempts:3,expiryHandling:"expire" as const,
-  duplicatePrevention:true,audioEnabled:true,audioSound:"soft-chime",automaticTradingEnabled:false,
-  maxTradeAttemptsPerDay:0,tradeRetryDelaySeconds:30,maxSuccessfulTradesPerDay:0,maxConcurrentActiveTrades:1,
-  requirePreviousSettlement:true,minSettlementDelaySeconds:900,maxSettlementDelaySeconds:900,
-  minimumRewardBps:0,allowedOpportunityTypes:null,maxDailyRewardMinor:0,rewardLimitCurrency:"USD",
-  dailyRewardWindow:"calendar_day" as const,maxRewardPerTradeMinor:0,unsettledRewardPolicy:"reserve" as const,
-  capReachedPolicy:"stop_new_trades" as const,settlementConfirmationState:"ledger_and_wallet" as const,
-  settlementRetryPolicy:"manual" as const,maxSettlementAttempts:3,closePolicy:"after_completion" as const,
-  policyVersion:1,
-} as const;
-
 export async function createAdminTradingPackage(createdBy:number,input:{
   name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
   opportunitiesPerDay:number; maxPopupsPerDay:number; maxActiveInvestments:number;
@@ -2815,7 +2845,7 @@ export async function createAdminTradingPackage(createdBy:number,input:{
       startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1,
     });
     const id=Number(inserted[0].insertId);
-    await tx.insert(opportunityPackagePolicies).values({packageName:name,updatedBy:createdBy,...DEFAULT_NEW_TIER_POLICY});
+    await tx.insert(opportunityPackagePolicies).values({packageName:name,updatedBy:createdBy,...DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY});
     await tx.insert(v5AuditEvents).values({
       actorUserId:createdBy,action:"trading_package_created",entityType:"trading_package",entityId:String(id),
       reason:auditReason,
@@ -3086,6 +3116,7 @@ export async function getCustomerTradingEligibility(userId:number) {
   const now=new Date();
   const rows=await db.select({
     activationKey:customerPackageSubscriptions.activationKey,
+    packageId:customerPackageSubscriptions.packageId,
     termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
     dailyQuota:packages.opportunitiesPerDay,
     packageName:packages.name,
@@ -3116,6 +3147,7 @@ export async function getCustomerTradingEligibility(userId:number) {
   const activePackages=eligibleRows.map(row=>{
     const snapshot=snapshotFor(row);
     return {
+      id:Number(row.packageId),
       name:String(row.packageName),
       minimumQualifyingBalanceUsdMinor:Number(snapshot.minimumQualifyingBalanceUsdMinor??row.minimumQualifyingBalanceUsdMinor),
       durationMonths:Number(snapshot.durationMonths??row.durationMonths),
@@ -3172,7 +3204,8 @@ export async function previewNextCustomerCompanySpotlight(userId:number) {
   if(!globalPolicy.available||!globalPolicy.tierPolicyMasterEnabled||!globalPolicy.companyRotationEnabled) return null;
   const eligibility=await getCustomerTradingEligibility(userId);
   const packageName=String(eligibility.currentPackage?.name||"").trim();
-  if(!eligibility.eligible||!packageName) throw new Error("An active automatically assigned Trading tier is required for company spotlight preview.");
+  const packageId=Number(eligibility.currentPackage?.id);
+  if(!eligibility.eligible||!packageName||!Number.isSafeInteger(packageId)||packageId<=0) throw new Error("An active automatically assigned Trading tier is required for company spotlight preview.");
   const policies=await listPersistedOpportunityPackagePolicies();
   const policy=policies.find(row=>row.packageName===packageName);
   if(!policy) throw new Error("The active Trading tier has no saved company rotation policy.");
@@ -3183,17 +3216,21 @@ export async function previewNextCustomerCompanySpotlight(userId:number) {
   const catalogueState=parseCompanyCatalogueAdminState(catalogueRow?.settingValue??"{}");
   const pool=buildCompanySpotlightPool(String(policy.companyRotationCountryNames||""),catalogueState);
   if(!pool.length) return null;
-  const stateKey="trading.companyRotation."+userId+"."+packageName;
+  const stateKey="trading.companyRotation."+userId+"."+packageId;
   if(stateKey.length>120) throw new Error("Company rotation scope key exceeds the storage limit.");
 
   // Preview reads the next approved candidate but never creates a cursor row or advances
   // production state. The worker assigns the company inside the opportunity transaction.
   const row=(await db.select({settingValue:appSettings.settingValue})
     .from(appSettings).where(eq(appSettings.settingKey,stateKey)).limit(1))[0];
+  const legacyStateKey="trading.companyRotation."+userId+"."+packageName;
+  const legacyRow=!row?.settingValue&&legacyStateKey!==stateKey
+    ? (await db.select({settingValue:appSettings.settingValue}).from(appSettings).where(eq(appSettings.settingKey,legacyStateKey)).limit(1))[0]
+    : undefined;
   let priorState:CompanySpotlightState|null=null;
-  try { const parsed=JSON.parse(String(row?.settingValue||"")); if(parsed&&typeof parsed==="object") priorState=parsed as CompanySpotlightState; } catch {}
+  try { const parsed=JSON.parse(String(row?.settingValue||legacyRow?.settingValue||"")); if(parsed&&typeof parsed==="object") priorState=parsed as CompanySpotlightState; } catch {}
   const repeatPolicy=String(policy.companyRotationRepeatPolicy||"avoid_until_exhausted") as "avoid_until_exhausted"|"allow_repeats";
-  const result=nextCompanySpotlight(pool,priorState,userId,packageName,repeatPolicy);
+  const result=nextCompanySpotlight(pool,priorState,userId,String(packageId),repeatPolicy);
   return {...result.company,adminCatalogueStatus:"verified" as const,referenceOnly:true as const,rotationCycle:result.rotationCycle,rotationSequence:result.rotationSequence,poolFingerprint:result.poolFingerprint,packageName,previewOnly:true as const};
 }
 
@@ -3206,6 +3243,455 @@ function hasConfiguredTradingOfferPolicy(policy:any):boolean {
   const maxDuration=policy.maximumTradeDurationSeconds==null?NaN:Number(policy.maximumTradeDurationSeconds);
   return Number.isSafeInteger(minRate)&&Number.isSafeInteger(maxRate)&&minRate>=1&&maxRate>=minRate&&maxRate<=5000&&
     Number.isSafeInteger(minDuration)&&Number.isSafeInteger(maxDuration)&&minDuration>=10&&maxDuration>=minDuration&&maxDuration<=86400;
+}
+
+type AutomaticOpportunityGenerationInput={
+  userId:number;batchId:string;now:Date;quotaWindowStart:Date;
+  eligibleSubscriptions:Array<{subscriptionId:number;packageId:number;packageName:string}>;
+  companyRotationEnabled:boolean;
+};
+type AutomaticOpportunityGenerationOutcome={offerId:number|null;skipReason:string|null;skipDetail?:Record<string,number>};
+
+/**
+ * Creates at most one open customer-specific opportunity per active entitlement.
+ * Company rotation, template/version, package terms, offer and assignment commit
+ * together; retries reuse the persisted open offer and never reroll its terms.
+ */
+async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGenerationInput):Promise<AutomaticOpportunityGenerationOutcome>{
+  const skipped=(skipReason:string,skipDetail?:Record<string,number>):AutomaticOpportunityGenerationOutcome=>({offerId:null,skipReason,...(skipDetail?{skipDetail}:{})});
+  if(!Number.isSafeInteger(input.userId)||input.userId<1||!input.batchId||input.batchId.length>64) return skipped("INVALID_CUSTOMER_OR_BATCH_INPUT");
+  const db=await getDb();if(!db)throw new Error("Database is not available");
+  const activeSubscriptionIds=input.eligibleSubscriptions.map(row=>row.subscriptionId).filter(id=>Number.isSafeInteger(id)&&id>0);
+  if(!activeSubscriptionIds.length)return skipped("NO_ACTIVE_AUTOMATIC_SUBSCRIPTION");
+  for(let attempt=0;attempt<4;attempt++){
+    try{
+      return await db.transaction(async tx=>{
+    const generationLockKey=`trading.opportunityGenerator.${input.userId}`;
+    await tx.insert(appSettings).values({settingKey:generationLockKey,settingValue:"",updatedBy:input.userId})
+      .onDuplicateKeyUpdate({set:{settingKey:generationLockKey}});
+    await tx.select({id:appSettings.id}).from(appSettings).where(eq(appSettings.settingKey,generationLockKey)).limit(1).for("update");
+    const generationControlRow=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
+      .where(eq(appSettings.settingKey,OPPORTUNITY_GENERATION_CONTROL_KEY)).limit(1).for("update"))[0];
+    let control:any=null;
+    try{control=JSON.parse(String(generationControlRow?.settingValue||""));}catch{return skipped("GENERATION_CONTROL_MISSING_OR_MALFORMED");}
+    if(!control||typeof control.enabled!=="boolean"||!Number.isSafeInteger(control.version)||Number(control.version)<1)return skipped("GENERATION_CONTROL_MISSING_OR_MALFORMED");
+    if(control.enabled!==true)return skipped("GENERATION_CONTROL_PAUSED");
+
+    const obsolete=(await tx.select({id:opportunityOffers.id,subscriptionId:opportunityOffers.assignedPackageSubscriptionId})
+      .from(opportunityOffers).where(and(eq(opportunityOffers.assignedUserId,input.userId),eq(opportunityOffers.status,"open"),gt(opportunityOffers.closesAt,input.now)))
+      .limit(100).for("update")).filter(row=>row.subscriptionId==null||!activeSubscriptionIds.includes(Number(row.subscriptionId)));
+    const obsoleteOfferIds=obsolete.map(row=>Number(row.id));
+    if(obsoleteOfferIds.length){
+      await tx.update(opportunityOffers).set({status:"cancelled"}).where(inArray(opportunityOffers.id,obsoleteOfferIds));
+      await tx.update(opportunityGenerationAssignments).set({status:"cancelled",failureReason:"PACKAGE_REASSIGNED",updatedAt:input.now})
+        .where(and(eq(opportunityGenerationAssignments.userId,input.userId),inArray(opportunityGenerationAssignments.offerId,obsoleteOfferIds),eq(opportunityGenerationAssignments.status,"generated")));
+    }
+    const reusable=(await tx.select({id:opportunityOffers.id}).from(opportunityOffers)
+      .innerJoin(opportunityGenerationAssignments,and(
+        eq(opportunityGenerationAssignments.offerId,opportunityOffers.id),
+        eq(opportunityGenerationAssignments.userId,input.userId),
+        inArray(opportunityGenerationAssignments.status,["generated","delivered"]),
+      ))
+      .where(and(eq(opportunityOffers.assignedUserId,input.userId),eq(opportunityOffers.status,"open"),gt(opportunityOffers.closesAt,input.now),inArray(opportunityOffers.assignedPackageSubscriptionId,activeSubscriptionIds),
+        sql`NOT EXISTS (SELECT 1 FROM ${opportunityPopupEvents} WHERE ${opportunityPopupEvents.userId} = ${input.userId} AND ${opportunityPopupEvents.offerId} = ${opportunityOffers.id} AND ${opportunityPopupEvents.balanceStatus} = 'insufficient')`))
+      .limit(1).for("update"))[0];
+    if(reusable)return {offerId:Number(reusable.id),skipReason:null};
+
+    let selectedSubscription:any=null;
+    let selectedPolicy:any=null;
+    let policyRowsFound=0;
+    let invalidPolicyRows=0;
+    let zeroQuotaRows=0;
+    let customerQuotaExhausted=0;
+    let packageQuotaExhausted=0;
+    // Global administrator controls are the single owner of tier delivery and
+    // company-rotation switches. Legacy per-package boolean mirrors are not gates.
+    for(const candidate of input.eligibleSubscriptions){
+      const row=(await tx.select({
+        subscriptionId:customerPackageSubscriptions.id,packageId:packages.id,packageName:packages.name,
+        activationKey:customerPackageSubscriptions.activationKey,subscriptionStatus:customerPackageSubscriptions.status,
+        startsAt:customerPackageSubscriptions.startsAt,expiresAt:customerPackageSubscriptions.expiresAt,
+        termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
+        packageDailyOpportunityQuota:packages.opportunitiesPerDay,packageMaxPopupsPerDay:packages.maxPopupsPerDay,
+        packageEnabled:packages.enabled,packageStartsAt:packages.startsAt,packageExpiresAt:packages.expiresAt,
+        policyId:opportunityPackagePolicies.id,policyVersion:opportunityPackagePolicies.policyVersion,
+        policyDailyOpportunityQuota:opportunityPackagePolicies.maxPopupsPerDay,dailyPopupTarget:opportunityPackagePolicies.dailyPopupTarget,
+        schedulingPeriod:opportunityPackagePolicies.schedulingPeriod,
+        minimumTradeUnits:opportunityPackagePolicies.minimumTradeUnits,maximumTradeUnits:opportunityPackagePolicies.maximumTradeUnits,
+        minimumPayoutRateBps:opportunityPackagePolicies.minimumPayoutRateBps,maximumPayoutRateBps:opportunityPackagePolicies.maximumPayoutRateBps,
+        minimumTradeDurationSeconds:opportunityPackagePolicies.minimumTradeDurationSeconds,maximumTradeDurationSeconds:opportunityPackagePolicies.maximumTradeDurationSeconds,
+        completionDisplaySeconds:opportunityPackagePolicies.completionDisplaySeconds,maxPendingDeliveries:opportunityPackagePolicies.maxPendingDeliveries,
+        companyRotationCountryNames:opportunityPackagePolicies.companyRotationCountryNames,
+        companyRotationRepeatPolicy:opportunityPackagePolicies.companyRotationRepeatPolicy,badgeLabel:opportunityPackagePolicies.badgeLabel,
+      }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
+        .innerJoin(opportunityPackagePolicies,sql`LOWER(${opportunityPackagePolicies.packageName}) = LOWER(${packages.name})`)
+        .where(and(eq(customerPackageSubscriptions.id,candidate.subscriptionId),eq(customerPackageSubscriptions.userId,input.userId),
+          eq(customerPackageSubscriptions.status,"active"),sql`${customerPackageSubscriptions.activationKey} LIKE 'auto-tier:%'`,
+          lte(customerPackageSubscriptions.startsAt,input.now),or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,input.now)),
+          eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,input.now)),or(isNull(packages.expiresAt),gt(packages.expiresAt,input.now)))).limit(1).for("update"))[0];
+      if(!row)continue;
+      policyRowsFound++;
+      if(!hasConfiguredTradingOfferPolicy(row)){invalidPolicyRows++;continue;}
+      {
+        let entitlementSnapshot:any={};
+        try{entitlementSnapshot=JSON.parse(String(row.termsSnapshotJson||"{}"));}catch{entitlementSnapshot={};}
+        const packageDailyQuota=Number(row.packageDailyOpportunityQuota);
+        const entitlementQuotaValue=Number(entitlementSnapshot.opportunitiesPerDay??packageDailyQuota);
+        const customerDailyQuota=Number.isSafeInteger(entitlementQuotaValue)&&entitlementQuotaValue>0?entitlementQuotaValue:0;
+        const policyDailyQuota=Math.max(0,Math.trunc(Number(row.policyDailyOpportunityQuota)||0));
+        const packagePopupQuotaValue=Number(entitlementSnapshot.maxPopupsPerDay??row.packageMaxPopupsPerDay);
+        const packagePopupQuota=Math.max(0,Math.trunc(Number.isFinite(packagePopupQuotaValue)?packagePopupQuotaValue:0));
+        const dailyTarget=Math.max(0,Math.trunc(Number(row.dailyPopupTarget)||0));
+        const policyCap=policyDailyQuota>0?Math.min(packageDailyQuota,policyDailyQuota):packageDailyQuota;
+        const packageCap=packagePopupQuota>0?Math.min(policyCap,packagePopupQuota):policyCap;
+        const effectiveDailyQuota=Number.isSafeInteger(packageDailyQuota)&&packageDailyQuota>0
+          ?Math.min(packageCap,dailyTarget>0?dailyTarget:packageDailyQuota):0;
+        if(customerDailyQuota<=0||effectiveDailyQuota<=0){zeroQuotaRows++;continue;}
+        const candidateQuotaWindow=resolveTradingQuotaWindow(input.now,
+          row.schedulingPeriod==="rolling_24h"?"rolling_24h":"calendar_day");
+        const usageResetBoundary=await getOpportunityUsageResetBoundary(tx,input.userId);
+        const effectiveQuotaStart=usageResetBoundary&&usageResetBoundary.resetAt>candidateQuotaWindow.start?usageResetBoundary.resetAt:candidateQuotaWindow.start;
+        // The customer generation lock serializes worker cycles. Count this
+        // subscription's entitlement and its package-wide cap before choosing
+        // the candidate, so an exhausted earlier package cannot starve a later one.
+        const subscriptionUsageRows=await tx.select({used:count()}).from(opportunityGenerationAssignments).where(and(
+          eq(opportunityGenerationAssignments.userId,input.userId),
+          eq(opportunityGenerationAssignments.packageSubscriptionId,Number(row.subscriptionId)),
+          gte(opportunityGenerationAssignments.generatedAt,effectiveQuotaStart),
+          gt(opportunityGenerationAssignments.id,usageResetBoundary?.generationAssignmentMaxId??0)));
+        const packageUsageRows=await tx.select({used:count()}).from(opportunityGenerationAssignments).where(and(
+          eq(opportunityGenerationAssignments.userId,input.userId),
+          eq(opportunityGenerationAssignments.packageId,Number(row.packageId)),
+          gte(opportunityGenerationAssignments.generatedAt,effectiveQuotaStart),
+          gt(opportunityGenerationAssignments.id,usageResetBoundary?.generationAssignmentMaxId??0)));
+        const subscriptionUsed=Number(subscriptionUsageRows[0]?.used||0);
+        const packageUsed=Number(packageUsageRows[0]?.used||0);
+        if(subscriptionUsed>=customerDailyQuota){customerQuotaExhausted++;continue;}
+        if(packageUsed>=effectiveDailyQuota){packageQuotaExhausted++;continue;}
+        selectedSubscription={...row,customerDailyQuota,effectiveDailyQuota,quotaWindowStart:candidateQuotaWindow.start};
+        selectedPolicy=row;
+        break;
+      }
+    }
+    if(!selectedSubscription||!selectedPolicy){
+      const skipReason=policyRowsFound===0?"ACTIVE_SUBSCRIPTION_POLICY_ROW_NOT_FOUND"
+        :invalidPolicyRows===policyRowsFound?"PACKAGE_POLICY_INVALID"
+        :zeroQuotaRows>0?"PACKAGE_OR_ENTITLEMENT_QUOTA_ZERO"
+        :customerQuotaExhausted>0&&packageQuotaExhausted===0?"CUSTOMER_PACKAGE_ENTITLEMENT_EXHAUSTED"
+        :packageQuotaExhausted>0?"PACKAGE_DAILY_CAP_EXHAUSTED":"NO_PACKAGE_ELIGIBLE_FOR_GENERATION";
+      return skipped(skipReason,{policyRowsFound,invalidPolicyRows,zeroQuotaRows,customerQuotaExhausted,packageQuotaExhausted});
+    }
+
+    const maxPending=Math.max(0,Number(selectedPolicy.maxPendingDeliveries||0));
+    if(maxPending<=0)return skipped("MAX_PENDING_DELIVERIES_ZERO");
+    // Pending capacity is for deliveries that can still be shown to the customer.
+    // Old queued rows whose source offer has already been closed/expired must not
+    // permanently consume capacity; insufficient-balance rows are terminal too.
+    const pending=(await tx.select({id:opportunityPopupEvents.id}).from(opportunityPopupEvents)
+      .innerJoin(opportunityOffers,eq(opportunityPopupEvents.offerId,opportunityOffers.id))
+      .where(and(eq(opportunityPopupEvents.userId,input.userId),eq(opportunityPopupEvents.packageId,Number(selectedSubscription.packageId)),
+        eq(opportunityOffers.assignedUserId,input.userId),eq(opportunityOffers.assignedPackageId,Number(selectedSubscription.packageId)),
+        eq(opportunityOffers.status,"open"),gt(opportunityOffers.closesAt,input.now),
+        inArray(opportunityPopupEvents.deliveryStatus,["queued","in_progress","retry_wait"]),
+        sql`(${opportunityPopupEvents.balanceStatus} IS NULL OR ${opportunityPopupEvents.balanceStatus} <> 'insufficient')`,
+        notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN","DISMISSED"]))).limit(maxPending+1)).length;
+    if(pending>=maxPending)return skipped("PENDING_DELIVERY_CAPACITY_FULL",{pending,maxPending});
+
+    const catalogueSetting=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
+      .where(eq(appSettings.settingKey,"trade.companyCatalogue.adminState")).limit(1).for("update"))[0];
+    const catalogueState=parseCompanyCatalogueAdminState(String(catalogueSetting?.settingValue||"{}"));
+    // The existing brand catalogue is the generation source. Templates are optional
+    // display-term overrides and must never shrink or gate the company rotation pool.
+    const approvedPool=buildCompanySpotlightPool(String(selectedPolicy.companyRotationCountryNames||""),catalogueState);
+    if(!approvedPool.length)return skipped("NO_APPROVED_COMPANIES_FOR_COUNTRY_FILTER");
+
+    let company:any;
+    let rotationCycle:number|null=null;
+    let rotationSequence:number|null=null;
+    let poolFingerprint:string|null=null;
+    let rotationStateKey:string|null=null;
+    let nextRotationState:CompanySpotlightState|null=null;
+    if(input.companyRotationEnabled){
+      const stateKey=`trading.companyRotation.${input.userId}.${Number(selectedSubscription.packageId)}`;
+      await tx.insert(appSettings).values({settingKey:stateKey,settingValue:"",updatedBy:input.userId})
+        .onDuplicateKeyUpdate({set:{settingKey:stateKey}});
+      const priorRow=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
+        .where(eq(appSettings.settingKey,stateKey)).limit(1).for("update"))[0];
+      let priorState:CompanySpotlightState|null=null;
+      try{const parsed=JSON.parse(String(priorRow?.settingValue||""));if(parsed&&typeof parsed==="object")priorState=parsed as CompanySpotlightState;}catch{priorState=null;}
+      const selection=nextCompanySpotlight(approvedPool,priorState,input.userId,String(selectedSubscription.packageId),
+        selectedPolicy.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted");
+      company=selection.company;rotationCycle=selection.rotationCycle;rotationSequence=selection.rotationSequence;poolFingerprint=selection.poolFingerprint;
+      // Keep the row locked, but defer consuming this rotation position until
+      // every remaining generation step has succeeded inside this transaction.
+      rotationStateKey=stateKey;
+      nextRotationState=selection.state;
+    }else{
+      company=approvedPool[crypto.randomInt(0,approvedPool.length)];
+    }
+    // Load at most one override for the already-selected company. Do not lock or scan
+    // every approved template for every customer in a large generation batch.
+    const template=(await tx.select().from(opportunityGenerationTemplates)
+      .where(and(eq(opportunityGenerationTemplates.status,"approved"),eq(opportunityGenerationTemplates.companyReferenceId,company.id)))
+      .orderBy(opportunityGenerationTemplates.id).limit(1).for("update"))[0]||null;
+    // Approved templates are optional display-term overrides. Without one, build
+    // terms directly from the catalogue name/logo identity; no ticker or exchange is needed.
+    const currencyCode=template?String(template.currency):"USD";
+    const currencyRows=await tx.select({code:currencyRegistry.code,scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,updatedAt:currencyRegistry.updatedAt})
+      .from(currencyRegistry).where(and(eq(currencyRegistry.enabled,true),eq(currencyRegistry.code,currencyCode))).limit(1);
+    const currencyRow=currencyRows[0];if(!currencyRow)return skipped("NO_ENABLED_CURRENCY_FOR_PACKAGE");
+    const packageMinimum=packageUsdUnitsToNativeMinor(Number(selectedPolicy.minimumTradeUnits),currencyCode,[currencyRow]);
+    const packageMaximum=packageUsdUnitsToNativeMinor(Number(selectedPolicy.maximumTradeUnits),currencyCode,[currencyRow]);
+    if(!Number.isSafeInteger(packageMinimum)||packageMinimum<=0||!Number.isSafeInteger(packageMaximum)||packageMaximum<packageMinimum)
+      throw new Error("The active package's saved capital bounds are invalid.");
+    const normalized=template?validateOpportunityGenerationTemplate({
+      templateName:template.templateName,companyReferenceId:template.companyReferenceId,symbol:template.symbol,
+      venueFrom:template.venueFrom,venueTo:template.venueTo,currency:template.currency,minimumMinor:packageMinimum,
+      sourceReference:template.sourceReference,reviewNotes:template.reviewNotes,
+    }):createCatalogueIdentityOpportunityTemplate(company,packageMinimum,"USD");
+    const terms=selectOpportunityGenerationTerms(normalized,{
+      minimumPayoutRateBps:selectedPolicy.minimumPayoutRateBps==null?null:Number(selectedPolicy.minimumPayoutRateBps),
+      maximumPayoutRateBps:selectedPolicy.maximumPayoutRateBps==null?null:Number(selectedPolicy.maximumPayoutRateBps),
+      minimumTradeDurationSeconds:selectedPolicy.minimumTradeDurationSeconds==null?null:Number(selectedPolicy.minimumTradeDurationSeconds),
+      maximumTradeDurationSeconds:selectedPolicy.maximumTradeDurationSeconds==null?null:Number(selectedPolicy.maximumTradeDurationSeconds),
+    });
+    const configuredMinimumDuration=Number(selectedPolicy.minimumTradeDurationSeconds);
+    const configuredMaximumDuration=Number(selectedPolicy.maximumTradeDurationSeconds);
+    if(!isOpportunityDurationWithinBounds(configuredMinimumDuration,configuredMaximumDuration,terms.tradeDurationSeconds))
+      throw new Error(`Selected opportunity duration is outside the saved tier range for ${selectedPolicy.packageName}`);
+    const minimumMinor=packageMinimum;
+    const completionDisplaySeconds=Number(selectedPolicy.completionDisplaySeconds??8);
+    if(!Number.isSafeInteger(completionDisplaySeconds)||completionDisplaySeconds<1||completionDisplaySeconds>3600) throw new Error(`Completion display delay is invalid for ${selectedPolicy.packageName}`);
+    // Persist all opportunity timing at the database's whole-second precision.
+    // The selected duration is measured from this immutable generatedAt instant.
+    const opportunityStartedAt=new Date(Math.floor(input.now.getTime()/1000)*1000);
+    if(!Number.isSafeInteger(opportunityStartedAt.getTime())) throw new Error(`Opportunity start time is invalid for ${selectedPolicy.packageName}`);
+    const rewardAt=new Date(opportunityStartedAt.getTime()+terms.tradeDurationSeconds*1000);
+    // One cryptographically selected package duration governs the opportunity/trade countdown.
+    // The popup expiry adds only the configured short post-completion display grace period.
+    const closesAt=new Date(rewardAt.getTime()+completionDisplaySeconds*1000);
+    const displaySeconds=terms.tradeDurationSeconds+completionDisplaySeconds;
+    if(!Number.isSafeInteger(displaySeconds)||displaySeconds<=terms.tradeDurationSeconds||
+      rewardAt.getTime()!==opportunityStartedAt.getTime()+terms.tradeDurationSeconds*1000||
+      closesAt.getTime()!==opportunityStartedAt.getTime()+displaySeconds*1000)
+      throw new Error(`Generated opportunity timing is inconsistent for ${selectedPolicy.packageName}`);
+    const companyMetadata={
+      rotationStateVersion:1,rotationCycle,rotationSequence,poolFingerprint,
+      repeatPolicy:selectedPolicy.companyRotationRepeatPolicy,
+      ticker:company.ticker,symbol:company.symbol,exchangeCode:company.exchangeCode,
+      tickerResearchStatus:company.tickerResearchStatus,tickerSource:company.tickerSource,
+      parentTicker:company.parentTicker,whyNoRealTicker:company.whyNoRealTicker,
+      tickerClassification:company.tickerClassification,countryCode:company.countryCode,
+      countryName:company.countryName,domain:company.domain,logoSourceName:company.logoSourceName,
+      logoSourceUrl:company.logoSourceUrl,listingStatus:company.listingStatus,lastVerifiedAt:company.lastVerifiedAt,
+      requiresManualVerification:company.requiresManualVerification,sourceConfidence:company.sourceConfidence,
+      sector:company.sector,headquartersCountry:company.headquartersCountry,instrumentType:company.instrumentType,
+      recordCompleteness:company.recordCompleteness,adminCatalogueStatus:"verified",referenceOnly:true,
+    };
+    const snapshot={
+      packageId:Number(selectedSubscription.packageId),packageSubscriptionId:Number(selectedSubscription.subscriptionId),
+      packageName:String(selectedSubscription.packageName),policyVersion:Number(selectedPolicy.policyVersion||1),
+      minimumTradeUnits:Number(selectedPolicy.minimumTradeUnits),maximumTradeUnits:Number(selectedPolicy.maximumTradeUnits),
+      minimumPayoutRateBps:Number(selectedPolicy.minimumPayoutRateBps),maximumPayoutRateBps:Number(selectedPolicy.maximumPayoutRateBps),
+      minimumTradeDurationSeconds:Number(selectedPolicy.minimumTradeDurationSeconds),maximumTradeDurationSeconds:Number(selectedPolicy.maximumTradeDurationSeconds),
+      packageMinimumMinor:packageMinimum,packageMaximumMinor:packageMaximum,
+      configuredProfitRateBps:terms.configuredPayoutRateBps,configuredDurationSeconds:terms.tradeDurationSeconds,minimumMinor,
+      symbol:terms.symbol,venueFrom:terms.venueFrom,venueTo:terms.venueTo,currency:terms.currency,
+      currencyRateUsd:Number(currencyRow.usdRate),currencyRateUpdatedAt:currencyRow.updatedAt?new Date(currencyRow.updatedAt).toISOString():null,
+      popupDisplayTargetSeconds:displaySeconds,completionDisplaySeconds,badgeLabel:selectedPolicy.badgeLabel??null,
+      badgeStyle:["neutral","blue","purple","gold","green"].includes(String((selectedPolicy as any).badgeStyle))?String((selectedPolicy as any).badgeStyle):"neutral",
+      companyRotationEnabled:Boolean(input.companyRotationEnabled),companyRotationCountryNames:String(selectedPolicy.companyRotationCountryNames||""),
+      companyRotationRepeatPolicy:selectedPolicy.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
+      maxPendingDeliveries:Number(selectedPolicy.maxPendingDeliveries||0),
+      customerDailyQuota:Number(selectedSubscription.customerDailyQuota),
+      packageDailyOpportunityQuota:Number(selectedSubscription.effectiveDailyQuota),
+      quotaWindowStart:selectedSubscription.quotaWindowStart.toISOString(),
+      configuredPayout:true,payoutSemantics:terms.payoutSemantics,templateId:template?Number(template.id):null,templateVersion:template?Number(template.version):null,
+      sourceReference:terms.sourceReference,reviewNotes:terms.reviewNotes,companyReferenceId:company.id,companyRotation:companyMetadata,
+      generatedAt:opportunityStartedAt.toISOString(),generationBatchId:input.batchId,
+    };
+    const priorAssignmentRows=await tx.select({value:count()}).from(opportunityGenerationAssignments)
+      .where(and(eq(opportunityGenerationAssignments.userId,input.userId),eq(opportunityGenerationAssignments.packageSubscriptionId,Number(selectedSubscription.subscriptionId)),
+        gte(opportunityGenerationAssignments.generatedAt,selectedSubscription.quotaWindowStart)));
+    const sequence=Number(priorAssignmentRows[0]?.value||0)+1;
+    const generationKey=`auto:${input.userId}:${Number(selectedSubscription.subscriptionId)}:${selectedSubscription.quotaWindowStart.getTime()}:${sequence}`;
+    if(generationKey.length>180)throw new Error("Automatic opportunity generation key exceeds the supported limit.");
+    const offerInsert=await tx.insert(opportunityOffers).values({
+      assignedUserId:input.userId,assignedPackageId:Number(selectedSubscription.packageId),
+      assignedPackageSubscriptionId:Number(selectedSubscription.subscriptionId),generationTemplateId:template?Number(template.id):null,generationKey,
+      companyReferenceId:company.id,companyDisplayName:company.name,companyLogoUrl:String(company.logoUrl||"").slice(0,500),
+      companyReferenceMetadataJson:JSON.stringify(companyMetadata),configuredProfitRateBps:terms.configuredPayoutRateBps,
+      configuredDurationSeconds:terms.tradeDurationSeconds,packagePolicyVersionSnapshot:Number(selectedPolicy.policyVersion||1),
+      symbol:terms.symbol,venueFrom:terms.venueFrom,venueTo:terms.venueTo,currency:terms.currency,minimumMinor,
+      expectedRewardBps:terms.configuredPayoutRateBps,durationSeconds:terms.tradeDurationSeconds,
+      // TIMESTAMP columns have second precision in MySQL/MariaDB. Floor the
+      // opening instant so MySQL rounding cannot move it into the future and make
+      // the same worker cycle miss the row it just generated.
+      opensAt:opportunityStartedAt,closesAt,rewardAt,status:"open",
+    });
+    const offerId=Number(offerInsert[0].insertId);
+    if(!Number.isSafeInteger(offerId)||offerId<1)throw new Error("Generated opportunity ID was not persisted.");
+    await tx.insert(opportunityGenerationAssignments).values({
+      generationKey,batchId:input.batchId,userId:input.userId,offerId,templateId:template?Number(template.id):null,templateVersion:template?Number(template.version):null,
+      packageId:Number(selectedSubscription.packageId),packageSubscriptionId:Number(selectedSubscription.subscriptionId),packageName:String(selectedSubscription.packageName),
+      packagePolicyVersion:Number(selectedPolicy.policyVersion||1),companyReferenceId:company.id,
+      configuredProfitRateBps:terms.configuredPayoutRateBps,configuredDurationSeconds:terms.tradeDurationSeconds,
+      packageSnapshotJson:JSON.stringify(snapshot),status:"generated",generatedAt:opportunityStartedAt,assignedAt:input.now,expiresAt:closesAt,
+    });
+    if(rotationStateKey&&nextRotationState){
+      await tx.update(appSettings).set({settingValue:JSON.stringify(nextRotationState),updatedBy:input.userId,updatedAt:input.now})
+        .where(eq(appSettings.settingKey,rotationStateKey));
+    }
+    return {offerId,skipReason:null};
+      });
+    }catch(error){
+      const failure=error as {code?:string;errno?:number;cause?:{code?:string;errno?:number}};
+      const code=failure.code||failure.cause?.code;
+      const errno=Number(failure.errno??failure.cause?.errno??0);
+      const retryable=code==="ER_LOCK_DEADLOCK"||code==="ER_LOCK_WAIT_TIMEOUT"||errno===1213||errno===1205;
+      if(!retryable||attempt===3)throw error;
+      // The complete transaction has rolled back before retrying. Rotation is
+      // still only written after the offer and assignment inserts succeed.
+      await new Promise(resolve=>setTimeout(resolve,20*(attempt+1)+crypto.randomInt(0,25)));
+    }
+  }
+  return skipped("GENERATION_RETRY_LOOP_EXHAUSTED");
+}
+
+const OPPORTUNITY_GENERATION_CONTROL_KEY="trade.opportunityGeneration.control";
+export class OpportunityGenerationControlVersionConflictError extends Error {}
+
+export async function getOpportunityGenerationControl(){
+  const raw=await getAppSetting(OPPORTUNITY_GENERATION_CONTROL_KEY);
+  try{
+    const parsed=JSON.parse(String(raw||""));
+    if(!parsed||typeof parsed!=="object"||typeof parsed.enabled!=="boolean"||!Number.isSafeInteger(parsed.version)||Number(parsed.version)<1)throw new Error("invalid");
+    return {available:true,enabled:parsed.enabled,version:Number(parsed.version),updatedBy:Number.isSafeInteger(parsed.updatedBy)?Number(parsed.updatedBy):null,
+      updatedAt:typeof parsed.updatedAt==="string"?parsed.updatedAt:null,reason:typeof parsed.reason==="string"?parsed.reason:null};
+  }catch{return {available:false,enabled:false,version:0,updatedBy:null,updatedAt:null,reason:null};}
+}
+
+export async function setOpportunityGenerationControl(input:{enabled:boolean;reason:string;expectedVersion:number},adminId:number){
+  if(!Number.isSafeInteger(adminId)||adminId<1)throw new Error("Authenticated administrator identity is required.");
+  const reason=String(input.reason||"").trim();if(reason.length<5||reason.length>500)throw new Error("Enter a generation-control reason of 5–500 characters.");
+  const db=await getDb();if(!db)throw new Error("Database is not available");
+  const changed=await db.transaction(async tx=>{
+    await tx.insert(appSettings).values({settingKey:OPPORTUNITY_GENERATION_CONTROL_KEY,settingValue:"",updatedBy:adminId})
+      .onDuplicateKeyUpdate({set:{settingKey:OPPORTUNITY_GENERATION_CONTROL_KEY}});
+    const row=(await tx.select().from(appSettings).where(eq(appSettings.settingKey,OPPORTUNITY_GENERATION_CONTROL_KEY)).limit(1).for("update"))[0];
+    let current:any={enabled:false,version:0};
+    try{const parsed=JSON.parse(String(row?.settingValue||""));if(parsed&&typeof parsed==="object"&&typeof parsed.enabled==="boolean"&&Number.isSafeInteger(parsed.version))current=parsed;}catch{current={enabled:false,version:0};}
+    if(Number(input.expectedVersion)!==Number(current.version))throw new OpportunityGenerationControlVersionConflictError("Generation control changed since it was loaded; refresh before saving.");
+    const nextVersion=Number(current.version)+1;
+    if(!Number.isSafeInteger(nextVersion)||nextVersion<1)throw new Error("Generation control version is invalid.");
+    const now=new Date();
+    const next={enabled:input.enabled,version:nextVersion,updatedBy:adminId,updatedAt:now.toISOString(),reason};
+    await tx.update(appSettings).set({settingValue:JSON.stringify(next),updatedBy:adminId,updatedAt:now}).where(eq(appSettings.settingKey,OPPORTUNITY_GENERATION_CONTROL_KEY));
+    await tx.insert(v5AuditEvents).values({actorUserId:adminId,action:"automatic_opportunity_generation_control_updated",entityType:"opportunity_generation_control",entityId:OPPORTUNITY_GENERATION_CONTROL_KEY,
+      reason,reference:`opportunity-generation-control:v${nextVersion}`,metadataJson:JSON.stringify({old:{enabled:Boolean(current.enabled),version:Number(current.version)},new:next})});
+    return next;
+  });
+  const verified=await getOpportunityGenerationControl();
+  if(!verified.available||verified.version!==changed.version||verified.enabled!==changed.enabled)throw new Error("Generation control was not verified by a fresh persisted read.");
+  return verified;
+}
+
+export async function listOpportunityGenerationTemplates(){
+  const db=await getDb();if(!db)throw new Error("Database is not available");
+  const rows=await db.select().from(opportunityGenerationTemplates).orderBy(desc(opportunityGenerationTemplates.updatedAt),desc(opportunityGenerationTemplates.id)).limit(1000);
+  const setting=(await db.select({settingValue:appSettings.settingValue}).from(appSettings).where(eq(appSettings.settingKey,"trade.companyCatalogue.adminState")).limit(1))[0];
+  const state=parseCompanyCatalogueAdminState(String(setting?.settingValue||"{}"));
+  return rows.map(row=>({ ...row,minimumMinor:Number(row.minimumMinor),company:getCompanyReferenceById(row.companyReferenceId)||null,
+    companyCurrentlyApproved:isCompanySpotlightDisplayAllowed(row.companyReferenceId,state) }));
+}
+
+export async function saveOpportunityGenerationTemplate(adminId:number,input:{id?:number;expectedVersion?:number;action:"draft"|"approve"|"disable"|"archive";template:unknown;reason:string}){
+  if(!Number.isSafeInteger(adminId)||adminId<1)throw new Error("Authenticated administrator identity is required.");
+  const reason=String(input.reason||"").trim();if(reason.length<5||reason.length>500)throw new Error("Enter an audit reason of 5–500 characters.");
+  const template=validateOpportunityGenerationTemplate(input.template);
+  if(!getCompanyReferenceById(template.companyReferenceId))throw new Error("Template company Logo ID does not exist in the source catalogue.");
+  if(input.id!==undefined&&(!Number.isSafeInteger(input.id)||input.id<1))throw new Error("Template ID is invalid.");
+  if(input.id!==undefined&&(!Number.isSafeInteger(input.expectedVersion)||Number(input.expectedVersion)<1))throw new Error("An expected template version is required when editing an existing template.");
+  if(input.id===undefined&&["disable","archive"].includes(input.action))throw new Error("A new template can only be saved as draft or approved.");
+  const db=await getDb();if(!db)throw new Error("Database is not available");
+  const id=await db.transaction(async tx=>{
+    const current=input.id===undefined?null:(await tx.select().from(opportunityGenerationTemplates).where(eq(opportunityGenerationTemplates.id,input.id)).limit(1).for("update"))[0]||null;
+    if(input.id!==undefined&&!current)throw new Error("Opportunity generation template was not found.");
+    if(current&&Number(current.version)!==Number(input.expectedVersion))throw new Error("Template changed since it was loaded; refresh before saving.");
+    if(input.action==="approve"){
+      const stateRow=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings).where(eq(appSettings.settingKey,"trade.companyCatalogue.adminState")).limit(1).for("update"))[0];
+      const state=parseCompanyCatalogueAdminState(String(stateRow?.settingValue||"{}"));
+      if(!isCompanySpotlightDisplayAllowed(template.companyReferenceId,state))throw new Error("Only currently verified, enabled, non-archived catalogue companies can be approved for opportunity generation.");
+    }
+    const nextStatus=input.action==="approve"?"approved":input.action==="disable"?"disabled":input.action==="archive"?"archived":"draft";
+    const now=new Date();
+    let templateId:number;
+    if(!current){
+      const result=await tx.insert(opportunityGenerationTemplates).values({
+        templateName:template.templateName,companyReferenceId:template.companyReferenceId,symbol:template.symbol,venueFrom:template.venueFrom,venueTo:template.venueTo,
+        currency:template.currency,minimumMinor:template.minimumMinor,sourceReference:template.sourceReference,reviewNotes:template.reviewNotes,status:nextStatus,version:1,
+        createdBy:adminId,updatedBy:adminId,approvedBy:input.action==="approve"?adminId:null,approvedAt:input.action==="approve"?now:null,
+      });
+      templateId=Number(result[0].insertId);
+    }else{
+      templateId=Number(current.id);
+      const update=await tx.update(opportunityGenerationTemplates).set({
+        templateName:template.templateName,companyReferenceId:template.companyReferenceId,symbol:template.symbol,venueFrom:template.venueFrom,venueTo:template.venueTo,
+        currency:template.currency,minimumMinor:template.minimumMinor,sourceReference:template.sourceReference,reviewNotes:template.reviewNotes,status:nextStatus,
+        version:Number(current.version)+1,updatedBy:adminId,approvedBy:input.action==="approve"?adminId:input.action==="draft"?null:current.approvedBy,
+        approvedAt:input.action==="approve"?now:input.action==="draft"?null:current.approvedAt,updatedAt:now,
+      }).where(and(eq(opportunityGenerationTemplates.id,templateId),eq(opportunityGenerationTemplates.version,Number(input.expectedVersion))));
+      if(Number((update as any)[0]?.affectedRows||0)!==1)throw new Error("Template update conflicted with a concurrent administrator edit.");
+    }
+    if(!Number.isSafeInteger(templateId)||templateId<1)throw new Error("Template persistence did not return an identifier.");
+    await tx.insert(v5AuditEvents).values({actorUserId:adminId,action:current?"automatic_opportunity_template_updated":"automatic_opportunity_template_created",
+      entityType:"opportunity_generation_template",entityId:String(templateId),reason,reference:`opportunity-generation-template:${templateId}:v${Number(current?.version||0)+1}`,
+      metadataJson:JSON.stringify({old:current?{status:current.status,version:current.version,companyReferenceId:current.companyReferenceId}:null,
+        new:{...template,status:nextStatus,version:Number(current?.version||0)+1,approvedBy:input.action==="approve"?adminId:null},action:input.action,reason})});
+    return templateId;
+  });
+  const persisted=(await db.select().from(opportunityGenerationTemplates).where(eq(opportunityGenerationTemplates.id,id)).limit(1))[0];
+  if(!persisted||persisted.status!==(input.action==="approve"?"approved":input.action==="disable"?"disabled":input.action==="archive"?"archived":"draft"))throw new Error("Template save was not verified by a fresh persisted read.");
+  return {...persisted,minimumMinor:Number(persisted.minimumMinor),company:getCompanyReferenceById(persisted.companyReferenceId)||null};
+}
+
+export async function getOpportunityGenerationMonitor(){
+  const db=await getDb();if(!db)return {available:false,control:await getOpportunityGenerationControl(),batches:[],today:{generated:0,delivered:0,failed:0},packageBreakdown:[],recentAssignments:[]};
+  const control=await getOpportunityGenerationControl();
+  const globalPolicy=await getTradeGlobalControls();
+  const dayStart=new Date();dayStart.setUTCHours(0,0,0,0);
+  const [batches,assignments,todayGroups,todayBatchFailures,todayPackageGroups,policies]=await Promise.all([
+    db.select().from(opportunityGenerationBatches).orderBy(desc(opportunityGenerationBatches.startedAt)).limit(20),
+    db.select().from(opportunityGenerationAssignments).orderBy(desc(opportunityGenerationAssignments.generatedAt)).limit(100),
+    db.select({status:opportunityGenerationAssignments.status,total:count()}).from(opportunityGenerationAssignments)
+      .where(gte(opportunityGenerationAssignments.generatedAt,dayStart)).groupBy(opportunityGenerationAssignments.status),
+    db.select({total:sql<number>`COALESCE(SUM(${opportunityGenerationBatches.failures}),0)`}).from(opportunityGenerationBatches)
+      .where(gte(opportunityGenerationBatches.startedAt,dayStart)),
+    db.select({packageName:opportunityGenerationAssignments.packageName,status:opportunityGenerationAssignments.status,total:count()})
+      .from(opportunityGenerationAssignments).where(gte(opportunityGenerationAssignments.generatedAt,dayStart))
+      .groupBy(opportunityGenerationAssignments.packageName,opportunityGenerationAssignments.status),
+    db.select({packageName:opportunityPackagePolicies.packageName,enabled:opportunityPackagePolicies.enabled,automaticDelivery:opportunityPackagePolicies.automaticDelivery,
+      packageEnabled:packages.enabled,dailyOpportunityAllowance:packages.opportunitiesPerDay,
+      minimumPayoutRateBps:opportunityPackagePolicies.minimumPayoutRateBps,maximumPayoutRateBps:opportunityPackagePolicies.maximumPayoutRateBps,
+      minimumTradeDurationSeconds:opportunityPackagePolicies.minimumTradeDurationSeconds,maximumTradeDurationSeconds:opportunityPackagePolicies.maximumTradeDurationSeconds,
+      maxPopupsPerDay:opportunityPackagePolicies.maxPopupsPerDay,maxVisibleOffers:opportunityPackagePolicies.maxVisibleOffers,maxPendingDeliveries:opportunityPackagePolicies.maxPendingDeliveries,
+      minimumTradeUnits:opportunityPackagePolicies.minimumTradeUnits,maximumTradeUnits:opportunityPackagePolicies.maximumTradeUnits})
+      .from(opportunityPackagePolicies).innerJoin(packages,eq(packages.name,opportunityPackagePolicies.packageName)),
+  ]);
+  const todayByStatus=new Map(todayGroups.map(row=>[row.status,Number(row.total||0)]));
+  const todayGenerated=[...todayByStatus.values()].reduce((sum,value)=>sum+value,0);
+  const packageCounts=new Map<string,{generated:number;delivered:number;failed:number}>();
+  for(const row of todayPackageGroups){const countRow=packageCounts.get(row.packageName)||{generated:0,delivered:0,failed:0};const total=Number(row.total||0);countRow.generated+=total;if(row.status==="delivered")countRow.delivered+=total;if(row.status==="failed")countRow.failed+=total;packageCounts.set(row.packageName,countRow);}
+  return {available:true,control,batches,today:{generated:todayGenerated,delivered:todayByStatus.get("delivered")||0,failed:Number(todayBatchFailures[0]?.total||0)+(todayByStatus.get("failed")||0)},
+    packageBreakdown:policies.map(policy=>({packageName:policy.packageName,packageEnabled:Boolean(policy.packageEnabled),dailyOpportunityAllowance:policy.dailyOpportunityAllowance,
+      policyEnabled:Boolean(globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled),
+      automaticDelivery:Boolean(globalPolicy.available&&globalPolicy.informationalPopupDeliveryEnabled),
+      minimumPayoutRateBps:policy.minimumPayoutRateBps,maximumPayoutRateBps:policy.maximumPayoutRateBps,
+      minimumTradeDurationSeconds:policy.minimumTradeDurationSeconds,maximumTradeDurationSeconds:policy.maximumTradeDurationSeconds,
+      maxPopupsPerDay:policy.maxPopupsPerDay,maxVisibleOffers:policy.maxVisibleOffers,maxPendingDeliveries:policy.maxPendingDeliveries,
+      minimumTradeUnits:policy.minimumTradeUnits,maximumTradeUnits:policy.maximumTradeUnits,
+      ...(packageCounts.get(policy.packageName)||{generated:0,delivered:0,failed:0})})),
+    recentAssignments:assignments.map(row=>({...row,company:getCompanyReferenceById(row.companyReferenceId)||null}))};
 }
 
 export async function listOpportunityPackagePolicies() {
@@ -3234,20 +3720,8 @@ export async function listPersistedOpportunityPackagePolicies() {
   if(missing.length) throw new Error("Trading tier opportunity policy is missing for: "+missing.join(", "));
   return matchingRows;
 }
-const TRADING_TIER_POLICY_PATCH_KEYS = new Set([
-  "maxPopupsPerDay", "maxVisibleOffers", "minimumTradeUnits", "maximumTradeUnits",
-  "minHourlyTarget", "normalHourlyTarget", "marketInfluenceBps", "maxBurstSize",
-  "dailyPopupTarget", "schedulingPeriod", "minIntervalSeconds", "maxIntervalSeconds",
-  "popupDisplayTargetSeconds", "completionDisplaySeconds", "postCompletionIntervalSeconds",
-  "maxPendingDeliveries", "maxTradeAttemptsPerDay",
-  "tradeRetryDelaySeconds", "maxSuccessfulTradesPerDay", "maxConcurrentActiveTrades",
-  "minSettlementDelaySeconds", "maxSettlementDelaySeconds", "minimumRewardBps",
-  "maxDailyRewardMinor", "maxRewardPerTradeMinor", "badgeLabel", "badgeStyle",
-  "minimumPayoutRateBps", "maximumPayoutRateBps", "minimumTradeDurationSeconds",
-  "maximumTradeDurationSeconds", "companyRotationCountryNames", "companyRotationRepeatPolicy",
-  "closePolicy",
-]);
-export async function updateOpportunityPackagePolicies(updatedBy:number, policies:any[], reason:string) {
+const TRADING_TIER_POLICY_PATCH_KEYS = new Set<string>(PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS);
+export async function updateOpportunityPackagePolicies(updatedBy:number, policies:PackageOpportunityPolicyPatch[], reason:string) {
   const auditReason=String(reason??"").trim();
   if(auditReason.length<5||auditReason.length>500) throw new Error("Provide an audit reason of 5–500 characters");
   const db=await getDb(); if(!db) throw new Error("Database is not available");
@@ -3262,7 +3736,7 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
     if(unsupported.length) throw new Error(`Per-tier Trading policy cannot update global or unknown fields: ${unsupported.join(", ")}`);
     return policy;
   });
-  if(requested.some(policy=>policy.automaticTradingEnabled===true)) {
+  if(requested.some(policy=>(policy as Record<string,unknown>).automaticTradingEnabled===true)) {
     throw new Error("Automatic financial execution is disabled for all Trading package policies.");
   }
   await db.transaction(async tx=>{
@@ -3274,9 +3748,7 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
       for(const [key,value] of Object.entries(policy)){
         if(value!==undefined&&!['id','updatedAt','policyVersion','updatedBy'].includes(key)) supplied[key]=value;
       }
-      const effective:any={...DEFAULT_NEW_TIER_POLICY,...(current||{}),...supplied,packageName:policy.packageName,updatedBy};
-      // Preserve pop-up controls, but never persist an enabled unattended execution path.
-      effective.automaticTradingEnabled=false;
+      const effective:any=resolveEffectivePackageOpportunityPolicy(policy.packageName,current,supplied,updatedBy);
       if(effective.minHourlyTarget>effective.normalHourlyTarget) throw new Error(`Minimum hourly target cannot exceed normal target for ${policy.packageName}`);
       if(effective.normalHourlyTarget*24>effective.maxPopupsPerDay&&effective.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
       if(!Number.isSafeInteger(effective.minimumTradeUnits)||!Number.isSafeInteger(effective.maximumTradeUnits)||effective.minimumTradeUnits<1||effective.maximumTradeUnits<effective.minimumTradeUnits) throw new Error(`Trade amount bounds are invalid for ${policy.packageName}`);
@@ -3309,7 +3781,6 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
         minIntervalSeconds:effective.minIntervalSeconds,
         maxIntervalSeconds:effective.maxIntervalSeconds,
         randomizationEnabled:effective.randomizationEnabled,
-        popupDisplayTargetSeconds:effective.popupDisplayTargetSeconds,
         completionDisplaySeconds:effective.completionDisplaySeconds,
         postCompletionIntervalSeconds:effective.postCompletionIntervalSeconds,
         maxPendingDeliveries:effective.maxPendingDeliveries,
@@ -3475,13 +3946,10 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
       missedOfferIds.add(Number(offer.id));
       continue;
     }
-    const balance=(await listBalances(userId)).find(row=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase());
-    if(!balance||Number(balance.availableMinor)<requestedAmount){
-      await markMissedOpportunity(userId,offer,requestedAmount,"INSUFFICIENT_AVAILABLE_BALANCE");
-      missedOfferIds.add(Number(offer.id));
-      continue;
-    }
-    const terms=calculateTradeTerms(userId,offer,requestedAmount);
+    // Do not reject on the target-currency wallet alone. createTrade owns the
+    // authoritative, fresh-FX, all-or-nothing cross-wallet funding check inside
+    // its transaction; prechecking one wallet here incorrectly misses customers
+    // whose combined spendable balances cover the required capital.
     const claim=await claimOpportunityExecutionAttempt(userId,offer);
     if(!claim.claimed){
       if(claim.reason==="retry-window-expired"||claim.reason==="attempts-exhausted"||claim.reason==="failed"){
@@ -3534,16 +4002,30 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
   }
   return {executed,missed:await listMissedOpportunities(userId)};
 }
-export async function listCustomerOpportunities(userId:number, options:{consumeDelivery?:boolean;workerCycle?:boolean;allowAutomaticExecution?:boolean}={}) {
+function projectPopupBalance(minimumMinorValue:unknown, availableMinorValue:unknown, reportedStatus:unknown){
+  const minimumMinor=Number(minimumMinorValue);
+  const availableMinor=Number(availableMinorValue);
+  const status=String(reportedStatus||"unknown").toLowerCase();
+  if(status==="unknown"||!Number.isSafeInteger(minimumMinor)||minimumMinor<0||!Number.isSafeInteger(availableMinor)||availableMinor<0){
+    return {availableMinor:Number.isSafeInteger(availableMinor)&&availableMinor>=0?availableMinor:0,balanceStatus:"unknown" as const,shortfallMinor:0};
+  }
+  const balanceStatus=availableMinor>=minimumMinor?"sufficient" as const:"insufficient" as const;
+  return {availableMinor,balanceStatus,shortfallMinor:balanceStatus==="insufficient"?minimumMinor-availableMinor:0};
+}
+
+export async function listCustomerOpportunities(userId:number, options:{consumeDelivery?:boolean;workerCycle?:boolean;allowAutomaticExecution?:boolean;generationBatchId?:string;automaticGenerationEnabled?:boolean}={}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const globalPolicy=await getTradeGlobalControls();
   const now=new Date();
   const quotaDay=now.toISOString().slice(0,10);
   const settled:Array<{tradeId:number;rewardMinor:number;currency:string;totalMinor:number}>=[];
-  if(options.workerCycle===true) await markDueTradesAwaitingConfirmation(userId);
   const controls=await ensureCustomerControls(userId);
-  const emptyResult=async (delivery:any)=>({offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery});
-  if(controls.accountStatus!=="active") return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,accountInactive:true,popupPolicy:{}});
+  const emptyResult=async (delivery:any,reason:string,counts:Record<string,number>={})=>({serverTime:new Date().toISOString(),offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,generatedOpportunityId:null,delivery,
+    generationDiagnostics:{attempted:false,reason,generationControlEnabled:options.automaticGenerationEnabled===true,
+      globalControlsAvailable:globalPolicy.available,tierPolicyMasterEnabled:globalPolicy.tierPolicyMasterEnabled,
+      popupDeliveryMasterEnabled:globalPolicy.informationalPopupDeliveryEnabled,...counts},
+    deliveryDiagnostics:{enabled:false,openAssignedOffers:0,generatedAssignments:0,popupEventsPersistedThisCycle:0,activePopupEvents:0,remainingQuota:0}});
+  if(controls.accountStatus!=="active") return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,accountInactive:true,popupPolicy:{}},"CUSTOMER_ACCOUNT_INACTIVE");
   const subscriptions=(await db.select({
     subscriptionId:customerPackageSubscriptions.id,packageId:packages.id,packageName:packages.name,
     activationKey:customerPackageSubscriptions.activationKey,
@@ -3555,18 +4037,17 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,now)),
       or(isNull(packages.expiresAt),gt(packages.expiresAt,now)))).orderBy(customerPackageSubscriptions.expiresAt))
     .filter(subscription=>String(subscription.activationKey||"").startsWith("auto-tier:"));
-  if(!subscriptions.length) return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,noPackage:true,popupPolicy:{}});
+  if(!subscriptions.length) return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,noPackage:true,popupPolicy:{}},"NO_ACTIVE_AUTOMATIC_TIER");
   const packagePolicies=await listOpportunityPackagePolicies();
-  const policyByName=new Map<string,typeof packagePolicies[number]>();
-  for(const policyRow of packagePolicies) policyByName.set(policyRow.packageName,policyRow);
+  const policyByName=indexTradingPackagePolicies(packagePolicies);
   // Package lifecycle remains tier-scoped. Global delivery masters are loaded
   // once above; legacy per-tier copies are migration inputs only, not a second
   // editable or runtime owner.
   const eligibleSubscriptions=subscriptions.filter(subscription=>{
-    const configured=policyByName.get(subscription.packageName);
+    const configured=policyByName.get(normalizeTradingPackagePolicyKey(subscription.packageName));
     return Boolean(configured && hasConfiguredTradingOfferPolicy(configured));
   });
-  if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packagePolicyPaused:true,popupPolicy:{}});
+  if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packagePolicyPaused:true,popupPolicy:{}},"NO_PACKAGE_WITH_VALID_TRADING_POLICY",{activeAutomaticSubscriptions:subscriptions.length});
   const quotaFor=(subscription:any)=>{
     try { const snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}")); const value=Number(snapshot.opportunitiesPerDay??subscription.packageQuota); return Number.isSafeInteger(value)&&value>0?value:0; }
     catch { const value=Number(subscription.packageQuota); return Number.isSafeInteger(value)&&value>0?value:0; }
@@ -3574,13 +4055,13 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const quotaByPackage=new Map<string,number>();
   for(const subscription of eligibleSubscriptions) quotaByPackage.set(subscription.packageName,(quotaByPackage.get(subscription.packageName)||0)+quotaFor(subscription));
   const combinedQuota=[...quotaByPackage.values()].reduce((sum,value)=>sum+value,0);
-  if(combinedQuota<=0) return emptyResult({packageName:eligibleSubscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packageQuotaExhausted:true,popupPolicy:{}});
+  if(combinedQuota<=0) return emptyResult({packageName:eligibleSubscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packageQuotaExhausted:true,popupPolicy:{}},"CUSTOMER_PACKAGE_ENTITLEMENT_ZERO",{activeAutomaticSubscriptions:subscriptions.length,validPolicySubscriptions:eligibleSubscriptions.length});
   const currencyRows=await listCurrencies();
-  const configuredPolicies=eligibleSubscriptions.map(subscription=>policyByName.get(subscription.packageName)).filter((row:any)=>Boolean(row));
+  const configuredPolicies=eligibleSubscriptions.map(subscription=>policyByName.get(normalizeTradingPackagePolicyKey(subscription.packageName))).filter((row:any)=>Boolean(row));
   const policy=configuredPolicies[0]||null;
   const packageName=[...new Set(eligibleSubscriptions.map(row=>row.packageName))].join(", ");
   const tierDeliveryCaps=eligibleSubscriptions.map(subscription=>{
-    const row=policyByName.get(subscription.packageName);
+    const row=policyByName.get(normalizeTradingPackagePolicyKey(subscription.packageName));
     let snapshot:any={};try{snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}"))}catch{snapshot={}}
     return {
       quota:quotaFor(subscription),policyMaxPopupsPerDay:row?.maxPopupsPerDay,
@@ -3591,14 +4072,18 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const {maxPopupsPerDay,maxVisibleOffers}=calculateTierDeliveryCaps(tierDeliveryCaps);
   const effectiveSchedulingPeriod=configuredPolicies.some((row:any)=>row.schedulingPeriod==="rolling_24h")?"rolling_24h":"calendar_day";
   const quotaWindow=resolveTradingQuotaWindow(now,effectiveSchedulingPeriod);
+  const opportunityUsageResetBoundary=await getOpportunityUsageResetBoundary(db,userId);
+  const effectiveQuotaStart=opportunityUsageResetBoundary&&opportunityUsageResetBoundary.resetAt>quotaWindow.start?opportunityUsageResetBoundary.resetAt:quotaWindow.start;
   const popupPolicy={
     popupMinGapSeconds:Math.max(0,Number(policy?.minIntervalSeconds||0)),
-    popupDisplaySeconds:Math.max(1,Number(policy?.popupDisplayTargetSeconds||120)),
     popupMaxPerHour:maxPopupsPerDay,
     popupPreAlertProbabilityBps:0,popupPreAlertSeconds:0,popupWithdrawalProbabilityBps:0,
     popupJitterSeconds:globalPolicy.randomizedTimingEnabled?Math.max(0,Number(policy?.maxIntervalSeconds||0)-Number(policy?.minIntervalSeconds||0)):0,
   };
-  const offerRows=await db.select().from(opportunityOffers).where(and(eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt).limit(5000);
+  let offerRows=await db.select().from(opportunityOffers).where(and(eq(opportunityOffers.assignedUserId,userId),eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt).limit(5000);
+  let generationAssignments=offerRows.length?await db.select().from(opportunityGenerationAssignments)
+    .where(and(eq(opportunityGenerationAssignments.userId,userId),inArray(opportunityGenerationAssignments.offerId,offerRows.map(row=>Number(row.id))))):[];
+  let generationAssignmentByOffer=new Map(generationAssignments.map(row=>[Number(row.offerId),row]));
   const tradeHistory=await listTrades(userId);
   const tradeOfferIds=new Set(tradeHistory.map((row:any)=>Number(row.offerId)));
   const missedHistory=await listMissedOpportunities(userId);
@@ -3608,14 +4093,16 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     status:opportunityDeliveryEvents.status,
     quotaDay:opportunityDeliveryEvents.quotaDay,
   }).from(opportunityDeliveryEvents).where(and(
-    eq(opportunityDeliveryEvents.userId,userId),gte(opportunityDeliveryEvents.deliveredAt,quotaWindow.start),
+    eq(opportunityDeliveryEvents.userId,userId),gte(opportunityDeliveryEvents.deliveredAt,effectiveQuotaStart),
+    gt(opportunityDeliveryEvents.id,opportunityUsageResetBoundary?.deliveryEventMaxId??0),
     lt(opportunityDeliveryEvents.deliveredAt,quotaWindow.end),notInArray(opportunityDeliveryEvents.status,["failed"])
   ));
   // Package copies are separate entitlements: count allocations against each
   // subscription's own quota window instead of pooling copies under package name.
   const usedQuotaRows=await db.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions
     WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL
-      AND confirmedAt>=${quotaWindow.start} AND confirmedAt<${quotaWindow.end}
+      AND confirmedAt>=${effectiveQuotaStart} AND confirmedAt<${quotaWindow.end}
+      AND id>${opportunityUsageResetBoundary?.tradePositionMaxId??0}
       AND status<>'cancelled'
     GROUP BY packageSubscriptionId`) as any;
   const usedBySubscription=new Map<number,number>();
@@ -3629,7 +4116,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     policyVersion:opportunityPopupEvents.policyVersion,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
     expectedRewardBps:opportunityPopupEvents.expectedRewardBps,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
-    balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,deliveryStatus:opportunityPopupEvents.deliveryStatus,quotaDay:opportunityPopupEvents.quotaDay,
+    balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,deliveryStatus:opportunityPopupEvents.deliveryStatus,expiredAt:opportunityPopupEvents.expiredAt,quotaDay:opportunityPopupEvents.quotaDay,
     deliveredAt:opportunityPopupEvents.deliveredAt,venueFrom:opportunityOffers.venueFrom,venueTo:opportunityOffers.venueTo,
     offerStatus:opportunityOffers.status,offerMinimumMinor:opportunityOffers.minimumMinor,opensAt:opportunityOffers.opensAt,
     closesAt:opportunityOffers.closesAt,rewardAt:opportunityOffers.rewardAt,durationSeconds:opportunityOffers.durationSeconds,
@@ -3683,31 +4170,41 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   }
   const deliveredOfferIds=new Set(effectiveDeliveredToday.filter(row=>row.status!=="failed").map(row=>Number(row.offerId)));
   const deliveredOfferCount=countConsumedDeliveryOffers(effectiveDeliveredToday);
-  const activeVisibleCount=activePopupRows.filter(row=>{
-    const eventStatus=String(row.eventStatus||"").toUpperCase();
-    const deliveryStatus=String(row.deliveryStatus||"pending").toLowerCase();
-    return ["DELIVERED","NOTICED","OPENED"].includes(eventStatus)&&["pending","delivered","received","rendered"].includes(deliveryStatus);
-  }).length;
-  // Timing is owned by each package. Never use the first configured policy as a
-  // customer-wide scheduler: Package A's delivery must not delay Package B or C.
+  const activeVisibleCount=countActiveVisiblePopupEvents(activePopupRows,now);
   const packageNames=[...new Set(eligibleSubscriptions.map(subscription=>String(subscription.packageName)))];
-  const lastDeliveriesByPackage=await db.select({
-    packageName:opportunityPopupEvents.packageName,id:opportunityDeliveryEvents.id,deliveredAt:opportunityDeliveryEvents.deliveredAt,policyVersion:opportunityDeliveryEvents.policyVersion,
-  }).from(opportunityDeliveryEvents).innerJoin(opportunityPopupEvents,and(eq(opportunityDeliveryEvents.userId,opportunityPopupEvents.userId),eq(opportunityDeliveryEvents.offerId,opportunityPopupEvents.offerId)))
-    .where(and(eq(opportunityDeliveryEvents.userId,userId),notInArray(opportunityDeliveryEvents.status,["failed"])))
-    .orderBy(desc(opportunityDeliveryEvents.deliveredAt));
-  const lastDeliveryByPackage=new Map<string,typeof lastDeliveriesByPackage[number]>();
-  for(const row of lastDeliveriesByPackage) if(row.packageName&&!lastDeliveryByPackage.has(String(row.packageName))) lastDeliveryByPackage.set(String(row.packageName),row);
-  const lastCompletedTradesByPackage=await db.select({packageName:packages.name,completionAt:tradePositions.completionAt})
-    .from(tradePositions).innerJoin(customerPackageSubscriptions,eq(tradePositions.packageSubscriptionId,customerPackageSubscriptions.id))
-    .innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
-    .where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"settled"),isNotNull(tradePositions.completionAt)))
-    .orderBy(desc(tradePositions.completionAt));
-  const lastCompletedTradeByPackage=new Map<string,typeof lastCompletedTradesByPackage[number]>();
-  for(const row of lastCompletedTradesByPackage) if(row.packageName&&!lastCompletedTradeByPackage.has(String(row.packageName))) lastCompletedTradeByPackage.set(String(row.packageName),row);
+  const schedulePolicyEnabled=packageNames.some(packageName=>{
+    const packagePolicy=policyByName.get(normalizeTradingPackagePolicyKey(packageName));
+    return Number(packagePolicy?.minIntervalSeconds||0)>0||Number(packagePolicy?.maxIntervalSeconds||0)>0||Number(packagePolicy?.postCompletionIntervalSeconds||0)>0;
+  });
+  const packageDeliveryRows=schedulePolicyEnabled?await db.select({
+    packageName:opportunityPopupEvents.packageName,id:opportunityDeliveryEvents.id,
+    deliveredAt:opportunityDeliveryEvents.deliveredAt,policyVersion:opportunityDeliveryEvents.policyVersion,
+  }).from(opportunityDeliveryEvents).innerJoin(opportunityPopupEvents,and(
+    eq(opportunityDeliveryEvents.userId,opportunityPopupEvents.userId),
+    eq(opportunityDeliveryEvents.offerId,opportunityPopupEvents.offerId),
+  )).where(and(
+    eq(opportunityDeliveryEvents.userId,userId),
+    gt(opportunityDeliveryEvents.id,opportunityUsageResetBoundary?.deliveryEventMaxId??0),
+    notInArray(opportunityDeliveryEvents.status,["failed"]),
+  )).orderBy(desc(opportunityDeliveryEvents.deliveredAt)):[];
+  const lastDeliveryByPackage=new Map<string,typeof packageDeliveryRows[number]>();
+  for(const row of packageDeliveryRows){
+    if(row.packageName&&!lastDeliveryByPackage.has(String(row.packageName)))lastDeliveryByPackage.set(String(row.packageName),row);
+  }
+  const packageCompletionRows=packageNames.length?await db.select({
+    packageName:packages.name,completionAt:tradePositions.completionAt,
+  }).from(tradePositions).innerJoin(customerPackageSubscriptions,eq(tradePositions.packageSubscriptionId,customerPackageSubscriptions.id))
+    .innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id)).where(and(
+      eq(tradePositions.userId,userId),eq(tradePositions.status,"settled"),isNotNull(tradePositions.completionAt),
+      gte(tradePositions.completionAt,opportunityUsageResetBoundary?.resetAt??new Date(0)),
+    )).orderBy(desc(tradePositions.completionAt)):[];
+  const lastCompletedTradeByPackage=new Map<string,typeof packageCompletionRows[number]>();
+  for(const row of packageCompletionRows){
+    if(row.packageName&&!lastCompletedTradeByPackage.has(String(row.packageName)))lastCompletedTradeByPackage.set(String(row.packageName),row);
+  }
   const packageSchedules=new Map<string,{deliveryReadyAt:Date|null;postCompletionReadyAt:Date|null;readyAt:Date|null;cooling:boolean}>();
   for(const packageName of packageNames){
-    const packagePolicy=policyByName.get(packageName);
+    const packagePolicy=policyByName.get(normalizeTradingPackagePolicyKey(packageName));
     const lastDelivery=lastDeliveryByPackage.get(packageName);
     const deliverySchedule=resolveTradingDeliverySchedule({
       lastDeliveredAt:lastDelivery?.deliveredAt??null,deliveryEventId:Number(lastDelivery?.id||0),userId,
@@ -3722,9 +4219,11 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       ?new Date(new Date(lastCompletedTrade.completionAt).getTime()+postCompletionIntervalSeconds*1000):null;
     const readyDeadlines=[deliverySchedule.readyAt,postCompletionReadyAt].filter((value):value is Date=>value instanceof Date);
     const readyAt=readyDeadlines.length?new Date(Math.max(...readyDeadlines.map(value=>value.getTime()))):null;
-    packageSchedules.set(packageName,{deliveryReadyAt:deliverySchedule.readyAt,postCompletionReadyAt,readyAt,cooling:Boolean(readyAt&&readyAt.getTime()>now.getTime())});
+    packageSchedules.set(packageName,{deliveryReadyAt:deliverySchedule.readyAt,postCompletionReadyAt,readyAt,
+      cooling:Boolean(readyAt&&readyAt.getTime()>now.getTime())});
   }
-  const futureReadyAt=[...packageSchedules.values()].map(schedule=>schedule.readyAt).filter((value):value is Date=>Boolean(value&&value.getTime()>now.getTime()));
+  const futureReadyAt=[...packageSchedules.values()].map(schedule=>schedule.readyAt)
+    .filter((value):value is Date=>Boolean(value&&value.getTime()>now.getTime()));
   const formulaReadyAt=futureReadyAt.length?new Date(Math.min(...futureReadyAt.map(value=>value.getTime()))):null;
   const formulaCooling=packageNames.length>0&&packageNames.every(packageName=>packageSchedules.get(packageName)?.cooling===true);
   const dailyCap=maxPopupsPerDay;
@@ -3732,14 +4231,91 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   let remainingQuota=deliveryCapacity.remainingQuota;
   const balancesSnapshot=await listBalances(userId);
   let newlyEligible:any[]=[];
+  let generatedOpportunityId:number|null=null;
   // Preserve the entitlement selected for newly created popups during this cycle,
   // so the later automatic-trade pass does not count that same quota slot twice.
   const assignedSubscriptionByOffer=new Map<number,any>();
-  if(options.workerCycle===true&&globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&remainingQuota>0){
+  const activeSubscriptionIds=eligibleSubscriptions.map(subscription=>Number(subscription.subscriptionId));
+  // An informational popup that has already been classified as insufficient
+  // balance is a terminal outcome for that offer, not a usable pending offer.
+  // Keep its popup/offer history intact, but do not let its still-open source offer
+  // hold the customer's generation gate forever.
+  const insufficientBalanceOfferIds=new Set<number>();
+  if(offerRows.length){
+    const insufficientRows=await db.select({offerId:opportunityPopupEvents.offerId}).from(opportunityPopupEvents)
+      .where(and(eq(opportunityPopupEvents.userId,userId),inArray(opportunityPopupEvents.offerId,offerRows.map(offer=>Number(offer.id))),
+        eq(opportunityPopupEvents.balanceStatus,"insufficient")));
+    for(const row of insufficientRows) insufficientBalanceOfferIds.add(Number(row.offerId));
+  }
+  const hasUsableAssignedOffer=offerRows.some(offer=>{
+    const offerId=Number(offer.id);
+    if(insufficientBalanceOfferIds.has(offerId)) return false;
+    const assignmentStatus=String(generationAssignmentByOffer.get(offerId)?.status||"");
+    const assignedSubscription=eligibleSubscriptions.find(subscription=>Number(subscription.subscriptionId)===Number(offer.assignedPackageSubscriptionId));
+    const assignedPackageCooling=Boolean(assignedSubscription&&packageSchedules.get(String(assignedSubscription.packageName))?.cooling===true);
+    return activeSubscriptionIds.includes(Number(offer.assignedPackageSubscriptionId))&&!assignedPackageCooling&&["generated","delivered"].includes(assignmentStatus);
+  });
+  const generationGateReason=options.workerCycle!==true?"NOT_WORKER_CYCLE"
+    :options.automaticGenerationEnabled!==true?"GENERATION_CONTROL_DISABLED_OR_UNAVAILABLE"
+    :!options.generationBatchId?"GENERATION_BATCH_ID_MISSING"
+    :!globalPolicy.available?"GLOBAL_TRADE_CONTROLS_UNAVAILABLE"
+    :!globalPolicy.tierPolicyMasterEnabled?"TIER_POLICY_MASTER_DISABLED"
+    :!globalPolicy.informationalPopupDeliveryEnabled?"POPUP_DELIVERY_MASTER_DISABLED"
+    :formulaCooling?"DELIVERY_SCHEDULE_COOLDOWN"
+    :remainingQuota<=0?"DELIVERY_QUOTA_OR_VISIBLE_CAPACITY_EXHAUSTED"
+    :hasUsableAssignedOffer?"OPEN_GENERATED_OPPORTUNITY_ALREADY_EXISTS":null;
+  let generationAttempted=false;
+  let generationSkipReason:string|null=generationGateReason;
+  let generationSkipDetail:Record<string,number>|undefined;
+  if(generationGateReason===null){
+    generationAttempted=true;
+    const outcome=await generateAutomaticCustomerOpportunity({
+      userId,batchId:options.generationBatchId!,now,quotaWindowStart:quotaWindow.start,
+      eligibleSubscriptions:eligibleSubscriptions.filter(subscription=>packageSchedules.get(String(subscription.packageName))?.cooling!==true)
+        .map(subscription=>({subscriptionId:Number(subscription.subscriptionId),packageId:Number(subscription.packageId),packageName:String(subscription.packageName)})),
+      companyRotationEnabled:Boolean(globalPolicy.companyRotationEnabled),
+    });
+    generatedOpportunityId=outcome.offerId;
+    generationSkipReason=outcome.skipReason;
+    generationSkipDetail=outcome.skipDetail;
+    if(generatedOpportunityId){
+      offerRows=await db.select().from(opportunityOffers).where(and(eq(opportunityOffers.assignedUserId,userId),eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now)))
+        .orderBy(opportunityOffers.closesAt).limit(5000);
+      generationAssignments=offerRows.length?await db.select().from(opportunityGenerationAssignments)
+        .where(and(eq(opportunityGenerationAssignments.userId,userId),inArray(opportunityGenerationAssignments.offerId,offerRows.map(row=>Number(row.id))))):[];
+      generationAssignmentByOffer=new Map(generationAssignments.map(row=>[Number(row.offerId),row]));
+    }
+  }
+  if(options.workerCycle===true&&globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&!formulaCooling&&remainingQuota>0){
     for(const offer of offerRows){
       if(remainingQuota<=0) break;
       const offerId=Number(offer.id);
       if(deliveredOfferIds.has(offerId)||activePopupOfferIds.has(offerId)||tradeOfferIds.has(offerId)||missedOfferIds.has(offerId)) continue;
+      const generationAssignment=generationAssignmentByOffer.get(offerId);
+      const generatedOffer=Number(offer.assignedUserId)===userId&&Boolean(generationAssignment);
+      let generationSnapshot:any=null;
+      if(generatedOffer){
+        if(!generationAssignment||!["generated","delivered"].includes(String(generationAssignment.status)))continue;
+        try{generationSnapshot=JSON.parse(String(generationAssignment.packageSnapshotJson||"{}"));}catch{continue;}
+        const minRate=Number(generationSnapshot.minimumPayoutRateBps),maxRate=Number(generationSnapshot.maximumPayoutRateBps);
+        const minDuration=Number(generationSnapshot.minimumTradeDurationSeconds),maxDuration=Number(generationSnapshot.maximumTradeDurationSeconds);
+        const savedPackageVersion=Number(generationSnapshot.policyVersion),savedPackageMinimum=Number(generationSnapshot.packageMinimumMinor),savedPackageMaximum=Number(generationSnapshot.packageMaximumMinor);
+        const savedDurationSeconds=Number(generationSnapshot.configuredDurationSeconds),savedCurrencyRate=Number(generationSnapshot.currencyRateUsd);
+        const savedTiming=validateOpportunityDurationSnapshot(generationSnapshot,{
+          opensAt:offer.opensAt,rewardAt:offer.rewardAt,closesAt:offer.closesAt,
+          offerDurationSeconds:offer.durationSeconds,eventDurationSeconds:generationSnapshot.configuredDurationSeconds,
+          eventPopupDisplaySeconds:Number(generationSnapshot.configuredDurationSeconds)+Number(generationSnapshot.completionDisplaySeconds),
+        });
+        if(!Number.isSafeInteger(minRate)||!Number.isSafeInteger(maxRate)||!Number.isSafeInteger(minDuration)||!Number.isSafeInteger(maxDuration)||
+          !Number.isSafeInteger(savedPackageVersion)||savedPackageVersion<1||!Number.isSafeInteger(savedPackageMinimum)||savedPackageMinimum<=0||
+          !Number.isSafeInteger(savedPackageMaximum)||savedPackageMaximum<savedPackageMinimum||!Number.isSafeInteger(savedDurationSeconds)||savedDurationSeconds<minDuration||savedDurationSeconds>maxDuration||
+          !Number.isFinite(savedCurrencyRate)||savedCurrencyRate<=0||generationSnapshot.currency!==offer.currency||generationSnapshot.symbol!==offer.symbol||
+          generationSnapshot.companyReferenceId!==offer.companyReferenceId||
+          !savedTiming||
+          Number(offer.expectedRewardBps)!==Number(generationAssignment.configuredProfitRateBps)||Number(offer.durationSeconds)!==Number(generationAssignment.configuredDurationSeconds)||
+          Number(offer.expectedRewardBps)<minRate||Number(offer.expectedRewardBps)>maxRate||Number(offer.durationSeconds)<minDuration||Number(offer.durationSeconds)>maxDuration||
+          Number(offer.minimumMinor)!==Number(generationSnapshot.minimumMinor))continue;
+      }
       const currencyRow=currencyRows.find((row:any)=>String(row.code).toUpperCase()===String(offer.currency).toUpperCase());
       if(!currencyRow) continue;
       // The administrator's rate/duration bounds filter published opportunities.
@@ -3750,13 +4326,13 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
          !Number.isSafeInteger(publishedDurationSeconds)||publishedDurationSeconds<10||publishedDurationSeconds>86400) continue;
       let selected:any=null;
       for(const candidate of eligibleSubscriptions){
+        if(Number(offer.assignedPackageSubscriptionId)!==Number(candidate.subscriptionId)||Number(offer.assignedPackageId)!==Number(candidate.packageId)) continue;
         if(!subscriptionHasQuota(candidate)) continue;
-        const candidatePolicy=policyByName.get(candidate.packageName);
-        // Cooling belongs to the candidate package. Skip only this package so
-        // the same opportunity can still be assigned to another ready package.
+        // A cooling entitlement must not delay an opportunity for another ready package.
         if(packageSchedules.get(String(candidate.packageName))?.cooling===true) continue;
-        const configuredMinimum=candidatePolicy?packageUsdUnitsToNativeMinor(Number(candidatePolicy.minimumTradeUnits),String(offer.currency),currencyRows):Number(offer.minimumMinor);
-        const configuredMaximum=candidatePolicy?Math.max(configuredMinimum,packageUsdUnitsToNativeMinor(Number(candidatePolicy.maximumTradeUnits),String(offer.currency),currencyRows)):Number.MAX_SAFE_INTEGER;
+        const candidatePolicy=policyByName.get(normalizeTradingPackagePolicyKey(candidate.packageName));
+        const configuredMinimum=generatedOffer?Number(generationSnapshot.packageMinimumMinor):candidatePolicy?packageUsdUnitsToNativeMinor(Number(candidatePolicy.minimumTradeUnits),String(offer.currency),currencyRows):Number(offer.minimumMinor);
+        const configuredMaximum=generatedOffer?Number(generationSnapshot.packageMaximumMinor):candidatePolicy?Math.max(configuredMinimum,packageUsdUnitsToNativeMinor(Number(candidatePolicy.maximumTradeUnits),String(offer.currency),currencyRows)):Number.MAX_SAFE_INTEGER;
         const terms=calculateTradeTerms(userId,offer,Math.max(Number(offer.minimumMinor),configuredMinimum));
         const minimumMinor=Math.max(Number(offer.minimumMinor),Number(terms.minimumMinor||0),configuredMinimum);
         if(!Number.isSafeInteger(minimumMinor)||minimumMinor<=0||minimumMinor>configuredMaximum) continue;
@@ -3770,45 +4346,82 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(configured.maxBurstSize||0)})) break;
       // Select one administrator-configured rate and duration exactly once. The
       // selection is persisted with the popup and reused by retries/trade allocation.
-      const configuredProfitRateBps=chooseInclusiveInteger(Number(configured.minimumPayoutRateBps),Number(configured.maximumPayoutRateBps));
-      const configuredDurationSeconds=chooseInclusiveInteger(Number(configured.minimumTradeDurationSeconds),Number(configured.maximumTradeDurationSeconds));
-      const configuredPopupDisplaySeconds=Number(configured.popupDisplayTargetSeconds);
-      if(!Number.isSafeInteger(configuredPopupDisplaySeconds)||configuredPopupDisplaySeconds<1||configuredPopupDisplaySeconds>86400) continue;
+      const configuredProfitRateBps=generatedOffer?Number(offer.configuredProfitRateBps):chooseInclusiveInteger(Number(configured.minimumPayoutRateBps),Number(configured.maximumPayoutRateBps));
+      const configuredDurationSeconds=generatedOffer?Number(offer.configuredDurationSeconds):chooseInclusiveInteger(Number(configured.minimumTradeDurationSeconds),Number(configured.maximumTradeDurationSeconds));
+      const savedBounds=generatedOffer?generationSnapshot:{minimumPayoutRateBps:configured.minimumPayoutRateBps,maximumPayoutRateBps:configured.maximumPayoutRateBps,minimumTradeDurationSeconds:configured.minimumTradeDurationSeconds,maximumTradeDurationSeconds:configured.maximumTradeDurationSeconds};
+      if(!Number.isSafeInteger(configuredProfitRateBps)||configuredProfitRateBps<Number(savedBounds.minimumPayoutRateBps)||configuredProfitRateBps>Number(savedBounds.maximumPayoutRateBps)||
+        !Number.isSafeInteger(configuredDurationSeconds)||configuredDurationSeconds<Number(savedBounds.minimumTradeDurationSeconds)||configuredDurationSeconds>Number(savedBounds.maximumTradeDurationSeconds)) continue;
+      const completionDisplaySeconds=generatedOffer?Number(generationSnapshot.completionDisplaySeconds??8):Number(configured.completionDisplaySeconds??8);
+      if(!Number.isSafeInteger(completionDisplaySeconds)||completionDisplaySeconds<1||completionDisplaySeconds>3600) continue;
+      const configuredPopupDisplaySeconds=configuredDurationSeconds+completionDisplaySeconds;
       newlyEligible.push({...offer,packageId:Number(subscription.packageId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
         minimumMinor:selected.minimumMinor,packageMinimumTradeMinor:selected.configuredMinimum,packageMaximumTradeMinor:selected.configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
         expectedRewardBps:configuredProfitRateBps,configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds,
-        durationSeconds:configuredDurationSeconds,policyVersion:Number(configured.policyVersion||1),packagePolicyVersionSnapshot:Number(configured.policyVersion||1),
-        badgeLabel:configured.badgeLabel==null?null:String(configured.badgeLabel),packageBadgeLabel:configured.badgeLabel==null?null:String(configured.badgeLabel),
-        badgeStyle:["neutral","blue","purple","gold","green"].includes(String(configured.badgeStyle))?String(configured.badgeStyle):"neutral",
-        companyRotationEnabled:globalPolicy.companyRotationEnabled,
-        companyRotationCountryNames:String(configured.companyRotationCountryNames||""),
-        companyRotationRepeatPolicy:configured.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted"});
+        durationSeconds:configuredDurationSeconds,policyVersion:generatedOffer?Number(generationSnapshot.policyVersion):Number(configured.policyVersion||1),
+        packagePolicyVersionSnapshot:generatedOffer?Number(generationSnapshot.policyVersion):Number(configured.policyVersion||1),
+        badgeLabel:(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel)==null?null:String(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel),
+        packageBadgeLabel:(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel)==null?null:String(generatedOffer?generationSnapshot.badgeLabel:configured.badgeLabel),
+        badgeStyle:generatedOffer&&["neutral","blue","purple","gold","green"].includes(String(generationSnapshot.badgeStyle))?String(generationSnapshot.badgeStyle):["neutral","blue","purple","gold","green"].includes(String(configured.badgeStyle))?String(configured.badgeStyle):"neutral",
+        companyRotationEnabled:generatedOffer?Boolean(generationSnapshot.companyRotationEnabled):globalPolicy.companyRotationEnabled,
+        companyRotationCountryNames:generatedOffer?String(generationSnapshot.companyRotationCountryNames||""):String(configured.companyRotationCountryNames||""),
+        companyRotationRepeatPolicy:generatedOffer?generationSnapshot.companyRotationRepeatPolicy:configured.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
+        companyReferenceId:offer.companyReferenceId??null,companyDisplayName:offer.companyDisplayName??null,companyLogoUrl:offer.companyLogoUrl??null,companyReferenceMetadataJson:offer.companyReferenceMetadataJson??null});
       assignedSubscriptionByOffer.set(Number(offer.id),subscription);
       usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
       remainingQuota--;
     }
   }
   if(newlyEligible.length){
+    // Snapshot the combined spendable balance in each offer's currency. Only enabled
+    // wallet currencies with positive available funds need FX quotes; if any such
+    // quote is unavailable, report the balance as unknown rather than understating it.
+    const combinedBalanceSnapshots=await Promise.all(newlyEligible.map(async offer=>{
+      const targetCurrency=String(offer.currency).toUpperCase();
+      const configs=new Map(currencyRows.map((row:any)=>[String(row.code).toUpperCase(),row]));
+      const positiveForeignWallets=balancesSnapshot.filter((wallet:any)=>
+        String(wallet.currency).toUpperCase()!==targetCurrency&&Number(wallet.availableMinor)>0);
+      const rateCodes=[...new Set([...(positiveForeignWallets.length?[targetCurrency]:[]),...positiveForeignWallets.map((wallet:any)=>String(wallet.currency).toUpperCase())])];
+      const rateResults=await Promise.all(rateCodes.map(async code=>{
+        const config:any=configs.get(code);
+        if(!config)return [code,null] as const;
+        try{return [code,await getFreshTradingFxRate({code,scale:Number(config.scale),assetType:config.assetType,externalCode:config.externalCode?String(config.externalCode):null})] as const;}
+        catch{return [code,null] as const;}
+      }));
+      const rates=new Map<string,FxRateSnapshot|null>(rateResults);
+      if(!configs.has(targetCurrency)||positiveForeignWallets.some((wallet:any)=>!rates.get(String(wallet.currency).toUpperCase())))
+        return {availableMinor:0,balanceStatus:"unknown" as const};
+      try{
+        const availableMinor=calculateCombinedAvailableTargetMinor({
+          targetCurrency,targetRate:rates.get(targetCurrency)||null,
+          wallets:balancesSnapshot.map((wallet:any)=>{
+            const code=String(wallet.currency).toUpperCase();
+            const config:any=configs.get(code);
+            return {currency:code,scale:Number(config?.scale??2),availableMinor:Number(wallet.availableMinor||0),rate:rates.get(code)||null};
+          }),
+        });
+        return {availableMinor,balanceStatus:availableMinor>=Number(offer.minimumMinor)?"sufficient" as const:"insufficient" as const,shortfallMinor:Math.max(0,Number(offer.minimumMinor)-availableMinor)};
+      }catch{return {availableMinor:0,balanceStatus:"unknown" as const,shortfallMinor:0};}
+    }));
     // Persist the visible popup first. Only write the quota-consumption ledger after
     // every popup row is confirmed; an insert failure must not consume a quota slot.
-    const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map(offer=>{
-      const available=Math.max(0,Number(balancesSnapshot.find((row:any)=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())?.availableMinor||0));
-      return {userId,offerId:offer.id,quotaDay,packageId:Number(offer.packageId),packageName:offer.packageName,maxPendingDeliveries:Math.max(0,Number(policyByName.get(offer.packageName)?.maxPendingDeliveries??0)),symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
+    const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map((offer,index)=>{
+      const balance=combinedBalanceSnapshots[index]||{availableMinor:0,balanceStatus:"unknown" as const,shortfallMinor:0};
+      return {userId,offerId:offer.id,quotaDay,packageId:Number(offer.packageId),packageName:offer.packageName,maxPendingDeliveries:Math.max(0,Number(policyByName.get(normalizeTradingPackagePolicyKey(offer.packageName))?.maxPendingDeliveries??0)),symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
         expectedRewardBps:Number(offer.expectedRewardBps),configuredProfitRateBps:Number(offer.configuredProfitRateBps),
         configuredDurationSeconds:Number(offer.configuredDurationSeconds),configuredPopupDisplaySeconds:Number(offer.configuredPopupDisplaySeconds),
         policyVersion:Number(offer.policyVersion||1),packagePolicyVersionSnapshot:Number(offer.packagePolicyVersionSnapshot||offer.policyVersion||1),
         durationSeconds:Number(offer.configuredDurationSeconds),badgeLabel:offer.badgeLabel??null,packageBadgeLabel:offer.packageBadgeLabel??null,badgeStyle:offer.badgeStyle||"neutral",
         companyRotationEnabled:Boolean(offer.companyRotationEnabled),companyRotationCountryNames:String(offer.companyRotationCountryNames||""),
         companyRotationRepeatPolicy:offer.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
-        balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
+        companyReferenceId:offer.companyReferenceId??null,companyDisplayName:offer.companyDisplayName??null,companyLogoUrl:offer.companyLogoUrl??null,companyReferenceMetadataJson:offer.companyReferenceMetadataJson??null,
+        balanceAvailableMinor:balance.availableMinor,balanceStatus:balance.balanceStatus,
         marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt,publishedExpectedRewardBps:Number(offer.expectedRewardBps),publishedDurationSeconds:Number(offer.durationSeconds),configuredProfitRateBps:Number(offer.configuredProfitRateBps),configuredDurationSeconds:Number(offer.configuredDurationSeconds)})};
     }));
-    newlyEligible=newlyEligible.filter(offer=>lifecycleIds.has(userId+":"+offer.id));
     const missingLifecycleIds=newlyEligible.filter(offer=>!lifecycleIds.has(userId+":"+offer.id));
     if(missingLifecycleIds.length) throw new Error("Popup persistence did not return delivery IDs for every eligible opportunity");
     await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({
-      userId,offerId:offer.id,quotaDay,status:"pending" as const,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion||1),
+      userId,offerId:offer.id,quotaDay,status:"pending" as const,policyVersion:Number(policyByName.get(normalizeTradingPackagePolicyKey(offer.packageName))?.policyVersion||1),
     }))).onDuplicateKeyUpdate({set:{deliveredAt:new Date(),status:"delivered",lastErrorCode:null}});
     for(const offer of newlyEligible){
       offer.deliveryEventId=lifecycleIds.get(userId+":"+offer.id)||null;
@@ -3843,6 +4456,15 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const catalogueAdminState=parseCompanyCatalogueAdminState(catalogueAdminRow?.settingValue??"{}");
   const companyDisplayAllowed=createCompanySpotlightDisplayGuard(catalogueAdminState);
   const tradeCandidates=popupRows.filter(row=>row.offerStatus==="open"&&row.closesAt&&new Date(row.closesAt).getTime()>now.getTime()).map(row=>{
+    const generationAssignment=generationAssignmentByOffer.get(Number(row.offerId));
+    let generationSnapshot:unknown=null;
+    try{generationSnapshot=JSON.parse(String(generationAssignment?.packageSnapshotJson||""));}catch{generationSnapshot=null;}
+    const savedTiming=validateOpportunityDurationSnapshot(generationSnapshot,{
+      opensAt:row.opensAt,rewardAt:row.rewardAt,closesAt:row.closesAt,
+      offerDurationSeconds:row.durationSeconds,eventDurationSeconds:row.configuredDurationSeconds,
+      eventPopupDisplaySeconds:row.configuredPopupDisplaySeconds,
+    });
+    if(!generationAssignment||!savedTiming||Number(generationAssignment.configuredDurationSeconds)!==savedTiming.configuredDurationSeconds)return null;
     // Never reassign an existing popup to another package when its original
     // package is renamed, disabled, expired, or otherwise no longer eligible.
     // Existing popups keep their package identity, while the actual entitlement
@@ -3855,7 +4477,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     if(!assignedSubscriptionByOffer.has(Number(row.offerId))) {
       usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
     }
-    const configured=policyByName.get(subscription.packageName);
+    const configured=policyByName.get(normalizeTradingPackagePolicyKey(subscription.packageName));
     const currencyRow=currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase());
     const offerMinimum=Number(row.offerMinimumMinor??row.popupMinimumMinor);
     const configuredMinimum=configured&&currencyRow?packageUsdUnitsToNativeMinor(Number(configured.minimumTradeUnits),String(row.currency),currencyRows):offerMinimum;
@@ -3867,12 +4489,12 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,marketObservedAt:row.marketObservedAt,
       marketSnapshotId:row.marketSnapshotId,sector:row.sector,industry:row.industry,listingStatus:row.listingStatus,
       executionStatus:row.executionStatus,executionAttemptCount:Number(row.executionAttemptCount||0),executionRetryAfter:row.executionRetryAfter,executionRetryDay:row.executionRetryDay,executionLastErrorCode:row.executionLastErrorCode,
-      maxTradeAttemptsPerDay:Number(policyByName.get(String(row.packageName))?.maxTradeAttemptsPerDay??5),
-      tradeRetryDelaySeconds:Number(policyByName.get(String(row.packageName))?.tradeRetryDelaySeconds??30),
+      maxTradeAttemptsPerDay:Number(policyByName.get(normalizeTradingPackagePolicyKey(String(row.packageName)))?.maxTradeAttemptsPerDay??5),
+      tradeRetryDelaySeconds:Number(policyByName.get(normalizeTradingPackagePolicyKey(String(row.packageName)))?.tradeRetryDelaySeconds??30),
       // A failed browser status write is retryable delivery state, not proof that
       // the opportunity itself expired or became ineligible. Keep it available so
       // a refreshed customer portal can retry rendering and status recording.
-      popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus)&&["queued","in_progress","retry_wait","delivered","received","rendered"].includes(String(row.deliveryStatus)),
+      popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus)&&["queued","in_progress","retry_wait","delivered","received","rendered","failed"].includes(String(row.deliveryStatus)),
       executionEligible:isPopupExecutionEligible({eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus,executionStatus:row.executionStatus}),
       eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus,deliveryAttemptCount:Number(row.deliveryAttemptCount||0),deliveryRetryAfter:row.deliveryRetryAfter,deliveryLeaseToken:row.deliveryLeaseToken};
   }).filter((offer) => offer !== null);
@@ -3881,7 +4503,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     // Dismissing/minimizing a customer card is presentation-only and must not
     // suppress an otherwise eligible server-owned automatic execution.
     if(offer.executionEligible!==true || allocationControls.allocationsPaused) return false;
-    const packagePolicy=policyByName.get(String(offer.packageName));
+    const packagePolicy=policyByName.get(normalizeTradingPackagePolicyKey(String(offer.packageName)));
     // Disabled package policies or automatic execution must stop new allocations
     // without turning a merely visible/pending popup into a trade request.
     return Boolean(packagePolicy && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy));
@@ -3891,12 +4513,15 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     ?await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls)
     :{executed:[],missed:await listMissedOpportunities(userId)};
   const executedByOffer=new Map(auto.executed.map((trade:any)=>[Number(trade.offerId),trade]));
+  const responseNow=new Date();
   let enrichedOffers=popupRows.map(row=>{
     const base:any=tradeCandidates.find(offer=>Number(offer.offerId)===Number(row.offerId))||{};
     const executed=executedByOffer.get(Number(row.offerId))||null;
+    const popupBalance=projectPopupBalance(row.popupMinimumMinor,row.balanceAvailableMinor,row.balanceStatus);
     return {...base,id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageId:Number(row.packageId||0),packageName:row.packageName,
-      symbol:row.symbol,currency:row.currency,minimumMinor:Number(row.popupMinimumMinor),balanceAvailableMinor:Number(row.balanceAvailableMinor),
-      balanceStatus:row.balanceStatus,expectedRewardBps:Number(row.expectedRewardBps),eventStatus:row.eventStatus,deliveredAt:row.deliveredAt,
+      symbol:row.symbol,currency:row.currency,minimumMinor:Number(row.popupMinimumMinor),
+      balanceAvailableMinor:popupBalance.availableMinor,balanceStatus:popupBalance.balanceStatus,shortfallMinor:popupBalance.shortfallMinor,
+      expectedRewardBps:Number(row.expectedRewardBps),eventStatus:row.eventStatus,deliveredAt:row.deliveredAt,
       venueFrom:row.venueFrom||base.venueFrom||"",venueTo:row.venueTo||base.venueTo||"",opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,
       durationSeconds:Number(row.popupDurationSeconds??row.durationSeconds??base.durationSeconds??0),
       configuredProfitRateBps:Number(row.configuredProfitRateBps||row.expectedRewardBps||0),configuredDurationSeconds:Number(row.configuredDurationSeconds||row.popupDurationSeconds||row.durationSeconds||base.durationSeconds||0),
@@ -3906,10 +4531,11 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       badgeLabel:row.badgeLabel??null,badgeStyle:["neutral","blue","purple","gold","green"].includes(String(row.badgeStyle))?String(row.badgeStyle):"neutral",
       policyVersion:Number(row.policyVersion||base.policyVersion||1),marketObservedAt:row.marketObservedAt,sector:row.sector,industry:row.industry,
       listingStatus:row.listingStatus,offerStatus:row.offerStatus,
+      expiryStatus:row.closesAt?(new Date(row.closesAt).getTime()<=responseNow.getTime()?"expired":row.offerStatus==="open"?"active":String(row.offerStatus||"unavailable").toLowerCase()):"unavailable",
       currencyScale:Number(currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase())?.scale??2),
       currencySymbol:String(currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase())?.symbol||row.currency),
       popupEligible:row.offerStatus==="open"&&Boolean(row.closesAt&&new Date(row.closesAt).getTime()>now.getTime())&&
-        ["DELIVERED","NOTICED"].includes(row.eventStatus)&&["queued","in_progress","retry_wait","delivered","received","rendered"].includes(String(row.deliveryStatus)),
+        ["DELIVERED","NOTICED"].includes(row.eventStatus)&&["queued","in_progress","retry_wait","delivered","received","rendered","failed"].includes(String(row.deliveryStatus)),
       deliveryStatus:row.deliveryStatus,deliveryAttemptCount:Number(row.deliveryAttemptCount||0),deliveryRetryAfter:row.deliveryRetryAfter,deliveryLeaseToken:row.deliveryLeaseToken,
       automaticTrade:executed};
   });
@@ -3922,7 +4548,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     });
   }
   const packageScheduleSummary=packageNames.map(packageName=>{
-    const packagePolicy=policyByName.get(packageName);
+    const packagePolicy=policyByName.get(normalizeTradingPackagePolicyKey(packageName));
     const schedule=packageSchedules.get(packageName);
     return {
       packageName,
@@ -3933,11 +4559,21 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     };
   });
   const globalDeliveryEnabled=globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled;
-  return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{enabled:globalDeliveryEnabled,globalPolicyPaused:!globalDeliveryEnabled,packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,
+  const generationReason=generatedOpportunityId?"GENERATED":generationSkipReason||"GENERATOR_RETURNED_NO_OFFER";
+  return {serverTime:responseNow.toISOString(),offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,generatedOpportunityId,
+    generationDiagnostics:{attempted:generationAttempted,reason:generationReason,skipDetail:generationSkipDetail||null,
+      generationControlEnabled:options.automaticGenerationEnabled===true,globalControlsAvailable:globalPolicy.available,
+      tierPolicyMasterEnabled:globalPolicy.tierPolicyMasterEnabled,popupDeliveryMasterEnabled:globalPolicy.informationalPopupDeliveryEnabled,
+      activeAutomaticSubscriptions:subscriptions.length,validPolicySubscriptions:eligibleSubscriptions.length,
+      openGeneratedOfferAlreadyExists:hasUsableAssignedOffer,formulaCooling,formulaReadyAt:formulaReadyAt?.toISOString()||null,remainingQuotaBeforeGeneration:deliveryCapacity.remainingQuota},
+    deliveryDiagnostics:{enabled:globalDeliveryEnabled,openAssignedOffers:offerRows.length,generatedAssignments:generationAssignments.length,
+      popupEventsPersistedThisCycle:newlyEligible.length,activePopupEvents:activePopupRows.length,remainingQuota:deliveryCapacity.remainingQuota},
+    delivery:{enabled:globalDeliveryEnabled,globalPolicyPaused:!globalDeliveryEnabled,packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,
+    packageSchedules:packageScheduleSummary,
     remainingDailyQuota:Math.max(0,deliveryCapacity.dailyRemaining-newlyEligible.length),
     remainingVisibleSlots:Math.max(0,deliveryCapacity.visibleRemaining-newlyEligible.length),
     remainingQuota,activeVisibleCount:activeVisibleCount+newlyEligible.length,schedulingPeriod:effectiveSchedulingPeriod,
-    formulaCooling,formulaReadyAt,packageSchedules:packageScheduleSummary,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
+    formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
 }
 export async function claimAutoTradeCycleCustomers(input:{batchSize?:number}={}){
   const db=await getDb();
@@ -4000,13 +4636,41 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
   // pop-up delivery. Continue processing eligible customers while a trade is open,
   // but suppress the automatic-execution pass for this cycle.
   const {customers,batchSize}=await claimAutoTradeCycleCustomers(input);
+  const generationControl=await getOpportunityGenerationControl();
+  const generationBatchId=crypto.randomUUID();
+  const db=await getDb();if(!db)throw new Error("Database is not available");
+  const staleBatchCutoff=new Date(Date.now()-5*60_000);
+  await db.update(opportunityGenerationBatches).set({status:"partial",failures:sql`${opportunityGenerationBatches.failures}+1`,
+    failureSummary:JSON.stringify({errorType:"WorkerInterrupted",reason:"Generation batch remained running beyond five minutes; persisted customer assignments were preserved for idempotent retry."}),
+    completedAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityGenerationBatches.status,"running"),lt(opportunityGenerationBatches.startedAt,staleBatchCutoff)));
+  await db.insert(opportunityGenerationBatches).values({id:generationBatchId,status:"running",batchSize,customersScanned:0,opportunitiesGenerated:0,failures:0});
   let allocations=0;
+  let generated=0;
+  let failures=0;
+  let generationAttempts=0;
+  let customersWithDeliveryEnabled=0;
+  let popupEventsPersistedThisCycle=0;
+  let customersWithOpenGeneratedOffers=0;
+  const generationSkipReasons:Record<string,number>={};
+  const failureDetails:Array<{userId:number;reason:string;errorType:string}> = [];
   for(const customer of customers){
     try{
       const result=await listCustomerOpportunities(customer.id,{
         workerCycle:true,consumeDelivery:false,allowAutomaticExecution:!pausedUntilSettled,
+        generationBatchId,automaticGenerationEnabled:generationControl.available&&generationControl.enabled,
       });
       allocations+=result.autoTrades.length;
+      if(result.generatedOpportunityId)generated++;
+      const generationDiagnostic=result.generationDiagnostics as {attempted?:boolean;reason?:string}|undefined;
+      if(generationDiagnostic?.attempted)generationAttempts++;
+      if(!result.generatedOpportunityId){
+        const reason=String(generationDiagnostic?.reason||"GENERATION_REASON_UNAVAILABLE");
+        generationSkipReasons[reason]=(generationSkipReasons[reason]||0)+1;
+      }
+      const deliveryDiagnostic=result.deliveryDiagnostics as {enabled?:boolean;openAssignedOffers?:number;popupEventsPersistedThisCycle?:number}|undefined;
+      if(deliveryDiagnostic?.enabled)customersWithDeliveryEnabled++;
+      if(Number(deliveryDiagnostic?.openAssignedOffers||0)>0)customersWithOpenGeneratedOffers++;
+      popupEventsPersistedThisCycle+=Math.max(0,Number(deliveryDiagnostic?.popupEventsPersistedThisCycle||0));
       for(const trade of result.autoTrades){
         const notices=[
           {title:"Automatic trading allocation confirmed",body:trade.symbol+" was allocated from your available "+trade.currency+" balance.",eventKey:"auto-trade-allocation:"+trade.tradeId,category:"trading",priority:"normal"},
@@ -4016,11 +4680,26 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
         if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] Automatic allocation notice failed after ledger commit.");
       }
     }catch(error){
+      failures++;
+      if(failureDetails.length<100){
+        const reason=(error instanceof Error?error.message:"Unknown customer-cycle failure").replace(/[\r\n\t]+/g," ").trim().slice(0,240);
+        failureDetails.push({userId:Number(customer.id),reason:reason||"Unknown customer-cycle failure",errorType:error instanceof Error?error.name:"UnknownError"});
+      }
       console.error("[AutoTrade] Customer cycle failed:",error instanceof Error?error.name:"UnknownError");
     }
   }
+  await db.update(opportunityGenerationBatches).set({
+    status:failures>0?"partial":"completed",customersScanned:customers.length,
+    opportunitiesGenerated:generated,failures,failureSummary:failures?JSON.stringify({customers:failureDetails,omitted:Math.max(0,failures-failureDetails.length)}):null,
+    completedAt:new Date(),updatedAt:new Date(),
+  }).where(eq(opportunityGenerationBatches.id,generationBatchId));
   return {
-    customers:customers.length,allocations,batchSize,
+    customers:customers.length,allocations,batchSize,generated,customerFailures:failures,generationBatchId,generationControlEnabled:generationControl.available&&generationControl.enabled,
+    generationDiagnostics:{generationControlAvailable:generationControl.available,generationControlEnabled:generationControl.enabled,
+      globalControlsAvailable:globalControls.available,tierPolicyMasterEnabled:globalControls.tierPolicyMasterEnabled,
+      popupDeliveryMasterEnabled:globalControls.informationalPopupDeliveryEnabled,customersScanned:customers.length,
+      generationAttempts,generated,skipped:Math.max(0,customers.length-generated-failures),skippedByReason:generationSkipReasons},
+    deliveryDiagnostics:{customersWithDeliveryEnabled,customersWithOpenGeneratedOffers,popupEventsPersistedThisCycle},
     ...(pausedUntilSettled?{pausedUntilSettled:true,outstandingTrades}:{}),
   };
 }
@@ -4117,15 +4796,33 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const globalControlRow=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
     .where(eq(appSettings.settingKey,TRADE_GLOBAL_CONTROL_SETTINGS_KEY)).limit(1).for("update"))[0];
   const globalControls=parseTradeGlobalControlPolicy(globalControlRow?.settingValue);
-  const requirePreviousSettlement=!globalControls||globalControls.requirePreviousSettlement||settlementPolicy.blockUntilSettled;
+  const requirePreviousSettlement=requiresPreviousSettlementForAllocation(globalControls);
 
   const totalWalletFunds=(await tx.select({availableMinor:sql`COALESCE(SUM(${customerBalances.availableMinor}),0)`}).from(customerBalances).where(eq(customerBalances.userId,userId)))[0]; if(Number(totalWalletFunds?.availableMinor||0)<=0) throw new Error("Trading is unavailable until at least one wallet has available funds");
   const offer=(await tx.select().from(opportunityOffers).where(and(eq(opportunityOffers.id,input.offerId),eq(opportunityOffers.status,"open"))).limit(1))[0];
   if(!offer || new Date(offer.closesAt).getTime()<=Date.now()) throw new Error("This opportunity is no longer open");
+  let savedDurationSnapshot:ReturnType<typeof validateOpportunityDurationSnapshot>=null;
+  if(input.deliveryEventId!==undefined){
+    const assignment=(await tx.select({packageSnapshotJson:opportunityGenerationAssignments.packageSnapshotJson,configuredDurationSeconds:opportunityGenerationAssignments.configuredDurationSeconds})
+      .from(opportunityGenerationAssignments)
+      .where(and(eq(opportunityGenerationAssignments.userId,userId),eq(opportunityGenerationAssignments.offerId,input.offerId)))
+      .limit(1).for("update"))[0];
+    let packageSnapshot:unknown=null;
+    try{packageSnapshot=JSON.parse(String(assignment?.packageSnapshotJson||""));}catch{packageSnapshot=null;}
+    savedDurationSnapshot=validateOpportunityDurationSnapshot(packageSnapshot,{
+      opensAt:offer.opensAt,rewardAt:offer.rewardAt,closesAt:offer.closesAt,
+      offerDurationSeconds:offer.durationSeconds,eventDurationSeconds:popupSnapshot?.configuredDurationSeconds,
+      eventPopupDisplaySeconds:popupSnapshot?.configuredPopupDisplaySeconds,
+    });
+    if(!assignment||!savedDurationSnapshot||Number(assignment.configuredDurationSeconds)!==savedDurationSnapshot.configuredDurationSeconds)
+      throw new Error("Saved opportunity duration or timestamps are inconsistent; allocation was rejected safely");
+  }
   const now=new Date();
   const today=new Date().toISOString().slice(0,10);
   const todayStartUtc=new Date(`${today}T00:00:00.000Z`);
   const tomorrowStartUtc=new Date(todayStartUtc.getTime()+24*60*60*1000);
+  const opportunityUsageResetBoundary=await getOpportunityUsageResetBoundary(tx,userId);
+  const effectiveOpportunityQuotaStart=opportunityUsageResetBoundary&&opportunityUsageResetBoundary.resetAt>todayStartUtc?opportunityUsageResetBoundary.resetAt:todayStartUtc;
   const activePackageSubscriptions=(await tx.select({
     subscriptionId:customerPackageSubscriptions.id,
     packageId:packages.id,
@@ -4151,14 +4848,13 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
 
   const packagePolicies=await tx.select().from(opportunityPackagePolicies)
     .where(inArray(opportunityPackagePolicies.packageName,activePackageSubscriptions.map(row=>row.packageName))).for("update");
-  const policyByName=new Map<string,typeof packagePolicies[number]>();
-  for(const row of packagePolicies) policyByName.set(row.packageName,row);
+  const policyByName=indexTradingPackagePolicies(packagePolicies);
   const eligibleSubscriptions=activePackageSubscriptions.filter(subscription=>{
-    const configured=policyByName.get(subscription.packageName);
+    const configured=policyByName.get(normalizeTradingPackagePolicyKey(subscription.packageName));
     return Boolean(configured && configured.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(configured));
   });
   if(!eligibleSubscriptions.length) throw new Error("New allocations are paused for all eligible Trading tier policies");
-  const quotaRows=await tx.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL AND confirmedAt>=${todayStartUtc} AND confirmedAt<${tomorrowStartUtc} AND status<>'cancelled' GROUP BY packageSubscriptionId`) as any;
+  const quotaRows=await tx.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL AND confirmedAt>=${effectiveOpportunityQuotaStart} AND confirmedAt<${tomorrowStartUtc} AND id>${opportunityUsageResetBoundary?.tradePositionMaxId??0} AND status<>'cancelled' GROUP BY packageSubscriptionId`) as any;
   const usedBySubscription=new Map<number,number>();
   for(const row of (quotaRows?.[0]||[])) usedBySubscription.set(Number(row.packageSubscriptionId),Number(row.used||0));
   const subscriptionsWithQuota=eligibleSubscriptions.filter(subscription=>{
@@ -4191,7 +4887,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const effectiveFeeRow=selectLatestEffectivePackageFeePolicy(feeRows,allocationAt);
   const packageFeePolicy=effectiveFeeRow ? normalizePackageFeePolicy(effectiveFeeRow) : null;
   if(!packageFeePolicy) throw new Error("The selected package has no saved fee policy; allocation is blocked until an administrator configures one");
-  const packagePolicy=policyByName.get(activePackageSubscription.packageName);
+  const packagePolicy=policyByName.get(normalizeTradingPackagePolicyKey(activePackageSubscription.packageName));
   let activeTermsSnapshot:any={};try{activeTermsSnapshot=JSON.parse(String(activePackageSubscription.termsSnapshotJson||"{}"))}catch{activeTermsSnapshot={}}
   const tierActiveLimit=Number(activeTermsSnapshot.maxActiveInvestments??activePackageSubscription.maxActiveInvestments??0);
   if(tierActiveLimit>0){
@@ -4201,9 +4897,10 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     if(activePositions.length>=tierActiveLimit) throw new Error("Package maximum active investments reached");
   }
   if(packagePolicy){
-    // This is a customer-wide gate, not a same-package check. A previous trade
-    // remains unsettled until the administrator-confirmed result is posted to
-    // the wallet and the lifecycle reaches its completed state.
+    // This is a customer-wide, global-policy gate, not a same-package check. A
+    // previous trade remains unsettled until its confirmed result is posted to
+    // the wallet and the lifecycle reaches its completed state. The independent
+    // opportunity-delivery pause does not override this allocation setting.
     if(requirePreviousSettlement) {
       const unsettledRows=await tx.execute(sql`SELECT id FROM trade_positions
         WHERE userId=${userId}
@@ -4211,7 +4908,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
           AND (status<>'settled' OR settlementStatus<>'completed')
         ORDER BY id ASC LIMIT 1 FOR UPDATE`) as any;
       if(unsettledRows?.[0]?.length) {
-        throw new Error("Previous trade settlement is still pending; new allocation is blocked by the selected tier policy");
+        throw new Error("Previous trade settlement is still pending; new allocation is blocked by the global previous-settlement prerequisite");
       }
     }
     const activeRows=await tx.select({id:tradePositions.id}).from(tradePositions)
@@ -4283,7 +4980,12 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   if(!Number.isSafeInteger(effectiveDurationSeconds)||effectiveDurationSeconds<10||effectiveDurationSeconds>86400) throw new Error("Selected Trading duration is outside the supported policy bounds");
   if(!packagePolicy||!hasConfiguredTradingOfferPolicy(packagePolicy)) throw new Error("The selected tier has no complete saved Trading policy");
   if(effectiveRateBps<Number(packagePolicy.minimumPayoutRateBps)||effectiveRateBps>Number(packagePolicy.maximumPayoutRateBps)) throw new Error("Saved pop-up return rate is outside the tier's configured range");
-  if(effectiveDurationSeconds<Number(packagePolicy.minimumTradeDurationSeconds)||effectiveDurationSeconds>Number(packagePolicy.maximumTradeDurationSeconds)) throw new Error("Saved pop-up duration is outside the tier's configured range");
+  if(input.deliveryEventId===undefined&&
+    (effectiveDurationSeconds<Number(packagePolicy.minimumTradeDurationSeconds)||effectiveDurationSeconds>Number(packagePolicy.maximumTradeDurationSeconds)))
+    throw new Error("Saved pop-up duration is outside the tier's configured range");
+  if(input.deliveryEventId!==undefined&&(!savedDurationSnapshot||effectiveDurationSeconds!==savedDurationSnapshot.configuredDurationSeconds||
+    !isOpportunityDurationWithinBounds(savedDurationSnapshot.minimumTradeDurationSeconds,savedDurationSnapshot.maximumTradeDurationSeconds,effectiveDurationSeconds)))
+    throw new Error("Saved pop-up duration is outside its original package range");
   if(Number(packagePolicy.minimumRewardBps||0)>effectiveRateBps) throw new Error("Selected return rate is below the tier's minimum eligible reward rate");
   const uncappedReward=calculateConfiguredProfitMinor(input.amountMinor,effectiveRateBps);
   const reward=Number(packagePolicy.maxRewardPerTradeMinor||0)>0?Math.min(uncappedReward,Number(packagePolicy.maxRewardPerTradeMinor)):uncappedReward;
@@ -5439,4 +6141,285 @@ export async function listAdminRecentLedgerActivity(input: { userId: number; utc
     hasMore,
     nextCursor: hasMore && last ? encodeAdminLedgerActivityCursor({ createdAt: new Date(last.createdAt), id: last.id }) : null,
   };
+}
+
+
+const OPPORTUNITY_USAGE_RESET_GLOBAL_KEY = "trading.opportunityUsageReset.global";
+const OPPORTUNITY_USAGE_RESET_CUSTOMER_KEY = (userId: number) => `trading.opportunityUsageReset.customer.${userId}`;
+const OPPORTUNITY_USAGE_RESET_ACTION = "trading_opportunity_usage_reset";
+const OPPORTUNITY_USAGE_RESET_MAX_CUSTOMERS = 5000;
+const OPPORTUNITY_USAGE_RESET_MAX_ROWS = 50000;
+
+type OpportunityUsageResetScope = "customer" | "all";
+type OpportunityUsageResetSummary = {
+  scope: OpportunityUsageResetScope;
+  customerCount: number;
+  withdrawnOpportunities: number;
+  clearedPendingDeliveries: number;
+  closedOffers: number;
+  cancelledAssignments: number;
+  preservedTradePositions: number;
+  protectedOpportunities: number;
+  resetAt: string;
+  idempotentReplay?: boolean;
+};
+
+type OpportunityUsageResetBoundary = {
+  resetAt: Date;
+  generationAssignmentMaxId: number;
+  deliveryEventMaxId: number;
+  tradePositionMaxId: number;
+};
+
+function parseOpportunityUsageResetMarker(value: string | null | undefined): OpportunityUsageResetBoundary | null {
+  try {
+    const parsed = JSON.parse(String(value || ""));
+    const resetAt = new Date(String(parsed?.resetAt || ""));
+    const generationAssignmentMaxId = Number(parsed?.generationAssignmentMaxId);
+    const deliveryEventMaxId = Number(parsed?.deliveryEventMaxId);
+    const tradePositionMaxId = Number(parsed?.tradePositionMaxId);
+    if (!Number.isFinite(resetAt.getTime()) || ![generationAssignmentMaxId, deliveryEventMaxId, tradePositionMaxId].every(value => Number.isSafeInteger(value) && value >= 0)) return null;
+    return { resetAt, generationAssignmentMaxId, deliveryEventMaxId, tradePositionMaxId };
+  } catch {
+    return null;
+  }
+}
+
+async function getOpportunityUsageResetBoundary(executor: any, userId: number): Promise<OpportunityUsageResetBoundary | null> {
+  const keys = [OPPORTUNITY_USAGE_RESET_GLOBAL_KEY, OPPORTUNITY_USAGE_RESET_CUSTOMER_KEY(userId)];
+  const rows = await executor.select({ settingKey: appSettings.settingKey, settingValue: appSettings.settingValue })
+    .from(appSettings).where(inArray(appSettings.settingKey, keys));
+  const boundaries: OpportunityUsageResetBoundary[] = rows.map((row: any) => parseOpportunityUsageResetMarker(row.settingValue))
+    .filter((value: OpportunityUsageResetBoundary | null): value is OpportunityUsageResetBoundary => value !== null);
+  return boundaries.sort((a: OpportunityUsageResetBoundary, b: OpportunityUsageResetBoundary) => b.resetAt.getTime() - a.resetAt.getTime())[0] ?? null;
+}
+
+async function ensureAndLockOpportunityResetKeys(executor: any, keys: string[], actorId: number) {
+  const sortedKeys = [...new Set(keys)].sort();
+  if (!sortedKeys.length) return;
+  if (sortedKeys.some(key => key.length > 120)) throw new Error("Opportunity reset lock scope is invalid.");
+  const chunkSize = 1000;
+  for (let offset = 0; offset < sortedKeys.length; offset += chunkSize) {
+    const chunk = sortedKeys.slice(offset, offset + chunkSize);
+    await executor.insert(appSettings).values(chunk.map(settingKey => ({ settingKey, settingValue: "", updatedBy: actorId })))
+      .onDuplicateKeyUpdate({ set: { updatedBy: actorId } });
+    await executor.select({ id: appSettings.id }).from(appSettings)
+      .where(inArray(appSettings.settingKey, chunk)).orderBy(appSettings.settingKey).for("update");
+  }
+}
+
+export async function resetTradeOpportunityUsage(input: {
+  scope: OpportunityUsageResetScope;
+  customerId?: number;
+  reason: string;
+  operationId: string;
+}, actorId: number): Promise<OpportunityUsageResetSummary> {
+  const reason = String(input.reason || "").trim();
+  if (!Number.isSafeInteger(actorId) || actorId < 1) throw new Error("An authenticated administrator is required.");
+  if (reason.length < 8 || reason.length > 500) throw new Error("Provide a reason between 8 and 500 characters.");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.operationId)) throw new Error("Opportunity reset request identifier is invalid.");
+  if (input.scope === "customer" && (!Number.isSafeInteger(input.customerId) || Number(input.customerId) < 1)) throw new Error("Select one valid customer or explicitly choose all customers.");
+  if (input.scope === "all" && input.customerId !== undefined) throw new Error("All-customer reset cannot include a single customer identifier.");
+
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const reference = `trade-opportunity-usage-reset:${input.operationId}`;
+  return db.transaction(async tx => {
+    const customerRows = input.scope === "all"
+      ? await tx.select({ id: users.id }).from(users).where(eq(users.role, "user"))
+        .orderBy(users.id).limit(OPPORTUNITY_USAGE_RESET_MAX_CUSTOMERS + 1).for("update")
+      : await tx.select({ id: users.id }).from(users)
+        .where(and(eq(users.id, Number(input.customerId)), eq(users.role, "user")))
+        .limit(1).for("update");
+    if (input.scope === "all" && customerRows.length > OPPORTUNITY_USAGE_RESET_MAX_CUSTOMERS) {
+      throw new Error(`All-customer reset is limited to ${OPPORTUNITY_USAGE_RESET_MAX_CUSTOMERS.toLocaleString()} customer accounts per atomic operation.`);
+    }
+    if (input.scope === "customer" && !customerRows.length) throw new Error("The selected account is not a customer account.");
+    const userIds = customerRows.map(row => Number(row.id));
+    const markerKey = input.scope === "all" ? OPPORTUNITY_USAGE_RESET_GLOBAL_KEY : OPPORTUNITY_USAGE_RESET_CUSTOMER_KEY(Number(input.customerId));
+    const customerMarkerKeys = userIds.map(userId => OPPORTUNITY_USAGE_RESET_CUSTOMER_KEY(userId));
+    const markerKeysToLock = input.scope === "all" ? [OPPORTUNITY_USAGE_RESET_GLOBAL_KEY, ...customerMarkerKeys] : [OPPORTUNITY_USAGE_RESET_GLOBAL_KEY, markerKey];
+
+    // Customer rows serialize reset against trade allocation. Generation and delivery
+    // locks below then fence their respective workers before any opportunity rows move.
+    await ensureAndLockOpportunityResetKeys(tx, markerKeysToLock, actorId);
+    await ensureAndLockOpportunityResetKeys(tx, userIds.map(userId => `trading.opportunityGenerator.${userId}`), actorId);
+
+    if (userIds.length) {
+      const subscriptionPackages = await tx.select({ userId: customerPackageSubscriptions.userId, packageId: customerPackageSubscriptions.packageId })
+        .from(customerPackageSubscriptions).where(and(inArray(customerPackageSubscriptions.userId, userIds), eq(customerPackageSubscriptions.status, "active")))
+        .limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1);
+      const openOfferPackages = await tx.select({ userId: opportunityOffers.assignedUserId, packageId: opportunityOffers.assignedPackageId })
+        .from(opportunityOffers).where(and(inArray(opportunityOffers.assignedUserId, userIds), inArray(opportunityOffers.status, ["scheduled", "open"])))
+        .limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1);
+      const activePopupPackages = await tx.select({ userId: opportunityPopupEvents.userId, packageId: opportunityPopupEvents.packageId })
+        .from(opportunityPopupEvents).where(and(inArray(opportunityPopupEvents.userId, userIds), or(
+          inArray(opportunityPopupEvents.eventStatus, ["DELIVERED", "NOTICED", "OPENED"]),
+          inArray(opportunityPopupEvents.deliveryStatus, ["queued", "in_progress", "retry_wait"]),
+        ))).limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1);
+      if (subscriptionPackages.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS || openOfferPackages.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS || activePopupPackages.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS) {
+        throw new Error("Opportunity reset scope exceeds the safe atomic row limit; no changes were committed.");
+      }
+      const deliveryLocks = new Set<string>();
+      for (const row of [...subscriptionPackages, ...openOfferPackages, ...activePopupPackages]) {
+        const userId = Number(row.userId);
+        const packageId = Number(row.packageId);
+        if (Number.isSafeInteger(userId) && userIds.includes(userId) && Number.isSafeInteger(packageId) && packageId > 0) deliveryLocks.add(deliveryAdmissionLockKey(userId, packageId));
+      }
+      if (deliveryLocks.size > OPPORTUNITY_USAGE_RESET_MAX_ROWS) throw new Error("Opportunity reset requires too many delivery locks; no changes were committed.");
+      await ensureAndLockOpportunityResetKeys(tx, [...deliveryLocks], actorId);
+    }
+
+    const priorMarkerRows = await tx.select({ settingKey: appSettings.settingKey, settingValue: appSettings.settingValue })
+      .from(appSettings).where(inArray(appSettings.settingKey, markerKeysToLock));
+    const previousResetAt = priorMarkerRows.map(row => parseOpportunityUsageResetMarker(row.settingValue)?.resetAt.getTime() ?? 0)
+      .reduce((latest, value) => Math.max(latest, value), 0);
+
+    const priorOperation = (await tx.select({ action: v5AuditEvents.action, entityType: v5AuditEvents.entityType, entityId: v5AuditEvents.entityId, metadataJson: v5AuditEvents.metadataJson })
+      .from(v5AuditEvents).where(eq(v5AuditEvents.reference, reference)).limit(1))[0];
+    const expectedEntityId = input.scope === "all" ? "all" : String(input.customerId);
+    if (priorOperation) {
+      if (priorOperation.action !== OPPORTUNITY_USAGE_RESET_ACTION || priorOperation.entityType !== "opportunity_usage_reset" || priorOperation.entityId !== expectedEntityId) {
+        throw new Error("This reset request identifier was already used for a different operation.");
+      }
+      try {
+        const metadata = JSON.parse(String(priorOperation.metadataJson || "{}"));
+        if (metadata?.scope !== input.scope || !metadata?.summary) throw new Error("invalid replay metadata");
+        return { ...metadata.summary, idempotentReplay: true } as OpportunityUsageResetSummary;
+      } catch {
+        throw new Error("The prior reset request could not be safely replayed; review the audit history.");
+      }
+    }
+
+    const resetAt = new Date(Math.max(Date.now(), previousResetAt + 1));
+    const resetAtIso = resetAt.toISOString();
+    let openOffers: Array<{ id: number; assignedUserId: number | null; assignedPackageId: number | null }> = [];
+    let activeEvents: Array<{ id: number; userId: number; offerId: number; packageId: number | null; eventStatus: string; deliveryStatus: string; executionStatus: string; tradeId: number | null }> = [];
+    if (userIds.length) {
+      openOffers = await tx.select({ id: opportunityOffers.id, assignedUserId: opportunityOffers.assignedUserId, assignedPackageId: opportunityOffers.assignedPackageId })
+        .from(opportunityOffers).where(and(inArray(opportunityOffers.assignedUserId, userIds), inArray(opportunityOffers.status, ["scheduled", "open"])))
+        .orderBy(opportunityOffers.id).limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1).for("update");
+      activeEvents = await tx.select({ id: opportunityPopupEvents.id, userId: opportunityPopupEvents.userId, offerId: opportunityPopupEvents.offerId,
+        packageId: opportunityPopupEvents.packageId, eventStatus: opportunityPopupEvents.eventStatus, deliveryStatus: opportunityPopupEvents.deliveryStatus,
+        executionStatus: opportunityPopupEvents.executionStatus, tradeId: opportunityPopupEvents.tradeId })
+        .from(opportunityPopupEvents).where(and(inArray(opportunityPopupEvents.userId, userIds), or(
+          inArray(opportunityPopupEvents.eventStatus, ["DELIVERED", "NOTICED", "OPENED"]),
+          inArray(opportunityPopupEvents.deliveryStatus, ["queued", "in_progress", "retry_wait"]),
+        ))).orderBy(opportunityPopupEvents.id).limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1).for("update");
+      if (openOffers.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS || activeEvents.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS) {
+        throw new Error("Opportunity reset scope exceeds the safe atomic row limit; no changes were committed.");
+      }
+    }
+    const candidateOfferIds = [...new Set([...openOffers.map(row => Number(row.id)), ...activeEvents.map(row => Number(row.offerId))])]
+      .filter(id => Number.isSafeInteger(id) && id > 0).sort((a, b) => a - b);
+    if (candidateOfferIds.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS) throw new Error("Opportunity reset scope exceeds the safe atomic row limit; no changes were committed.");
+    const safetyEvents = candidateOfferIds.length
+      ? await tx.select({ id: opportunityPopupEvents.id, userId: opportunityPopupEvents.userId, offerId: opportunityPopupEvents.offerId,
+          eventStatus: opportunityPopupEvents.eventStatus, deliveryStatus: opportunityPopupEvents.deliveryStatus,
+          executionStatus: opportunityPopupEvents.executionStatus, tradeId: opportunityPopupEvents.tradeId })
+        .from(opportunityPopupEvents).where(and(inArray(opportunityPopupEvents.userId, userIds), inArray(opportunityPopupEvents.offerId, candidateOfferIds)))
+        .orderBy(opportunityPopupEvents.id).limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1).for("update")
+      : [];
+    const linkedTradePositions = candidateOfferIds.length
+      ? await tx.select({ id: tradePositions.id, offerId: tradePositions.offerId })
+        .from(tradePositions).where(inArray(tradePositions.offerId, candidateOfferIds))
+        .orderBy(tradePositions.id).limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1).for("update")
+      : [];
+    if (safetyEvents.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS || linkedTradePositions.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS) {
+      throw new Error("Opportunity reset scope exceeds the safe atomic row limit; no changes were committed.");
+    }
+    const protectedOfferIds = new Set<number>(linkedTradePositions.map(row => Number(row.offerId)));
+    for (const event of safetyEvents) {
+      if (Number(event.tradeId) > 0 || ["TRADED", "SETTLED"].includes(String(event.eventStatus)) || ["RUNNING", "SUCCEEDED"].includes(String(event.executionStatus))) {
+        protectedOfferIds.add(Number(event.offerId));
+      }
+    }
+    const eligibleEventRows = safetyEvents.filter(event => !protectedOfferIds.has(Number(event.offerId)) &&
+      (["DELIVERED", "NOTICED", "OPENED"].includes(String(event.eventStatus)) || ["queued", "in_progress", "retry_wait"].includes(String(event.deliveryStatus))));
+    const withdrawnRows = eligibleEventRows.filter(event => ["DELIVERED", "NOTICED", "OPENED"].includes(String(event.eventStatus)));
+    const pendingDeliveryRows = eligibleEventRows.filter(event => ["queued", "in_progress", "retry_wait"].includes(String(event.deliveryStatus)));
+    const eligibleOfferIds = openOffers.map(row => Number(row.id)).filter(id => !protectedOfferIds.has(id));
+    const uniqueEligibleOfferIds = [...new Set(eligibleOfferIds)].sort((a, b) => a - b);
+    const assignmentRows = uniqueEligibleOfferIds.length
+      ? await tx.select({ id: opportunityGenerationAssignments.id }).from(opportunityGenerationAssignments)
+        .where(and(inArray(opportunityGenerationAssignments.offerId, uniqueEligibleOfferIds), inArray(opportunityGenerationAssignments.status, ["generated", "delivered"])))
+        .orderBy(opportunityGenerationAssignments.id).limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1).for("update")
+      : [];
+    if (assignmentRows.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS) throw new Error("Opportunity reset scope exceeds the safe atomic row limit; no changes were committed.");
+
+    const eligibleEventIds = eligibleEventRows.map(event => Number(event.id));
+    if (eligibleEventIds.length) {
+      const sharedTerminalFields = {
+        deliveryStatus: "dismissed" as const,
+        deliveryRetryAfter: null,
+        deliveryLeaseToken: null,
+        deliveryLeaseExpiresAt: null,
+        executionStatus: "FAILED" as const,
+        executionRetryAfter: null,
+        executionLeaseToken: null,
+        executionRetryDay: null,
+        executionLastErrorCode: "ADMIN_RESET_WITHDRAWN",
+        updatedAt: resetAt,
+      };
+      const withdrawnIds = withdrawnRows.map(event => Number(event.id));
+      if (withdrawnIds.length) await tx.update(opportunityPopupEvents)
+        .set({ ...sharedTerminalFields, eventStatus: "WITHDRAWN", withdrawnAt: resetAt })
+        .where(inArray(opportunityPopupEvents.id, withdrawnIds));
+      const nonWithdrawnIds = eligibleEventIds.filter(id => !withdrawnIds.includes(id));
+      if (nonWithdrawnIds.length) await tx.update(opportunityPopupEvents).set(sharedTerminalFields)
+        .where(inArray(opportunityPopupEvents.id, nonWithdrawnIds));
+    }
+    if (uniqueEligibleOfferIds.length) await tx.update(opportunityOffers).set({ status: "closed" })
+      .where(and(inArray(opportunityOffers.id, uniqueEligibleOfferIds), inArray(opportunityOffers.status, ["scheduled", "open"])));
+    if (assignmentRows.length) await tx.update(opportunityGenerationAssignments)
+      .set({ status: "cancelled", failureReason: "ADMIN_OPPORTUNITY_USAGE_RESET", updatedAt: resetAt })
+      .where(inArray(opportunityGenerationAssignments.id, assignmentRows.map(row => Number(row.id))));
+
+    const assignmentHighWater = userIds.length
+      ? (await tx.select({ maxId: sql<number>`COALESCE(MAX(${opportunityGenerationAssignments.id}), 0)` }).from(opportunityGenerationAssignments)
+        .where(inArray(opportunityGenerationAssignments.userId, userIds)))[0]
+      : { maxId: 0 };
+    const deliveryEventHighWater = userIds.length
+      ? (await tx.select({ maxId: sql<number>`COALESCE(MAX(${opportunityDeliveryEvents.id}), 0)` }).from(opportunityDeliveryEvents)
+        .where(inArray(opportunityDeliveryEvents.userId, userIds)))[0]
+      : { maxId: 0 };
+    const tradePositionHighWater = userIds.length
+      ? (await tx.select({ maxId: sql<number>`COALESCE(MAX(${tradePositions.id}), 0)` }).from(tradePositions)
+        .where(inArray(tradePositions.userId, userIds)))[0]
+      : { maxId: 0 };
+    const summary: OpportunityUsageResetSummary = {
+      scope: input.scope,
+      customerCount: userIds.length,
+      withdrawnOpportunities: withdrawnRows.length,
+      clearedPendingDeliveries: pendingDeliveryRows.length,
+      closedOffers: uniqueEligibleOfferIds.length,
+      cancelledAssignments: assignmentRows.length,
+      preservedTradePositions: linkedTradePositions.length,
+      protectedOpportunities: protectedOfferIds.size,
+      resetAt: resetAtIso,
+    };
+    const marker = JSON.stringify({
+      version: 2,
+      scope: input.scope,
+      resetAt: resetAtIso,
+      operationId: input.operationId,
+      actorUserId: actorId,
+      generationAssignmentMaxId: Number(assignmentHighWater.maxId || 0),
+      deliveryEventMaxId: Number(deliveryEventHighWater.maxId || 0),
+      tradePositionMaxId: Number(tradePositionHighWater.maxId || 0),
+    });
+    await tx.insert(appSettings).values({ settingKey: markerKey, settingValue: marker, updatedBy: actorId, updatedAt: resetAt })
+      .onDuplicateKeyUpdate({ set: { settingValue: marker, updatedBy: actorId, updatedAt: resetAt } });
+    await tx.insert(v5AuditEvents).values({
+      actorUserId: actorId,
+      action: OPPORTUNITY_USAGE_RESET_ACTION,
+      entityType: "opportunity_usage_reset",
+      entityId: expectedEntityId,
+      reason,
+      reference,
+      metadataJson: JSON.stringify({ scope: input.scope, operationId: input.operationId, resetAt: resetAtIso, summary }),
+      createdAt: resetAt,
+    });
+    return summary;
+  });
 }

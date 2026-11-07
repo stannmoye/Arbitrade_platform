@@ -34,6 +34,11 @@ describe("administrator-configured Trading pop-up policy", () => {
     expect(database).toContain("Set valid published reward-rate and duration bounds before enabling delivery");
     expect(database).toContain("configuredProfitRateBps:effectiveRateBps");
     expect(database).toContain("Saved pop-up duration is outside the tier's configured range");
+    expect(database).toContain("packageSnapshotJson:opportunityGenerationAssignments.packageSnapshotJson");
+    expect(database).toContain("validateOpportunityDurationSnapshot(packageSnapshot");
+    expect(database).toContain("Saved opportunity duration or timestamps are inconsistent");
+    expect(database).toContain("Saved pop-up duration is outside its original package range");
+    expect(database).toContain("const settlesAt=new Date(tradeStartedAt.getTime()+effectiveDurationSeconds*1000)");
     expect(database).toContain("popupSnapshot?.packagePolicyVersionSnapshot");
     expect(lifecycle).toContain("configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds");
     expect(lifecycle).toContain("packagePolicyVersionSnapshot");
@@ -58,8 +63,8 @@ describe("administrator-configured Trading pop-up policy", () => {
   it("exposes admin controls with confirmation, help text, responsive spacing, and focus states", () => {
     expect(policyEditor).toContain("Minimum configured return rate (%)");
     expect(policyEditor).toContain("Maximum configured return rate (%)");
-    expect(policyEditor).toContain("Minimum trade duration (seconds)");
-    expect(policyEditor).toContain("Maximum trade duration (seconds)");
+    expect(policyEditor).toContain("Minimum opportunity / pop-up duration (seconds)");
+    expect(policyEditor).toContain("Maximum opportunity / pop-up duration (seconds)");
     expect(policyEditor).toContain("Badge label");
     expect(policyEditor).toContain("Reason for changing Trading tier policies (required for audit)");
     expect(policyEditor).toContain("onClick={onSave}");

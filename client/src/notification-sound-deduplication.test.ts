@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { findNewNotificationSoundEvents, mergeSeenNotificationIds, selectMostImportantNotificationSoundEvent } from "./notification-sound-deduplication";
 
@@ -131,16 +131,22 @@ describe("notification sound header integration contract", () => {
     expect(effect).toContain("findNewNotificationSoundEvents(rows,previousHeaderNotificationIds.current,persistedIds");
   });
 
-  it("reports rejected audio playback and stops only a failed opportunity loop", () => {
-    expect(app).toContain("arbitrade:notification-audio-blocked");
-    expect(app).toContain("audio.play().catch(reportBlocked)");
-    expect(app).toContain("if(kind===\"opportunity\"){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}");
+  it("routes blocked playback context through the extracted audio controller", () => {
+    const controller = readFileSync(new URL("./notification-audio-controller.ts", import.meta.url), "utf8");
+    expect(app).toContain('import { createNotificationAudioController } from "./notification-audio-controller"');
+    expect(app).toContain('new CustomEvent("arbitrade:notification-audio-blocked"');
+    expect(app).toContain("notificationAudioController.play(preset.src");
+    expect(app).toContain("{kind,presetId:preset.id}");
+    expect(controller).toContain("options.onBlocked(context)");
   });
 
-  it("stops an opportunity loop for both rejected promises and synchronous audio errors", () => {
-    expect(app).toContain("const stopOpportunityLoop=()=>{if(kind===\"opportunity\"){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}};");
-    expect(app).toContain("audio.play().catch(reportBlocked)");
-    expect(app).toContain("}catch{stopOpportunityLoop();try{if(typeof window!==\"undefined\")window.dispatchEvent");
+  it("handles rejected promises, synchronous playback errors, and media errors in the controller", () => {
+    const controller = readFileSync(new URL("./notification-audio-controller.ts", import.meta.url), "utf8");
+    expect(controller).toContain('audio.addEventListener("error"');
+    expect(controller).toMatch(/void\s+audio\.play\(\)\.catch\(\(\)\s*=>\s*\{/);
+    expect(controller).toContain("clearActive();\n        reportBlocked();");
+    expect(controller).toContain("const reportBlocked = () =>");
+    expect(controller).toContain("stopLoop();");
   });
 
   it("shows accessible audio recovery guidance in both customer and admin settings", () => {
@@ -150,6 +156,51 @@ describe("notification sound header integration contract", () => {
     expect(css).toContain(".portal-session .customer-audio-warning{position:fixed");
     expect(css).toContain("max-width:min(420px,calc(100vw - 32px))");
     expect(css).toContain(".portal-session .customer-audio-warning button{display:inline-flex!important");
+  });
+});
+
+
+describe("notification sound playback reliability", () => {
+  const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+  const controller = readFileSync(new URL("./notification-audio-controller.ts", import.meta.url), "utf8");
+
+  it("keeps every configured WAV sound asset in the public bundle", () => {
+    const assetPaths = [...new Set(
+      [...app.matchAll(/src:"(\/sounds\/[^"]+\.wav)"/g)].map(match => match[1]),
+    )];
+    expect(assetPaths).toHaveLength(5);
+    for (const assetPath of assetPaths) {
+      expect(existsSync(new URL(`../../public${assetPath}`, import.meta.url))).toBe(true);
+    }
+  });
+
+  it("stops the previous cue before replacement and clears completed audio", () => {
+    expect(controller).toContain("const stopActive = () =>");
+    expect(controller).toContain("audio.pause()");
+    expect(controller).toContain("const playCue = (skipWhenBusy = false) =>");
+    expect(controller).toContain("stopActive();");
+    expect(controller).toContain('audio.addEventListener("ended", clearActive, { once: true })');
+  });
+
+  it("prevents overlapping opportunity cues while allowing the next cue after completion", () => {
+    expect(controller).toContain("if (skipWhenBusy && activeAudio && !activeAudio.paused && !activeAudio.ended) return;");
+    expect(controller).toContain("options.setInterval(() => playCue(true), 1500)");
+    expect(controller).toContain("if (activeAudio === audio) activeAudio = null;");
+  });
+
+  it("reports browser playback failures once and stops the opportunity loop", () => {
+    expect(controller).toContain("let blockedReported = false");
+    expect(controller).toContain("if (blockedReported) return;");
+    expect(controller).toContain('audio.addEventListener("error"');
+    expect(controller).toContain("audio.play().catch");
+    expect(controller).toContain("stopLoop();");
+    expect(controller).toContain("if (loop && !blockedReported && loopTimer === null)");
+  });
+
+  it("keeps the explicit customer opt-in and administrator sound policy gates", () => {
+    expect(app).toContain('if(!force&&(!soundEffectsEnabled()||!defaultSoundSettings.enabled))return;');
+    expect(app).toContain('window.localStorage.setItem("wisebond-sound-effects",next?"on":"off")');
+    expect(app).toContain("headerSoundSettings.enabled&&soundEffectsEnabled()");
   });
 });
 

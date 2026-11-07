@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { isServerActiveCustomerPopupSlotOwner } from "../client/src/customer-popup-eligibility";
 
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const eligibility = readFileSync(new URL("../client/src/customer-popup-eligibility.ts", import.meta.url), "utf8");
 const stylesheet = readFileSync(new URL("../client/src/trading-experience.css", import.meta.url), "utf8");
 const start = app.indexOf("function CustomerOpportunityAlert(");
 const end = app.indexOf("\nfunction CustomerDashboard(", start);
@@ -56,8 +58,15 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain("current.popupEligible===true");
   });
 
-  it("minimizes after the configured display time instead of removing a still-open opportunity", () => {
+  it("minimizes at the shared server expiry instead of using a separate display timer", () => {
     expect(component).toContain("timer.current=window.setTimeout(()=>{");
+    expect(component).toContain("remainingOpportunityMilliseconds(popupRef.current?.closesAt,Date.now(),serverClockOffsetMs.current)");
+    expect(component).not.toContain("configuredSeconds*1000");
+    expect(database).toContain("const closesAt=new Date(rewardAt.getTime()+completionDisplaySeconds*1000)");
+    expect(database).toContain("const displaySeconds=terms.tradeDurationSeconds+completionDisplaySeconds");
+    expect(database).toContain("const settlesAt=new Date(tradeStartedAt.getTime()+effectiveDurationSeconds*1000)");
+    expect(database).toContain("const configuredPopupDisplaySeconds=configuredDurationSeconds+completionDisplaySeconds");
+    expect(database).not.toContain("Math.max(86_400");
     expect(component).toContain("setMinimized(true)");
     expect(component).toContain('aria-label="Minimize opportunity alert"');
     expect(component).toContain('aria-label="Maximize opportunity alert"');
@@ -74,6 +83,8 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain("Available balance");
     expect(component).toContain("Shortfall");
     expect(component).toContain("balanceAvailableMinor");
+    expect(component).toContain("const shortfallMinor=Number(popup.shortfallMinor)");
+    expect(component).not.toContain("Math.max(0,requiredMinor-availableMinor)");
     expect(component).toContain("No funds were moved.");
     expect(component).toContain("It does not execute a trade, allocate capital, or change a wallet balance.");
     expect(component).not.toContain("AUTOMATED OPPORTUNITY");
@@ -85,9 +96,68 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(delivery).toContain("currencyScale:Number(currencyRows.find");
     expect(delivery).toContain("currencySymbol:String(currencyRows.find");
     expect(delivery).toContain('popupEligible:row.offerStatus==="open"');
-    expect(delivery).toContain('["queued","in_progress","retry_wait","delivered","received","rendered"].includes(String(row.deliveryStatus))');
+    expect(delivery).toContain('["queued","in_progress","retry_wait","delivered","received","rendered","failed"].includes(String(row.deliveryStatus))');
     expect(delivery).not.toContain('["delivered","received","rendered","failed"].includes(String(row.deliveryStatus))');
     expect(delivery).toContain("a refreshed customer portal can retry rendering and status recording");
+    expect(delivery).toContain("const dispatches=await claimPopupDeliveryDispatches(userId)");
+    expect(delivery).toContain("deliveryLeaseToken:dispatch.leaseToken");
+    expect(component).toContain('status:"received",leaseToken:offer.deliveryLeaseToken');
+  });
+
+  it("uses the server clock and persisted offer expiry for a live opportunity countdown", () => {
+    expect(database).toContain("serverTime:new Date().toISOString()");
+    expect(database).toContain("const responseNow=new Date();");
+    expect(database).toContain("serverTime:responseNow.toISOString()");
+    expect(database).toContain('expiryStatus:row.closesAt?');
+    expect(component).toContain("serverClockOffsetMs.current");
+    expect(component).toContain("popup.expiryStatus");
+    expect(component).toContain("Opportunity expires in");
+    expect(component).toContain("Countdown is synchronised to the server-saved expiry timestamp.");
+    expect(component).toContain("Scheduled expiry:");
+    expect(component).toContain("{expiryLabel}: {expiryCountdown}");
+    expect(component).toContain("Supplied code:");
+    expect(component).not.toContain("Trade closes in");
+  });
+
+  it("refreshes the visible popup with server-confirmed expiry and company status", () => {
+    expect(component).toContain('const refreshedFields=["expiryStatus","popupEligible","companyDisplayName","companyLogoUrl","deliveryStatus"]');
+    expect(component).toContain("current[key]!==popup[key]");
+    expect(component).toContain("Date.now()+serverClockOffsetMs.current");
+  });
+
+  it("shows live connection state while retaining the last known informational popup", () => {
+    expect(app).toContain('connectionStatus={opportunityMeta.isError?"offline":opportunityMeta.isFetching&&!opportunityMeta.data?"updating":"connected"}');
+    expect(app).toContain('opportunityMeta.isFetching&&!opportunityMeta.data');
+    expect(component).toContain('connectionStatus:"connected"|"updating"|"offline"');
+    expect(component).toContain('className={"opportunity-popup-connection opportunity-popup-connection--"+connectionStatus}');
+    expect(component).toContain("Connection interrupted");
+    expect(component).toContain("Refreshing status");
+    expect(component).toContain("Live status connected");
+    expect(stylesheet).toContain(".opportunity-popup-connection--offline");
+    expect(stylesheet).toContain(".opportunity-popup-connection--updating");
+  });
+
+  it("provides keyboard-operable, read-only expandable opportunity details", () => {
+    expect(component).toContain('className="opportunity-popup-details__toggle"');
+    expect(component).toContain("aria-expanded={detailsExpanded}");
+    expect(component).toContain("setDetailsExpanded(value=>!value)");
+    expect(component).toContain("Opportunity reference");
+    expect(component).toContain("Assigned package");
+    expect(component).toContain("Scheduled expiry");
+    expect(component).toContain("Server status");
+    expect(component).toContain("<dl");
+    expect(stylesheet).toContain(".opportunity-popup-details__toggle:focus-visible");
+    expect(stylesheet).toContain("@media (max-width: 520px)");
+    expect(component).toContain("It does not execute a trade, allocate capital, or change a wallet balance.");
+  });
+
+  it("keeps the expiry countdown informational and respects reduced-motion styling", () => {
+    expect(component).toContain('className="opportunity-expiry-panel"');
+    expect(component).toContain("Expiry time reached · confirming status");
+    expect(stylesheet).toContain("@keyframes opportunityPopupEnter");
+    expect(stylesheet).toContain("@keyframes opportunityPopupShimmer");
+    expect(stylesheet).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(stylesheet).toContain(".customer-portal .opportunity-expiry-ring__value");
   });
 
   it("holds the browser tab lock until the opportunity alert is dismissed or withdrawn", () => {
@@ -96,6 +166,77 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain("releaseDisplayLock.current=release");
     expect(component).toContain("releaseDisplayLock.current()");
     expect(component).toContain("releaseDisplayLock.current=null");
+  });
+
+  it("releases a server-expired popup slot and retries the next eligible offer", () => {
+    expect(component).toContain("isServerActiveCustomerPopupSlotOwner(current)");
+    expect(component).toContain("attemptNext(opportunityData.offers)");
+    const predicateStart = eligibility.indexOf("export function isServerActiveCustomerPopupSlotOwner(");
+    const predicateEnd = eligibility.indexOf("\n}", predicateStart);
+    const predicate = eligibility.slice(predicateStart, predicateEnd);
+    expect(predicate).toContain('current.expiryStatus ?? ""');
+    expect(predicate).not.toContain("closesAt");
+  });
+
+  it("keeps the slot until the server confirms expiry, not merely when the browser countdown reaches zero", () => {
+    expect(isServerActiveCustomerPopupSlotOwner({
+      offerStatus: "open",
+      expiryStatus: "active",
+      eventStatus: "NOTICED",
+      deliveryStatus: "rendered",
+      closesAt: "2000-01-01T00:00:00.000Z",
+    })).toBe(true);
+  });
+
+  it("releases a still-open slot after the server confirms the offer expired", () => {
+    expect(isServerActiveCustomerPopupSlotOwner({
+      offerStatus: "open",
+      expiryStatus: "expired",
+      popupEligible: false,
+      eventStatus: "DELIVERED",
+      deliveryStatus: "rendered",
+      closesAt: "2000-01-01T00:00:00.000Z",
+    })).toBe(false);
+  });
+
+  it("releases the local popup slot at saved closesAt and immediately retries the next offer", () => {
+    expect(component).toContain("const expired=useRef<Set<number>>(new Set())");
+    expect(component).toContain("const scheduledOfferId=Number(popupRef.current?.id||0)");
+    expect(component).toContain("expired.current.add(scheduledOfferId)");
+    expect(component).toContain("pending.current.delete(scheduledOfferId)");
+    expect(component).toContain("seen.current.add(scheduledOfferId)");
+    expect(component).toContain("stop();\n      void refreshOpportunityFeed().catch(()=>{});\n      attemptNext(opportunityData?.offers||[])");
+    expect(component).toContain("!expired.current.has(Number(offer.id))");
+  });
+
+  it("keeps expiry callbacks from dismissing a replacement popup", () => {
+    expect(component).toContain("if(!popupRef.current||Number(popupRef.current.id)!==scheduledOfferId)return");
+    expect(component).toContain("if(!popupRef.current||Number(popupRef.current.id)!==Number(popup.id))return");
+  });
+
+  it("keeps manual minimization reversible without cancelling saved expiry", () => {
+    expect(component).toContain('onClick={()=>setMinimized(false)}');
+    expect(component).toContain('onClick={()=>{stopConfiguredSound();setMinimized(true);}}');
+    expect(component).not.toContain('stopConfiguredSound();if(timer.current!==null)window.clearTimeout(timer.current);timer.current=null;setMinimized(true)');
+  });
+
+  it("releases missing, terminal, or expired delivery owners", () => {
+    expect(isServerActiveCustomerPopupSlotOwner(undefined)).toBe(false);
+    expect(isServerActiveCustomerPopupSlotOwner({
+      offerStatus: "closed",
+      expiryStatus: "active",
+    })).toBe(false);
+    expect(isServerActiveCustomerPopupSlotOwner({
+      offerStatus: "open",
+      expiryStatus: "active",
+      eventStatus: "WITHDRAWN",
+      deliveryStatus: "rendered",
+    })).toBe(false);
+    expect(isServerActiveCustomerPopupSlotOwner({
+      offerStatus: "open",
+      expiryStatus: "active",
+      deliveryStatus: "expired",
+    })).toBe(false);
   });
 
   it("does not poll trade history for informational-only opportunity alerts", () => {

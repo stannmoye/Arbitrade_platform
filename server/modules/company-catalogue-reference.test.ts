@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { execFileSync } from "node:child_process";
+import { copyFileSync, existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { gzipSync } from "node:zlib";
 import {
   COMPANY_REFERENCE_CATALOGUE,
+  loadCompanyReferenceCatalogue,
   countCompanyReferences,
   findCompanyReferencesBySymbol,
   getCompanyReferenceById,
@@ -13,6 +20,115 @@ import {
   transitionCompanyCatalogueAdminState,
 } from "./company-catalogue-reference";
 
+describe("production catalogue loader with optional ticker enrichment", () => {
+  function withFixture(run: (root: string) => void) {
+    const root = mkdtempSync(resolve(tmpdir(), "company-catalogue-loader-"));
+    try { run(root); } finally { rmSync(root, { recursive: true, force: true }); }
+  }
+
+  it("loads stable-ID brand records from the actual loader when ticker workbook files are absent", () => {
+    withFixture((root) => {
+      const mappingPath = resolve(root, "logo-mapping.csv");
+      writeFileSync(mappingPath, [
+        "company_name,domain,filename,detail_url,source_asset_url",
+        'Acme,acme.example,by-country/United States/acme.png,,',
+        'Northstar,northstar.example,by-country/Canada/northstar.png,,',
+      ].join("\n"));
+      const loaded = loadCompanyReferenceCatalogue({
+        mappingPath,
+        tickerSnapshotPath: resolve(root, "missing-ticker-snapshot.gz.b64"),
+        tickerPartsDirectory: resolve(root, "missing-ticker-parts"),
+        expectedRecordCount: 2,
+      });
+      expect(loaded).toHaveLength(2);
+      expect(loaded.map((company) => [company.id, company.name])).toEqual([
+        ["logo-brand-0001", "Acme"],
+        ["logo-brand-0002", "Northstar"],
+      ]);
+      expect(loaded.every((company) => company.ticker === "" && company.symbol === "" && company.exchangeCode === "")).toBe(true);
+      expect(loaded.every((company) => company.recordCompleteness === "brand-only")).toBe(true);
+    });
+  });
+
+  it("initializes the production module with all 1,811 records when ticker files are entirely absent", () => {
+    withFixture((root) => {
+      const mappingDirectory = resolve(root, "client/public/assets/company-logo-source");
+      mkdirSync(mappingDirectory, { recursive: true });
+      copyFileSync(
+        resolve(process.cwd(), "client/public/assets/company-logo-source/logo-mapping.csv"),
+        resolve(mappingDirectory, "logo-mapping.csv"),
+      );
+
+      const modulePath = resolve(process.cwd(), "server/modules/company-catalogue-reference.ts");
+      const loaderPath = resolve(process.cwd(), "node_modules/tsx/dist/loader.mjs");
+      const script = `const catalogue = await import(${JSON.stringify(pathToFileURL(modulePath).href)}); const first = catalogue.COMPANY_REFERENCE_CATALOGUE[0]; const last = catalogue.COMPANY_REFERENCE_CATALOGUE.at(-1); console.log(JSON.stringify({ total: catalogue.COMPANY_REFERENCE_CATALOGUE.length, first: first?.id, firstName: first?.name, firstLogo: first?.logoUrl, last: last?.id, lastName: last?.name, lastLogo: last?.logoUrl, suppliedTickers: catalogue.COMPANY_REFERENCE_CATALOGUE.filter((company) => company.ticker).length }));`;
+      const output = execFileSync(process.execPath, ["--import", loaderPath, "--input-type=module", "-e", script], {
+        cwd: root,
+        encoding: "utf8",
+        timeout: 20_000,
+      });
+      expect(JSON.parse(output.trim())).toEqual({
+        total: 1811,
+        first: "logo-brand-0001",
+        firstName: COMPANY_REFERENCE_CATALOGUE[0]?.name,
+        firstLogo: COMPANY_REFERENCE_CATALOGUE[0]?.logoUrl,
+        last: "logo-brand-1811",
+        lastName: COMPANY_REFERENCE_CATALOGUE[1810]?.name,
+        lastLogo: COMPANY_REFERENCE_CATALOGUE[1810]?.logoUrl,
+        suppliedTickers: 0,
+      });
+    });
+  });
+
+  it("keeps available ticker metadata as enrichment without requiring a complete workbook", () => {
+    withFixture((root) => {
+      const mappingPath = resolve(root, "logo-mapping.csv");
+      const dataDirectory = resolve(root, "parts");
+      mkdirSync(dataDirectory);
+      writeFileSync(mappingPath, [
+        "company_name,domain,filename,detail_url,source_asset_url",
+        'Acme,acme.example,by-country/United States/acme.png,,',
+      ].join("\n"));
+      const base = { v: 1, statuses: ["Public"], records: [[1, "ACME", "NYSE", 0]] };
+      writeFileSync(resolve(root, "ticker.gz.b64"), gzipSync(Buffer.from(JSON.stringify(base))).toString("base64"));
+      const loaded = loadCompanyReferenceCatalogue({
+        mappingPath,
+        tickerSnapshotPath: resolve(root, "ticker.gz.b64"),
+        tickerPartsDirectory: dataDirectory,
+        expectedRecordCount: 1,
+      });
+      expect(loaded[0]).toMatchObject({
+        id: "logo-brand-0001",
+        name: "Acme",
+        ticker: "ACME",
+        symbol: "ACME",
+        exchangeCode: "NYSE",
+        tickerResearchStatus: "Public",
+        tickerClassification: "public",
+      });
+    });
+  });
+
+  it("does not require ticker workbook rows to match the catalogue size or supplement count", () => {
+    withFixture((root) => {
+      const mappingPath = resolve(root, "logo-mapping.csv");
+      writeFileSync(mappingPath, [
+        "company_name,domain,filename,detail_url,source_asset_url",
+        'Brand only,brand.example,by-country/Unassigned/brand.png,,',
+      ].join("\n"));
+      const loaded = loadCompanyReferenceCatalogue({
+        mappingPath,
+        tickerSnapshotPath: resolve(root, "missing-ticker-snapshot.gz.b64"),
+        tickerPartsDirectory: resolve(root, "missing-ticker-parts"),
+        expectedRecordCount: 1,
+      });
+      expect(loaded).toHaveLength(1);
+      expect(loaded[0]?.tickerClassification).toBe("other");
+      expect(loaded[0]?.tickerResearchStatus).toBe("Not supplied");
+    });
+  });
+});
+
 describe("Logo.dev brand-only static reference catalogue", () => {
   it("loads all 1,811 mapped brands with unique IDs and local logo paths", () => {
     expect(COMPANY_REFERENCE_CATALOGUE).toHaveLength(1811);
@@ -23,6 +139,13 @@ describe("Logo.dev brand-only static reference catalogue", () => {
     expect(googleEntries).toHaveLength(2);
     expect(new Set(googleEntries.map((company) => company.id)).size).toBe(2);
     expect(COMPANY_REFERENCE_CATALOGUE.every((company) => company.logoUrl.startsWith("/assets/company-logo-source/by-country/"))).toBe(true);
+  });
+
+  it("resolves every catalogue logo URL to an existing local image asset", () => {
+    for (const company of COMPANY_REFERENCE_CATALOGUE) {
+      const relativeAssetPath = decodeURIComponent(company.logoUrl).replace(/^\/+/, "");
+      expect(existsSync(resolve(process.cwd(), "client/public", relativeAssetPath)), company.id).toBe(true);
+    }
   });
 
   it("never presents brand names as verified securities or trade-eligible listings", () => {

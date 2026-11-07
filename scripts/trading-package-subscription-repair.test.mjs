@@ -38,7 +38,7 @@ describe("Trading customer package subscription schema repair", () => {
     expect(entry.idx).toBe(entries.indexOf(entry));
     expect(entries[entry.idx - 1].tag).toBe("0077_trading_package_catalogue_schema_repair");
     expect(entries[entry.idx + 1].tag).toBe("0079_trade_settlement_timing_schema_repair");
-    const tailStart = entries.length - 17;
+    const tailStart = entries.length - 21;
     const tail = entries.slice(tailStart);
     expect(tail.map((item) => item.tag)).toEqual([
       "0086_trading_popup_policy_snapshots",
@@ -58,6 +58,10 @@ describe("Trading customer package subscription schema repair", () => {
       "0100_global_trade_master_controls",
       "0101_package_fee_policy_versions",
       "0102_opportunity_delivery_retry_lifecycle",
+      "0103_automatic_opportunity_generation_templates",
+      "0104_catalogue_native_opportunity_generation",
+      "0105_default_on_global_information_delivery",
+      "0106_package_popup_defaults",
     ]);
     tail.forEach((item, offset) => {
       const index = tailStart + offset;

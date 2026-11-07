@@ -80,13 +80,13 @@ describe("package-driven auto-trade execution", () => {
     expect(audit).toContain('absentColumns: [["customer_controls","autoTradeAmountMinor"],["customer_controls","autoTradeDailyLimit"]]');
     expect(audit).toContain('absentColumns: [["customer_controls","dailyTradeLimitMinor"]]');
     const executionStart = db.indexOf("async function autoTradeOpenOpportunities");
-    const executionEnd = db.indexOf("export async function listCustomerOpportunities", executionStart);
+    const executionEnd = db.indexOf("\nfunction projectPopupBalance(", executionStart);
     expect(executionStart).toBeGreaterThanOrEqual(0);
     expect(executionEnd).toBeGreaterThan(executionStart);
     const execution = db.slice(executionStart, executionEnd);
     expect(execution).toContain("packageMinimumTradeMinor");
     expect(execution).toContain("packageMaximumTradeMinor");
-    expect(execution).toContain("availableMinor");
+    expect(execution).not.toContain("availableMinor");
     expect(execution).not.toContain("autoTradeMinRewardBps");
     expect(execution).not.toContain("autoTradeEnabled");
     expect(execution).not.toContain("autoTradeMode");

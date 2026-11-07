@@ -5,6 +5,7 @@ import {
   deriveOpportunityDeliveryQueueDiagnostics,
   deriveQualificationQueueDiagnostics,
   deriveWorkerHealthStatus,
+  currentInstanceWorkerRows,
   OPPORTUNITY_DELIVERY_DIAGNOSTIC_SAMPLE_LIMIT,
   safeWorkerErrorCode,
   sanitizeWorkerErrorMessage,
@@ -203,11 +204,28 @@ describe("opportunity delivery configuration and queue diagnostics", () => {
 describe("safeWorkerErrorCode", () => {
   it("maps known operational failures to bounded codes instead of returning error text", () => {
     expect(safeWorkerErrorCode("Global tier policy is OFF; retained for review")).toBe("POLICY_DISABLED");
+    expect(safeWorkerErrorCode("Customer opportunity sub-cycle failures: 3")).toBe("CUSTOMER_CYCLE_FAILURES");
     expect(safeWorkerErrorCode("Source ledger attribution is invalid; no retry queued")).toBe("INVALID_SOURCE");
     expect(safeWorkerErrorCode("database connection unavailable at mysql://user:secret@host/db")).toBe("DATABASE_UNAVAILABLE");
     expect(safeWorkerErrorCode("request timed out after 30 seconds")).toBe("TIMEOUT");
     expect(safeWorkerErrorCode("password=hunter2 opaque failure")).toBe("WORKER_ERROR");
     expect(safeWorkerErrorCode(null)).toBeNull();
+  });
+});
+
+describe("currentInstanceWorkerRows", () => {
+  it("excludes historical process rows while preserving current rows", () => {
+    const current = { workerKey: "trading-opportunities", isCurrentInstance: true, status: "not_started" };
+    const historical = { workerKey: "trading-opportunities", isCurrentInstance: false, status: "stale" };
+    expect(currentInstanceWorkerRows([historical, current])).toEqual([current]);
+  });
+
+  it("keeps current degraded and not-started rows visible for diagnostics", () => {
+    const currentRows = [
+      { workerKey: "trading-tier-qualification", isCurrentInstance: true, status: "degraded" },
+      { workerKey: "trading-opportunities", isCurrentInstance: true, status: "not_started" },
+    ];
+    expect(currentInstanceWorkerRows(currentRows)).toEqual(currentRows);
   });
 });
 
