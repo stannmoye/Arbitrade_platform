@@ -15,6 +15,7 @@ import {
   ToggleRight,
   Users,
   XCircle,
+  Zap,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { normalizeGlobalTradeTimingSettings } from "../trading-settings-client-contracts";
@@ -171,14 +172,19 @@ export function AdminOpportunityDelivery() {
   const data = (query.data ?? {}) as unknown as LifecycleSummary;
   const totals = data.last24Hours ?? {};
   const daily = data.retainedDaily ?? [];
-  const delivered = Number(totals.delivered ?? 0);
+  const rendered = Number(totals.rendered ?? 0);
   const opened = Number(totals.opened ?? 0);
   const traded = Number(totals.traded ?? 0);
-  const openRate = delivered ? `${((opened / delivered) * 100).toFixed(1)}%` : "—";
+  const openRate = rendered ? `${((opened / rendered) * 100).toFixed(1)}%` : "—";
   const tradeRate = opened ? `${((traded / opened) * 100).toFixed(1)}%` : "—";
-  const maxDelivered = Math.max(1, ...daily.map((row) => Number(row.delivered ?? 0)));
+  const maxRendered = Math.max(1, ...daily.map((row) => Number(row.rendered ?? 0)));
   const metrics: Array<[string, string, typeof Activity]> = [
-    ["Delivered", "delivered", Activity],
+    ["Generated", "generated", Zap],
+    ["Queued", "queued", Clock3],
+    ["Received", "received", BadgeCheck],
+    ["Rendered", "rendered", Activity],
+    ["Failed", "failed", XCircle],
+    ["Expired", "expired", AlertTriangle],
     ["Noticed", "noticed", BadgeCheck],
     ["Opened", "opened", CheckCircle2],
     ["Dismissed", "dismissed", Clock3],
@@ -207,13 +213,13 @@ export function AdminOpportunityDelivery() {
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Retained history</span><h2>Daily delivery volume</h2></div><span className="admin-ops-subtle">Up to 30 days</span></div>
           {!daily.length ? <div className="admin-ops-empty compact">No retained daily lifecycle rows yet. New deliveries will appear here.</div> : <div className="admin-ops-chart" role="img" aria-label="Daily delivered opportunities over the retained history">
             {daily.slice().reverse().map((row, index) => {
-              const count = Number(row.delivered ?? 0);
-              const height = Math.max(4, Math.round((count / maxDelivered) * 100));
-              return <div className="admin-ops-bar-column" key={`${String(row.eventDate ?? index)}-${index}`} title={`${String(row.eventDate ?? "Day")}: ${count} delivered`}><span>{count}</span><i style={{ height: `${height}%` }} /><small>{String(row.eventDate ?? "").slice(5, 10)}</small></div>;
+              const count = Number(row.rendered ?? 0);
+              const height = Math.max(4, Math.round((count / maxRendered) * 100));
+              return <div className="admin-ops-bar-column" key={`${String(row.eventDate ?? index)}-${index}`} title={`${String(row.eventDate ?? "Day")}: ${count} rendered`}><span>{count}</span><i style={{ height: `${height}%` }} /><small>{String(row.eventDate ?? "").slice(5, 10)}</small></div>;
             })}
           </div>}
         </section>
-        <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Operational interpretation</strong> A zero is a recorded count, not by itself proof of a delivery failure. Compare delivered, noticed and opened events with the selected time window.</span></div>
+        <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Operational interpretation</strong> Generated means the opportunity was created; queued means its delivery record is waiting or being retried; received and rendered require browser acknowledgements. Queue persistence is never reported as customer receipt or display.</span></div>
       </>}
     </ToolPage>
   );
@@ -279,7 +285,11 @@ export function AdminTradeSettingsOverview() {
         <Metric label="Global allocation gate" value={allocationState} detail="Open means new allocations are not paused" icon={Activity} />
         <Metric label="Enabled package policies" value={count(policies.isLoading, policies.isError, (policies.data ?? []).filter((policy) => policy.enabled).length)} icon={BadgeCheck} />
         <Metric label="Open opportunities" value={count(offers.isLoading, offers.isError, offers.data?.length)} detail="Current database offer registry" icon={Activity} />
-        <Metric label="Opportunities delivered" value={count(lifecycle.isLoading, lifecycle.isError, totals.delivered, sourceAvailable)} detail="Rolling 24-hour lifecycle events" icon={Activity} />
+        <Metric label="Opportunities generated" value={count(lifecycle.isLoading, lifecycle.isError, totals.generated, sourceAvailable)} detail="Rolling 24-hour generation assignments" icon={Zap} />
+        <Metric label="Queued deliveries" value={count(lifecycle.isLoading, lifecycle.isError, totals.queued, sourceAvailable)} detail="Waiting, in progress, or retry wait" icon={Clock3} />
+        <Metric label="Received" value={count(lifecycle.isLoading, lifecycle.isError, totals.received, sourceAvailable)} detail="Customer browser acknowledgement" icon={BadgeCheck} />
+        <Metric label="Rendered" value={count(lifecycle.isLoading, lifecycle.isError, totals.rendered, sourceAvailable)} detail="Customer interface acknowledgement" icon={Activity} />
+        <Metric label="Failed / expired" value={`${count(lifecycle.isLoading, lifecycle.isError, totals.failed, sourceAvailable)} / ${count(lifecycle.isLoading, lifecycle.isError, totals.expired, sourceAvailable)}`} detail="Terminal delivery outcomes" icon={AlertTriangle} />
         <Metric label="Trades recorded" value={count(lifecycle.isLoading, lifecycle.isError, totals.traded, sourceAvailable)} detail="Rolling 24-hour lifecycle events" icon={CircleDollarSign} />
         <Metric label="Settled trade events" value={count(lifecycle.isLoading, lifecycle.isError, totals.settled, sourceAvailable)} detail="Rolling 24-hour lifecycle events" icon={CheckCircle2} />
         <Metric label="Insufficient-balance events" value={count(lifecycle.isLoading, lifecycle.isError, totals.zeroBalance, sourceAvailable)} detail="Rolling 24-hour lifecycle events" icon={AlertTriangle} />

@@ -42,16 +42,22 @@ describe("Trading Overview lifecycle source availability", () => {
   it("preserves actual zero counts after a successful empty database aggregate", async () => {
     db.query
       .mockResolvedValueOnce([[
-        { delivered: 0, noticed: 0, opened: 0, dismissed: 0, withdrawn: 0, traded: 0, settled: 0, zeroBalance: 0 },
+        { generated: 0, queued: 0, received: 0, rendered: 0, failed: 0, expired: 0, persisted: 0, noticed: 0, opened: 0, dismissed: 0, withdrawn: 0, traded: 0, settled: 0, zeroBalance: 0 },
       ], []])
       .mockResolvedValueOnce([[], []]);
 
     const summary = await getOpportunityLifecycleSummary();
 
     expect(summary.sourceAvailable).toBe(true);
-    expect(summary.last24Hours).toMatchObject({ delivered: 0, noticed: 0, opened: 0, dismissed: 0, withdrawn: 0, traded: 0, settled: 0, zeroBalance: 0 });
+    expect(summary.last24Hours).toMatchObject({ generated: 0, queued: 0, received: 0, rendered: 0, failed: 0, expired: 0, persisted: 0, noticed: 0, opened: 0, dismissed: 0, withdrawn: 0, traded: 0, settled: 0, zeroBalance: 0 });
     expect(db.query).toHaveBeenCalledTimes(2);
-    expect(db.query.mock.calls[0]?.[0]).toContain("COALESCE(SUM(noticedAt IS NOT NULL), 0) AS noticed");
+    expect(db.query.mock.calls[0]?.[0]).toContain("COUNT(DISTINCT CASE WHEN e.deliveryStatus IN ('queued','in_progress','retry_wait')");
+    expect(db.query.mock.calls[0]?.[0]).toContain("COUNT(DISTINCT CASE WHEN e.deliveryStatus='received'");
+    expect(db.query.mock.calls[0]?.[0]).toContain("COUNT(DISTINCT CASE WHEN e.deliveryStatus='rendered'");
+    expect(db.query.mock.calls[0]?.[0]).toContain("COUNT(DISTINCT CASE WHEN e.deliveryStatus='failed'");
+    expect(db.query.mock.calls[0]?.[0]).toContain("COUNT(DISTINCT CASE WHEN e.deliveryStatus='expired'");
+    expect(db.query.mock.calls[0]?.[0]).toContain("opportunity_generation_assignments");
+    expect(db.query.mock.calls[0]?.[0]).toContain("MAX(id) AS id");
     expect(db.release).toHaveBeenCalledOnce();
     expect(db.end).toHaveBeenCalledOnce();
   });
@@ -69,7 +75,7 @@ describe("Trading Overview lifecycle source availability", () => {
     expect(overview).toContain("Number.isFinite(parsed) ? parsed.toLocaleString() : \"Unavailable\"");
     expect(overview).toContain("const lifecycleUpdated = lifecycle.isLoading ? \"Loading\" : lifecycle.isError || !sourceAvailable ? \"Unavailable\" : timestamp(data.generatedAt);");
     expect(overview).toContain("Lifecycle snapshot generated {lifecycleUpdated}");
-    expect(overview).toContain("count(lifecycle.isLoading, lifecycle.isError, totals.delivered, sourceAvailable)");
+    expect(overview).toContain("count(lifecycle.isLoading, lifecycle.isError, totals.generated, sourceAvailable)");
     expect(overview).toContain("count(policies.isLoading, policies.isError, (policies.data ?? []).filter((policy) => policy.enabled).length)");
     expect(overview).not.toContain("Number(value ?? 0)");
   });

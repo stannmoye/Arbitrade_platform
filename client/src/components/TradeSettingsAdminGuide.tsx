@@ -62,11 +62,12 @@ export const troubleshooting: readonly GuideTroubleshootingItem[] = [
 ];
 
 export const statusDefinitions = [
+  { term: "Generated", description: "The opportunity-generation assignment and its customer/package offer were successfully persisted. Generated is counted independently from delivery; it does not mean a delivery record was queued, received or rendered." },
   { term: "Generated / open customer offer", description: "A customer-facing open offer is a worker-generated record assigned to a customer/package with saved terms and an unexpired validity window. Historical unassigned manual/imported rows are not popup inputs. Template source references and review notes are administrator-supplied and are not independently verified. Open does not mean delivered." },
   { term: "Queued delivery", description: "Persisted deliveryStatus=queued: the informational delivery event is waiting for a worker attempt. It is not a customer receipt or a trade allocation." },
   { term: "Delivery in progress", description: "Persisted deliveryStatus=in_progress: a worker attempt holds the event for processing. It does not prove that the customer received or rendered the item." },
   { term: "Delivery retry wait", description: "Persisted deliveryStatus=retry_wait: a technical delivery retry is scheduled. It is not a trade-execution retry or carry-forward across daily windows." },
-  { term: "Delivered", description: "Persisted deliveryStatus=delivered: a durable server-side informational delivery event exists. It is not a synthetic offer, trade allocation, debit, profit or proof of execution." },
+  { term: "Persisted delivery record", description: "A durable server-side delivery row exists. The administrator monitor reports this as Queued while it is queued, in progress or retry-wait; persistence alone is never reported as customer receipt or display." },
   { term: "Received", description: "Persisted deliveryStatus=received: the customer client acknowledged receipt of an informational item. Receipt is not allocation or financial evidence." },
   { term: "Rendered", description: "Persisted deliveryStatus=rendered: the customer client acknowledged rendering an informational item. Display is still not allocation or financial evidence." },
   { term: "Failed delivery", description: "Persisted deliveryStatus=failed is terminal for delivery: the attempt failed permanently or the configured retry path was unavailable or exhausted. It is distinct from a trade-execution failure and does not imply a financial result." },
