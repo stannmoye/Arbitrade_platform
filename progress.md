@@ -8,6 +8,18 @@
 
 ---
 
+## 2026-11-07 — Release stale customer popup ownership after server-confirmed expiry
+
+- Working branch: `fix/customer-popup-slot-expiry-reconciliation`, based on latest verified `main` commit `ed090057b566b4ee09fdcb3683081226409d8a10`.
+- Root cause: the customer alert effect released its active reference only when the offer disappeared or `offerStatus` stopped being `open`. The server can report `expiryStatus=expired` and `popupEligible=false` while the persisted offer remains `open` until retention runs, leaving `popupRef` and the browser tab lock held and blocking the next eligible opportunity.
+- Fix: retain the alert only while the latest server feed reports it open and active and its event/delivery state is nonterminal. A local countdown alone cannot release it. On server-confirmed expiry, release the local presentation slot/lock without submitting a dismissal, then immediately retry the next eligible offer.
+- Regression coverage: standard-discovered behavioral and source-contract tests plus a mocked Chromium Stage 2 customer journey prove a second offer waits behind a valid active popup, then replaces an expired-but-still-open offer after server confirmation. Slot release does not submit a customer dismissal. No database schema, wallet, ledger, execution, or settlement behavior changed.
+- Validation: frozen-lockfile install, `pnpm check`, full Vitest suite (1,237 passed, 27 skipped), `pnpm build`, browser-runner syntax check, and `git diff --check` passed. The Stage 2 Chromium browser acceptance passed all 1,052 checks with zero failures.
+- PR review: no open PR targets this stale-slot expiry condition. Draft PR #280 concerns delivery retry/skip diagnostics; draft PR #238 is a separate company-rotation/presentation workstream based on an older branch.
+- Next: stage and commit the focused changes, push a PR, wait for exact-head GitHub checks, and merge only when they pass; deploy the merged `main` commit to the temporary sandbox and verify health plus both portals.
+
+---
+
 ## 2026-11-06 — Customer opportunity popup redesign, Stage 1
 
 - Working branch: `feat/customer-opportunity-popup-redesign-stage1`, based on the known-good merged `main` baseline `592aba30d69b6eb1ada188fadaa882d48540bb9a`.

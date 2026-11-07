@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { isServerActiveCustomerPopupSlotOwner } from "../client/src/customer-popup-eligibility";
 
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const eligibility = readFileSync(new URL("../client/src/customer-popup-eligibility.ts", import.meta.url), "utf8");
 const stylesheet = readFileSync(new URL("../client/src/trading-experience.css", import.meta.url), "utf8");
 const start = app.indexOf("function CustomerOpportunityAlert(");
 const end = app.indexOf("\nfunction CustomerDashboard(", start);
@@ -162,6 +164,56 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain("releaseDisplayLock.current=release");
     expect(component).toContain("releaseDisplayLock.current()");
     expect(component).toContain("releaseDisplayLock.current=null");
+  });
+
+  it("releases a server-expired popup slot and retries the next eligible offer", () => {
+    expect(component).toContain("isServerActiveCustomerPopupSlotOwner(current)");
+    expect(component).toContain("attemptNext(opportunityData.offers)");
+    const predicateStart = eligibility.indexOf("export function isServerActiveCustomerPopupSlotOwner(");
+    const predicateEnd = eligibility.indexOf("\n}", predicateStart);
+    const predicate = eligibility.slice(predicateStart, predicateEnd);
+    expect(predicate).toContain('current.expiryStatus ?? ""');
+    expect(predicate).not.toContain("closesAt");
+  });
+
+  it("keeps the slot until the server confirms expiry, not merely when the browser countdown reaches zero", () => {
+    expect(isServerActiveCustomerPopupSlotOwner({
+      offerStatus: "open",
+      expiryStatus: "active",
+      eventStatus: "NOTICED",
+      deliveryStatus: "rendered",
+      closesAt: "2000-01-01T00:00:00.000Z",
+    })).toBe(true);
+  });
+
+  it("releases a still-open slot after the server confirms the offer expired", () => {
+    expect(isServerActiveCustomerPopupSlotOwner({
+      offerStatus: "open",
+      expiryStatus: "expired",
+      popupEligible: false,
+      eventStatus: "DELIVERED",
+      deliveryStatus: "rendered",
+      closesAt: "2000-01-01T00:00:00.000Z",
+    })).toBe(false);
+  });
+
+  it("releases missing, terminal, or expired delivery owners", () => {
+    expect(isServerActiveCustomerPopupSlotOwner(undefined)).toBe(false);
+    expect(isServerActiveCustomerPopupSlotOwner({
+      offerStatus: "closed",
+      expiryStatus: "active",
+    })).toBe(false);
+    expect(isServerActiveCustomerPopupSlotOwner({
+      offerStatus: "open",
+      expiryStatus: "active",
+      eventStatus: "WITHDRAWN",
+      deliveryStatus: "rendered",
+    })).toBe(false);
+    expect(isServerActiveCustomerPopupSlotOwner({
+      offerStatus: "open",
+      expiryStatus: "active",
+      deliveryStatus: "expired",
+    })).toBe(false);
   });
 
   it("does not poll trade history for informational-only opportunity alerts", () => {

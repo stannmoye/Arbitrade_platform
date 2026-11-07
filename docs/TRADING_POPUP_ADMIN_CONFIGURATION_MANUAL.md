@@ -242,6 +242,7 @@ Acceptance must cover:
 - Rotation avoids repeats as configured and resumes correctly after restart and concurrent worker claims.
 - Insufficient capital produces an informational missed card and no debit/allocation.
 - Pop-up timeout/minimize/maximize/scroll/countdown cannot change financial state.
+- A countdown reaching zero alone does not release a popup still reported active by the server. When the server confirms expiry while the offer record remains `open`, release only the presentation slot/lock, do not submit a dismissal, and show the next eligible pending opportunity.
 - No synthetic/random profit, execution, quote or settlement is generated. Estimates stay estimates until supported by actual settlement evidence.
 - Worker restarts, stale leases, transient failures, duplicate delivery and retry/dead-letter recovery are tested against disposable databases.
 - Per-tier `maxPendingDeliveries` counts exactly `queued`, `in_progress`, and `retry_wait`, excluding terminal `dismissed` and `expired` deliveries.
