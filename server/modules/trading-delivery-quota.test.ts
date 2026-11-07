@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateTierDeliveryCaps,
+  countActiveVisiblePopupEvents,
   calculateTradingDeliveryCapacity,
   countConsumedDeliveryOffers,
   resolveTradingQuotaWindow,
@@ -71,6 +72,48 @@ describe("Trading daily delivery consumption", () => {
       deliveredOfferCount: 4,
       maxVisibleOffers: 3,
       activeVisibleCount: 3,
+    }).remainingQuota).toBe(0);
+  });
+
+  it("frees visible capacity when three retained customer offers are closed or expired", () => {
+    const now = new Date("2026-11-07T05:00:00.000Z");
+    const retainedExpiredOffers = ["DELIVERED", "NOTICED", "OPENED"].map((eventStatus, index) => ({
+      eventStatus,
+      deliveryStatus: ["rendered", "received", "delivered"][index],
+      offerStatus: index === 1 ? "open" : "closed",
+      opensAt: new Date(now.getTime() - 60_000),
+      closesAt: new Date(now.getTime() - 1_000),
+      expiredAt: null,
+    }));
+
+    const activeVisibleCount = countActiveVisiblePopupEvents(retainedExpiredOffers, now);
+    expect(activeVisibleCount).toBe(0);
+    expect(calculateTradingDeliveryCapacity({
+      dailyCap: 6,
+      deliveredOfferCount: 3,
+      maxVisibleOffers: 3,
+      activeVisibleCount,
+    })).toEqual({ dailyRemaining: 3, visibleRemaining: 3, remainingQuota: 3 });
+  });
+
+  it("continues to count only currently open, started, unexpired offers as visible", () => {
+    const now = new Date("2026-11-07T05:00:00.000Z");
+    const openVisibleOffers = ["DELIVERED", "NOTICED", "OPENED"].map((eventStatus, index) => ({
+      eventStatus,
+      deliveryStatus: ["rendered", "received", "delivered"][index],
+      offerStatus: "open",
+      opensAt: new Date(now.getTime() - 60_000),
+      closesAt: new Date(now.getTime() + 60_000),
+      expiredAt: null,
+    }));
+
+    const activeVisibleCount = countActiveVisiblePopupEvents(openVisibleOffers, now);
+    expect(activeVisibleCount).toBe(3);
+    expect(calculateTradingDeliveryCapacity({
+      dailyCap: 6,
+      deliveredOfferCount: 3,
+      maxVisibleOffers: 3,
+      activeVisibleCount,
     }).remainingQuota).toBe(0);
   });
 

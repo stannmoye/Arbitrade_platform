@@ -53,9 +53,15 @@ describe("runtime Trading delivery quota semantics", () => {
   it("keeps the daily quota independent from the simultaneous visible-offer limit", () => {
     expect(delivery).toContain("const dailyCap=maxPopupsPerDay");
     expect(delivery).toContain("calculateTradingDeliveryCapacity({dailyCap,deliveredOfferCount,maxVisibleOffers,activeVisibleCount})");
+    expect(delivery).toContain("countActiveVisiblePopupEvents(activePopupRows,now)");
+    expect(delivery).toContain("expiredAt:opportunityPopupEvents.expiredAt");
     expect(delivery).not.toContain("Math.min(maxPopupsPerDay,maxVisibleOffers)");
-    expect(delivery).toContain('["DELIVERED","NOTICED","OPENED"].includes(eventStatus)');
-    expect(delivery).toContain('["pending","delivered","received","rendered"].includes(deliveryStatus)');
+    expect(helper).toContain('["DELIVERED", "NOTICED", "OPENED"].includes(eventStatus)');
+    expect(helper).toContain('["pending", "delivered", "received", "rendered"].includes(deliveryStatus)');
+    expect(helper).toContain('String(row.offerStatus || "").toLowerCase() === "open"');
+    expect(helper).toContain("row.expiredAt == null");
+    expect(helper).toContain("opensAtMs <= nowMs");
+    expect(helper).toContain("closesAtMs > nowMs");
   });
 
   it("combines each tier's target and visible cap without replacing cumulative entitlement", () => {

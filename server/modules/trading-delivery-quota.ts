@@ -21,6 +21,37 @@ export function countConsumedDeliveryOffers(
   return consumed.size;
 }
 
+export function countActiveVisiblePopupEvents(
+  rows: readonly {
+    eventStatus?: string | null;
+    deliveryStatus?: string | null;
+    offerStatus?: string | null;
+    opensAt?: Date | string | null;
+    closesAt?: Date | string | null;
+    expiredAt?: Date | string | null;
+  }[],
+  now: Date,
+): number {
+  const nowMs = now.getTime();
+  if (!Number.isFinite(nowMs)) throw new RangeError("Visible popup capacity requires a valid reference time");
+
+  const timestamp = (value: Date | string | null | undefined) =>
+    value instanceof Date ? value.getTime() : typeof value === "string" ? new Date(value).getTime() : Number.NaN;
+
+  return rows.filter(row => {
+    const eventStatus = String(row.eventStatus || "").toUpperCase();
+    const deliveryStatus = String(row.deliveryStatus || "pending").toLowerCase();
+    const opensAtMs = timestamp(row.opensAt);
+    const closesAtMs = timestamp(row.closesAt);
+    return ["DELIVERED", "NOTICED", "OPENED"].includes(eventStatus) &&
+      ["pending", "delivered", "received", "rendered"].includes(deliveryStatus) &&
+      String(row.offerStatus || "").toLowerCase() === "open" &&
+      row.expiredAt == null &&
+      Number.isFinite(opensAtMs) && opensAtMs <= nowMs &&
+      Number.isFinite(closesAtMs) && closesAtMs > nowMs;
+  }).length;
+}
+
 export function calculateTradingDeliveryCapacity(input: {
   dailyCap: number;
   deliveredOfferCount: number;

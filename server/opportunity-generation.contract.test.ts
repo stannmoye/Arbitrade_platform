@@ -149,8 +149,11 @@ describe("automatic opportunity generation and package-aware customer delivery",
     const retention = lifecycle.slice(retentionStart);
     expect(retentionStart).toBeGreaterThanOrEqual(0);
     expect(retention).toContain("assignedUserId IS NOT NULL AND generationKey IS NOT NULL");
-    expect(retention.match(/generationKey IS NOT NULL/g) ?? []).toHaveLength(3);
+    expect(retention.match(/generationKey IS NOT NULL/g) ?? []).toHaveLength(4);
     expect(retention).not.toContain("generationTemplateId IS NOT NULL");
+    expect(retention).toContain("SET p.expiredAt=COALESCE(p.expiredAt,UTC_TIMESTAMP()),p.updatedAt=CURRENT_TIMESTAMP");
+    expect(retention).toContain("p.eventStatus IN ('DELIVERED','NOTICED','OPENED') AND p.expiredAt IS NULL");
+    expect(retention).toContain("p.deliveryStatus IN ('queued','in_progress','retry_wait')");
   });
 
   it("offers administrator approval, reasoned pause/resume, and visible customer-specific assignment history", () => {
