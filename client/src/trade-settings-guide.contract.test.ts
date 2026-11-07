@@ -114,11 +114,12 @@ describe("mounted Trade Settings Guide contract", () => {
 
   it("documents persisted delivery, funding, settlement and payout lifecycle states distinctly", () => {
     const expectedTerms = [
+      "Generated",
       "Generated / open customer offer",
       "Queued delivery",
       "Delivery in progress",
       "Delivery retry wait",
-      "Delivered",
+      "Persisted delivery record",
       "Received",
       "Rendered",
       "Failed delivery",
@@ -133,8 +134,9 @@ describe("mounted Trade Settings Guide contract", () => {
     ];
     expect(statusDefinitions.map((status) => status.term)).toEqual(expectedTerms);
 
+    expect(byTerm("Generated")?.description).toContain("does not mean a delivery record was queued, received or rendered");
     expect(byTerm("Generated / open customer offer")?.description).toContain("does not mean delivered");
-    expect(byTerm("Delivered")?.description).toContain("not a synthetic offer");
+    expect(byTerm("Persisted delivery record")?.description).toContain("persistence alone is never reported as customer receipt or display");
     expect(byTerm("Queued delivery")?.description).toContain("deliveryStatus=queued");
     expect(byTerm("Delivery in progress")?.description).toContain("deliveryStatus=in_progress");
     expect(byTerm("Delivery retry wait")?.description).toContain("deliveryStatus=retry_wait");

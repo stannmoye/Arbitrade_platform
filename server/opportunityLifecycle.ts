@@ -375,12 +375,18 @@ export async function runOpportunityRetention() {
     try {
       await connection.execute(
         `INSERT INTO opportunity_popup_daily
-          (userId,eventDate,deliveredCount,noticedCount,openedCount,dismissedCount,withdrawnCount,tradedCount,settledCount,zeroBalanceCount,lastEventAt,createdAt,updatedAt)
-         SELECT userId,DATE(deliveredAt),COUNT(*),SUM(noticedAt IS NOT NULL),SUM(openedAt IS NOT NULL),SUM(dismissedAt IS NOT NULL),SUM(withdrawnAt IS NOT NULL),SUM(tradedAt IS NOT NULL),SUM(settledAt IS NOT NULL),SUM(balanceStatus='insufficient'),MAX(updatedAt),CURRENT_TIMESTAMP,CURRENT_TIMESTAMP
+          (userId,eventDate,generatedCount,queuedCount,receivedCount,renderedCount,failedCount,expiredCount,deliveredCount,noticedCount,openedCount,dismissedCount,withdrawnCount,tradedCount,settledCount,zeroBalanceCount,lastEventAt,createdAt,updatedAt)
+         SELECT userId,DATE(createdAt),COUNT(DISTINCT CONCAT(userId,':',offerId)),
+           COUNT(DISTINCT CASE WHEN deliveryStatus IN ('queued','in_progress','retry_wait') THEN CONCAT(userId,':',offerId) END),
+           COUNT(DISTINCT CASE WHEN deliveryStatus='received' THEN CONCAT(userId,':',offerId) END),
+           COUNT(DISTINCT CASE WHEN deliveryStatus='rendered' THEN CONCAT(userId,':',offerId) END),
+           COUNT(DISTINCT CASE WHEN deliveryStatus='failed' THEN CONCAT(userId,':',offerId) END),
+           COUNT(DISTINCT CASE WHEN deliveryStatus='expired' THEN CONCAT(userId,':',offerId) END),
+           COUNT(DISTINCT CONCAT(userId,':',offerId)),SUM(noticedAt IS NOT NULL),SUM(openedAt IS NOT NULL),SUM(dismissedAt IS NOT NULL),SUM(withdrawnAt IS NOT NULL),SUM(tradedAt IS NOT NULL),SUM(settledAt IS NOT NULL),SUM(balanceStatus='insufficient'),MAX(updatedAt),CURRENT_TIMESTAMP,CURRENT_TIMESTAMP
          FROM opportunity_popup_events
-         WHERE deliveredAt < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
-         GROUP BY userId,DATE(deliveredAt)
-         ON DUPLICATE KEY UPDATE deliveredCount=VALUES(deliveredCount), noticedCount=VALUES(noticedCount), openedCount=VALUES(openedCount), dismissedCount=VALUES(dismissedCount), withdrawnCount=VALUES(withdrawnCount), tradedCount=VALUES(tradedCount), settledCount=VALUES(settledCount), zeroBalanceCount=VALUES(zeroBalanceCount), lastEventAt=VALUES(lastEventAt), updatedAt=CURRENT_TIMESTAMP`,
+         WHERE createdAt < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
+         GROUP BY userId,DATE(createdAt)
+         ON DUPLICATE KEY UPDATE generatedCount=VALUES(generatedCount), queuedCount=VALUES(queuedCount), receivedCount=VALUES(receivedCount), renderedCount=VALUES(renderedCount), failedCount=VALUES(failedCount), expiredCount=VALUES(expiredCount), deliveredCount=VALUES(deliveredCount), noticedCount=VALUES(noticedCount), openedCount=VALUES(openedCount), dismissedCount=VALUES(dismissedCount), withdrawnCount=VALUES(withdrawnCount), tradedCount=VALUES(tradedCount), settledCount=VALUES(settledCount), zeroBalanceCount=VALUES(zeroBalanceCount), lastEventAt=VALUES(lastEventAt), updatedAt=CURRENT_TIMESTAMP`,
       );
       const [expiredAssignments] = await connection.execute<any>(
         `UPDATE opportunity_generation_assignments SET status='expired',failureReason=COALESCE(failureReason,'OFFER_EXPIRED'),updatedAt=CURRENT_TIMESTAMP
@@ -427,8 +433,21 @@ export async function runOpportunityRetention() {
 export async function getOpportunityLifecycleSummary() {
   if (!process.env.DATABASE_URL) return { sourceAvailable: false, last24Hours: {}, retainedDaily: [], generatedAt: null };
   return withConnection(async connection => {
-    const [recent] = await connection.query<any[]>(`SELECT COUNT(*) AS delivered, COALESCE(SUM(noticedAt IS NOT NULL), 0) AS noticed, COALESCE(SUM(openedAt IS NOT NULL), 0) AS opened, COALESCE(SUM(dismissedAt IS NOT NULL), 0) AS dismissed, COALESCE(SUM(withdrawnAt IS NOT NULL), 0) AS withdrawn, COALESCE(SUM(tradedAt IS NOT NULL), 0) AS traded, COALESCE(SUM(settledAt IS NOT NULL), 0) AS settled, COALESCE(SUM(balanceStatus='insufficient'), 0) AS zeroBalance FROM opportunity_popup_events WHERE deliveredAt >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)`);
-    const [daily] = await connection.query<any[]>(`SELECT eventDate, SUM(deliveredCount) delivered, SUM(noticedCount) noticed, SUM(openedCount) opened, SUM(dismissedCount) dismissed, SUM(withdrawnCount) withdrawn, SUM(tradedCount) traded, SUM(settledCount) settled, SUM(zeroBalanceCount) zeroBalance FROM opportunity_popup_daily WHERE eventDate >= DATE_SUB(UTC_DATE(), INTERVAL 30 DAY) GROUP BY eventDate ORDER BY eventDate DESC LIMIT 30`);
+    const [recent] = await connection.query<any[]>(`SELECT
+      (SELECT COUNT(DISTINCT CONCAT(a.userId,':',a.offerId)) FROM opportunity_generation_assignments a WHERE a.generatedAt >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)) AS generated,
+      COUNT(DISTINCT CASE WHEN e.deliveryStatus IN ('queued','in_progress','retry_wait') THEN CONCAT(e.userId,':',e.offerId) END) AS queued,
+      COUNT(DISTINCT CASE WHEN e.deliveryStatus='received' THEN CONCAT(e.userId,':',e.offerId) END) AS received,
+      COUNT(DISTINCT CASE WHEN e.deliveryStatus='rendered' THEN CONCAT(e.userId,':',e.offerId) END) AS rendered,
+      COUNT(DISTINCT CASE WHEN e.deliveryStatus='failed' THEN CONCAT(e.userId,':',e.offerId) END) AS failed,
+      COUNT(DISTINCT CASE WHEN e.deliveryStatus='expired' THEN CONCAT(e.userId,':',e.offerId) END) AS expired,
+      COUNT(DISTINCT CONCAT(e.userId,':',e.offerId)) AS persisted,
+      COALESCE(SUM(e.noticedAt IS NOT NULL), 0) AS noticed, COALESCE(SUM(e.openedAt IS NOT NULL), 0) AS opened,
+      COALESCE(SUM(e.dismissedAt IS NOT NULL), 0) AS dismissed, COALESCE(SUM(e.withdrawnAt IS NOT NULL), 0) AS withdrawn,
+      COALESCE(SUM(e.tradedAt IS NOT NULL), 0) AS traded, COALESCE(SUM(e.settledAt IS NOT NULL), 0) AS settled,
+      COALESCE(SUM(e.balanceStatus='insufficient'), 0) AS zeroBalance
+      FROM opportunity_popup_events e
+      INNER JOIN (SELECT userId,offerId,MAX(id) AS id FROM opportunity_popup_events WHERE createdAt >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR) GROUP BY userId,offerId) latest ON latest.id=e.id`);
+    const [daily] = await connection.query<any[]>(`SELECT eventDate, SUM(generatedCount) generated, SUM(queuedCount) queued, SUM(receivedCount) received, SUM(renderedCount) rendered, SUM(failedCount) failed, SUM(expiredCount) expired, SUM(deliveredCount) persisted, SUM(noticedCount) noticed, SUM(openedCount) opened, SUM(dismissedCount) dismissed, SUM(withdrawnCount) withdrawn, SUM(tradedCount) traded, SUM(settledCount) settled, SUM(zeroBalanceCount) zeroBalance FROM opportunity_popup_daily WHERE eventDate >= DATE_SUB(UTC_DATE(), INTERVAL 30 DAY) GROUP BY eventDate ORDER BY eventDate DESC LIMIT 30`);
     return { sourceAvailable: true, last24Hours: recent[0] || {}, retainedDaily: daily, generatedAt: new Date().toISOString() };
   });
 }
