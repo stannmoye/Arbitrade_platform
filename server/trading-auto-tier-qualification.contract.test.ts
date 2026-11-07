@@ -167,7 +167,7 @@ describe("Automatic Trading tier qualification", () => {
   it("preserves assigned tier threshold and quota snapshots for existing entitlements", () => {
     expect(databaseSource).toContain("const assignedThreshold=Number(snapshot.minimumQualifyingBalanceUsdMinor??threshold)");
     expect(databaseSource).toContain("termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson");
-    expect(databaseSource).toContain("const quota=Number(snapshotFor(row).opportunitiesPerDay??row.dailyQuota)");
+    expect(databaseSource).toContain("const quota=resolveSavedEntitlementQuota(snapshotFor(row),row.dailyQuota)");
     expect(databaseSource).toContain("below the threshold recorded in this entitlement's terms snapshot");
   });
 

@@ -24,7 +24,7 @@ import { COMPANY_REFERENCE_CATALOGUE, getCompanyReferenceById, normalizeCompanyC
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY, PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS, resolveEffectivePackageOpportunityPolicy, type PackageOpportunityPolicyPatch } from "./modules/package-opportunity-policy";
-import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countActiveVisiblePopupEvents, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule, resolveTradingBurstLimit } from "./modules/trading-delivery-quota";
+import { calculateEffectiveEntitlementQuota, calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countActiveVisiblePopupEvents, countConsumedDeliveryOffers, resolveSavedEntitlementQuota, resolveTradingQuotaWindow, resolveTradingDeliverySchedule, resolveTradingBurstLimit } from "./modules/trading-delivery-quota";
 import { indexTradingPackagePolicies, normalizeTradingPackagePolicyKey } from "./modules/trading-package-policy-index";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry, MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY } from "./modules/trade-execution-retry";
@@ -3137,7 +3137,7 @@ export async function getCustomerTradingEligibility(userId:number) {
     try { return JSON.parse(String(row.termsSnapshotJson||"{}")); } catch { return {}; }
   };
   const dailyOpportunityAllowance=tierMasterEnabled?eligibleRows.reduce((total,row)=>{
-    const quota=Number(snapshotFor(row).opportunitiesPerDay??row.dailyQuota);
+    const quota=resolveSavedEntitlementQuota(snapshotFor(row),row.dailyQuota);
     return total+(Number.isSafeInteger(quota)&&quota>=0?quota:0);
   },0):0;
   if(!Number.isSafeInteger(dailyOpportunityAllowance)||dailyOpportunityAllowance<0) throw new Error("Trading eligibility quota is invalid.");
@@ -3151,7 +3151,7 @@ export async function getCustomerTradingEligibility(userId:number) {
       name:String(row.packageName),
       minimumQualifyingBalanceUsdMinor:Number(snapshot.minimumQualifyingBalanceUsdMinor??row.minimumQualifyingBalanceUsdMinor),
       durationMonths:Number(snapshot.durationMonths??row.durationMonths),
-      opportunitiesPerDay:Number(snapshot.opportunitiesPerDay??row.dailyQuota),
+      opportunitiesPerDay:resolveSavedEntitlementQuota(snapshot,row.dailyQuota),
     };
   }).filter(tier=>Number.isSafeInteger(tier.minimumQualifyingBalanceUsdMinor)&&tier.minimumQualifyingBalanceUsdMinor>0)
     .sort((a,b)=>b.minimumQualifyingBalanceUsdMinor-a.minimumQualifyingBalanceUsdMinor);
@@ -3336,16 +3336,19 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         let entitlementSnapshot:any={};
         try{entitlementSnapshot=JSON.parse(String(row.termsSnapshotJson||"{}"));}catch{entitlementSnapshot={};}
         const packageDailyQuota=Number(row.packageDailyOpportunityQuota);
-        const entitlementQuotaValue=Number(entitlementSnapshot.opportunitiesPerDay??packageDailyQuota);
-        const customerDailyQuota=Number.isSafeInteger(entitlementQuotaValue)&&entitlementQuotaValue>0?entitlementQuotaValue:0;
+        const customerDailyQuota=resolveSavedEntitlementQuota(entitlementSnapshot,packageDailyQuota);
         const policyDailyQuota=Math.max(0,Math.trunc(Number(row.policyDailyOpportunityQuota)||0));
         const packagePopupQuotaValue=Number(entitlementSnapshot.maxPopupsPerDay??row.packageMaxPopupsPerDay);
         const packagePopupQuota=Math.max(0,Math.trunc(Number.isFinite(packagePopupQuotaValue)?packagePopupQuotaValue:0));
         const dailyTarget=Math.max(0,Math.trunc(Number(row.dailyPopupTarget)||0));
-        const policyCap=policyDailyQuota>0?Math.min(packageDailyQuota,policyDailyQuota):packageDailyQuota;
-        const packageCap=packagePopupQuota>0?Math.min(policyCap,packagePopupQuota):policyCap;
-        const effectiveDailyQuota=Number.isSafeInteger(packageDailyQuota)&&packageDailyQuota>0
-          ?Math.min(packageCap,dailyTarget>0?dailyTarget:packageDailyQuota):0;
+        // The saved subscription is the entitlement. Current tier quota edits
+        // apply only to future assignments; delivery policy caps may reduce it.
+        const effectiveDailyQuota=calculateEffectiveEntitlementQuota({
+          savedEntitlementQuota:customerDailyQuota,
+          policyDailyCap:policyDailyQuota,
+          packagePopupCap:packagePopupQuota,
+          dailyTargetCap:dailyTarget,
+        });
         if(customerDailyQuota<=0||effectiveDailyQuota<=0){zeroQuotaRows++;continue;}
         const candidateQuotaWindow=resolveTradingQuotaWindow(input.now,
           row.schedulingPeriod==="rolling_24h"?"rolling_24h":"calendar_day");
@@ -4048,10 +4051,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     return Boolean(configured && hasConfiguredTradingOfferPolicy(configured));
   });
   if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packagePolicyPaused:true,popupPolicy:{}},"NO_PACKAGE_WITH_VALID_TRADING_POLICY",{activeAutomaticSubscriptions:subscriptions.length});
-  const quotaFor=(subscription:any)=>{
-    try { const snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}")); const value=Number(snapshot.opportunitiesPerDay??subscription.packageQuota); return Number.isSafeInteger(value)&&value>0?value:0; }
-    catch { const value=Number(subscription.packageQuota); return Number.isSafeInteger(value)&&value>0?value:0; }
-  };
+  const quotaFor=(subscription:any)=>resolveSavedEntitlementQuota(subscription.termsSnapshotJson,subscription.packageQuota);
   const quotaByPackage=new Map<string,number>();
   for(const subscription of eligibleSubscriptions) quotaByPackage.set(subscription.packageName,(quotaByPackage.get(subscription.packageName)||0)+quotaFor(subscription));
   const combinedQuota=[...quotaByPackage.values()].reduce((sum,value)=>sum+value,0);
@@ -4860,7 +4860,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const subscriptionsWithQuota=eligibleSubscriptions.filter(subscription=>{
     let snapshot:any={};
     try { snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}")); } catch { snapshot={}; }
-    const dailyQuota=Number(snapshot.opportunitiesPerDay??subscription.packageQuota);
+    const dailyQuota=resolveSavedEntitlementQuota(snapshot,subscription.packageQuota);
     const used=usedBySubscription.get(Number(subscription.subscriptionId))||0;
     return Number.isSafeInteger(dailyQuota)&&dailyQuota>0&&used<dailyQuota;
   });

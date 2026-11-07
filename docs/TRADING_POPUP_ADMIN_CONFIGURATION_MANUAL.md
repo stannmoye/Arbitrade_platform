@@ -23,6 +23,8 @@ Tier and policy saves must show an in-progress state, a visible error when rejec
 
 ## 1. Non-negotiable rules
 
+**Saved entitlement quota rule:** The daily quota in an active subscription's terms snapshot is authoritative for that entitlement. Raising or lowering the package's current `opportunitiesPerDay` affects future automatic assignments only; it must neither enlarge nor reduce existing subscriptions. Separate operational delivery caps may reduce the saved allowance, but cannot increase it.
+
 1. The admin portal is the source of truth for package policy and customer pop-up behaviour. Customer UI must consume saved server configuration; it must not hardcode amounts, percentages, package names, durations, company lists, quotas, or financial results.
 2. Customers never browse, choose, purchase, subscribe to, or activate packages. An authorized admin configures packages; the server assigns eligibility from qualifying manual admin wallet credits only, and package quotas accumulate according to the canonical Trading specification.
 3. The company catalogue is the existing 1,811-record local image/name reference pool, keyed by stable Logo ID and mapped to local assets. Keep each company name, logo, country metadata and reference ID together. Do not recreate company names/logos in frontend constants or substitute a small hardcoded array.

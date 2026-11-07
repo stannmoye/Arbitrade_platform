@@ -129,7 +129,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <div class="field"><b>Delivery counting window</b><span><strong>Rolling 24 hours</strong> or <strong>Calendar day (UTC)</strong>. This controls the period used to count the operational caps.</span></div>
 </div>
 <div class="callout"><strong>Example:</strong> To make a tier entitlement of 600 opportunities/day available, set the hard daily pop-up ceiling to at least 600 and leave the optional daily target at 0. The package entitlement remains the source of the customer's allowance; caps do not increase it.</div>
-<div class="callout warn">Tier edits apply to future automatic assignments. Existing customer entitlement snapshots keep the quota saved when those entitlements were created.</div>
+<div class="callout warn">Tier edits apply to future automatic assignments. The quota saved in an existing customer entitlement snapshot is authoritative: lowering the package quota does not reduce that entitlement, and raising it does not increase it. Separate operational delivery caps may still reduce the saved allowance.</div>
 </section>
 
 <section class="section anchor" id="opportunity">

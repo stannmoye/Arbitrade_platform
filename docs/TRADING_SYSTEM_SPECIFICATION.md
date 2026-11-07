@@ -53,6 +53,7 @@ Package records are configuration, not customer-facing products. Only authorized
 - Evaluate each enabled tier against the customer's cumulative qualifying deposit total, not the current wallet balance.
 - On a qualifying manual admin credit, re-evaluate all enabled tiers in threshold order and create each newly qualified entitlement that is not already active. Use a transaction and row locks so concurrent credits cannot create duplicate entitlements.
 - Entitlements have their own start time, expiry, quota and package-terms snapshot. Multiple eligible tiers contribute cumulative quotas while active.
+- The quota saved in an assigned entitlement snapshot is authoritative for that subscription. Raising or lowering the current package quota applies only to future assignments and must not change the existing entitlement's allowance; separate operational delivery caps may only reduce it.
 - Customer eligibility is a read-only server query. Refreshing the page, viewing an opportunity, logging in/out, or opening a customer portal must never create an entitlement, allocate capital, or settle a trade.
 - There is no customer package purchase/activation cooldown or repeat-purchase flow. Any repeat entitlement behavior is server-controlled by tier eligibility and the administrator-configured duration/limits.
 - Do not let a customer's current wallet balance, realized profit, returned principal, rewards, bonus credits, swaps or transfers increase the qualifying-deposit total.

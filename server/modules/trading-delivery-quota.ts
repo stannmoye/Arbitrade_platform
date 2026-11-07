@@ -1,5 +1,41 @@
 export type TradingQuotaWindowPeriod = "rolling_24h" | "calendar_day";
 
+/**
+ * Read an assigned subscription's saved daily entitlement. The package value is
+ * only a compatibility fallback for legacy rows with no saved quota; current
+ * tier edits must not replace a quota already present in the snapshot.
+ */
+export function resolveSavedEntitlementQuota(termsSnapshot: unknown, fallbackQuota: unknown): number {
+  let snapshot = termsSnapshot;
+  if (typeof snapshot === "string") {
+    try { snapshot = JSON.parse(snapshot); } catch { snapshot = null; }
+  }
+  const savedQuota = snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)
+    ? (snapshot as Record<string, unknown>).opportunitiesPerDay
+    : undefined;
+  const quota = Number(savedQuota ?? fallbackQuota);
+  return Number.isSafeInteger(quota) && quota >= 0 ? quota : 0;
+}
+
+/**
+ * Apply operational delivery limits to a saved subscription entitlement.
+ * Mutable package quota is deliberately not an input: tier edits apply only
+ * when a future subscription snapshot is created.
+ */
+export function calculateEffectiveEntitlementQuota(input: {
+  savedEntitlementQuota: number;
+  policyDailyCap?: number | null;
+  packagePopupCap?: number | null;
+  dailyTargetCap?: number | null;
+}): number {
+  const savedQuota = input.savedEntitlementQuota;
+  if (!Number.isSafeInteger(savedQuota) || savedQuota <= 0) return 0;
+  const caps = [input.policyDailyCap, input.packagePopupCap, input.dailyTargetCap]
+    .map(value => Number.isFinite(Number(value)) ? Math.max(0, Math.trunc(Number(value))) : 0)
+    .filter(value => value > 0);
+  return caps.reduce((quota, cap) => Math.min(quota, cap), savedQuota);
+}
+
 export function resolveTradingQuotaWindow(now: Date, period: TradingQuotaWindowPeriod) {
   const end = new Date(now.getTime());
   if (period === "rolling_24h") {
