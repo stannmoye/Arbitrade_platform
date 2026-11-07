@@ -6359,8 +6359,8 @@ export async function resetTradeOpportunityUsage(input: {
     const eligibleEventRows = safetyEvents.filter(event => !protectedOfferIds.has(Number(event.offerId)) &&
       (["DELIVERED", "NOTICED", "OPENED"].includes(String(event.eventStatus)) || ["queued", "in_progress", "retry_wait"].includes(String(event.deliveryStatus))));
     const withdrawnRows = eligibleEventRows.filter(event => ["DELIVERED", "NOTICED", "OPENED"].includes(String(event.eventStatus)));
-    const pendingDeliveryRows = eligibleEventRows.filter(event => ["queued", "in_progress", "retry_wait"].includes(String(event.deliveryStatus)));
-    const eligibleOfferIds = openOffers.map(row => Number(row.id)).filter(id => !protectedOfferIds.has(id));
+    const eligibleOfferIds = [...openOffers.map(row => Number(row.id)), ...activeEvents.map(row => Number(row.offerId))]
+      .filter(id => !protectedOfferIds.has(id));
     const uniqueEligibleOfferIds = [...new Set(eligibleOfferIds)].sort((a, b) => a - b);
     const assignmentRows = uniqueEligibleOfferIds.length
       ? await tx.select({ id: opportunityGenerationAssignments.id }).from(opportunityGenerationAssignments)
@@ -6370,6 +6370,12 @@ export async function resetTradeOpportunityUsage(input: {
     if (assignmentRows.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS) throw new Error("Opportunity reset scope exceeds the safe atomic row limit; no changes were committed.");
 
     const eligibleEventIds = eligibleEventRows.map(event => Number(event.id));
+    const eligibleDeliveryEventRows = uniqueEligibleOfferIds.length
+      ? await tx.select({ id: opportunityDeliveryEvents.id }).from(opportunityDeliveryEvents)
+        .where(and(inArray(opportunityDeliveryEvents.userId, userIds), inArray(opportunityDeliveryEvents.offerId, uniqueEligibleOfferIds), eq(opportunityDeliveryEvents.status, "pending")))
+        .orderBy(opportunityDeliveryEvents.id).limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1).for("update")
+      : [];
+    if (eligibleDeliveryEventRows.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS) throw new Error("Opportunity reset scope exceeds the safe atomic row limit; no changes were committed.");
     if (eligibleEventIds.length) {
       const sharedTerminalFields = {
         deliveryStatus: "dismissed" as const,
@@ -6396,6 +6402,9 @@ export async function resetTradeOpportunityUsage(input: {
     if (assignmentRows.length) await tx.update(opportunityGenerationAssignments)
       .set({ status: "cancelled", failureReason: "ADMIN_OPPORTUNITY_USAGE_RESET", updatedAt: resetAt })
       .where(inArray(opportunityGenerationAssignments.id, assignmentRows.map(row => Number(row.id))));
+    if (eligibleDeliveryEventRows.length) await tx.update(opportunityDeliveryEvents)
+      .set({ status: "expired", lastErrorCode: "ADMIN_OPPORTUNITY_USAGE_RESET", expiresAt: resetAt })
+      .where(inArray(opportunityDeliveryEvents.id, eligibleDeliveryEventRows.map(row => Number(row.id))));
 
     const assignmentHighWater = userIds.length
       ? (await tx.select({ maxId: sql<number>`COALESCE(MAX(${opportunityGenerationAssignments.id}), 0)` }).from(opportunityGenerationAssignments)
@@ -6413,7 +6422,7 @@ export async function resetTradeOpportunityUsage(input: {
       scope: input.scope,
       customerCount: userIds.length,
       withdrawnOpportunities: withdrawnRows.length,
-      clearedPendingDeliveries: pendingDeliveryRows.length,
+      clearedPendingDeliveries: eligibleDeliveryEventRows.length,
       closedOffers: uniqueEligibleOfferIds.length,
       cancelledAssignments: assignmentRows.length,
       preservedTradePositions: linkedTradePositions.length,
