@@ -60,8 +60,8 @@ describe("customer opportunity popup retry and visibility gates", () => {
 
   it("minimizes at the shared server expiry instead of using a separate display timer", () => {
     expect(component).toContain("timer.current=window.setTimeout(()=>{");
-    expect(component).toContain("Date.parse(String(popupRef.current?.closesAt||\"\"))");
-    expect(component).toContain("configuredDurationSeconds");
+    expect(component).toContain("remainingOpportunityMilliseconds(popupRef.current?.closesAt,Date.now(),serverClockOffsetMs.current)");
+    expect(component).not.toContain("configuredSeconds*1000");
     expect(database).toContain("const closesAt=new Date(rewardAt.getTime()+completionDisplaySeconds*1000)");
     expect(database).toContain("const displaySeconds=terms.tradeDurationSeconds+completionDisplaySeconds");
     expect(database).toContain("const settlesAt=new Date(tradeStartedAt.getTime()+effectiveDurationSeconds*1000)");

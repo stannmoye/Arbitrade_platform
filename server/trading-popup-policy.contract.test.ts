@@ -34,8 +34,10 @@ describe("administrator-configured Trading pop-up policy", () => {
     expect(database).toContain("Set valid published reward-rate and duration bounds before enabling delivery");
     expect(database).toContain("configuredProfitRateBps:effectiveRateBps");
     expect(database).toContain("Saved pop-up duration is outside the tier's configured range");
-    expect(database).toContain("const completionDisplaySeconds=configuredPopupDisplaySeconds-effectiveDurationSeconds");
-    expect(database).toContain("closesAtMs!==rewardAtMs+completionDisplaySeconds*1000");
+    expect(database).toContain("packageSnapshotJson:opportunityGenerationAssignments.packageSnapshotJson");
+    expect(database).toContain("validateOpportunityDurationSnapshot(packageSnapshot");
+    expect(database).toContain("Saved opportunity duration or timestamps are inconsistent");
+    expect(database).toContain("Saved pop-up duration is outside its original package range");
     expect(database).toContain("const settlesAt=new Date(tradeStartedAt.getTime()+effectiveDurationSeconds*1000)");
     expect(database).toContain("popupSnapshot?.packagePolicyVersionSnapshot");
     expect(lifecycle).toContain("configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds");

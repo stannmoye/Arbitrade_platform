@@ -12,6 +12,7 @@ import { formatFeeBpsAsPercent, parseFeePercentToBps, resolvePackageFeePolicy, t
 import { getPageCount, paginateItems } from "./trading-catalogue-pagination";
 import { buildChangedPolicyPatches, TRADING_TIER_POLICY_PATCH_KEYS } from "./trading-policy-patches";
 import { isFreshCustomerPopupCandidate, isServerActiveCustomerPopupSlotOwner } from "./customer-popup-eligibility";
+import { remainingOpportunityMilliseconds } from "./customer-opportunity-countdown";
 import { CustomerOpportunityHistoryPanel, hasPersistedCustomerOpportunityDismissal } from "./customer-opportunity-history";
 const AdminSlideMenu = lazy(() => import("@/components/AdminSlideMenu").then((module) => ({ default: module.AdminSlideMenu })));
 const TradeSettingsAdminGuide = lazy(() => import("@/components/TradeSettingsAdminGuide").then((module) => ({ default: module.TradeSettingsAdminGuide })));
@@ -446,10 +447,8 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   const scheduleCollapse=()=>{
     if(timer.current!==null)window.clearTimeout(timer.current);
     const scheduledOfferId=Number(popupRef.current?.id||0);
-    const closesAtMs=Date.parse(String(popupRef.current?.closesAt||""));
-    const configuredSeconds=Number(popupRef.current?.configuredDurationSeconds||0);
-    const remainingMs=Number.isFinite(closesAtMs)?Math.max(0,closesAtMs-(Date.now()+serverClockOffsetMs.current)):
-      (Number.isSafeInteger(configuredSeconds)&&configuredSeconds>0?configuredSeconds*1000:0);
+    const remainingMs=remainingOpportunityMilliseconds(popupRef.current?.closesAt,Date.now(),serverClockOffsetMs.current);
+    if(remainingMs===null)return;
     timer.current=window.setTimeout(()=>{
       timer.current=null;
       if(!popupRef.current||Number(popupRef.current.id)!==scheduledOfferId)return;
@@ -614,7 +613,8 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   const closesAt=new Date(popup.closesAt);
   const closesAtMs=closesAt.getTime();
   const closesLabel=Number.isFinite(closesAtMs)?closesAt.toLocaleString():"Unavailable";
-  const remainingSeconds=Number.isFinite(closesAtMs)?Math.max(0,Math.ceil((closesAtMs-(clockNow+serverClockOffsetMs.current))/1000)):null;
+  const remainingMs=remainingOpportunityMilliseconds(popup.closesAt,clockNow,serverClockOffsetMs.current);
+  const remainingSeconds=remainingMs===null?null:Math.ceil(remainingMs/1000);
   const opensAtMs=Date.parse(String(popup.opensAt||""));
   const expiryDurationMs=closesAtMs-opensAtMs;
   const expiryProgress=Number.isFinite(expiryDurationMs)&&expiryDurationMs>0&&remainingSeconds!==null?Math.max(0,Math.min(100,(remainingSeconds*1000/expiryDurationMs)*100)):0;

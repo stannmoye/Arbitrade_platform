@@ -35,7 +35,9 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(generator).toContain('createCatalogueIdentityOpportunityTemplate(company,packageMinimum,"USD")');
     expect(generator).toContain("selectOpportunityGenerationTerms");
     expect(generator).toContain("packageUsdUnitsToNativeMinor");
-    expect(generator).toContain("opensAt:new Date(Math.floor(input.now.getTime()/1000)*1000)");
+    expect(generator).toContain("const opportunityStartedAt=new Date(Math.floor(input.now.getTime()/1000)*1000)");
+    expect(generator).toContain("opensAt:opportunityStartedAt,closesAt,rewardAt,status:\"open\"");
+    expect(generator).toContain("generatedAt:opportunityStartedAt.toISOString()");
     expect(generator).toContain("companyRotationEnabled");
     expect(generator).toContain("control.enabled!==true");
     expect(generator).toContain("The active package's saved capital bounds are invalid.");
@@ -47,6 +49,8 @@ describe("automatic opportunity generation and package-aware customer delivery",
     expect(generator).toContain("generationKey=`auto:");
     expect(migration).toContain("opportunity_offers_generation_key_uq");
     expect(generator).toContain("packageSnapshotJson:JSON.stringify(snapshot)");
+    expect(generator).toContain("minimumTradeDurationSeconds:Number(selectedPolicy.minimumTradeDurationSeconds)");
+    expect(generator).toContain("maximumTradeDurationSeconds:Number(selectedPolicy.maximumTradeDurationSeconds)");
     expect(generator).toContain("templateVersion:template?Number(template.version):null");
     expect(generator).toContain("assignedUserId:input.userId");
     expect(customerQuery).toContain("generationAssignmentByOffer");
