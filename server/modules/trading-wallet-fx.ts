@@ -231,3 +231,65 @@ export function calculateCombinedAvailableTargetMinor(input: {
   }
   return safeNumber(targetTotal, "Combined target-currency wallet balance");
 }
+
+export type CombinedBalanceSnapshot = {
+  availableMinor: number;
+  balanceStatus: "sufficient" | "insufficient" | "unknown";
+  shortfallMinor: number;
+  valuationCurrency: string;
+};
+
+/**
+ * Revalues available wallet funds for display using the same calculator as
+ * server-side funding. Quote lookup is supplied by the caller so it can reuse
+ * the platform's freshness/provenance policy. Unknown quotes fail closed.
+ */
+export async function calculateCombinedBalanceSnapshot(input: {
+  targetCurrency: string;
+  targetScale: number | null;
+  requiredMinor: number;
+  wallets: Array<Omit<AvailableWallet, "rate">>;
+  getFreshRate: (currency: string, scale: number) => Promise<FxRateSnapshot | null>;
+}): Promise<CombinedBalanceSnapshot> {
+  const targetCurrency = input.targetCurrency.trim().toUpperCase();
+  const unavailable = (): CombinedBalanceSnapshot => ({
+    availableMinor: 0,
+    balanceStatus: "unknown",
+    shortfallMinor: 0,
+    valuationCurrency: targetCurrency,
+  });
+  if (!targetCurrency || input.targetScale === null || !Number.isSafeInteger(input.targetScale) ||
+      !Number.isSafeInteger(input.requiredMinor) || input.requiredMinor < 0) return unavailable();
+  try {
+    const positiveForeign = input.wallets.filter(wallet =>
+      wallet.currency.trim().toUpperCase() !== targetCurrency && wallet.availableMinor > 0,
+    );
+    const currencies = new Map(input.wallets.map(wallet => [wallet.currency.trim().toUpperCase(), wallet]));
+    const requiredRates = positiveForeign.length
+      ? [...new Set([targetCurrency, ...positiveForeign.map(wallet => wallet.currency.trim().toUpperCase())])]
+      : [];
+    const rates = new Map<string, FxRateSnapshot | null>();
+    await Promise.all(requiredRates.map(async currency => {
+      const wallet = currencies.get(currency);
+      const scale = currency === targetCurrency ? input.targetScale! : wallet?.scale;
+      rates.set(currency, scale === undefined ? null : await input.getFreshRate(currency, scale));
+    }));
+    if (requiredRates.some(currency => !rates.get(currency))) return unavailable();
+    const availableMinor = calculateCombinedAvailableTargetMinor({
+      targetCurrency,
+      targetRate: rates.get(targetCurrency),
+      wallets: input.wallets.map(wallet => ({
+        ...wallet,
+        rate: rates.get(wallet.currency.trim().toUpperCase()) ?? null,
+      })),
+    });
+    return {
+      availableMinor,
+      balanceStatus: availableMinor >= input.requiredMinor ? "sufficient" : "insufficient",
+      shortfallMinor: Math.max(0, input.requiredMinor - availableMinor),
+      valuationCurrency: targetCurrency,
+    };
+  } catch {
+    return unavailable();
+  }
+}

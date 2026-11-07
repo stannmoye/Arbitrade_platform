@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateCombinedAvailableTargetMinor, planCrossWalletFunding, type FxRateSnapshot } from "./trading-wallet-fx";
+import { calculateCombinedAvailableTargetMinor, calculateCombinedBalanceSnapshot, planCrossWalletFunding, type FxRateSnapshot } from "./trading-wallet-fx";
 
 const rate = (currency: string, scale: number, rateUsdPerUnit: string): FxRateSnapshot => ({
   currency, scale, rateUsdPerUnit, provider: "test-api", sourceDate: "2026-10-29T10:00:00.000Z",
@@ -7,6 +7,48 @@ const rate = (currency: string, scale: number, rateUsdPerUnit: string): FxRateSn
 });
 
 describe("combined spendable wallet balance", () => {
+  it("reports current combined funds and shortfall in the opportunity currency", async () => {
+    const getFreshRate = async (currency: string, scale: number) => currency === "EUR" ? rate(currency, scale, "1.1") : rate(currency, scale, "1");
+    await expect(calculateCombinedBalanceSnapshot({
+      targetCurrency: "USD", targetScale: 2, requiredMinor: 5_000,
+      wallets: [{ currency: "USD", scale: 2, availableMinor: 2_000 }, { currency: "EUR", scale: 2, availableMinor: 3_000 }],
+      getFreshRate,
+    })).resolves.toEqual({ availableMinor: 5_300, balanceStatus: "sufficient", shortfallMinor: 0, valuationCurrency: "USD" });
+    await expect(calculateCombinedBalanceSnapshot({
+      targetCurrency: "USD", targetScale: 2, requiredMinor: 6_000,
+      wallets: [{ currency: "USD", scale: 2, availableMinor: 2_000 }, { currency: "EUR", scale: 2, availableMinor: 3_000 }],
+      getFreshRate,
+    })).resolves.toEqual({ availableMinor: 5_300, balanceStatus: "insufficient", shortfallMinor: 700, valuationCurrency: "USD" });
+  });
+
+  it("uses spendable available funds only and rounds at target minor-unit precision", async () => {
+    const result = await calculateCombinedBalanceSnapshot({
+      targetCurrency: "USD", targetScale: 2, requiredMinor: 1_000,
+      wallets: [{ currency: "USD", scale: 2, availableMinor: 123 }, { currency: "EUR", scale: 2, availableMinor: 999 }],
+      getFreshRate: async (currency, scale) => currency === "EUR" ? rate(currency, scale, "1.105") : rate(currency, scale, "1"),
+    });
+    expect(result.availableMinor).toBe(1_226);
+    expect(result.balanceStatus).toBe("sufficient");
+  });
+
+  it("returns unknown rather than assuming parity when an FX quote is missing or stale", async () => {
+    const wallets = [{ currency: "USD", scale: 2, availableMinor: 100 }, { currency: "EUR", scale: 2, availableMinor: 100 }];
+    const unavailable = { availableMinor: 0, balanceStatus: "unknown", shortfallMinor: 0, valuationCurrency: "USD" };
+    await expect(calculateCombinedBalanceSnapshot({ targetCurrency: "USD", targetScale: 2, requiredMinor: 150, wallets,
+      getFreshRate: async () => null })).resolves.toEqual(unavailable);
+    await expect(calculateCombinedBalanceSnapshot({ targetCurrency: "USD", targetScale: 2, requiredMinor: 150, wallets,
+      getFreshRate: async () => { throw new Error("stale quote"); } })).resolves.toEqual(unavailable);
+  });
+
+  it("values a foreign-only wallet in an opportunity currency with no matching wallet", async () => {
+    const result = await calculateCombinedBalanceSnapshot({
+      targetCurrency: "USD", targetScale: 2, requiredMinor: 1_000,
+      wallets: [{ currency: "EUR", scale: 2, availableMinor: 1_000 }],
+      getFreshRate: async (currency, scale) => currency === "EUR" ? rate(currency, scale, "1.1") : rate(currency, scale, "1"),
+    });
+    expect(result).toMatchObject({ availableMinor: 1_100, balanceStatus: "sufficient", shortfallMinor: 0 });
+  });
+
   it("values all spendable wallets in the target currency using current FX rates", () => {
     const result = calculateCombinedAvailableTargetMinor({
       targetCurrency: "USD",

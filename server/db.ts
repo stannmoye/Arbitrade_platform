@@ -16,7 +16,7 @@ import { claimPopupDeliveryDispatches, ensurePopupDeliveries, updatePopupLifecyc
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { calculateConfiguredProfitMinor, chooseInclusiveInteger } from "./modules/trading-popup-policy";
 import { isOpportunityDurationWithinBounds, validateOpportunityDurationSnapshot } from "./modules/opportunity-duration-snapshot";
-import { calculateCombinedAvailableTargetMinor, planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
+import { calculateCombinedAvailableTargetMinor, calculateCombinedBalanceSnapshot, planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, usdUnitsToNativeMinor } from "../shared/money";
 import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, createCompanySpotlightDisplayGuard, isCompanySpotlightDisplayAllowed, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
@@ -4513,14 +4513,36 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     ?await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls)
     :{executed:[],missed:await listMissedOpportunities(userId)};
   const executedByOffer=new Map(auto.executed.map((trade:any)=>[Number(trade.offerId),trade]));
+  // Revalue every currently visible opportunity from the latest spendable wallet
+  // snapshot and fresh FX quotes. This is display-only; createTrade retains its
+  // separate transactional validation and wallet-locking authority.
+  const currentBalanceSnapshots=await Promise.all(popupRows.map(async row=>{
+    const targetCurrency=String(row.currency).toUpperCase();
+    const configs=new Map(currencyRows.map((currency:any)=>[String(currency.code).toUpperCase(),currency]));
+    const wallets=balancesSnapshot.map((wallet:any)=>{
+      const code=String(wallet.currency).toUpperCase();
+      const config:any=configs.get(code);
+      return {currency:code,scale:Number(config?.scale??2),availableMinor:Number(wallet.availableMinor||0)};
+    });
+    return calculateCombinedBalanceSnapshot({
+      targetCurrency,targetScale:Number(configs.get(targetCurrency)?.scale??NaN),requiredMinor:Number(row.popupMinimumMinor),wallets,
+      getFreshRate:async(code,scale)=>{
+        const config:any=configs.get(code);
+        if(!config||Number(config.scale)!==scale)return null;
+        try{return await getFreshTradingFxRate({code,scale,assetType:config.assetType,externalCode:config.externalCode?String(config.externalCode):null});}
+        catch{return null;}
+      },
+    });
+  }));
   const responseNow=new Date();
-  let enrichedOffers=popupRows.map(row=>{
+  let enrichedOffers=popupRows.map((row,index)=>{
     const base:any=tradeCandidates.find(offer=>Number(offer.offerId)===Number(row.offerId))||{};
     const executed=executedByOffer.get(Number(row.offerId))||null;
-    const popupBalance=projectPopupBalance(row.popupMinimumMinor,row.balanceAvailableMinor,row.balanceStatus);
+    const popupBalance=currentBalanceSnapshots[index]||projectPopupBalance(row.popupMinimumMinor,row.balanceAvailableMinor,row.balanceStatus);
     return {...base,id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageId:Number(row.packageId||0),packageName:row.packageName,
       symbol:row.symbol,currency:row.currency,minimumMinor:Number(row.popupMinimumMinor),
       balanceAvailableMinor:popupBalance.availableMinor,balanceStatus:popupBalance.balanceStatus,shortfallMinor:popupBalance.shortfallMinor,
+      balanceValuationCurrency:currentBalanceSnapshots[index]?.valuationCurrency||String(row.currency).toUpperCase(),
       expectedRewardBps:Number(row.expectedRewardBps),eventStatus:row.eventStatus,deliveredAt:row.deliveredAt,
       venueFrom:row.venueFrom||base.venueFrom||"",venueTo:row.venueTo||base.venueTo||"",opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,
       durationSeconds:Number(row.popupDurationSeconds??row.durationSeconds??base.durationSeconds??0),

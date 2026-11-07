@@ -29,7 +29,7 @@ describe("insufficient-balance opportunity handling", () => {
     expect(implementation).toContain("balanceStatus:balance.balanceStatus");
     expect(source).toContain("function projectPopupBalance(");
     expect(implementation).toContain("shortfallMinor:Math.max(0,Number(offer.minimumMinor)-availableMinor)");
-    expect(implementation).toContain("const popupBalance=projectPopupBalance(row.popupMinimumMinor,row.balanceAvailableMinor,row.balanceStatus)");
+    expect(implementation).toContain("const popupBalance=currentBalanceSnapshots[index]||projectPopupBalance(row.popupMinimumMinor,row.balanceAvailableMinor,row.balanceStatus)");
     expect(implementation).toContain("shortfallMinor:popupBalance.shortfallMinor");
     expect(walletFx).toContain("calculateCombinedAvailableTargetMinor");
     expect(autoTrade).not.toContain("listBalances(userId)");
@@ -60,6 +60,23 @@ describe("insufficient-balance opportunity handling", () => {
     expect(createTrade).toContain("ORDER BY currency FOR UPDATE");
     expect(createTrade).toContain("trade_fx_conversion_debit");
     expect(createTrade).toContain("trade_fx_conversion_credit");
+  });
+
+  it("refreshes visible opportunity balances server-side and renders only the authoritative result", () => {
+    const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
+    const start = app.indexOf("function CustomerOpportunities(");
+    const end = app.indexOf("\nfunction CompanyReferenceLogo(", start);
+    const component = app.slice(start, end);
+    expect(implementation).toContain("calculateCombinedBalanceSnapshot({");
+    expect(implementation).toContain("const currentBalanceSnapshots=await Promise.all(popupRows.map");
+    expect(implementation).toContain("balanceValuationCurrency:currentBalanceSnapshots[index]?.valuationCurrency");
+    expect(component).toContain("offer.balanceAvailableMinor");
+    expect(component).toContain("offer.balanceStatus");
+    expect(component).toContain("offer.shortfallMinor");
+    expect(component).toContain("offer.balanceValuationCurrency");
+    expect(component).toContain("utils.customer.opportunities.invalidate()");
+    expect(component).not.toContain("availableFor=(currency");
+    expect(component).not.toContain("balances.data?.balances?.find((item:any)=>String(item.currency||\"\").toUpperCase()===code)");
   });
 
   it("keeps insufficient combined funds fail-closed without partial wallet movement", () => {

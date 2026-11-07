@@ -1,0 +1,9 @@
+# Customer opportunity balance valuation
+
+The customer Opportunities feed reports the current combined spendable balance for each visible opportunity in that opportunity's currency. The server reads wallet `availableMinor` amounts (reserved/locked value is not spendable), converts positive foreign-currency balances using the established fresh FX quote provider, and uses `calculateCombinedAvailableTargetMinor` for currency scaling and target-minor-unit rounding. The same calculation is used by server-side cross-wallet funding validation; the customer display is informational and never authorizes a debit, trade, or settlement.
+
+The feed recomputes this display snapshot on each `customer.opportunities` request. The customer workspace polls that feed every three seconds, so wallet updates and changes to the cached fresh quote become visible on the next refresh. A manual refresh is available when a balance cannot be calculated. If the target currency configuration or any required fresh quote is missing, stale, invalid, or unavailable, the server returns `balanceStatus: "unknown"`; it does not substitute a 1:1 rate or report sufficient funds. Unknown status carries no shortfall assertion because the converted balance is not known.
+
+For known balances, the API supplies `balanceAvailableMinor`, `balanceValuationCurrency`, `balanceStatus`, and `shortfallMinor`. The client renders these fields and does not recalculate eligibility from the same-currency wallet. Fresh values are presentation-only: actual allocation remains subject to the existing transactional wallet locks, fresh FX validation, reservation exclusions, and server authorization checks. The balance snapshot is not written back to wallet, ledger, popup lifecycle, or settlement state.
+
+Relevant implementation and coverage: `server/modules/trading-wallet-fx.ts`, `server/db.ts`, `client/src/App.tsx`, and `server/modules/trading-wallet-fx.test.ts`.

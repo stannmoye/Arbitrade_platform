@@ -717,6 +717,8 @@ function CompanyReferenceLogo({name,logoUrl}:{name:string;logoUrl:string|null}) 
 function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:boolean;soundSettings:SoundSettings;opportunityData?:any}) {
   const balances=trpc.customer.balances.useQuery(undefined,{refetchInterval:5000});
   const trades=trpc.customer.trades.useQuery(undefined,{refetchInterval:5000});
+  const utils=trpc.useUtils();
+  const [balanceRefreshing,setBalanceRefreshing]=useState(false);
   const [catalogueSearch,setCatalogueSearch]=useState("");
   const [catalogueCountry,setCatalogueCountry]=useState("");
   const [catalogueOffset,setCatalogueOffset]=useState(0);
@@ -730,8 +732,7 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
   const currencyScale=(currency:unknown)=>{const code=currencyCode(currency);return Number(balances.data?.currencies?.find((item:any)=>String(item.code||"").toUpperCase()===code)?.scale??(code==="BTC"||code==="ETH"?8:2));};
   const money=(minor:number,currency:unknown)=>Number(minor||0)/(10**currencyScale(currency));
   const format=(minor:number,currency:unknown)=>{const code=currencyCode(currency);if(!code)return "Currency unavailable";const scale=currencyScale(code);return money(minor,code).toLocaleString(undefined,{minimumFractionDigits:scale,maximumFractionDigits:scale})+" "+code;};
-  const availableFor=(currency:unknown)=>{const code=currencyCode(currency);return code?Number(balances.data?.balances?.find((item:any)=>String(item.currency||"").toUpperCase()===code)?.availableMinor||0):0;};
-  const statusText=(offer:any)=>offer.automaticTrade?"Allocated automatically":offer.status==="open"?"Eligible opportunity — automatic evaluation":"Opportunity status: "+String(offer.status||"pending");
+  const refreshBalance=async()=>{if(balanceRefreshing)return;setBalanceRefreshing(true);try{await utils.customer.opportunities.invalidate();}finally{setBalanceRefreshing(false);}};
   return <div className="arb-page portal-page customer-opportunities-page">
     <div className="portal-page-top">
       <div><div className="eyebrow">Automatic trading lifecycle</div><h1>Trading Opportunities</h1><p>Eligible opportunities are evaluated by the server. Capital is committed only when automatic deposit-based eligibility and available-balance checks pass.</p></div>
@@ -746,19 +747,23 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
       {feed.delivery?.packagePolicyMissing && <div className="admin-ops-empty error">Automatic allocation is paused because no eligible tier policy is configured.</div>}
       {!offers.length ? <div className="empty-state">No eligible open opportunity is available at this time.</div>
         : <div className="trading-opportunity-list">{offers.map((offer:any)=>{
-          const available=availableFor(offer.currency);
           const required=Number(offer.minimumMinor||0);
-          const shortfall=Math.max(0,required-available);
-          const missedReason=shortfall>0?"Insufficient spendable balance":null;
+          const balanceStatus=String(offer.balanceStatus||"unknown").toLowerCase();
+          const available=Number(offer.balanceAvailableMinor);
+          const shortfall=Number(offer.shortfallMinor);
+          const balanceKnown=(balanceStatus==="sufficient"||balanceStatus==="insufficient")&&Number.isSafeInteger(available)&&available>=0&&Number.isSafeInteger(shortfall)&&shortfall>=0;
+          const valuationCurrency=currencyCode(offer.balanceValuationCurrency)||currencyCode(offer.currency)||"unavailable";
+          const balanceLabel=balanceStatus==="insufficient"?"Insufficient combined balance":balanceStatus==="sufficient"?"Sufficient combined balance":"Balance temporarily unavailable";
           return <article className="trading-opportunity-row" key={offer.id}>
             <div className="trading-opportunity-identity">{offer.companyDisplayName?<CompanyReferenceLogo name={String(offer.companyDisplayName)} logoUrl={offer.companyLogoUrl||null}/>:<span className="trading-opportunity-symbol">{offer.symbol||"Market opportunity"}</span>}<div><strong>{offer.companyDisplayName||offer.companyName||offer.name||offer.symbol||"Market opportunity"}</strong><small>{[offer.venueFrom,offer.venueTo].filter(value=>Boolean(value)&&value!=="Informational").join(" → ")||offer.exchange||"Brand catalogue opportunity"}</small>{offer.badgeLabel&&<span className={"trading-package-badge trading-package-badge--"+(["neutral","blue","purple","gold","green"].includes(offer.badgeStyle)?offer.badgeStyle:"neutral")}>{offer.badgeLabel}</span>}</div></div>
             <div className="trading-opportunity-values">
               <div><span>Required capital</span><strong>{format(required,offer.currency)}</strong></div>
-              <div><span>Available balance</span><strong>{format(available,offer.currency)}</strong></div>
-              {shortfall>0&&<div><span>Shortfall</span><strong>{format(shortfall,offer.currency)}</strong></div>}
-              <div><span>Status</span><strong>{offer.automaticTrade?"Allocated automatically":missedReason||statusText(offer)}</strong></div>
+              <div><span>Combined available · valued in {valuationCurrency}</span><strong>{balanceKnown?format(available,valuationCurrency):"Temporarily unavailable"}</strong></div>
+              {balanceKnown&&balanceStatus==="insufficient"&&<div><span>Shortfall · {valuationCurrency}</span><strong>{format(shortfall,valuationCurrency)}</strong></div>}
+              <div><span>Status</span><strong>{offer.automaticTrade?"Allocated automatically":balanceKnown?balanceLabel:balanceLabel+" · eligibility not confirmed"}</strong></div>
             </div>
-            <small>Opportunity opened: {offer.opensAt?new Date(offer.opensAt).toLocaleString():"Recorded by server"} · Configured trade duration: {Number(offer.configuredDurationSeconds??offer.durationSeconds??0)} seconds · Configured return rate: {(Number(offer.configuredProfitRateBps??offer.expectedRewardBps??0)/100).toFixed(2)}% · not a guarantee of market performance.</small>
+            {!balanceKnown&&<div className="admin-ops-empty error" role="status"><span>We could not currently calculate your combined balance because a current FX quote or balance response is unavailable. No sufficiency is assumed.</span><button type="button" className="portal-action" disabled={balanceRefreshing} onClick={()=>void refreshBalance()}>{balanceRefreshing?"Refreshing…":"Refresh balance"}</button></div>}
+            <small>Combined balance and shortfall are valued in {valuationCurrency} using server-provided wallet and FX data. They update with the opportunity feed and do not authorize or execute spending. Opportunity opened: {offer.opensAt?new Date(offer.opensAt).toLocaleString():"Recorded by server"} · Configured trade duration: {Number(offer.configuredDurationSeconds??offer.durationSeconds??0)} seconds · Configured return rate: {(Number(offer.configuredProfitRateBps??offer.expectedRewardBps??0)/100).toFixed(2)}% · not a guarantee of market performance.</small>
           </article>;
         })}</div>}
     </section>
