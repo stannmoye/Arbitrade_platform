@@ -56,7 +56,7 @@ export function validateDeliveryRetrySchedule(input: DeliveryRetrySchedule): str
 }
 
 export function isTerminalDeliveryState(state: Pick<DeliveryState, "deliveryStatus" | "eventStatus">): boolean {
-  return ["failed", "dismissed", "expired"].includes(state.deliveryStatus) || state.eventStatus === "DISMISSED";
+  return ["delivered", "rendered", "failed", "dismissed", "expired"].includes(state.deliveryStatus) || state.eventStatus === "DISMISSED";
 }
 
 export function claimDeliveryDispatch(input: {

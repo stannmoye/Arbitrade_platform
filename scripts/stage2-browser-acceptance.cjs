@@ -2322,7 +2322,8 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     configuredPopupDisplaySeconds: 8,
     opensAt: "2099-12-31T23:50:00.000Z", closesAt: "2099-12-31T23:59:59.000Z",
     expiryStatus: "active", offerStatus: "open", popupEligible: true,
-    eventStatus: "DELIVERED", deliveryStatus: "delivered",
+    eventStatus: "DELIVERED", deliveryStatus: "in_progress",
+    deliveryLeaseToken: "c07d9151-a3be-4f1d-95fc-4e8adac1e526",
     companyDisplayName: "Verified QA Company", companyLogoUrl: null,
     badgeLabel: "QA tier", badgeStyle: "green",
   };
