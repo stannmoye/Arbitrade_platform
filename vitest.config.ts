@@ -22,6 +22,7 @@ export default defineConfig({
       "client/src/lib/**/*.test.ts",
       "client/src/admin-navigation.test.ts",
       "client/src/opportunity-*.test.ts",
+      "client/src/customer-opportunity-countdown.test.ts",
       "client/src/trading-policy-patches.test.ts",
       "client/src/trade-settings-*.test.ts",
       "client/src/trade-admin-guide.contract.test.ts",

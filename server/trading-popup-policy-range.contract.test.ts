@@ -37,8 +37,13 @@ describe("administrator-managed Trading popup policy bounds and snapshots", () =
   it("selects and snapshots configured popup ranges before trade allocation", () => {
     expect(database).toContain("chooseInclusiveInteger(Number(configured.minimumPayoutRateBps),Number(configured.maximumPayoutRateBps))");
     expect(database).toContain("chooseInclusiveInteger(Number(configured.minimumTradeDurationSeconds),Number(configured.maximumTradeDurationSeconds))");
-    expect(database).toContain("terms.tradeDurationSeconds<configuredMinimumDuration||terms.tradeDurationSeconds>configuredMaximumDuration");
-    expect(database).toContain("closesAt.getTime()!==input.now.getTime()+displaySeconds*1000");
+    expect(database).toContain("isOpportunityDurationWithinBounds(configuredMinimumDuration,configuredMaximumDuration,terms.tradeDurationSeconds)");
+    expect(database).toContain("minimumTradeDurationSeconds:Number(selectedPolicy.minimumTradeDurationSeconds)");
+    expect(database).toContain("maximumTradeDurationSeconds:Number(selectedPolicy.maximumTradeDurationSeconds)");
+    expect(database).toContain("packageSnapshotJson:opportunityGenerationAssignments.packageSnapshotJson");
+    expect(database).toContain("validateOpportunityDurationSnapshot(packageSnapshot");
+    expect(database).toContain("effectiveDurationSeconds<Number(packagePolicy.minimumTradeDurationSeconds)");
+    expect(database).toContain("savedDurationSnapshot.minimumTradeDurationSeconds");
     expect(database).toContain("configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds");
     expect(database).toContain("calculateConfiguredProfitMinor(input.amountMinor,effectiveRateBps)");
     expect(database).toContain("Saved pop-up duration is outside the tier");

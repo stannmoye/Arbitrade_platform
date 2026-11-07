@@ -15,6 +15,7 @@ import { assessOpportunityPackageCompatibility, type OpportunityPackageCompatibi
 import { claimPopupDeliveryDispatches, ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { calculateConfiguredProfitMinor, chooseInclusiveInteger } from "./modules/trading-popup-policy";
+import { isOpportunityDurationWithinBounds, validateOpportunityDurationSnapshot } from "./modules/opportunity-duration-snapshot";
 import { calculateCombinedAvailableTargetMinor, planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, usdUnitsToNativeMinor } from "../shared/money";
@@ -3456,17 +3457,23 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     });
     const configuredMinimumDuration=Number(selectedPolicy.minimumTradeDurationSeconds);
     const configuredMaximumDuration=Number(selectedPolicy.maximumTradeDurationSeconds);
-    if(!Number.isSafeInteger(terms.tradeDurationSeconds)||terms.tradeDurationSeconds<configuredMinimumDuration||terms.tradeDurationSeconds>configuredMaximumDuration)
+    if(!isOpportunityDurationWithinBounds(configuredMinimumDuration,configuredMaximumDuration,terms.tradeDurationSeconds))
       throw new Error(`Selected opportunity duration is outside the saved tier range for ${selectedPolicy.packageName}`);
     const minimumMinor=packageMinimum;
     const completionDisplaySeconds=Number(selectedPolicy.completionDisplaySeconds??8);
     if(!Number.isSafeInteger(completionDisplaySeconds)||completionDisplaySeconds<1||completionDisplaySeconds>3600) throw new Error(`Completion display delay is invalid for ${selectedPolicy.packageName}`);
-    const rewardAt=new Date(input.now.getTime()+terms.tradeDurationSeconds*1000);
+    // Persist all opportunity timing at the database's whole-second precision.
+    // The selected duration is measured from this immutable generatedAt instant.
+    const opportunityStartedAt=new Date(Math.floor(input.now.getTime()/1000)*1000);
+    if(!Number.isSafeInteger(opportunityStartedAt.getTime())) throw new Error(`Opportunity start time is invalid for ${selectedPolicy.packageName}`);
+    const rewardAt=new Date(opportunityStartedAt.getTime()+terms.tradeDurationSeconds*1000);
     // One cryptographically selected package duration governs the opportunity/trade countdown.
     // The popup expiry adds only the configured short post-completion display grace period.
     const closesAt=new Date(rewardAt.getTime()+completionDisplaySeconds*1000);
     const displaySeconds=terms.tradeDurationSeconds+completionDisplaySeconds;
-    if(!Number.isSafeInteger(displaySeconds)||displaySeconds<=terms.tradeDurationSeconds||closesAt.getTime()!==input.now.getTime()+displaySeconds*1000)
+    if(!Number.isSafeInteger(displaySeconds)||displaySeconds<=terms.tradeDurationSeconds||
+      rewardAt.getTime()!==opportunityStartedAt.getTime()+terms.tradeDurationSeconds*1000||
+      closesAt.getTime()!==opportunityStartedAt.getTime()+displaySeconds*1000)
       throw new Error(`Generated opportunity timing is inconsistent for ${selectedPolicy.packageName}`);
     const companyMetadata={
       rotationStateVersion:1,rotationCycle,rotationSequence,poolFingerprint,
@@ -3501,7 +3508,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       quotaWindowStart:selectedSubscription.quotaWindowStart.toISOString(),
       configuredPayout:true,payoutSemantics:terms.payoutSemantics,templateId:template?Number(template.id):null,templateVersion:template?Number(template.version):null,
       sourceReference:terms.sourceReference,reviewNotes:terms.reviewNotes,companyReferenceId:company.id,companyRotation:companyMetadata,
-      generatedAt:input.now.toISOString(),generationBatchId:input.batchId,
+      generatedAt:opportunityStartedAt.toISOString(),generationBatchId:input.batchId,
     };
     const priorAssignmentRows=await tx.select({value:count()}).from(opportunityGenerationAssignments)
       .where(and(eq(opportunityGenerationAssignments.userId,input.userId),eq(opportunityGenerationAssignments.packageSubscriptionId,Number(selectedSubscription.subscriptionId)),
@@ -3520,7 +3527,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       // TIMESTAMP columns have second precision in MySQL/MariaDB. Floor the
       // opening instant so MySQL rounding cannot move it into the future and make
       // the same worker cycle miss the row it just generated.
-      opensAt:new Date(Math.floor(input.now.getTime()/1000)*1000),closesAt,rewardAt,status:"open",
+      opensAt:opportunityStartedAt,closesAt,rewardAt,status:"open",
     });
     const offerId=Number(offerInsert[0].insertId);
     if(!Number.isSafeInteger(offerId)||offerId<1)throw new Error("Generated opportunity ID was not persisted.");
@@ -3529,7 +3536,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       packageId:Number(selectedSubscription.packageId),packageSubscriptionId:Number(selectedSubscription.subscriptionId),packageName:String(selectedSubscription.packageName),
       packagePolicyVersion:Number(selectedPolicy.policyVersion||1),companyReferenceId:company.id,
       configuredProfitRateBps:terms.configuredPayoutRateBps,configuredDurationSeconds:terms.tradeDurationSeconds,
-      packageSnapshotJson:JSON.stringify(snapshot),status:"generated",generatedAt:input.now,assignedAt:input.now,expiresAt:closesAt,
+      packageSnapshotJson:JSON.stringify(snapshot),status:"generated",generatedAt:opportunityStartedAt,assignedAt:input.now,expiresAt:closesAt,
     });
     if(rotationStateKey&&nextRotationState){
       await tx.update(appSettings).set({settingValue:JSON.stringify(nextRotationState),updatedBy:input.userId,updatedAt:input.now})
@@ -4257,11 +4264,17 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         const minDuration=Number(generationSnapshot.minimumTradeDurationSeconds),maxDuration=Number(generationSnapshot.maximumTradeDurationSeconds);
         const savedPackageVersion=Number(generationSnapshot.policyVersion),savedPackageMinimum=Number(generationSnapshot.packageMinimumMinor),savedPackageMaximum=Number(generationSnapshot.packageMaximumMinor);
         const savedDurationSeconds=Number(generationSnapshot.configuredDurationSeconds),savedCurrencyRate=Number(generationSnapshot.currencyRateUsd);
+        const savedTiming=validateOpportunityDurationSnapshot(generationSnapshot,{
+          opensAt:offer.opensAt,rewardAt:offer.rewardAt,closesAt:offer.closesAt,
+          offerDurationSeconds:offer.durationSeconds,eventDurationSeconds:generationSnapshot.configuredDurationSeconds,
+          eventPopupDisplaySeconds:Number(generationSnapshot.configuredDurationSeconds)+Number(generationSnapshot.completionDisplaySeconds),
+        });
         if(!Number.isSafeInteger(minRate)||!Number.isSafeInteger(maxRate)||!Number.isSafeInteger(minDuration)||!Number.isSafeInteger(maxDuration)||
           !Number.isSafeInteger(savedPackageVersion)||savedPackageVersion<1||!Number.isSafeInteger(savedPackageMinimum)||savedPackageMinimum<=0||
           !Number.isSafeInteger(savedPackageMaximum)||savedPackageMaximum<savedPackageMinimum||!Number.isSafeInteger(savedDurationSeconds)||savedDurationSeconds<minDuration||savedDurationSeconds>maxDuration||
           !Number.isFinite(savedCurrencyRate)||savedCurrencyRate<=0||generationSnapshot.currency!==offer.currency||generationSnapshot.symbol!==offer.symbol||
           generationSnapshot.companyReferenceId!==offer.companyReferenceId||
+          !savedTiming||
           Number(offer.expectedRewardBps)!==Number(generationAssignment.configuredProfitRateBps)||Number(offer.durationSeconds)!==Number(generationAssignment.configuredDurationSeconds)||
           Number(offer.expectedRewardBps)<minRate||Number(offer.expectedRewardBps)>maxRate||Number(offer.durationSeconds)<minDuration||Number(offer.durationSeconds)>maxDuration||
           Number(offer.minimumMinor)!==Number(generationSnapshot.minimumMinor))continue;
@@ -4404,6 +4417,15 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const catalogueAdminState=parseCompanyCatalogueAdminState(catalogueAdminRow?.settingValue??"{}");
   const companyDisplayAllowed=createCompanySpotlightDisplayGuard(catalogueAdminState);
   const tradeCandidates=popupRows.filter(row=>row.offerStatus==="open"&&row.closesAt&&new Date(row.closesAt).getTime()>now.getTime()).map(row=>{
+    const generationAssignment=generationAssignmentByOffer.get(Number(row.offerId));
+    let generationSnapshot:unknown=null;
+    try{generationSnapshot=JSON.parse(String(generationAssignment?.packageSnapshotJson||""));}catch{generationSnapshot=null;}
+    const savedTiming=validateOpportunityDurationSnapshot(generationSnapshot,{
+      opensAt:row.opensAt,rewardAt:row.rewardAt,closesAt:row.closesAt,
+      offerDurationSeconds:row.durationSeconds,eventDurationSeconds:row.configuredDurationSeconds,
+      eventPopupDisplaySeconds:row.configuredPopupDisplaySeconds,
+    });
+    if(!generationAssignment||!savedTiming||Number(generationAssignment.configuredDurationSeconds)!==savedTiming.configuredDurationSeconds)return null;
     // Never reassign an existing popup to another package when its original
     // package is renamed, disabled, expired, or otherwise no longer eligible.
     // Existing popups keep their package identity, while the actual entitlement
@@ -4728,6 +4750,22 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const totalWalletFunds=(await tx.select({availableMinor:sql`COALESCE(SUM(${customerBalances.availableMinor}),0)`}).from(customerBalances).where(eq(customerBalances.userId,userId)))[0]; if(Number(totalWalletFunds?.availableMinor||0)<=0) throw new Error("Trading is unavailable until at least one wallet has available funds");
   const offer=(await tx.select().from(opportunityOffers).where(and(eq(opportunityOffers.id,input.offerId),eq(opportunityOffers.status,"open"))).limit(1))[0];
   if(!offer || new Date(offer.closesAt).getTime()<=Date.now()) throw new Error("This opportunity is no longer open");
+  let savedDurationSnapshot:ReturnType<typeof validateOpportunityDurationSnapshot>=null;
+  if(input.deliveryEventId!==undefined){
+    const assignment=(await tx.select({packageSnapshotJson:opportunityGenerationAssignments.packageSnapshotJson,configuredDurationSeconds:opportunityGenerationAssignments.configuredDurationSeconds})
+      .from(opportunityGenerationAssignments)
+      .where(and(eq(opportunityGenerationAssignments.userId,userId),eq(opportunityGenerationAssignments.offerId,input.offerId)))
+      .limit(1).for("update"))[0];
+    let packageSnapshot:unknown=null;
+    try{packageSnapshot=JSON.parse(String(assignment?.packageSnapshotJson||""));}catch{packageSnapshot=null;}
+    savedDurationSnapshot=validateOpportunityDurationSnapshot(packageSnapshot,{
+      opensAt:offer.opensAt,rewardAt:offer.rewardAt,closesAt:offer.closesAt,
+      offerDurationSeconds:offer.durationSeconds,eventDurationSeconds:popupSnapshot?.configuredDurationSeconds,
+      eventPopupDisplaySeconds:popupSnapshot?.configuredPopupDisplaySeconds,
+    });
+    if(!assignment||!savedDurationSnapshot||Number(assignment.configuredDurationSeconds)!==savedDurationSnapshot.configuredDurationSeconds)
+      throw new Error("Saved opportunity duration or timestamps are inconsistent; allocation was rejected safely");
+  }
   const now=new Date();
   const today=new Date().toISOString().slice(0,10);
   const todayStartUtc=new Date(`${today}T00:00:00.000Z`);
@@ -4891,17 +4929,12 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   if(!Number.isSafeInteger(effectiveDurationSeconds)||effectiveDurationSeconds<10||effectiveDurationSeconds>86400) throw new Error("Selected Trading duration is outside the supported policy bounds");
   if(!packagePolicy||!hasConfiguredTradingOfferPolicy(packagePolicy)) throw new Error("The selected tier has no complete saved Trading policy");
   if(effectiveRateBps<Number(packagePolicy.minimumPayoutRateBps)||effectiveRateBps>Number(packagePolicy.maximumPayoutRateBps)) throw new Error("Saved pop-up return rate is outside the tier's configured range");
-  if(effectiveDurationSeconds<Number(packagePolicy.minimumTradeDurationSeconds)||effectiveDurationSeconds>Number(packagePolicy.maximumTradeDurationSeconds)) throw new Error("Saved pop-up duration is outside the tier's configured range");
-  if(input.deliveryEventId!==undefined){
-    const configuredPopupDisplaySeconds=Number(popupSnapshot?.configuredPopupDisplaySeconds||0);
-    const completionDisplaySeconds=configuredPopupDisplaySeconds-effectiveDurationSeconds;
-    const rewardAtMs=new Date(offer.rewardAt).getTime();
-    const closesAtMs=new Date(offer.closesAt).getTime();
-    if(!Number.isSafeInteger(configuredPopupDisplaySeconds)||configuredPopupDisplaySeconds<=effectiveDurationSeconds||
-      !Number.isSafeInteger(completionDisplaySeconds)||completionDisplaySeconds<1||completionDisplaySeconds>3600||
-      !Number.isFinite(rewardAtMs)||!Number.isFinite(closesAtMs)||closesAtMs!==rewardAtMs+completionDisplaySeconds*1000)
-      throw new Error("Saved pop-up timing does not match the selected trade duration");
-  }
+  if(input.deliveryEventId===undefined&&
+    (effectiveDurationSeconds<Number(packagePolicy.minimumTradeDurationSeconds)||effectiveDurationSeconds>Number(packagePolicy.maximumTradeDurationSeconds)))
+    throw new Error("Saved pop-up duration is outside the tier's configured range");
+  if(input.deliveryEventId!==undefined&&(!savedDurationSnapshot||effectiveDurationSeconds!==savedDurationSnapshot.configuredDurationSeconds||
+    !isOpportunityDurationWithinBounds(savedDurationSnapshot.minimumTradeDurationSeconds,savedDurationSnapshot.maximumTradeDurationSeconds,effectiveDurationSeconds)))
+    throw new Error("Saved pop-up duration is outside its original package range");
   if(Number(packagePolicy.minimumRewardBps||0)>effectiveRateBps) throw new Error("Selected return rate is below the tier's minimum eligible reward rate");
   const uncappedReward=calculateConfiguredProfitMinor(input.amountMinor,effectiveRateBps);
   const reward=Number(packagePolicy.maxRewardPerTradeMinor||0)>0?Math.min(uncappedReward,Number(packagePolicy.maxRewardPerTradeMinor)):uncappedReward;

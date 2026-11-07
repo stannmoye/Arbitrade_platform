@@ -1,3 +1,15 @@
+## 2026-11-07 — Trade opportunity duration snapshot validation
+
+- Working branch: `fix/opportunity-duration-snapshot-validation`, based on GitHub-verified `main` commit `73a0a8f6129c242219a9c9713cd33fb6fcdac726`.
+- Root cause: generated assignment snapshots already persisted original minimum/maximum duration bounds, but allocation compared a pending opportunity's selected duration to the package's mutable current bounds. Original `rewardAt`/`closesAt` consistency was not checked against the saved generation timestamp and duration.
+- Implementation: use the per-opportunity saved package snapshot at delivery, customer reads and allocation; reject missing/corrupted duration or timestamp data; persist timing at database whole-second precision; use the same stored `closesAt` for customer countdowns without a duration fallback. New opportunities continue to select from the latest saved package policy.
+- Added regression coverage for bounds, admin edits during a pending opportunity, saved-snapshot allocation validation, independently corrupted timestamps, refreshed countdowns and updated settings for new opportunities. Updated the canonical specification and admin manual.
+- Local validation: `pnpm test` passed (157 files, 1,250 tests passed; 5 integration files/27 tests skipped), `pnpm exec vitest run --config vitest.installer.config.ts` passed (31 files, 177 tests), `pnpm check`, `pnpm build`, `git diff --check`, YAML workflow parsing and browser-runner syntax check passed. Fixed one pre-existing installer safety test's source range so it no longer includes the adjacent popup-balance helper.
+- GitHub verification for PR #317 completed successfully: all 25 checks passed, including the production source verification, database-backed integration jobs, and customer-portal real-browser acceptance against the built static client.
+- Not run locally: live MySQL integration or authenticated/live-host browser acceptance. The local full-suite skips were the appearance-settings, manual-payout MySQL, mining MySQL, global-controls API, and global-policy migration integration files (27 cases). Separate database-backed PR integration workflows passed.
+
+---
+
 ## 2026-11-07 — Expired opportunities release visible capacity
 
 - Working branch: `fix/expired-visible-capacity`, based on verified current `main` commit `ac0eacc598e0543623368be946415e54cefd320a`.
