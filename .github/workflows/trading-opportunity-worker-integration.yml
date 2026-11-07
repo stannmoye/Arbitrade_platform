@@ -59,6 +59,11 @@ jobs:
         run: node scripts/guarded-main-migrate.mjs
         env:
           DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_opportunity_worker_test
+      - name: Verify Opportunity Usage Reset transaction and safeguards
+        run: pnpm exec vitest run server/opportunity-usage-reset.mysql.integration.test.ts
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_opportunity_worker_test
+          RUN_OPPORTUNITY_USAGE_RESET_DB_INTEGRATION: "1"
       - name: Verify package-specific fee version migration and immutable history
         run: pnpm exec tsx scripts/trading-package-fee-policy.integration.ts
         env:

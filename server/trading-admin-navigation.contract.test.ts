@@ -69,6 +69,8 @@ describe("Trading opportunity usage reset", () => {
     expect(serverDb).toContain("trading_opportunity_usage_reset");
     expect(serverDb).toContain("preservedTradePositions");
     expect(serverDb).toContain("ADMIN_OPPORTUNITY_USAGE_RESET");
+    expect(serverDb).toContain("eligibleDeliveryEventRows");
+    expect(serverDb).toContain('set({ status: "expired", lastErrorCode: "ADMIN_OPPORTUNITY_USAGE_RESET", expiresAt: resetAt })');
     expect(serverDb).toContain("candidateOfferIds.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS");
     expect(operationsUi).toContain("Wallet balances, ledger entries, package settings/subscriptions, completed trades and open trade positions are preserved.");
   });
