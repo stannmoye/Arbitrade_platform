@@ -59,6 +59,21 @@ describe("Administrator company catalogue navigation and pagination", () => {
   });
 });
 
+describe("Trading opportunity usage reset", () => {
+  it("routes the guarded reset to its dedicated admin screen and preserves trade records", () => {
+    expect(navigation).toContain('id: "trade-opportunity-usage-reset", target: "tradeOpportunityReset"');
+    expect(adminApp).toContain('section==="tradeOpportunityReset"&&<Suspense');
+    expect(operationsUi).toContain("trpc.adminOperations.resetOpportunityUsage.useMutation()");
+    expect(serverRouters).toContain("resetOpportunityUsage: adminProcedure.input");
+    expect(serverDb).toContain("resetTradeOpportunityUsage");
+    expect(serverDb).toContain("trading_opportunity_usage_reset");
+    expect(serverDb).toContain("preservedTradePositions");
+    expect(serverDb).toContain("ADMIN_OPPORTUNITY_USAGE_RESET");
+    expect(serverDb).toContain("candidateOfferIds.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS");
+    expect(operationsUi).toContain("Wallet balances, ledger entries, package settings/subscriptions, completed trades and open trade positions are preserved.");
+  });
+});
+
 describe("Trading tier creation defaults", () => {
   it("requires an administrator to explicitly enter threshold, duration, and daily quota", () => {
     const start = adminApp.indexOf("function AdminTradingPackageCatalogue()");

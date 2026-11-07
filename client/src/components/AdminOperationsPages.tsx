@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { normalizeGlobalTradeTimingSettings } from "../trading-settings-client-contracts";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 type CustomerRecord = {
   id: number;
@@ -1129,6 +1129,112 @@ export function AdminWorkerHealth() {
           <div className="admin-ops-note"><ShieldCheck size={16} /><span>Retry requires an administrator session and a reason. The server locks the job, revalidates its original attributed ledger event, and writes the audit event in the same transaction as the queue update. Only jobs still marked dead can be retried.</span></div>
         </section>
       </>}
+    </ToolPage>
+  );
+}
+
+
+export function AdminTradeOpportunityReset() {
+  const customers = trpc.adminOperations.customers.useQuery(undefined, { refetchInterval: 60_000 });
+  const reset = trpc.adminOperations.resetOpportunityUsage.useMutation();
+  const utils = trpc.useUtils();
+  const customerRows = customers.data ?? [];
+  const [scope, setScope] = useState<"customer" | "all">("customer");
+  const [customerId, setCustomerId] = useState("");
+  const [reason, setReason] = useState("");
+  const [confirmationText, setConfirmationText] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const operationId = useRef("");
+  const selectedCustomer = customerRows.find((row) => String(row.id) === customerId);
+  const requiredPhrase = scope === "all" ? "RESET ALL" : "RESET";
+  const canReview = reason.trim().length >= 8 && reason.trim().length <= 500 &&
+    (scope === "all" ? customers.isSuccess && customerRows.length > 0 : Boolean(selectedCustomer));
+
+  const openConfirmation = (event: FormEvent) => {
+    event.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
+    setConfirmationText("");
+    operationId.current = crypto.randomUUID();
+    setConfirming(true);
+  };
+
+  const submitReset = async () => {
+    if (confirmationText !== requiredPhrase || !canReview) return;
+    setErrorMessage("");
+    try {
+      const summary = scope === "all"
+        ? await reset.mutateAsync({ scope: "all", confirmAllCustomers: true, reason: reason.trim(), operationId: operationId.current })
+        : await reset.mutateAsync({ scope: "customer", customerId: Number(customerId), reason: reason.trim(), operationId: operationId.current });
+      setSuccessMessage(`Reset applied to ${summary.customerCount.toLocaleString()} customer${summary.customerCount === 1 ? "" : "s"}. ${summary.withdrawnOpportunities.toLocaleString()} active opportunities withdrawn, ${summary.clearedPendingDeliveries.toLocaleString()} pending deliveries cleared, ${summary.closedOffers.toLocaleString()} offers closed, and ${summary.cancelledAssignments.toLocaleString()} generation assignments cancelled. ${summary.preservedTradePositions.toLocaleString()} linked trade positions were left untouched. Reset time: ${new Date(summary.resetAt).toLocaleString()}.`);
+      setConfirming(false);
+      setReason("");
+      setConfirmationText("");
+      await utils.adminOperations.popupLifecycleSummary.invalidate();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "The reset could not be completed. No partial reset was committed.");
+    }
+  };
+
+  return (
+    <ToolPage
+      eyebrow="Trading operations · guarded action"
+      title="Opportunity usage reset"
+      description="Restart opportunity-generation and delivery usage for one customer or all customers without deleting trade, wallet, subscription, or audit history."
+      icon={Users}
+    >
+      {successMessage && <div className="admin-ops-note" role="status" aria-live="polite"><CheckCircle2 size={16} /><span>{successMessage}</span></div>}
+      {errorMessage && !confirming && <div className="admin-ops-empty error" role="alert">{errorMessage}</div>}
+      <section className="admin-ops-panel" aria-label="Reset opportunity usage">
+        <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Audited reset</span><h2>Choose the reset scope</h2></div></div>
+        <form onSubmit={openConfirmation}>
+          <label style={{ display: "grid", gap: 7, marginBottom: 14 }}>
+            Reset scope
+            <select aria-label="Reset scope" value={scope} onChange={(event) => { setScope(event.target.value as "customer" | "all"); setErrorMessage(""); setSuccessMessage(""); }}>
+              <option value="customer">One customer</option>
+              <option value="all">All customers</option>
+            </select>
+          </label>
+          {scope === "customer" && <label style={{ display: "grid", gap: 7, marginBottom: 14 }}>
+            Customer
+            <select aria-label="Customer" value={customerId} onChange={(event) => setCustomerId(event.target.value)} disabled={customers.isLoading || customers.isError}>
+              <option value="">Select a customer</option>
+              {customerRows.map((row) => <option key={row.id} value={row.id}>{row.name || "Unnamed customer"} · {row.email || `ID ${row.id}`}</option>)}
+            </select>
+            {customers.isLoading && <small>Loading customer directory…</small>}
+            {customers.isError && <small role="alert">Customer directory could not be loaded. Reset is unavailable until it can be verified.</small>}
+          </label>}
+          {scope === "all" && <div className="admin-ops-note"><Users size={16} /><span>{customers.isLoading ? "Loading the customer directory to verify the all-customer scope…" : customers.isError ? "The customer directory is unavailable; the reset is blocked until the scope can be verified." : `This scope includes all ${customerRows.length.toLocaleString()} customer accounts in one atomic operation. The atomic reset supports up to 5,000 accounts; larger scopes fail safely without changes.`}</span></div>}
+          <label style={{ display: "grid", gap: 7, margin: "14px 0" }}>
+            Reason for reset (required)
+            <textarea aria-label="Reason for reset" value={reason} onChange={(event) => setReason(event.target.value)} minLength={8} maxLength={500} rows={3} placeholder="Explain why opportunity usage is being restarted" />
+            <small>8–500 characters. The reason and resulting counts are recorded in Trade Audit &amp; Policy History.</small>
+          </label>
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Financial safeguards:</strong> this resets opportunity allowance and delivery cooldown accounting only. Wallet balances, ledger entries, package settings/subscriptions, completed trades and open trade positions are preserved. Opportunities linked to a trade or an in-flight execution are skipped; normal settlement and active-position gates remain in force.</span></div>
+          <div className="admin-payout-actions" style={{ marginTop: 16 }}>
+            <button className="primary-button" type="submit" disabled={!canReview || reset.isPending}>Review reset</button>
+          </div>
+        </form>
+      </section>
+      {confirming && <div role="presentation" style={{ position: "fixed", inset: 0, zIndex: 1000, display: "grid", placeItems: "center", padding: 18, background: "rgba(2, 8, 14, .82)" }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="opportunity-reset-confirm-title" className="admin-ops-panel" style={{ width: "min(620px, 100%)", margin: 0, maxHeight: "90vh", overflow: "auto" }}>
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Final confirmation</span><h2 id="opportunity-reset-confirm-title">Confirm opportunity usage reset</h2></div></div>
+          <p>{scope === "all" ? `This will reset usage for all ${customerRows.length.toLocaleString()} customer accounts.` : `This will reset usage for ${selectedCustomer?.name || "the selected customer"} (${selectedCustomer?.email || `ID ${selectedCustomer?.id}`}).`}</p>
+          <p><strong>Reason:</strong> {reason.trim()}</p>
+          <div className="admin-ops-note"><AlertTriangle size={16} /><span>Historical trades and financial records will remain unchanged. The reset only establishes a new usage/cooldown boundary and withdraws eligible untraded opportunities.</span></div>
+          {errorMessage && <div className="admin-ops-empty error" role="alert">{errorMessage}</div>}
+          <label style={{ display: "grid", gap: 7, margin: "14px 0" }}>
+            Type <strong>{requiredPhrase}</strong> to confirm
+            <input aria-label={`Type ${requiredPhrase} to confirm`} value={confirmationText} onChange={(event) => setConfirmationText(event.target.value)} autoComplete="off" />
+          </label>
+          <div className="admin-payout-actions">
+            <button className="admin-ops-button" type="button" onClick={() => { setConfirming(false); setConfirmationText(""); setErrorMessage(""); }} disabled={reset.isPending}>Cancel</button>
+            <button className="primary-button" type="button" onClick={() => void submitReset()} disabled={reset.isPending || confirmationText !== requiredPhrase || !canReview}>{reset.isPending ? "Resetting…" : scope === "all" ? "Reset all customer usage" : "Reset customer usage"}</button>
+          </div>
+        </section>
+      </div>}
     </ToolPage>
   );
 }

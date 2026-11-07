@@ -32,9 +32,11 @@ describe("runtime Trading delivery quota semantics", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
     expect(delivery).toContain("resolveTradingQuotaWindow(now,effectiveSchedulingPeriod)");
-    expect(delivery).toContain("gte(opportunityDeliveryEvents.deliveredAt,quotaWindow.start)");
+    expect(delivery).toContain("opportunityUsageResetBoundary.resetAt>quotaWindow.start?opportunityUsageResetBoundary.resetAt:quotaWindow.start");
+    expect(delivery).toContain("gte(opportunityDeliveryEvents.deliveredAt,effectiveQuotaStart)");
+    expect(delivery).toContain("gt(opportunityDeliveryEvents.id,opportunityUsageResetBoundary?.deliveryEventMaxId??0)");
     expect(delivery).toContain("lt(opportunityDeliveryEvents.deliveredAt,quotaWindow.end)");
-    expect(delivery).toContain("confirmedAt>=${quotaWindow.start} AND confirmedAt<${quotaWindow.end}");
+    expect(delivery).toContain("confirmedAt>=${effectiveQuotaStart} AND confirmedAt<${quotaWindow.end}");
     expect(helper).toContain("now.getTime() - 24 * 60 * 60 * 1000");
     expect(helper).toContain("Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())");
   });

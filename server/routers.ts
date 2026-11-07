@@ -4,7 +4,7 @@ import { parse as parseCookieHeader } from "cookie";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { listAdminTradeAuditHistory, listAdminTradingHistory } from "./db";
+import { listAdminTradeAuditHistory, listAdminTradingHistory, resetTradeOpportunityUsage } from "./db";
 import { countCompanyReferences, findCompanyReferencesBySymbol, getCompanyReferenceById, getCompanyReferenceSummary, getRandomCompanyReference, searchCompanyReferences } from "./modules/company-catalogue-reference";
 import { createCompanySpotlightDisplayGuard, parseCompanyCatalogueAdminState } from "./modules/company-spotlight-rotation";
 import { z } from "zod";
@@ -627,6 +627,15 @@ export const appRouter = router({
     sendTestEmail: adminProcedure.input(z.object({ userId: z.number().int().positive().optional() }).optional()).mutation(({ ctx, input }) => sendEmailTest(input?.userId || ctx.user.id)),
     sendCustomerEmail: adminProcedure.input(z.object({ userId: z.number().int().positive(), subject: z.string().trim().min(3).max(160), body: z.string().trim().min(1).max(8000) })).mutation(({ ctx, input }) => enqueueAdminMessage(input.userId, input.subject, input.body, `admin:${ctx.user.id}:${Date.now()}:${input.userId}`)),
     customers: adminProcedure.query(() => listAdminCustomers()),
+    resetOpportunityUsage: adminProcedure.input(z.discriminatedUnion("scope", [
+      z.object({ scope: z.literal("customer"), customerId: z.number().int().positive(), reason: z.string().trim().min(8).max(500), operationId: z.string().uuid() }).strict(),
+      z.object({ scope: z.literal("all"), confirmAllCustomers: z.literal(true), reason: z.string().trim().min(8).max(500), operationId: z.string().uuid() }).strict(),
+    ])).mutation(({ ctx, input }) => resetTradeOpportunityUsage({
+      scope: input.scope,
+      customerId: input.scope === "customer" ? input.customerId : undefined,
+      reason: input.reason,
+      operationId: input.operationId,
+    }, ctx.user.id)),
     audit: adminProcedure.query(() => listAdminAuditEvents()),
     tradeAuditHistory: adminProcedure.input(z.object({
       actorUserId: z.number().int().positive().max(2_147_483_647).optional(),

@@ -31,6 +31,7 @@ import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
 import { isAllowedAttachmentRequest, isSupportAttachmentStorageKeyForTicket, isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 import { assertNotificationPayloadMatches, buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
+import { deliveryAdmissionLockKey } from "./modules/opportunity-delivery-lifecycle";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 import { isTradingTierEnablingTransition } from "./modules/trading-tier-activation";
 import { FAIL_CLOSED_TRADE_GLOBAL_CONTROLS, TRADE_GLOBAL_CONTROL_MIGRATION_DIAGNOSTIC_KEY, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, TRADE_GLOBAL_MASTER_KEYS, parseTradeGlobalControlPolicy, requiresPreviousSettlementForAllocation, type TradeGlobalMasterKey, type TradeGlobalControlStatus } from "./trading-global-policy";
@@ -177,7 +178,7 @@ export async function updateCompanyCatalogueAdminState(input: {
 }
 
 export async function listAdminAuditEvents(){ const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(v5AuditEvents).orderBy(desc(v5AuditEvents.createdAt)).limit(200); }
-const TRADE_SETTINGS_AUDIT_ACTIONS = ["trade_fee_policy_updated", "trade_global_timing_policy_updated", "trade_global_control_updated", "trade_global_controls_migrated", "trade_delivery_retry_policy_updated", "trading_new_allocations_paused", "trading_new_allocations_resumed", "trading_package_created", "trading_package_terms_updated", "trading_package_fee_policy_initialized", "trading_package_fee_policy_updated", "trading_delivery_policy_updated", "company_catalogue.bulk_status_updated", "trading_opportunity_published", "trading_opportunity_closed"] as const;
+const TRADE_SETTINGS_AUDIT_ACTIONS = ["trade_fee_policy_updated", "trade_global_timing_policy_updated", "trade_global_control_updated", "trade_global_controls_migrated", "trade_delivery_retry_policy_updated", "trading_new_allocations_paused", "trading_new_allocations_resumed", "trading_package_created", "trading_package_terms_updated", "trading_package_fee_policy_initialized", "trading_package_fee_policy_updated", "trading_delivery_policy_updated", "company_catalogue.bulk_status_updated", "trading_opportunity_published", "trading_opportunity_closed", "trading_opportunity_usage_reset"] as const;
 export type TradeAuditScope = "global" | "package" | "record";
 export type AdminTradeAuditHistoryFilters = { actorUserId?: number; fromDate?: string; toDate?: string; key?: string; entityType?: string; entityId?: string; package?: string; scope?: TradeAuditScope; cursor?: string; pageSize?: number };
 type TradeAuditCursor = { createdAt: string; id: number };
@@ -201,7 +202,7 @@ function auditString(record: Record<string, unknown> | null, ...keys: string[]):
 }
 function parseTradeAuditMetadata(raw: string | null) { try { return raw ? auditRecord(JSON.parse(raw)) : null; } catch { return null; } }
 export function deriveTradeAuditScope(action: string, entityType: string): TradeAuditScope | null {
-  if (action === "company_catalogue.bulk_status_updated" || entityType === "company_catalogue" || entityType === "opportunity_offer") return "record";
+  if (action === "company_catalogue.bulk_status_updated" || entityType === "company_catalogue" || entityType === "opportunity_offer" || entityType === "opportunity_usage_reset") return "record";
   if (["trading_package_created", "trading_package_terms_updated", "trading_package_fee_policy_initialized", "trading_package_fee_policy_updated", "trading_delivery_policy_updated"].includes(action)
     || entityType === "trading_package" || entityType === "opportunity_package_policy") return "package";
   return TRADE_SETTINGS_AUDIT_ACTIONS.includes(action as typeof TRADE_SETTINGS_AUDIT_ACTIONS[number]) ? "global" : null;
@@ -3347,17 +3348,21 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
         if(customerDailyQuota<=0||effectiveDailyQuota<=0){zeroQuotaRows++;continue;}
         const candidateQuotaWindow=resolveTradingQuotaWindow(input.now,
           row.schedulingPeriod==="rolling_24h"?"rolling_24h":"calendar_day");
+        const usageResetBoundary=await getOpportunityUsageResetBoundary(tx,input.userId);
+        const effectiveQuotaStart=usageResetBoundary&&usageResetBoundary.resetAt>candidateQuotaWindow.start?usageResetBoundary.resetAt:candidateQuotaWindow.start;
         // The customer generation lock serializes worker cycles. Count this
         // subscription's entitlement and its package-wide cap before choosing
         // the candidate, so an exhausted earlier package cannot starve a later one.
         const subscriptionUsageRows=await tx.select({used:count()}).from(opportunityGenerationAssignments).where(and(
           eq(opportunityGenerationAssignments.userId,input.userId),
           eq(opportunityGenerationAssignments.packageSubscriptionId,Number(row.subscriptionId)),
-          gte(opportunityGenerationAssignments.generatedAt,candidateQuotaWindow.start)));
+          gte(opportunityGenerationAssignments.generatedAt,effectiveQuotaStart),
+          gt(opportunityGenerationAssignments.id,usageResetBoundary?.generationAssignmentMaxId??0)));
         const packageUsageRows=await tx.select({used:count()}).from(opportunityGenerationAssignments).where(and(
           eq(opportunityGenerationAssignments.userId,input.userId),
           eq(opportunityGenerationAssignments.packageId,Number(row.packageId)),
-          gte(opportunityGenerationAssignments.generatedAt,candidateQuotaWindow.start)));
+          gte(opportunityGenerationAssignments.generatedAt,effectiveQuotaStart),
+          gt(opportunityGenerationAssignments.id,usageResetBoundary?.generationAssignmentMaxId??0)));
         const subscriptionUsed=Number(subscriptionUsageRows[0]?.used||0);
         const packageUsed=Number(packageUsageRows[0]?.used||0);
         if(subscriptionUsed>=customerDailyQuota){customerQuotaExhausted++;continue;}
@@ -4043,6 +4048,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const {maxPopupsPerDay,maxVisibleOffers}=calculateTierDeliveryCaps(tierDeliveryCaps);
   const effectiveSchedulingPeriod=configuredPolicies.some((row:any)=>row.schedulingPeriod==="rolling_24h")?"rolling_24h":"calendar_day";
   const quotaWindow=resolveTradingQuotaWindow(now,effectiveSchedulingPeriod);
+  const opportunityUsageResetBoundary=await getOpportunityUsageResetBoundary(db,userId);
+  const effectiveQuotaStart=opportunityUsageResetBoundary&&opportunityUsageResetBoundary.resetAt>quotaWindow.start?opportunityUsageResetBoundary.resetAt:quotaWindow.start;
   const popupPolicy={
     popupMinGapSeconds:Math.max(0,Number(policy?.minIntervalSeconds||0)),
     popupMaxPerHour:maxPopupsPerDay,
@@ -4062,14 +4069,16 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     status:opportunityDeliveryEvents.status,
     quotaDay:opportunityDeliveryEvents.quotaDay,
   }).from(opportunityDeliveryEvents).where(and(
-    eq(opportunityDeliveryEvents.userId,userId),gte(opportunityDeliveryEvents.deliveredAt,quotaWindow.start),
+    eq(opportunityDeliveryEvents.userId,userId),gte(opportunityDeliveryEvents.deliveredAt,effectiveQuotaStart),
+    gt(opportunityDeliveryEvents.id,opportunityUsageResetBoundary?.deliveryEventMaxId??0),
     lt(opportunityDeliveryEvents.deliveredAt,quotaWindow.end),notInArray(opportunityDeliveryEvents.status,["failed"])
   ));
   // Package copies are separate entitlements: count allocations against each
   // subscription's own quota window instead of pooling copies under package name.
   const usedQuotaRows=await db.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions
     WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL
-      AND confirmedAt>=${quotaWindow.start} AND confirmedAt<${quotaWindow.end}
+      AND confirmedAt>=${effectiveQuotaStart} AND confirmedAt<${quotaWindow.end}
+      AND id>${opportunityUsageResetBoundary?.tradePositionMaxId??0}
       AND status<>'cancelled'
     GROUP BY packageSubscriptionId`) as any;
   const usedBySubscription=new Map<number,number>();
@@ -4145,7 +4154,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const schedulePolicyEnabled=configuredPolicies.some((row:any)=>Number(row.minIntervalSeconds||0)>0||Number(row.maxIntervalSeconds||0)>0||Number(row.postCompletionIntervalSeconds||0)>0);
   const lastDelivery=schedulePolicyEnabled?(await db.select({
     id:opportunityDeliveryEvents.id,deliveredAt:opportunityDeliveryEvents.deliveredAt,policyVersion:opportunityDeliveryEvents.policyVersion,
-  }).from(opportunityDeliveryEvents).where(and(eq(opportunityDeliveryEvents.userId,userId),notInArray(opportunityDeliveryEvents.status,["failed"])))
+  }).from(opportunityDeliveryEvents).where(and(eq(opportunityDeliveryEvents.userId,userId),gt(opportunityDeliveryEvents.id,opportunityUsageResetBoundary?.deliveryEventMaxId??0),notInArray(opportunityDeliveryEvents.status,["failed"])))
     .orderBy(desc(opportunityDeliveryEvents.deliveredAt)).limit(1))[0]:undefined;
   const deliverySchedule=resolveTradingDeliverySchedule({
     lastDeliveredAt:lastDelivery?.deliveredAt??null,deliveryEventId:Number(lastDelivery?.id||0),userId,
@@ -4156,7 +4165,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   });
   const postCompletionIntervalSeconds=Math.max(0,Number(policy?.postCompletionIntervalSeconds||0));
   const lastCompletedTrade=postCompletionIntervalSeconds>0?(await db.select({completionAt:tradePositions.completionAt})
-    .from(tradePositions).where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"settled"),isNotNull(tradePositions.completionAt)))
+    .from(tradePositions).where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"settled"),isNotNull(tradePositions.completionAt),gte(tradePositions.completionAt,opportunityUsageResetBoundary?.resetAt??new Date(0))))
     .orderBy(desc(tradePositions.completionAt)).limit(1))[0]:undefined;
   const postCompletionReadyAt=lastCompletedTrade?.completionAt
     ?new Date(new Date(lastCompletedTrade.completionAt).getTime()+postCompletionIntervalSeconds*1000):null;
@@ -4708,6 +4717,8 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const today=new Date().toISOString().slice(0,10);
   const todayStartUtc=new Date(`${today}T00:00:00.000Z`);
   const tomorrowStartUtc=new Date(todayStartUtc.getTime()+24*60*60*1000);
+  const opportunityUsageResetBoundary=await getOpportunityUsageResetBoundary(tx,userId);
+  const effectiveOpportunityQuotaStart=opportunityUsageResetBoundary&&opportunityUsageResetBoundary.resetAt>todayStartUtc?opportunityUsageResetBoundary.resetAt:todayStartUtc;
   const activePackageSubscriptions=(await tx.select({
     subscriptionId:customerPackageSubscriptions.id,
     packageId:packages.id,
@@ -4739,7 +4750,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     return Boolean(configured && configured.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(configured));
   });
   if(!eligibleSubscriptions.length) throw new Error("New allocations are paused for all eligible Trading tier policies");
-  const quotaRows=await tx.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL AND confirmedAt>=${todayStartUtc} AND confirmedAt<${tomorrowStartUtc} AND status<>'cancelled' GROUP BY packageSubscriptionId`) as any;
+  const quotaRows=await tx.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL AND confirmedAt>=${effectiveOpportunityQuotaStart} AND confirmedAt<${tomorrowStartUtc} AND id>${opportunityUsageResetBoundary?.tradePositionMaxId??0} AND status<>'cancelled' GROUP BY packageSubscriptionId`) as any;
   const usedBySubscription=new Map<number,number>();
   for(const row of (quotaRows?.[0]||[])) usedBySubscription.set(Number(row.packageSubscriptionId),Number(row.used||0));
   const subscriptionsWithQuota=eligibleSubscriptions.filter(subscription=>{
@@ -6021,4 +6032,285 @@ export async function listAdminRecentLedgerActivity(input: { userId: number; utc
     hasMore,
     nextCursor: hasMore && last ? encodeAdminLedgerActivityCursor({ createdAt: new Date(last.createdAt), id: last.id }) : null,
   };
+}
+
+
+const OPPORTUNITY_USAGE_RESET_GLOBAL_KEY = "trading.opportunityUsageReset.global";
+const OPPORTUNITY_USAGE_RESET_CUSTOMER_KEY = (userId: number) => `trading.opportunityUsageReset.customer.${userId}`;
+const OPPORTUNITY_USAGE_RESET_ACTION = "trading_opportunity_usage_reset";
+const OPPORTUNITY_USAGE_RESET_MAX_CUSTOMERS = 5000;
+const OPPORTUNITY_USAGE_RESET_MAX_ROWS = 50000;
+
+type OpportunityUsageResetScope = "customer" | "all";
+type OpportunityUsageResetSummary = {
+  scope: OpportunityUsageResetScope;
+  customerCount: number;
+  withdrawnOpportunities: number;
+  clearedPendingDeliveries: number;
+  closedOffers: number;
+  cancelledAssignments: number;
+  preservedTradePositions: number;
+  protectedOpportunities: number;
+  resetAt: string;
+  idempotentReplay?: boolean;
+};
+
+type OpportunityUsageResetBoundary = {
+  resetAt: Date;
+  generationAssignmentMaxId: number;
+  deliveryEventMaxId: number;
+  tradePositionMaxId: number;
+};
+
+function parseOpportunityUsageResetMarker(value: string | null | undefined): OpportunityUsageResetBoundary | null {
+  try {
+    const parsed = JSON.parse(String(value || ""));
+    const resetAt = new Date(String(parsed?.resetAt || ""));
+    const generationAssignmentMaxId = Number(parsed?.generationAssignmentMaxId);
+    const deliveryEventMaxId = Number(parsed?.deliveryEventMaxId);
+    const tradePositionMaxId = Number(parsed?.tradePositionMaxId);
+    if (!Number.isFinite(resetAt.getTime()) || ![generationAssignmentMaxId, deliveryEventMaxId, tradePositionMaxId].every(value => Number.isSafeInteger(value) && value >= 0)) return null;
+    return { resetAt, generationAssignmentMaxId, deliveryEventMaxId, tradePositionMaxId };
+  } catch {
+    return null;
+  }
+}
+
+async function getOpportunityUsageResetBoundary(executor: any, userId: number): Promise<OpportunityUsageResetBoundary | null> {
+  const keys = [OPPORTUNITY_USAGE_RESET_GLOBAL_KEY, OPPORTUNITY_USAGE_RESET_CUSTOMER_KEY(userId)];
+  const rows = await executor.select({ settingKey: appSettings.settingKey, settingValue: appSettings.settingValue })
+    .from(appSettings).where(inArray(appSettings.settingKey, keys));
+  const boundaries: OpportunityUsageResetBoundary[] = rows.map((row: any) => parseOpportunityUsageResetMarker(row.settingValue))
+    .filter((value: OpportunityUsageResetBoundary | null): value is OpportunityUsageResetBoundary => value !== null);
+  return boundaries.sort((a: OpportunityUsageResetBoundary, b: OpportunityUsageResetBoundary) => b.resetAt.getTime() - a.resetAt.getTime())[0] ?? null;
+}
+
+async function ensureAndLockOpportunityResetKeys(executor: any, keys: string[], actorId: number) {
+  const sortedKeys = [...new Set(keys)].sort();
+  if (!sortedKeys.length) return;
+  if (sortedKeys.some(key => key.length > 120)) throw new Error("Opportunity reset lock scope is invalid.");
+  const chunkSize = 1000;
+  for (let offset = 0; offset < sortedKeys.length; offset += chunkSize) {
+    const chunk = sortedKeys.slice(offset, offset + chunkSize);
+    await executor.insert(appSettings).values(chunk.map(settingKey => ({ settingKey, settingValue: "", updatedBy: actorId })))
+      .onDuplicateKeyUpdate({ set: { updatedBy: actorId } });
+    await executor.select({ id: appSettings.id }).from(appSettings)
+      .where(inArray(appSettings.settingKey, chunk)).orderBy(appSettings.settingKey).for("update");
+  }
+}
+
+export async function resetTradeOpportunityUsage(input: {
+  scope: OpportunityUsageResetScope;
+  customerId?: number;
+  reason: string;
+  operationId: string;
+}, actorId: number): Promise<OpportunityUsageResetSummary> {
+  const reason = String(input.reason || "").trim();
+  if (!Number.isSafeInteger(actorId) || actorId < 1) throw new Error("An authenticated administrator is required.");
+  if (reason.length < 8 || reason.length > 500) throw new Error("Provide a reason between 8 and 500 characters.");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.operationId)) throw new Error("Opportunity reset request identifier is invalid.");
+  if (input.scope === "customer" && (!Number.isSafeInteger(input.customerId) || Number(input.customerId) < 1)) throw new Error("Select one valid customer or explicitly choose all customers.");
+  if (input.scope === "all" && input.customerId !== undefined) throw new Error("All-customer reset cannot include a single customer identifier.");
+
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const reference = `trade-opportunity-usage-reset:${input.operationId}`;
+  return db.transaction(async tx => {
+    const customerRows = input.scope === "all"
+      ? await tx.select({ id: users.id }).from(users).where(eq(users.role, "user"))
+        .orderBy(users.id).limit(OPPORTUNITY_USAGE_RESET_MAX_CUSTOMERS + 1).for("update")
+      : await tx.select({ id: users.id }).from(users)
+        .where(and(eq(users.id, Number(input.customerId)), eq(users.role, "user")))
+        .limit(1).for("update");
+    if (input.scope === "all" && customerRows.length > OPPORTUNITY_USAGE_RESET_MAX_CUSTOMERS) {
+      throw new Error(`All-customer reset is limited to ${OPPORTUNITY_USAGE_RESET_MAX_CUSTOMERS.toLocaleString()} customer accounts per atomic operation.`);
+    }
+    if (input.scope === "customer" && !customerRows.length) throw new Error("The selected account is not a customer account.");
+    const userIds = customerRows.map(row => Number(row.id));
+    const markerKey = input.scope === "all" ? OPPORTUNITY_USAGE_RESET_GLOBAL_KEY : OPPORTUNITY_USAGE_RESET_CUSTOMER_KEY(Number(input.customerId));
+    const customerMarkerKeys = userIds.map(userId => OPPORTUNITY_USAGE_RESET_CUSTOMER_KEY(userId));
+    const markerKeysToLock = input.scope === "all" ? [OPPORTUNITY_USAGE_RESET_GLOBAL_KEY, ...customerMarkerKeys] : [OPPORTUNITY_USAGE_RESET_GLOBAL_KEY, markerKey];
+
+    // Customer rows serialize reset against trade allocation. Generation and delivery
+    // locks below then fence their respective workers before any opportunity rows move.
+    await ensureAndLockOpportunityResetKeys(tx, markerKeysToLock, actorId);
+    await ensureAndLockOpportunityResetKeys(tx, userIds.map(userId => `trading.opportunityGenerator.${userId}`), actorId);
+
+    if (userIds.length) {
+      const subscriptionPackages = await tx.select({ userId: customerPackageSubscriptions.userId, packageId: customerPackageSubscriptions.packageId })
+        .from(customerPackageSubscriptions).where(and(inArray(customerPackageSubscriptions.userId, userIds), eq(customerPackageSubscriptions.status, "active")))
+        .limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1);
+      const openOfferPackages = await tx.select({ userId: opportunityOffers.assignedUserId, packageId: opportunityOffers.assignedPackageId })
+        .from(opportunityOffers).where(and(inArray(opportunityOffers.assignedUserId, userIds), inArray(opportunityOffers.status, ["scheduled", "open"])))
+        .limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1);
+      const activePopupPackages = await tx.select({ userId: opportunityPopupEvents.userId, packageId: opportunityPopupEvents.packageId })
+        .from(opportunityPopupEvents).where(and(inArray(opportunityPopupEvents.userId, userIds), or(
+          inArray(opportunityPopupEvents.eventStatus, ["DELIVERED", "NOTICED", "OPENED"]),
+          inArray(opportunityPopupEvents.deliveryStatus, ["queued", "in_progress", "retry_wait"]),
+        ))).limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1);
+      if (subscriptionPackages.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS || openOfferPackages.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS || activePopupPackages.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS) {
+        throw new Error("Opportunity reset scope exceeds the safe atomic row limit; no changes were committed.");
+      }
+      const deliveryLocks = new Set<string>();
+      for (const row of [...subscriptionPackages, ...openOfferPackages, ...activePopupPackages]) {
+        const userId = Number(row.userId);
+        const packageId = Number(row.packageId);
+        if (Number.isSafeInteger(userId) && userIds.includes(userId) && Number.isSafeInteger(packageId) && packageId > 0) deliveryLocks.add(deliveryAdmissionLockKey(userId, packageId));
+      }
+      if (deliveryLocks.size > OPPORTUNITY_USAGE_RESET_MAX_ROWS) throw new Error("Opportunity reset requires too many delivery locks; no changes were committed.");
+      await ensureAndLockOpportunityResetKeys(tx, [...deliveryLocks], actorId);
+    }
+
+    const priorMarkerRows = await tx.select({ settingKey: appSettings.settingKey, settingValue: appSettings.settingValue })
+      .from(appSettings).where(inArray(appSettings.settingKey, markerKeysToLock));
+    const previousResetAt = priorMarkerRows.map(row => parseOpportunityUsageResetMarker(row.settingValue)?.resetAt.getTime() ?? 0)
+      .reduce((latest, value) => Math.max(latest, value), 0);
+
+    const priorOperation = (await tx.select({ action: v5AuditEvents.action, entityType: v5AuditEvents.entityType, entityId: v5AuditEvents.entityId, metadataJson: v5AuditEvents.metadataJson })
+      .from(v5AuditEvents).where(eq(v5AuditEvents.reference, reference)).limit(1))[0];
+    const expectedEntityId = input.scope === "all" ? "all" : String(input.customerId);
+    if (priorOperation) {
+      if (priorOperation.action !== OPPORTUNITY_USAGE_RESET_ACTION || priorOperation.entityType !== "opportunity_usage_reset" || priorOperation.entityId !== expectedEntityId) {
+        throw new Error("This reset request identifier was already used for a different operation.");
+      }
+      try {
+        const metadata = JSON.parse(String(priorOperation.metadataJson || "{}"));
+        if (metadata?.scope !== input.scope || !metadata?.summary) throw new Error("invalid replay metadata");
+        return { ...metadata.summary, idempotentReplay: true } as OpportunityUsageResetSummary;
+      } catch {
+        throw new Error("The prior reset request could not be safely replayed; review the audit history.");
+      }
+    }
+
+    const resetAt = new Date(Math.max(Date.now(), previousResetAt + 1));
+    const resetAtIso = resetAt.toISOString();
+    let openOffers: Array<{ id: number; assignedUserId: number | null; assignedPackageId: number | null }> = [];
+    let activeEvents: Array<{ id: number; userId: number; offerId: number; packageId: number | null; eventStatus: string; deliveryStatus: string; executionStatus: string; tradeId: number | null }> = [];
+    if (userIds.length) {
+      openOffers = await tx.select({ id: opportunityOffers.id, assignedUserId: opportunityOffers.assignedUserId, assignedPackageId: opportunityOffers.assignedPackageId })
+        .from(opportunityOffers).where(and(inArray(opportunityOffers.assignedUserId, userIds), inArray(opportunityOffers.status, ["scheduled", "open"])))
+        .orderBy(opportunityOffers.id).limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1).for("update");
+      activeEvents = await tx.select({ id: opportunityPopupEvents.id, userId: opportunityPopupEvents.userId, offerId: opportunityPopupEvents.offerId,
+        packageId: opportunityPopupEvents.packageId, eventStatus: opportunityPopupEvents.eventStatus, deliveryStatus: opportunityPopupEvents.deliveryStatus,
+        executionStatus: opportunityPopupEvents.executionStatus, tradeId: opportunityPopupEvents.tradeId })
+        .from(opportunityPopupEvents).where(and(inArray(opportunityPopupEvents.userId, userIds), or(
+          inArray(opportunityPopupEvents.eventStatus, ["DELIVERED", "NOTICED", "OPENED"]),
+          inArray(opportunityPopupEvents.deliveryStatus, ["queued", "in_progress", "retry_wait"]),
+        ))).orderBy(opportunityPopupEvents.id).limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1).for("update");
+      if (openOffers.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS || activeEvents.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS) {
+        throw new Error("Opportunity reset scope exceeds the safe atomic row limit; no changes were committed.");
+      }
+    }
+    const candidateOfferIds = [...new Set([...openOffers.map(row => Number(row.id)), ...activeEvents.map(row => Number(row.offerId))])]
+      .filter(id => Number.isSafeInteger(id) && id > 0).sort((a, b) => a - b);
+    if (candidateOfferIds.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS) throw new Error("Opportunity reset scope exceeds the safe atomic row limit; no changes were committed.");
+    const safetyEvents = candidateOfferIds.length
+      ? await tx.select({ id: opportunityPopupEvents.id, userId: opportunityPopupEvents.userId, offerId: opportunityPopupEvents.offerId,
+          eventStatus: opportunityPopupEvents.eventStatus, deliveryStatus: opportunityPopupEvents.deliveryStatus,
+          executionStatus: opportunityPopupEvents.executionStatus, tradeId: opportunityPopupEvents.tradeId })
+        .from(opportunityPopupEvents).where(and(inArray(opportunityPopupEvents.userId, userIds), inArray(opportunityPopupEvents.offerId, candidateOfferIds)))
+        .orderBy(opportunityPopupEvents.id).limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1).for("update")
+      : [];
+    const linkedTradePositions = candidateOfferIds.length
+      ? await tx.select({ id: tradePositions.id, offerId: tradePositions.offerId })
+        .from(tradePositions).where(inArray(tradePositions.offerId, candidateOfferIds))
+        .orderBy(tradePositions.id).limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1).for("update")
+      : [];
+    if (safetyEvents.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS || linkedTradePositions.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS) {
+      throw new Error("Opportunity reset scope exceeds the safe atomic row limit; no changes were committed.");
+    }
+    const protectedOfferIds = new Set<number>(linkedTradePositions.map(row => Number(row.offerId)));
+    for (const event of safetyEvents) {
+      if (Number(event.tradeId) > 0 || ["TRADED", "SETTLED"].includes(String(event.eventStatus)) || ["RUNNING", "SUCCEEDED"].includes(String(event.executionStatus))) {
+        protectedOfferIds.add(Number(event.offerId));
+      }
+    }
+    const eligibleEventRows = safetyEvents.filter(event => !protectedOfferIds.has(Number(event.offerId)) &&
+      (["DELIVERED", "NOTICED", "OPENED"].includes(String(event.eventStatus)) || ["queued", "in_progress", "retry_wait"].includes(String(event.deliveryStatus))));
+    const withdrawnRows = eligibleEventRows.filter(event => ["DELIVERED", "NOTICED", "OPENED"].includes(String(event.eventStatus)));
+    const pendingDeliveryRows = eligibleEventRows.filter(event => ["queued", "in_progress", "retry_wait"].includes(String(event.deliveryStatus)));
+    const eligibleOfferIds = openOffers.map(row => Number(row.id)).filter(id => !protectedOfferIds.has(id));
+    const uniqueEligibleOfferIds = [...new Set(eligibleOfferIds)].sort((a, b) => a - b);
+    const assignmentRows = uniqueEligibleOfferIds.length
+      ? await tx.select({ id: opportunityGenerationAssignments.id }).from(opportunityGenerationAssignments)
+        .where(and(inArray(opportunityGenerationAssignments.offerId, uniqueEligibleOfferIds), inArray(opportunityGenerationAssignments.status, ["generated", "delivered"])))
+        .orderBy(opportunityGenerationAssignments.id).limit(OPPORTUNITY_USAGE_RESET_MAX_ROWS + 1).for("update")
+      : [];
+    if (assignmentRows.length > OPPORTUNITY_USAGE_RESET_MAX_ROWS) throw new Error("Opportunity reset scope exceeds the safe atomic row limit; no changes were committed.");
+
+    const eligibleEventIds = eligibleEventRows.map(event => Number(event.id));
+    if (eligibleEventIds.length) {
+      const sharedTerminalFields = {
+        deliveryStatus: "dismissed" as const,
+        deliveryRetryAfter: null,
+        deliveryLeaseToken: null,
+        deliveryLeaseExpiresAt: null,
+        executionStatus: "FAILED" as const,
+        executionRetryAfter: null,
+        executionLeaseToken: null,
+        executionRetryDay: null,
+        executionLastErrorCode: "ADMIN_RESET_WITHDRAWN",
+        updatedAt: resetAt,
+      };
+      const withdrawnIds = withdrawnRows.map(event => Number(event.id));
+      if (withdrawnIds.length) await tx.update(opportunityPopupEvents)
+        .set({ ...sharedTerminalFields, eventStatus: "WITHDRAWN", withdrawnAt: resetAt })
+        .where(inArray(opportunityPopupEvents.id, withdrawnIds));
+      const nonWithdrawnIds = eligibleEventIds.filter(id => !withdrawnIds.includes(id));
+      if (nonWithdrawnIds.length) await tx.update(opportunityPopupEvents).set(sharedTerminalFields)
+        .where(inArray(opportunityPopupEvents.id, nonWithdrawnIds));
+    }
+    if (uniqueEligibleOfferIds.length) await tx.update(opportunityOffers).set({ status: "closed" })
+      .where(and(inArray(opportunityOffers.id, uniqueEligibleOfferIds), inArray(opportunityOffers.status, ["scheduled", "open"])));
+    if (assignmentRows.length) await tx.update(opportunityGenerationAssignments)
+      .set({ status: "cancelled", failureReason: "ADMIN_OPPORTUNITY_USAGE_RESET", updatedAt: resetAt })
+      .where(inArray(opportunityGenerationAssignments.id, assignmentRows.map(row => Number(row.id))));
+
+    const assignmentHighWater = userIds.length
+      ? (await tx.select({ maxId: sql<number>`COALESCE(MAX(${opportunityGenerationAssignments.id}), 0)` }).from(opportunityGenerationAssignments)
+        .where(inArray(opportunityGenerationAssignments.userId, userIds)))[0]
+      : { maxId: 0 };
+    const deliveryEventHighWater = userIds.length
+      ? (await tx.select({ maxId: sql<number>`COALESCE(MAX(${opportunityDeliveryEvents.id}), 0)` }).from(opportunityDeliveryEvents)
+        .where(inArray(opportunityDeliveryEvents.userId, userIds)))[0]
+      : { maxId: 0 };
+    const tradePositionHighWater = userIds.length
+      ? (await tx.select({ maxId: sql<number>`COALESCE(MAX(${tradePositions.id}), 0)` }).from(tradePositions)
+        .where(inArray(tradePositions.userId, userIds)))[0]
+      : { maxId: 0 };
+    const summary: OpportunityUsageResetSummary = {
+      scope: input.scope,
+      customerCount: userIds.length,
+      withdrawnOpportunities: withdrawnRows.length,
+      clearedPendingDeliveries: pendingDeliveryRows.length,
+      closedOffers: uniqueEligibleOfferIds.length,
+      cancelledAssignments: assignmentRows.length,
+      preservedTradePositions: linkedTradePositions.length,
+      protectedOpportunities: protectedOfferIds.size,
+      resetAt: resetAtIso,
+    };
+    const marker = JSON.stringify({
+      version: 2,
+      scope: input.scope,
+      resetAt: resetAtIso,
+      operationId: input.operationId,
+      actorUserId: actorId,
+      generationAssignmentMaxId: Number(assignmentHighWater.maxId || 0),
+      deliveryEventMaxId: Number(deliveryEventHighWater.maxId || 0),
+      tradePositionMaxId: Number(tradePositionHighWater.maxId || 0),
+    });
+    await tx.insert(appSettings).values({ settingKey: markerKey, settingValue: marker, updatedBy: actorId, updatedAt: resetAt })
+      .onDuplicateKeyUpdate({ set: { settingValue: marker, updatedBy: actorId, updatedAt: resetAt } });
+    await tx.insert(v5AuditEvents).values({
+      actorUserId: actorId,
+      action: OPPORTUNITY_USAGE_RESET_ACTION,
+      entityType: "opportunity_usage_reset",
+      entityId: expectedEntityId,
+      reason,
+      reference,
+      metadataJson: JSON.stringify({ scope: input.scope, operationId: input.operationId, resetAt: resetAtIso, summary }),
+      createdAt: resetAt,
+    });
+    return summary;
+  });
 }

@@ -24,6 +24,7 @@ describe("Trading administrator navigation", () => {
       "Fees & Earnings Limits",
       "Retries & Carry-Forward",
       "Active & Pending Opportunities",
+      "Opportunity Usage Reset",
       "Manual Payouts",
       "Settlement & Reconciliation",
       "Trading History",
@@ -49,7 +50,7 @@ describe("Trading administrator navigation", () => {
     expect(group("trade-settings")?.items.map((item) => item.target)).toEqual([
       "tradeSystemOverview", "tradePackageConfiguration", "packages", "packages", "packages", "opportunity", "packages",
       "tradeDurationRules", "tradeCustomerDisplay", "packages", "companyCatalogue",
-      "transactionReview", "transactionReview", "tradeRetryPolicy", "deliveryMonitor",
+      "transactionReview", "transactionReview", "tradeRetryPolicy", "deliveryMonitor", "tradeOpportunityReset",
       "manualPayouts", "transactionReview", "tradeHistory", "tradeWorkerHealth", "audit", "tradeAdminGuide",
     ]);
     expect(group("trade-settings")?.items.find((item) => item.id === "trade-package-configuration")?.target).toBe("tradePackageConfiguration");
