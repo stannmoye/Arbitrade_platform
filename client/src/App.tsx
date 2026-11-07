@@ -406,6 +406,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   const popupRef=useRef<any>(null);
   const seen=useRef<Set<number>>(new Set());
   const dismissed=useRef<Set<number>>(new Set());
+  const expired=useRef<Set<number>>(new Set());
   const displaying=useRef<Set<number>>(new Set());
   const pending=useRef<Map<number,any>>(new Map());
   const timer=useRef<number|null>(null);
@@ -428,7 +429,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
     const closesAt=new Date(offer.closesAt).getTime();
     return String(offer.offerStatus||"").toLowerCase()==="open"&&Number.isFinite(closesAt)&&closesAt>Date.now()+serverClockOffsetMs.current;
   };
-  const isOfferCurrent=(offer:any)=>!dismissed.current.has(Number(offer.id))&&isOfferOpen(offer)&&isFreshCustomerPopupCandidate(offer)&&
+  const isOfferCurrent=(offer:any)=>!dismissed.current.has(Number(offer.id))&&!expired.current.has(Number(offer.id))&&isOfferOpen(offer)&&isFreshCustomerPopupCandidate(offer)&&
     Boolean(opportunityData?.offers?.some((current:any)=>Number(current.id)===Number(offer.id)&&
       current.popupEligible===true&&String(current.offerStatus||"").toLowerCase()==="open"));
   const canShow=()=>Boolean(delivery?.enabled&&policy);
@@ -444,14 +445,22 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   };
   const scheduleCollapse=()=>{
     if(timer.current!==null)window.clearTimeout(timer.current);
+    const scheduledOfferId=Number(popupRef.current?.id||0);
     const closesAtMs=Date.parse(String(popupRef.current?.closesAt||""));
     const configuredSeconds=Number(popupRef.current?.configuredDurationSeconds||0);
     const remainingMs=Number.isFinite(closesAtMs)?Math.max(0,closesAtMs-(Date.now()+serverClockOffsetMs.current)):
       (Number.isSafeInteger(configuredSeconds)&&configuredSeconds>0?configuredSeconds*1000:0);
     timer.current=window.setTimeout(()=>{
       timer.current=null;
+      if(!popupRef.current||Number(popupRef.current.id)!==scheduledOfferId)return;
+      expired.current.add(scheduledOfferId);
+      pending.current.delete(scheduledOfferId);
+      displaying.current.delete(scheduledOfferId);
+      seen.current.add(scheduledOfferId);
       stopConfiguredSound();
-      setMinimized(true);
+      stop();
+      void refreshOpportunityFeed().catch(()=>{});
+      attemptNext(opportunityData?.offers||[]);
     },remainingMs);
   };
   const dismiss=()=>{
@@ -539,7 +548,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   };
   const consider=(offer:any)=>{
     const offerId=Number(offer.id);
-    if(seen.current.has(offerId)||displaying.current.has(offerId)||!canShow())return;
+    if(seen.current.has(offerId)||expired.current.has(offerId)||displaying.current.has(offerId)||!canShow())return;
     showOffer(offer);
   };
   const attemptNext=(available:any[])=>{
@@ -566,7 +575,11 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   useEffect(()=>{
     if(!popup||!Array.isArray(opportunityData?.offers))return;
     const current=opportunityData.offers.find((offer:any)=>Number(offer.id)===Number(popup.id));
+    if(!popupRef.current||Number(popupRef.current.id)!==Number(popup.id))return;
     if(!isServerActiveCustomerPopupSlotOwner(current)){
+      expired.current.add(Number(popup.id));
+      pending.current.delete(Number(popup.id));
+      seen.current.add(Number(popup.id));
       stop();
       attemptNext(opportunityData.offers);
       return;
@@ -624,7 +637,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
       {insufficientBalance&&<span>Required: {requiredMoney} · Available: {availableMoney} · Shortfall: {shortfallMoney}</span>}
     </div>
     <div className="opportunity-popup-dock__actions">
-      <button type="button" aria-label="Maximize opportunity alert" onClick={()=>{if(timer.current!==null)window.clearTimeout(timer.current);timer.current=null;setMinimized(false);}}>Maximize</button>
+      <button type="button" aria-label="Maximize opportunity alert" onClick={()=>setMinimized(false)}>Maximize</button>
       <button type="button" className="opportunity-popup-dock__dismiss" onClick={dismiss}>Dismiss</button>
     </div>
   </div>;
@@ -634,7 +647,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
       <div className="toast-live"><span className="pulse"/> OPPORTUNITY ALERT <span className="toast-live-status">Informational notice</span></div>
       <span className={"opportunity-popup-status"+(insufficientBalance?" opportunity-popup-status--insufficient":"")}>{insufficientBalance?"MISSED · INSUFFICIENT BALANCE":"NEW OPPORTUNITY"}</span>
       <span className={"opportunity-popup-connection opportunity-popup-connection--"+connectionStatus} role="status" aria-live="polite"><span aria-hidden="true"/>{connectionLabel}</span>
-      <button type="button" className="opportunity-popup-minimize" aria-label="Minimize opportunity alert" onClick={()=>{stopConfiguredSound();if(timer.current!==null)window.clearTimeout(timer.current);timer.current=null;setMinimized(true);}}>Minimize</button>
+      <button type="button" className="opportunity-popup-minimize" aria-label="Minimize opportunity alert" onClick={()=>{stopConfiguredSound();setMinimized(true);}}>Minimize</button>
     </div>
     {popup.badgeLabel&&<span className={"trading-package-badge trading-package-badge--"+(["neutral","blue","purple","gold","green"].includes(popup.badgeStyle)?popup.badgeStyle:"neutral")}>{popup.badgeLabel}</span>}
     {popup.companyDisplayName&&<div className="trading-opportunity-identity popup-company-reference opportunity-popup-company"><CompanyReferenceLogo name={String(popup.companyDisplayName)} logoUrl={popup.companyLogoUrl||null}/><div className="opportunity-popup-company__details"><strong>{popup.companyDisplayName}</strong><span>{popup.symbol?`Supplied code: ${popup.symbol}`:"Company code unavailable"}</span></div><span className="opportunity-popup-package">{popup.packageName||"Assigned package"}</span></div>}

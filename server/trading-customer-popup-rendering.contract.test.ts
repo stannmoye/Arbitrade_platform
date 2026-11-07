@@ -197,6 +197,27 @@ describe("customer opportunity popup retry and visibility gates", () => {
     })).toBe(false);
   });
 
+  it("releases the local popup slot at saved closesAt and immediately retries the next offer", () => {
+    expect(component).toContain("const expired=useRef<Set<number>>(new Set())");
+    expect(component).toContain("const scheduledOfferId=Number(popupRef.current?.id||0)");
+    expect(component).toContain("expired.current.add(scheduledOfferId)");
+    expect(component).toContain("pending.current.delete(scheduledOfferId)");
+    expect(component).toContain("seen.current.add(scheduledOfferId)");
+    expect(component).toContain("stop();\n      void refreshOpportunityFeed().catch(()=>{});\n      attemptNext(opportunityData?.offers||[])");
+    expect(component).toContain("!expired.current.has(Number(offer.id))");
+  });
+
+  it("keeps expiry callbacks from dismissing a replacement popup", () => {
+    expect(component).toContain("if(!popupRef.current||Number(popupRef.current.id)!==scheduledOfferId)return");
+    expect(component).toContain("if(!popupRef.current||Number(popupRef.current.id)!==Number(popup.id))return");
+  });
+
+  it("keeps manual minimization reversible without cancelling saved expiry", () => {
+    expect(component).toContain('onClick={()=>setMinimized(false)}');
+    expect(component).toContain('onClick={()=>{stopConfiguredSound();setMinimized(true);}}');
+    expect(component).not.toContain('stopConfiguredSound();if(timer.current!==null)window.clearTimeout(timer.current);timer.current=null;setMinimized(true)');
+  });
+
   it("releases missing, terminal, or expired delivery owners", () => {
     expect(isServerActiveCustomerPopupSlotOwner(undefined)).toBe(false);
     expect(isServerActiveCustomerPopupSlotOwner({
