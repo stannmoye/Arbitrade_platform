@@ -181,7 +181,7 @@ describe("Automatic Trading tier qualification", () => {
   });
 
   it("keeps opportunity generation and customer responses read-only", () => {
-    expect(databaseSource).toContain("if(options.workerCycle===true&&globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&!formulaCooling&&remainingQuota>0)");
+    expect(databaseSource).toContain("if(options.workerCycle===true&&globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&remainingQuota>0)");
     expect(databaseSource).toContain("if(options.workerCycle===true) await markDueTradesAwaitingConfirmation(userId)");
     expect(databaseSource).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false;");
     expect(databaseSource).toContain("const auto=AUTOMATIC_FINANCIAL_EXECUTION_ENABLED && options.workerCycle===true && options.allowAutomaticExecution!==false");

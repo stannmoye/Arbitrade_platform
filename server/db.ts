@@ -3688,27 +3688,45 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const deliveryStatus=String(row.deliveryStatus||"pending").toLowerCase();
     return ["DELIVERED","NOTICED","OPENED"].includes(eventStatus)&&["pending","delivered","received","rendered"].includes(deliveryStatus);
   }).length;
-  const schedulePolicyEnabled=configuredPolicies.some((row:any)=>Number(row.minIntervalSeconds||0)>0||Number(row.maxIntervalSeconds||0)>0||Number(row.postCompletionIntervalSeconds||0)>0);
-  const lastDelivery=schedulePolicyEnabled?(await db.select({
-    id:opportunityDeliveryEvents.id,deliveredAt:opportunityDeliveryEvents.deliveredAt,policyVersion:opportunityDeliveryEvents.policyVersion,
-  }).from(opportunityDeliveryEvents).where(and(eq(opportunityDeliveryEvents.userId,userId),notInArray(opportunityDeliveryEvents.status,["failed"])))
-    .orderBy(desc(opportunityDeliveryEvents.deliveredAt)).limit(1))[0]:undefined;
-  const deliverySchedule=resolveTradingDeliverySchedule({
-    lastDeliveredAt:lastDelivery?.deliveredAt??null,deliveryEventId:Number(lastDelivery?.id||0),userId,
-    policyVersion:Number(lastDelivery?.policyVersion||0),
-    minIntervalSeconds:Math.max(0,Number(policy?.minIntervalSeconds||0)),
-    maxIntervalSeconds:Math.max(0,Number(policy?.maxIntervalSeconds||0)),
-    randomizationEnabled:globalPolicy.randomizedTimingEnabled,
-  });
-  const postCompletionIntervalSeconds=Math.max(0,Number(policy?.postCompletionIntervalSeconds||0));
-  const lastCompletedTrade=postCompletionIntervalSeconds>0?(await db.select({completionAt:tradePositions.completionAt})
-    .from(tradePositions).where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"settled"),isNotNull(tradePositions.completionAt)))
-    .orderBy(desc(tradePositions.completionAt)).limit(1))[0]:undefined;
-  const postCompletionReadyAt=lastCompletedTrade?.completionAt
-    ?new Date(new Date(lastCompletedTrade.completionAt).getTime()+postCompletionIntervalSeconds*1000):null;
-  const readyDeadlines=[deliverySchedule.readyAt,postCompletionReadyAt].filter((value):value is Date=>value instanceof Date);
-  const formulaReadyAt=readyDeadlines.length?new Date(Math.max(...readyDeadlines.map(value=>value.getTime()))):null;
-  const formulaCooling=Boolean(formulaReadyAt&&formulaReadyAt.getTime()>now.getTime());
+  // Timing is owned by each package. Never use the first configured policy as a
+  // customer-wide scheduler: Package A's delivery must not delay Package B or C.
+  const packageNames=[...new Set(eligibleSubscriptions.map(subscription=>String(subscription.packageName)))];
+  const lastDeliveriesByPackage=await db.select({
+    packageName:opportunityPopupEvents.packageName,id:opportunityDeliveryEvents.id,deliveredAt:opportunityDeliveryEvents.deliveredAt,policyVersion:opportunityDeliveryEvents.policyVersion,
+  }).from(opportunityDeliveryEvents).innerJoin(opportunityPopupEvents,and(eq(opportunityDeliveryEvents.userId,opportunityPopupEvents.userId),eq(opportunityDeliveryEvents.offerId,opportunityPopupEvents.offerId)))
+    .where(and(eq(opportunityDeliveryEvents.userId,userId),notInArray(opportunityDeliveryEvents.status,["failed"])))
+    .orderBy(desc(opportunityDeliveryEvents.deliveredAt));
+  const lastDeliveryByPackage=new Map<string,typeof lastDeliveriesByPackage[number]>();
+  for(const row of lastDeliveriesByPackage) if(row.packageName&&!lastDeliveryByPackage.has(String(row.packageName))) lastDeliveryByPackage.set(String(row.packageName),row);
+  const lastCompletedTradesByPackage=await db.select({packageName:packages.name,completionAt:tradePositions.completionAt})
+    .from(tradePositions).innerJoin(customerPackageSubscriptions,eq(tradePositions.packageSubscriptionId,customerPackageSubscriptions.id))
+    .innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
+    .where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"settled"),isNotNull(tradePositions.completionAt)))
+    .orderBy(desc(tradePositions.completionAt));
+  const lastCompletedTradeByPackage=new Map<string,typeof lastCompletedTradesByPackage[number]>();
+  for(const row of lastCompletedTradesByPackage) if(row.packageName&&!lastCompletedTradeByPackage.has(String(row.packageName))) lastCompletedTradeByPackage.set(String(row.packageName),row);
+  const packageSchedules=new Map<string,{deliveryReadyAt:Date|null;postCompletionReadyAt:Date|null;readyAt:Date|null;cooling:boolean}>();
+  for(const packageName of packageNames){
+    const packagePolicy=policyByName.get(packageName);
+    const lastDelivery=lastDeliveryByPackage.get(packageName);
+    const deliverySchedule=resolveTradingDeliverySchedule({
+      lastDeliveredAt:lastDelivery?.deliveredAt??null,deliveryEventId:Number(lastDelivery?.id||0),userId,
+      policyVersion:Number(lastDelivery?.policyVersion||0),
+      minIntervalSeconds:Math.max(0,Number(packagePolicy?.minIntervalSeconds||0)),
+      maxIntervalSeconds:Math.max(0,Number(packagePolicy?.maxIntervalSeconds||0)),
+      randomizationEnabled:globalPolicy.randomizedTimingEnabled,
+    });
+    const postCompletionIntervalSeconds=Math.max(0,Number(packagePolicy?.postCompletionIntervalSeconds||0));
+    const lastCompletedTrade=lastCompletedTradeByPackage.get(packageName);
+    const postCompletionReadyAt=lastCompletedTrade?.completionAt
+      ?new Date(new Date(lastCompletedTrade.completionAt).getTime()+postCompletionIntervalSeconds*1000):null;
+    const readyDeadlines=[deliverySchedule.readyAt,postCompletionReadyAt].filter((value):value is Date=>value instanceof Date);
+    const readyAt=readyDeadlines.length?new Date(Math.max(...readyDeadlines.map(value=>value.getTime()))):null;
+    packageSchedules.set(packageName,{deliveryReadyAt:deliverySchedule.readyAt,postCompletionReadyAt,readyAt,cooling:Boolean(readyAt&&readyAt.getTime()>now.getTime())});
+  }
+  const futureReadyAt=[...packageSchedules.values()].map(schedule=>schedule.readyAt).filter((value):value is Date=>Boolean(value&&value.getTime()>now.getTime()));
+  const formulaReadyAt=futureReadyAt.length?new Date(Math.min(...futureReadyAt.map(value=>value.getTime()))):null;
+  const formulaCooling=packageNames.length>0&&packageNames.every(packageName=>packageSchedules.get(packageName)?.cooling===true);
   const dailyCap=maxPopupsPerDay;
   const deliveryCapacity=calculateTradingDeliveryCapacity({dailyCap,deliveredOfferCount,maxVisibleOffers,activeVisibleCount});
   let remainingQuota=deliveryCapacity.remainingQuota;
@@ -3717,7 +3735,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   // Preserve the entitlement selected for newly created popups during this cycle,
   // so the later automatic-trade pass does not count that same quota slot twice.
   const assignedSubscriptionByOffer=new Map<number,any>();
-  if(options.workerCycle===true&&globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&!formulaCooling&&remainingQuota>0){
+  if(options.workerCycle===true&&globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled&&remainingQuota>0){
     for(const offer of offerRows){
       if(remainingQuota<=0) break;
       const offerId=Number(offer.id);
@@ -3746,6 +3764,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const subscription=selected.subscription;
       const configured=selected.configured;
       if(!configured||!hasConfiguredTradingOfferPolicy(configured)) continue;
+      if(packageSchedules.get(String(subscription.packageName))?.cooling===true) continue;
       if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(configured.maxBurstSize||0)})) break;
       // Select one administrator-configured rate and duration exactly once. The
       // selection is persisted with the popup and reused by retries/trade allocation.
@@ -3900,12 +3919,23 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       return dispatch?{...offer,deliveryStatus:dispatch.deliveryStatus,deliveryAttemptCount:dispatch.attemptNumber,deliveryLeaseToken:dispatch.leaseToken,popupEligible:offer.popupEligible===true}:offer;
     });
   }
+  const packageScheduleSummary=packageNames.map(packageName=>{
+    const packagePolicy=policyByName.get(packageName);
+    const schedule=packageSchedules.get(packageName);
+    return {
+      packageName,
+      minIntervalSeconds:Math.max(0,Number(packagePolicy?.minIntervalSeconds||0)),
+      maxIntervalSeconds:Math.max(0,Number(packagePolicy?.maxIntervalSeconds||0)),
+      postCompletionIntervalSeconds:Math.max(0,Number(packagePolicy?.postCompletionIntervalSeconds||0)),
+      cooling:Boolean(schedule?.cooling),readyAt:schedule?.readyAt??null,
+    };
+  });
   const globalDeliveryEnabled=globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled;
   return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{enabled:globalDeliveryEnabled,globalPolicyPaused:!globalDeliveryEnabled,packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,
     remainingDailyQuota:Math.max(0,deliveryCapacity.dailyRemaining-newlyEligible.length),
     remainingVisibleSlots:Math.max(0,deliveryCapacity.visibleRemaining-newlyEligible.length),
     remainingQuota,activeVisibleCount:activeVisibleCount+newlyEligible.length,schedulingPeriod:effectiveSchedulingPeriod,
-    formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
+    formulaCooling,formulaReadyAt,packageSchedules:packageScheduleSummary,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
 }
 export async function claimAutoTradeCycleCustomers(input:{batchSize?:number}={}){
   const db=await getDb();

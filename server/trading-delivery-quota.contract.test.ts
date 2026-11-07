@@ -85,4 +85,14 @@ describe("server-owned delivery cadence and completion timing", () => {
     expect(delivery).toContain("Math.max(...readyDeadlines.map(value=>value.getTime()))");
     expect(delivery).not.toContain("lastDelivery.deliveredAt).getTime()+Number(policy?.postCompletionIntervalSeconds");
   });
+
+  it("resolves delivery and completion timing independently for every subscribed package", () => {
+    expect(delivery).toContain("const packageNames=[...new Set(eligibleSubscriptions.map(subscription=>String(subscription.packageName)))]");
+    expect(delivery).toContain("const lastDeliveryByPackage=new Map");
+    expect(delivery).toContain("const lastCompletedTradeByPackage=new Map");
+    expect(delivery).toContain("const packageSchedules=new Map");
+    expect(delivery).toContain("packageSchedules.get(String(subscription.packageName))?.cooling===true");
+    expect(delivery).toContain("minIntervalSeconds:Math.max(0,Number(packagePolicy?.minIntervalSeconds||0))");
+    expect(delivery).toContain("postCompletionIntervalSeconds||0");
+  });
 });
