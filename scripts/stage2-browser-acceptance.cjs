@@ -2620,6 +2620,131 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
   return checks;
 }
 
+async function runCustomerOpportunityPopupSlotReplacementCheck(browser) {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  page.setDefaultTimeout(10000);
+  const checks = [];
+  const pageErrors = [];
+  const lifecycleCalls = [];
+  let serverConfirmedExpired = false;
+  let latestExpiredOffer = null;
+  const now = Date.now();
+  const activeOffer = {
+    id: 50601, offerId: 50601, deliveryEventId: 60601,
+    packageName: "QA Slot Tier", symbol: "BTC/USD", currency: "USD",
+    minimumMinor: 10000, balanceAvailableMinor: 15000, balanceStatus: "sufficient",
+    currencyScale: 2, currencySymbol: "$", configuredPopupDisplaySeconds: 30,
+    configuredDurationSeconds: 90,
+    opensAt: new Date(now - 5000).toISOString(), closesAt: new Date(now + 60_000).toISOString(),
+    expiryStatus: "active", offerStatus: "open", popupEligible: true,
+    eventStatus: "DELIVERED", deliveryStatus: "delivered",
+    companyDisplayName: "Stale QA Company", companyLogoUrl: null,
+    badgeLabel: "QA tier", badgeStyle: "green",
+  };
+  const replacementOffer = {
+    ...activeOffer,
+    id: 50602, offerId: 50602, deliveryEventId: 60602,
+    closesAt: new Date(now + 120_000).toISOString(),
+    companyDisplayName: "Replacement QA Company",
+  };
+  const record = (check, passed, details = {}) => checks.push({
+    route: "/customer", routeName: "customer", width: 390, check, passed, ...details,
+  });
+  page.on("pageerror", error => pageErrors.push(error.message));
+  try {
+    await page.route(/\/api\/trpc(?:\/|$)/, async route => {
+      const request = route.request();
+      const url = new URL(request.url());
+      const procedures = decodeURIComponent(url.pathname.split("/api/trpc/")[1] || "").split(",").filter(Boolean);
+      let envelope = {};
+      try {
+        const raw = request.method() === "GET" ? url.searchParams.get("input") : request.postData();
+        envelope = raw ? JSON.parse(raw) : {};
+      } catch {}
+      const output = procedures.map((procedure, index) => {
+        const item = Array.isArray(envelope) ? envelope[index] : envelope[String(index)];
+        const input = item?.json ?? item?.input?.json ?? envelope?.json ?? envelope?.input?.json ?? {};
+        let data = null;
+        if (procedure === "auth.me") {
+          data = { id: 90502, email: "popup-slot-qa@example.test", name: "Popup Slot QA Customer", role: "customer" };
+        } else if (procedure === "customer.opportunities") {
+          const expiredOwner = serverConfirmedExpired ? {
+            ...activeOffer,
+            closesAt: new Date(Date.now() - 1000).toISOString(),
+            expiryStatus: "expired", offerStatus: "open", popupEligible: false,
+            deliveryStatus: "rendered",
+          } : null;
+          if (expiredOwner) latestExpiredOffer = expiredOwner;
+          data = {
+            serverTime: new Date().toISOString(),
+            offers: serverConfirmedExpired ? [expiredOwner, replacementOffer] : [activeOffer, replacementOffer],
+            missed: [], autoTrades: [], settled: [],
+            delivery: {
+              enabled: true, packageName: "QA Slot Tier", maxPopupsPerDay: 6,
+              maxVisibleOffers: 3, remainingDailyQuota: 6, remainingVisibleSlots: 3,
+              popupPolicy: { popupDisplaySeconds: 30 },
+            },
+          };
+        } else if (procedure === "customer.soundSettings") {
+          data = { enabled: false, opportunity: "soft-chime", loopOpportunity: false };
+        } else if (procedure === "customer.balances") {
+          data = { balances: [], currencies: [], summary: { availableUsd: 0, totalUsd: 0 } };
+        } else if (procedure === "customer.trades") {
+          data = [];
+        } else if (procedure === "customer.popupLifecycle" || procedure === "customer.popupDeliveryStatus") {
+          if (procedure === "customer.popupLifecycle") lifecycleCalls.push(input);
+          data = { ok: true };
+        }
+        return { result: { data: { json: data } } };
+      });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(output) });
+    });
+    await page.goto(new URL("/customer", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.getByRole("heading", { name: "Welcome back, Jordan." }).waitFor({ state: "visible", timeout: 15000 });
+    const stalePopup = page.locator(".center-opportunity-toast").filter({ hasText: "Stale QA Company opportunity notice" });
+    const replacementPopup = page.locator(".center-opportunity-toast").filter({ hasText: "Replacement QA Company opportunity notice" });
+    await stalePopup.waitFor({ state: "visible", timeout: 10000 });
+    const replacementPreempted = await replacementPopup.isVisible().catch(() => false);
+    record("new-opportunity-waits-without-preempting-active-popup",
+      await stalePopup.isVisible().catch(() => false) && !replacementPreempted,
+      { secondOpportunityPresentInFeed: true, pageErrors });
+    const staleDock = page.locator(".opportunity-popup-dock");
+    await stalePopup.getByRole("button", { name: "Minimize opportunity alert" }).click({ force: true });
+    await staleDock.waitFor({ state: "visible", timeout: 3000 });
+
+    // The offer remains offerStatus=open after the server confirms its expiry,
+    // matching the stale-reference state that previously blocked the next card.
+    serverConfirmedExpired = true;
+    await replacementPopup.waitFor({ state: "visible", timeout: 15000 });
+    const staleCardStillVisible = await staleDock.isVisible().catch(() => false) ||
+      await stalePopup.isVisible().catch(() => false);
+    record("server-expired-open-popup-releases-slot-for-next-eligible-opportunity",
+      await replacementPopup.isVisible().catch(() => false) && !staleCardStillVisible,
+      {
+        expiredOwnerStatus: latestExpiredOffer?.offerStatus,
+        expiredOwnerExpiry: latestExpiredOffer?.expiryStatus,
+        expiredOwnerPopupEligible: latestExpiredOffer?.popupEligible,
+        replacementVisible: await replacementPopup.isVisible().catch(() => false),
+        staleCardStillVisible,
+        lifecycleCalls,
+        pageErrors,
+      });
+    record("slot-release-does-not-falsely-dismiss-expired-opportunity",
+      latestExpiredOffer?.offerStatus === "open" && latestExpiredOffer?.expiryStatus === "expired" &&
+      !lifecycleCalls.some(call => call?.action === "dismissed" && Number(call?.eventId) === activeOffer.deliveryEventId),
+      { lifecycleCalls, pageErrors });
+  } catch (error) {
+    record("customer-popup-slot-replacement-completes", false, {
+      error: error instanceof Error ? error.message : String(error),
+      lifecycleCalls, pageErrors,
+      bodyText: await page.locator("body").innerText().catch(() => ""),
+    });
+  } finally {
+    await page.close();
+  }
+  return checks;
+}
+
 async function runAdminTradingControlsInteractionCheck(browser) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.setDefaultTimeout(10000);
@@ -3153,6 +3278,9 @@ async function main() {
     const popupChecks = await runCustomerOpportunityPopupInteractionCheck(browser);
     results.push(...popupChecks);
     failures.push(...popupChecks.filter(check => !check.passed));
+    const popupSlotChecks = await runCustomerOpportunityPopupSlotReplacementCheck(browser);
+    results.push(...popupSlotChecks);
+    failures.push(...popupSlotChecks.filter(check => !check.passed));
     const tradingControlChecks = await runAdminTradingControlsInteractionCheck(browser);
     results.push(...tradingControlChecks);
     failures.push(...tradingControlChecks.filter(check => !check.passed));

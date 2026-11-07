@@ -11,7 +11,7 @@ import type { TradingDeliveryPolicyRow } from "@/components/TradingDeliveryPolic
 import { formatFeeBpsAsPercent, parseFeePercentToBps, resolvePackageFeePolicy, type FeeRoundingMode } from "./trading-settings-client-contracts";
 import { getPageCount, paginateItems } from "./trading-catalogue-pagination";
 import { buildChangedPolicyPatches, TRADING_TIER_POLICY_PATCH_KEYS } from "./trading-policy-patches";
-import { isFreshCustomerPopupCandidate } from "./customer-popup-eligibility";
+import { isFreshCustomerPopupCandidate, isServerActiveCustomerPopupSlotOwner } from "./customer-popup-eligibility";
 import { CustomerOpportunityHistoryPanel, hasPersistedCustomerOpportunityDismissal } from "./customer-opportunity-history";
 const AdminSlideMenu = lazy(() => import("@/components/AdminSlideMenu").then((module) => ({ default: module.AdminSlideMenu })));
 const TradeSettingsAdminGuide = lazy(() => import("@/components/TradeSettingsAdminGuide").then((module) => ({ default: module.TradeSettingsAdminGuide })));
@@ -566,7 +566,11 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   useEffect(()=>{
     if(!popup||!Array.isArray(opportunityData?.offers))return;
     const current=opportunityData.offers.find((offer:any)=>Number(offer.id)===Number(popup.id));
-    if(!current||String(current.offerStatus||"").toLowerCase()!=="open"){stop();return;}
+    if(!isServerActiveCustomerPopupSlotOwner(current)){
+      stop();
+      attemptNext(opportunityData.offers);
+      return;
+    }
     const refreshedFields=["expiryStatus","popupEligible","companyDisplayName","companyLogoUrl","deliveryStatus"];
     if(refreshedFields.some((key)=>current[key]!==popup[key]))setPopup((existing:any)=>existing?{...existing,...current}:current);
   },[popup,opportunityData]);
