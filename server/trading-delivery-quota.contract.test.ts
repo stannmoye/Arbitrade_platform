@@ -91,8 +91,18 @@ describe("server-owned delivery cadence and completion timing", () => {
     expect(delivery).toContain("const lastDeliveryByPackage=new Map");
     expect(delivery).toContain("const lastCompletedTradeByPackage=new Map");
     expect(delivery).toContain("const packageSchedules=new Map");
-    expect(delivery).toContain("packageSchedules.get(String(subscription.packageName))?.cooling===true");
+    expect(delivery).toContain("packageSchedules.get(String(candidate.packageName))?.cooling===true");
     expect(delivery).toContain("minIntervalSeconds:Math.max(0,Number(packagePolicy?.minIntervalSeconds||0))");
     expect(delivery).toContain("postCompletionIntervalSeconds||0");
+  });
+
+  it("skips a cooling package during candidate selection instead of blocking ready packages", () => {
+    const candidateLoop = delivery.indexOf("for(const candidate of eligibleSubscriptions)");
+    const selectedAssignment = delivery.indexOf("selected={subscription:candidate", candidateLoop);
+    const coolingCheck = delivery.indexOf("packageSchedules.get(String(candidate.packageName))?.cooling===true", candidateLoop);
+    expect(candidateLoop).toBeGreaterThanOrEqual(0);
+    expect(coolingCheck).toBeGreaterThan(candidateLoop);
+    expect(coolingCheck).toBeLessThan(selectedAssignment);
+    expect(delivery).not.toContain("if(packageSchedules.get(String(subscription.packageName))?.cooling===true) continue");
   });
 });

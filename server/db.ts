@@ -3752,6 +3752,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       for(const candidate of eligibleSubscriptions){
         if(!subscriptionHasQuota(candidate)) continue;
         const candidatePolicy=policyByName.get(candidate.packageName);
+        // Cooling belongs to the candidate package. Skip only this package so
+        // the same opportunity can still be assigned to another ready package.
+        if(packageSchedules.get(String(candidate.packageName))?.cooling===true) continue;
         const configuredMinimum=candidatePolicy?packageUsdUnitsToNativeMinor(Number(candidatePolicy.minimumTradeUnits),String(offer.currency),currencyRows):Number(offer.minimumMinor);
         const configuredMaximum=candidatePolicy?Math.max(configuredMinimum,packageUsdUnitsToNativeMinor(Number(candidatePolicy.maximumTradeUnits),String(offer.currency),currencyRows)):Number.MAX_SAFE_INTEGER;
         const terms=calculateTradeTerms(userId,offer,Math.max(Number(offer.minimumMinor),configuredMinimum));
@@ -3764,7 +3767,6 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const subscription=selected.subscription;
       const configured=selected.configured;
       if(!configured||!hasConfiguredTradingOfferPolicy(configured)) continue;
-      if(packageSchedules.get(String(subscription.packageName))?.cooling===true) continue;
       if(newlyEligible.length>=resolveTradingBurstLimit({burstEnabled:globalPolicy.burstDeliveryEnabled,maxBurstSize:Number(configured.maxBurstSize||0)})) break;
       // Select one administrator-configured rate and duration exactly once. The
       // selection is persisted with the popup and reused by retries/trade allocation.
