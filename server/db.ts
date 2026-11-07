@@ -4171,27 +4171,61 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const deliveredOfferIds=new Set(effectiveDeliveredToday.filter(row=>row.status!=="failed").map(row=>Number(row.offerId)));
   const deliveredOfferCount=countConsumedDeliveryOffers(effectiveDeliveredToday);
   const activeVisibleCount=countActiveVisiblePopupEvents(activePopupRows,now);
-  const schedulePolicyEnabled=configuredPolicies.some((row:any)=>Number(row.minIntervalSeconds||0)>0||Number(row.maxIntervalSeconds||0)>0||Number(row.postCompletionIntervalSeconds||0)>0);
-  const lastDelivery=schedulePolicyEnabled?(await db.select({
-    id:opportunityDeliveryEvents.id,deliveredAt:opportunityDeliveryEvents.deliveredAt,policyVersion:opportunityDeliveryEvents.policyVersion,
-  }).from(opportunityDeliveryEvents).where(and(eq(opportunityDeliveryEvents.userId,userId),gt(opportunityDeliveryEvents.id,opportunityUsageResetBoundary?.deliveryEventMaxId??0),notInArray(opportunityDeliveryEvents.status,["failed"])))
-    .orderBy(desc(opportunityDeliveryEvents.deliveredAt)).limit(1))[0]:undefined;
-  const deliverySchedule=resolveTradingDeliverySchedule({
-    lastDeliveredAt:lastDelivery?.deliveredAt??null,deliveryEventId:Number(lastDelivery?.id||0),userId,
-    policyVersion:Number(lastDelivery?.policyVersion||0),
-    minIntervalSeconds:Math.max(0,Number(policy?.minIntervalSeconds||0)),
-    maxIntervalSeconds:Math.max(0,Number(policy?.maxIntervalSeconds||0)),
-    randomizationEnabled:globalPolicy.randomizedTimingEnabled,
+  const packageNames=[...new Set(eligibleSubscriptions.map(subscription=>String(subscription.packageName)))];
+  const schedulePolicyEnabled=packageNames.some(packageName=>{
+    const packagePolicy=policyByName.get(normalizeTradingPackagePolicyKey(packageName));
+    return Number(packagePolicy?.minIntervalSeconds||0)>0||Number(packagePolicy?.maxIntervalSeconds||0)>0||Number(packagePolicy?.postCompletionIntervalSeconds||0)>0;
   });
-  const postCompletionIntervalSeconds=Math.max(0,Number(policy?.postCompletionIntervalSeconds||0));
-  const lastCompletedTrade=postCompletionIntervalSeconds>0?(await db.select({completionAt:tradePositions.completionAt})
-    .from(tradePositions).where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"settled"),isNotNull(tradePositions.completionAt),gte(tradePositions.completionAt,opportunityUsageResetBoundary?.resetAt??new Date(0))))
-    .orderBy(desc(tradePositions.completionAt)).limit(1))[0]:undefined;
-  const postCompletionReadyAt=lastCompletedTrade?.completionAt
-    ?new Date(new Date(lastCompletedTrade.completionAt).getTime()+postCompletionIntervalSeconds*1000):null;
-  const readyDeadlines=[deliverySchedule.readyAt,postCompletionReadyAt].filter((value):value is Date=>value instanceof Date);
-  const formulaReadyAt=readyDeadlines.length?new Date(Math.max(...readyDeadlines.map(value=>value.getTime()))):null;
-  const formulaCooling=Boolean(formulaReadyAt&&formulaReadyAt.getTime()>now.getTime());
+  const packageDeliveryRows=schedulePolicyEnabled?await db.select({
+    packageName:opportunityPopupEvents.packageName,id:opportunityDeliveryEvents.id,
+    deliveredAt:opportunityDeliveryEvents.deliveredAt,policyVersion:opportunityDeliveryEvents.policyVersion,
+  }).from(opportunityDeliveryEvents).innerJoin(opportunityPopupEvents,and(
+    eq(opportunityDeliveryEvents.userId,opportunityPopupEvents.userId),
+    eq(opportunityDeliveryEvents.offerId,opportunityPopupEvents.offerId),
+  )).where(and(
+    eq(opportunityDeliveryEvents.userId,userId),
+    gt(opportunityDeliveryEvents.id,opportunityUsageResetBoundary?.deliveryEventMaxId??0),
+    notInArray(opportunityDeliveryEvents.status,["failed"]),
+  )).orderBy(desc(opportunityDeliveryEvents.deliveredAt)):[];
+  const lastDeliveryByPackage=new Map<string,typeof packageDeliveryRows[number]>();
+  for(const row of packageDeliveryRows){
+    if(row.packageName&&!lastDeliveryByPackage.has(String(row.packageName)))lastDeliveryByPackage.set(String(row.packageName),row);
+  }
+  const packageCompletionRows=packageNames.length?await db.select({
+    packageName:packages.name,completionAt:tradePositions.completionAt,
+  }).from(tradePositions).innerJoin(customerPackageSubscriptions,eq(tradePositions.packageSubscriptionId,customerPackageSubscriptions.id))
+    .innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id)).where(and(
+      eq(tradePositions.userId,userId),eq(tradePositions.status,"settled"),isNotNull(tradePositions.completionAt),
+      gte(tradePositions.completionAt,opportunityUsageResetBoundary?.resetAt??new Date(0)),
+    )).orderBy(desc(tradePositions.completionAt)):[];
+  const lastCompletedTradeByPackage=new Map<string,typeof packageCompletionRows[number]>();
+  for(const row of packageCompletionRows){
+    if(row.packageName&&!lastCompletedTradeByPackage.has(String(row.packageName)))lastCompletedTradeByPackage.set(String(row.packageName),row);
+  }
+  const packageSchedules=new Map<string,{deliveryReadyAt:Date|null;postCompletionReadyAt:Date|null;readyAt:Date|null;cooling:boolean}>();
+  for(const packageName of packageNames){
+    const packagePolicy=policyByName.get(normalizeTradingPackagePolicyKey(packageName));
+    const lastDelivery=lastDeliveryByPackage.get(packageName);
+    const deliverySchedule=resolveTradingDeliverySchedule({
+      lastDeliveredAt:lastDelivery?.deliveredAt??null,deliveryEventId:Number(lastDelivery?.id||0),userId,
+      policyVersion:Number(lastDelivery?.policyVersion||0),
+      minIntervalSeconds:Math.max(0,Number(packagePolicy?.minIntervalSeconds||0)),
+      maxIntervalSeconds:Math.max(0,Number(packagePolicy?.maxIntervalSeconds||0)),
+      randomizationEnabled:globalPolicy.randomizedTimingEnabled,
+    });
+    const postCompletionIntervalSeconds=Math.max(0,Number(packagePolicy?.postCompletionIntervalSeconds||0));
+    const lastCompletedTrade=lastCompletedTradeByPackage.get(packageName);
+    const postCompletionReadyAt=lastCompletedTrade?.completionAt
+      ?new Date(new Date(lastCompletedTrade.completionAt).getTime()+postCompletionIntervalSeconds*1000):null;
+    const readyDeadlines=[deliverySchedule.readyAt,postCompletionReadyAt].filter((value):value is Date=>value instanceof Date);
+    const readyAt=readyDeadlines.length?new Date(Math.max(...readyDeadlines.map(value=>value.getTime()))):null;
+    packageSchedules.set(packageName,{deliveryReadyAt:deliverySchedule.readyAt,postCompletionReadyAt,readyAt,
+      cooling:Boolean(readyAt&&readyAt.getTime()>now.getTime())});
+  }
+  const futureReadyAt=[...packageSchedules.values()].map(schedule=>schedule.readyAt)
+    .filter((value):value is Date=>Boolean(value&&value.getTime()>now.getTime()));
+  const formulaReadyAt=futureReadyAt.length?new Date(Math.min(...futureReadyAt.map(value=>value.getTime()))):null;
+  const formulaCooling=packageNames.length>0&&packageNames.every(packageName=>packageSchedules.get(packageName)?.cooling===true);
   const dailyCap=maxPopupsPerDay;
   const deliveryCapacity=calculateTradingDeliveryCapacity({dailyCap,deliveredOfferCount,maxVisibleOffers,activeVisibleCount});
   let remainingQuota=deliveryCapacity.remainingQuota;
@@ -4217,7 +4251,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const offerId=Number(offer.id);
     if(insufficientBalanceOfferIds.has(offerId)) return false;
     const assignmentStatus=String(generationAssignmentByOffer.get(offerId)?.status||"");
-    return activeSubscriptionIds.includes(Number(offer.assignedPackageSubscriptionId))&&["generated","delivered"].includes(assignmentStatus);
+    const assignedSubscription=eligibleSubscriptions.find(subscription=>Number(subscription.subscriptionId)===Number(offer.assignedPackageSubscriptionId));
+    const assignedPackageCooling=Boolean(assignedSubscription&&packageSchedules.get(String(assignedSubscription.packageName))?.cooling===true);
+    return activeSubscriptionIds.includes(Number(offer.assignedPackageSubscriptionId))&&!assignedPackageCooling&&["generated","delivered"].includes(assignmentStatus);
   });
   const generationGateReason=options.workerCycle!==true?"NOT_WORKER_CYCLE"
     :options.automaticGenerationEnabled!==true?"GENERATION_CONTROL_DISABLED_OR_UNAVAILABLE"
@@ -4235,7 +4271,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     generationAttempted=true;
     const outcome=await generateAutomaticCustomerOpportunity({
       userId,batchId:options.generationBatchId!,now,quotaWindowStart:quotaWindow.start,
-      eligibleSubscriptions:eligibleSubscriptions.map(subscription=>({subscriptionId:Number(subscription.subscriptionId),packageId:Number(subscription.packageId),packageName:String(subscription.packageName)})),
+      eligibleSubscriptions:eligibleSubscriptions.filter(subscription=>packageSchedules.get(String(subscription.packageName))?.cooling!==true)
+        .map(subscription=>({subscriptionId:Number(subscription.subscriptionId),packageId:Number(subscription.packageId),packageName:String(subscription.packageName)})),
       companyRotationEnabled:Boolean(globalPolicy.companyRotationEnabled),
     });
     generatedOpportunityId=outcome.offerId;
@@ -4291,6 +4328,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       for(const candidate of eligibleSubscriptions){
         if(Number(offer.assignedPackageSubscriptionId)!==Number(candidate.subscriptionId)||Number(offer.assignedPackageId)!==Number(candidate.packageId)) continue;
         if(!subscriptionHasQuota(candidate)) continue;
+        // A cooling entitlement must not delay an opportunity for another ready package.
+        if(packageSchedules.get(String(candidate.packageName))?.cooling===true) continue;
         const candidatePolicy=policyByName.get(normalizeTradingPackagePolicyKey(candidate.packageName));
         const configuredMinimum=generatedOffer?Number(generationSnapshot.packageMinimumMinor):candidatePolicy?packageUsdUnitsToNativeMinor(Number(candidatePolicy.minimumTradeUnits),String(offer.currency),currencyRows):Number(offer.minimumMinor);
         const configuredMaximum=generatedOffer?Number(generationSnapshot.packageMaximumMinor):candidatePolicy?Math.max(configuredMinimum,packageUsdUnitsToNativeMinor(Number(candidatePolicy.maximumTradeUnits),String(offer.currency),currencyRows)):Number.MAX_SAFE_INTEGER;
@@ -4508,6 +4547,17 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       return dispatch?{...offer,deliveryStatus:dispatch.deliveryStatus,deliveryAttemptCount:dispatch.attemptNumber,deliveryLeaseToken:dispatch.leaseToken,popupEligible:offer.popupEligible===true}:offer;
     });
   }
+  const packageScheduleSummary=packageNames.map(packageName=>{
+    const packagePolicy=policyByName.get(normalizeTradingPackagePolicyKey(packageName));
+    const schedule=packageSchedules.get(packageName);
+    return {
+      packageName,
+      minIntervalSeconds:Math.max(0,Number(packagePolicy?.minIntervalSeconds||0)),
+      maxIntervalSeconds:Math.max(0,Number(packagePolicy?.maxIntervalSeconds||0)),
+      postCompletionIntervalSeconds:Math.max(0,Number(packagePolicy?.postCompletionIntervalSeconds||0)),
+      cooling:Boolean(schedule?.cooling),readyAt:schedule?.readyAt??null,
+    };
+  });
   const globalDeliveryEnabled=globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled;
   const generationReason=generatedOpportunityId?"GENERATED":generationSkipReason||"GENERATOR_RETURNED_NO_OFFER";
   return {serverTime:responseNow.toISOString(),offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,generatedOpportunityId,
@@ -4519,6 +4569,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     deliveryDiagnostics:{enabled:globalDeliveryEnabled,openAssignedOffers:offerRows.length,generatedAssignments:generationAssignments.length,
       popupEventsPersistedThisCycle:newlyEligible.length,activePopupEvents:activePopupRows.length,remainingQuota:deliveryCapacity.remainingQuota},
     delivery:{enabled:globalDeliveryEnabled,globalPolicyPaused:!globalDeliveryEnabled,packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,
+    packageSchedules:packageScheduleSummary,
     remainingDailyQuota:Math.max(0,deliveryCapacity.dailyRemaining-newlyEligible.length),
     remainingVisibleSlots:Math.max(0,deliveryCapacity.visibleRemaining-newlyEligible.length),
     remainingQuota,activeVisibleCount:activeVisibleCount+newlyEligible.length,schedulingPeriod:effectiveSchedulingPeriod,

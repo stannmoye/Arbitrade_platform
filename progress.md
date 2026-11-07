@@ -1,3 +1,14 @@
+## 2026-11-07 — Independent Trade package timing on current main
+
+- **Branch/base:** `feat/trade-settings-admin-blueprint`; integrated `origin/main` at `f4fce09a54081847eda0509c1bfde71b9b23d817` (279 main-only commits at merge time). History was merged normally; no force-push or rebase was used.
+- **Conflict resolution:** Preserved current-main opportunity generation, immutable package assignments, per-subscription quota checks, usage-reset boundaries, delivery lifecycle, and existing integration coverage. Re-applied package-owned delivery and settled-trade schedules on top of that implementation.
+- **Scheduling behavior:** Each eligible package now uses its own saved delivery interval and latest settled-trade completion. Generation excludes cooling packages; an open opportunity assigned to a cooling package does not block generation for a ready package; the delivery selector also skips a cooling candidate locally. The global cooldown gate applies only when every eligible package is cooling. Per-package saved interval values, cooldown state, and readiness are returned in delivery diagnostics.
+- **Regression coverage:** Extended the disposable database popup-delivery scenario with three active package entitlements. It retains a cooling Package A offer and verifies generation to ready Package B, then makes A and B cooling and verifies generation to ready Package C. It separately checks each package's min/max and post-completion timing, verifies changing A leaves B/C unchanged, and cleans up generated offers, assignments, and synthetic settled trades.
+- **Local validation:** `pnpm check` passed; focused Trade tests passed (7 files, 86 tests); full `pnpm test` passed (157 files, 1,254 passed, 27 skipped); `pnpm build` passed. Focused modified-file whitespace checks passed.
+- **Not run locally:** The disposable MySQL-backed integration script cannot run in this sandbox because no `DATABASE_URL` or `MYSQL_URL` is configured. Its database scenario is intended for the repository's MySQL integration workflow; no hosted browser acceptance or deployment is claimed.
+
+---
+
 ## 2026-11-07 — Trade opportunity duration snapshot validation
 
 - Working branch: `fix/opportunity-duration-snapshot-validation`, based on GitHub-verified `main` commit `73a0a8f6129c242219a9c9713cd33fb6fcdac726`.

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import mysql from "mysql2/promise";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { closeDbPool, ensureAutomaticTradingTierEntitlements, getDb, getTradeGlobalControls, listCustomerOpportunities, runTradingTierQualificationWorkerCycle } from "../server/db";
 import {
   appSettings,
@@ -69,9 +69,12 @@ let rollbackTriggerName: string | undefined;
 let blockedOfferId: number | undefined;
 let secondPackageId: number | undefined;
 let secondSubscriptionId: number | undefined;
+let thirdPackageId: number | undefined;
+let thirdSubscriptionId: number | undefined;
 let quotaSelectionOfferId: number | undefined;
 let capacitySelectionOfferId: number | undefined;
 let insufficientRetryOfferId: number | undefined;
+const packageSelectionOfferIds: number[] = [];
 const catalogueStateKey = "trade.companyCatalogue.adminState";
 let originalCompanyCatalogueStateRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
 let originalGlobalControlRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
@@ -883,6 +886,234 @@ const balanceBefore = await db.select({
     .where(eq(tradePositions.userId, userId))).length, 0,
     "Informational popup delivery must not create financial trade records.");
 
+  // Exercise the latest-main generator and delivery selector with three separate
+  // package entitlements. A cooling package must not gate a ready package.
+  const thirdPackageName = packageName + "SelectC";
+  const [thirdPackageResult] = await db.insert(packages).values({
+    name: thirdPackageName,
+    minimumQualifyingBalanceUsdMinor: 10000,
+    durationMonths: 1,
+    opportunitiesPerDay: 30,
+    termsVersion: 1,
+    maxPopupsPerDay: 0,
+    maxActiveInvestments: 0,
+    enabled: true,
+  });
+  thirdPackageId = Number(thirdPackageResult.insertId);
+  await db.insert(opportunityPackagePolicies).values({
+    packageName: thirdPackageName,
+    minimumPayoutRateBps: 400,
+    maximumPayoutRateBps: 500,
+    minimumTradeDurationSeconds: 700,
+    maximumTradeDurationSeconds: 800,
+    companyRotationEnabled: true,
+    maxPopupsPerDay: 30,
+    maxVisibleOffers: 5,
+    minimumTradeUnits: 100,
+    maximumTradeUnits: 1000,
+    burstEnabled: false,
+    maxBurstSize: 1,
+    enabled: false,
+    automaticDelivery: false,
+    automaticTradingEnabled: false,
+    dailyPopupTarget: 0,
+    schedulingPeriod: "calendar_day",
+    minIntervalSeconds: 0,
+    maxIntervalSeconds: 0,
+    randomizationEnabled: false,
+    popupDisplayTargetSeconds: 120,
+    completionDisplaySeconds: 8,
+    postCompletionIntervalSeconds: 0,
+    maxPendingDeliveries: 3,
+    maxDeliveryAttempts: 3,
+    requirePreviousSettlement: true,
+    minSettlementDelaySeconds: 900,
+    maxSettlementDelaySeconds: 900,
+  });
+  const [thirdSubscriptionResult] = await db.insert(customerPackageSubscriptions).values({
+    userId,
+    packageId: thirdPackageId,
+    startsAt: new Date(now.getTime() - 60_000),
+    expiresAt: new Date(now.getTime() + 259_200_000),
+    status: "active",
+    activationKey: `auto-tier:popup-delivery-tertiary-${token}`,
+    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 30, maxPopupsPerDay: 0 }),
+    qualifyingBalanceUsdMinor: 10000,
+    packageTermsVersion: 1,
+  });
+  thirdSubscriptionId = Number(thirdSubscriptionResult.insertId);
+  const selectionPackageNames = { a: packageName, b: packageName + "Plus", c: thirdPackageName };
+  const selectionPackages = [
+    { packageId: packageId!, subscriptionId: subscriptionId!, packageName: selectionPackageNames.a },
+    { packageId: secondPackageId!, subscriptionId: secondSubscriptionId!, packageName: selectionPackageNames.b },
+    { packageId: thirdPackageId!, subscriptionId: thirdSubscriptionId!, packageName: selectionPackageNames.c },
+  ];
+  for (const fixture of selectionPackages) {
+    await db.update(packages).set({ opportunitiesPerDay: 30 }).where(eq(packages.id, fixture.packageId));
+    await db.update(opportunityPackagePolicies).set({
+      maxPopupsPerDay: 30,
+      minIntervalSeconds: fixture.packageName === selectionPackageNames.a ? 120 : fixture.packageName === selectionPackageNames.b ? 300 : 480,
+      maxIntervalSeconds: fixture.packageName === selectionPackageNames.a ? 240 : fixture.packageName === selectionPackageNames.b ? 420 : 600,
+      postCompletionIntervalSeconds: fixture.packageName === selectionPackageNames.a ? 120 : fixture.packageName === selectionPackageNames.b ? 300 : 480,
+    }).where(eq(opportunityPackagePolicies.packageName, fixture.packageName));
+    await db.update(customerPackageSubscriptions).set({
+      termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 30, maxPopupsPerDay: 0 }),
+    }).where(eq(customerPackageSubscriptions.id, fixture.subscriptionId));
+  }
+  // Retire earlier test offers so the generation retry gate cannot mask which
+  // entitlement the independent scheduler selects.
+  await db.update(opportunityOffers).set({ status: "closed" }).where(and(
+    eq(opportunityOffers.assignedUserId, userId), eq(opportunityOffers.status, "open"),
+  ));
+  await db.update(opportunityGenerationAssignments).set({ status: "cancelled" })
+    .where(eq(opportunityGenerationAssignments.userId, userId));
+  // Keep an open, previously generated Package A offer in place. Its own
+  // cooldown must not hold the customer-wide generation gate closed.
+  await db.update(opportunityOffers).set({ status: "open", closesAt: new Date(Date.now() + 3_600_000) })
+    .where(eq(opportunityOffers.id, offerId!));
+  await db.update(opportunityGenerationAssignments).set({ status: "delivered" })
+    .where(eq(opportunityGenerationAssignments.offerId, offerId!));
+  const oldPackageDeliveryAt = new Date(Math.floor((Date.now() - 3_600_000) / 1000) * 1000);
+  const recentPackageDeliveryAt = new Date(Math.floor(Date.now() / 1000) * 1000);
+  const setPackageDeliveryAt = async (packageNames: string[], deliveredAt: Date) => {
+    const popupRowsForPackages = await db.select({ offerId: opportunityPopupEvents.offerId })
+      .from(opportunityPopupEvents).where(and(
+        eq(opportunityPopupEvents.userId, userId), inArray(opportunityPopupEvents.packageName, packageNames),
+      ));
+    for (const popup of popupRowsForPackages) {
+      await db.update(opportunityDeliveryEvents).set({ status: "delivered", deliveredAt }).where(and(
+        eq(opportunityDeliveryEvents.userId, userId), eq(opportunityDeliveryEvents.offerId, Number(popup.offerId)),
+      ));
+    }
+    return popupRowsForPackages.length;
+  };
+  assert.ok(await setPackageDeliveryAt([selectionPackageNames.a], recentPackageDeliveryAt) > 0,
+    "The cooling-package fixture must have real persisted delivery history for Package A.");
+  await setPackageDeliveryAt([selectionPackageNames.b], oldPackageDeliveryAt);
+  const firstReadyPackageCycle = await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    automaticGenerationEnabled: true,
+    generationBatchId: `package-cooling-a-to-b-${token}`,
+  });
+  const firstReadyPackageOfferId = Number(firstReadyPackageCycle.generatedOpportunityId);
+  packageSelectionOfferIds.push(firstReadyPackageOfferId);
+  assert.ok(Number.isSafeInteger(firstReadyPackageOfferId) && firstReadyPackageOfferId > 0,
+    "The generator must still create an opportunity while Package A is cooling and Package B is ready.");
+  const firstReadyPackageAssignment = (await db.select().from(opportunityGenerationAssignments)
+    .where(eq(opportunityGenerationAssignments.offerId, firstReadyPackageOfferId)))[0];
+  assert.equal(Number(firstReadyPackageAssignment?.packageId), secondPackageId,
+    "When A is cooling, the actual generator and selector must assign the opportunity to ready Package B.");
+  assert.equal(Number(firstReadyPackageAssignment?.packageSubscriptionId), secondSubscriptionId);
+  const scheduleRow = (cycle: typeof firstReadyPackageCycle, name: string) =>
+    (cycle.delivery.packageSchedules as Array<any>).find(row => row.packageName === name);
+  assert.equal(scheduleRow(firstReadyPackageCycle, selectionPackageNames.a)?.cooling, true);
+  assert.equal(scheduleRow(firstReadyPackageCycle, selectionPackageNames.b)?.cooling, false);
+  assert.equal(scheduleRow(firstReadyPackageCycle, selectionPackageNames.c)?.cooling, false);
+
+  // The newly delivered B offer now gives B its own cooldown. With A and B
+  // cooling, the generator must skip both and use the ready C entitlement.
+  await db.update(opportunityOffers).set({ status: "closed" })
+    .where(eq(opportunityOffers.id, firstReadyPackageOfferId));
+  await db.update(opportunityGenerationAssignments).set({ status: "cancelled" })
+    .where(eq(opportunityGenerationAssignments.offerId, firstReadyPackageOfferId));
+  await db.update(opportunityPopupEvents).set({ eventStatus: "WITHDRAWN", deliveryStatus: "dismissed" })
+    .where(and(eq(opportunityPopupEvents.userId, userId), eq(opportunityPopupEvents.offerId, firstReadyPackageOfferId)));
+  assert.ok(await setPackageDeliveryAt([selectionPackageNames.b], recentPackageDeliveryAt) > 0,
+    "The second scenario must have a persisted delivery event for Package B.");
+  await setPackageDeliveryAt([selectionPackageNames.a], recentPackageDeliveryAt);
+  const secondReadyPackageCycle = await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    automaticGenerationEnabled: true,
+    generationBatchId: `package-cooling-a-b-to-c-${token}`,
+  });
+  const secondReadyPackageOfferId = Number(secondReadyPackageCycle.generatedOpportunityId);
+  packageSelectionOfferIds.push(secondReadyPackageOfferId);
+  assert.ok(Number.isSafeInteger(secondReadyPackageOfferId) && secondReadyPackageOfferId > 0,
+    "The generator must still create an opportunity while A and B are cooling and C is ready.");
+  const secondReadyPackageAssignment = (await db.select().from(opportunityGenerationAssignments)
+    .where(eq(opportunityGenerationAssignments.offerId, secondReadyPackageOfferId)))[0];
+  assert.equal(Number(secondReadyPackageAssignment?.packageId), thirdPackageId,
+    "When A and B are cooling, the actual generator and selector must assign the opportunity to ready Package C.");
+  assert.equal(Number(secondReadyPackageAssignment?.packageSubscriptionId), thirdSubscriptionId);
+  assert.equal(scheduleRow(secondReadyPackageCycle, selectionPackageNames.a)?.cooling, true);
+  assert.equal(scheduleRow(secondReadyPackageCycle, selectionPackageNames.b)?.cooling, true);
+  assert.equal(scheduleRow(secondReadyPackageCycle, selectionPackageNames.c)?.cooling, false);
+
+  // Isolate the saved completion deadlines from delivery cooldowns and verify
+  // that editing A's policy leaves the B and C schedules unchanged.
+  await db.update(opportunityOffers).set({ status: "closed" })
+    .where(eq(opportunityOffers.id, secondReadyPackageOfferId));
+  await db.update(opportunityGenerationAssignments).set({ status: "cancelled" })
+    .where(eq(opportunityGenerationAssignments.offerId, secondReadyPackageOfferId));
+  await db.update(opportunityPopupEvents).set({ eventStatus: "WITHDRAWN", deliveryStatus: "dismissed" })
+    .where(and(eq(opportunityPopupEvents.userId, userId), eq(opportunityPopupEvents.offerId, secondReadyPackageOfferId)));
+  await setPackageDeliveryAt(Object.values(selectionPackageNames), oldPackageDeliveryAt);
+  const completionAt = new Date(Math.floor((Date.now() - 90_000) / 1000) * 1000);
+  for (const fixture of selectionPackages) {
+    const linkedOfferId = fixture.packageName === selectionPackageNames.a ? offerId!
+      : fixture.packageName === selectionPackageNames.b ? firstReadyPackageOfferId : secondReadyPackageOfferId;
+    await db.insert(tradePositions).values({
+      userId,
+      offerId: linkedOfferId,
+      packageSubscriptionId: fixture.subscriptionId,
+      currency,
+      principalMinor: 10_000,
+      expectedRewardMinor: 250,
+      status: "settled",
+      confirmedAt: completionAt,
+      settlesAt: completionAt,
+      settledAt: completionAt,
+      completionAt,
+    });
+  }
+  const timingSnapshot = await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    automaticGenerationEnabled: false,
+    allowAutomaticExecution: false,
+  });
+  const expectedTiming = [
+    { packageName: selectionPackageNames.a, min: 120, max: 240, post: 120 },
+    { packageName: selectionPackageNames.b, min: 300, max: 420, post: 300 },
+    { packageName: selectionPackageNames.c, min: 480, max: 600, post: 480 },
+  ];
+  assert.equal(timingSnapshot.delivery.packageSchedules.length, 3);
+  for (const expected of expectedTiming) {
+    const schedule = scheduleRow(timingSnapshot, expected.packageName);
+    assert.ok(schedule, `The real delivery path must expose ${expected.packageName}'s schedule.`);
+    assert.equal(schedule.minIntervalSeconds, expected.min);
+    assert.equal(schedule.maxIntervalSeconds, expected.max);
+    assert.equal(schedule.postCompletionIntervalSeconds, expected.post);
+    assert.equal(schedule.readyAt?.getTime(), completionAt.getTime() + expected.post * 1000,
+      `${expected.packageName} must use its own settled-trade completion interval.`);
+    assert.equal(schedule.cooling, true);
+  }
+  const scheduleFor = (cycle: typeof timingSnapshot, name: string) => {
+    const row = scheduleRow(cycle, name);
+    return row && { min: row.minIntervalSeconds, max: row.maxIntervalSeconds,
+      post: row.postCompletionIntervalSeconds, cooling: row.cooling, readyAt: row.readyAt?.toISOString() ?? null };
+  };
+  const packageBScheduleBeforeAChange = scheduleFor(timingSnapshot, selectionPackageNames.b);
+  const packageCScheduleBeforeAChange = scheduleFor(timingSnapshot, selectionPackageNames.c);
+  await db.update(opportunityPackagePolicies).set({
+    minIntervalSeconds: 180, maxIntervalSeconds: 360, postCompletionIntervalSeconds: 240,
+  }).where(eq(opportunityPackagePolicies.packageName, selectionPackageNames.a));
+  const afterPackageAChange = await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    automaticGenerationEnabled: false,
+    allowAutomaticExecution: false,
+  });
+  assert.deepEqual(scheduleFor(afterPackageAChange, selectionPackageNames.b), packageBScheduleBeforeAChange,
+    "Changing Package A's saved timing must not alter Package B's delivery or completion schedule.");
+  assert.deepEqual(scheduleFor(afterPackageAChange, selectionPackageNames.c), packageCScheduleBeforeAChange,
+    "Changing Package A's saved timing must not alter Package C's delivery or completion schedule.");
+  assert.equal(scheduleFor(afterPackageAChange, selectionPackageNames.a)?.readyAt,
+    new Date(completionAt.getTime() + 240_000).toISOString(),
+    "Package A's own saved post-completion interval must control its revised deadline.");
+
   // Remove unrelated delivery cooldown as a competing gate so the next open
   // opportunity is eligible unless the global policy under test blocks it.
   await db.update(opportunityPackagePolicies).set({
@@ -987,7 +1218,7 @@ const balanceBefore = await db.select({
           await rawConnection.query(`DROP TRIGGER IF EXISTS ${rollbackTriggerName}`);
           rollbackTriggerName = undefined;
         }
-        for (const fixtureOfferId of [offerId, blockedOfferId, rollbackRetryOfferId, concurrentOfferId, quotaSelectionOfferId, capacitySelectionOfferId, insufficientRetryOfferId]) {
+        for (const fixtureOfferId of [offerId, blockedOfferId, rollbackRetryOfferId, concurrentOfferId, quotaSelectionOfferId, capacitySelectionOfferId, insufficientRetryOfferId, ...packageSelectionOfferIds]) {
           if (userId !== undefined && fixtureOfferId !== undefined) {
             await db.delete(opportunityGenerationAssignments).where(eq(opportunityGenerationAssignments.offerId, fixtureOfferId));
             await db.delete(opportunityDeliveryIdempotency).where(and(
@@ -1015,6 +1246,10 @@ const balanceBefore = await db.select({
           if (secondPackageId !== undefined) {
             await db.delete(appSettings).where(eq(appSettings.settingKey, `trading.companyRotation.${userId}.${secondPackageId}`));
           }
+          if (thirdPackageId !== undefined) {
+            await db.delete(appSettings).where(eq(appSettings.settingKey, `trading.companyRotation.${userId}.${thirdPackageId}`));
+          }
+          await db.delete(tradePositions).where(eq(tradePositions.userId, userId));
           await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.userId, userId));
           await db.delete(customerBalances).where(eq(customerBalances.userId, userId));
           await db.delete(users).where(eq(users.id, userId));
@@ -1026,6 +1261,10 @@ const balanceBefore = await db.select({
         if (secondPackageId !== undefined) {
           await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName + "Plus"));
           await db.delete(packages).where(eq(packages.id, secondPackageId));
+        }
+        if (thirdPackageId !== undefined) {
+          await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName + "SelectC"));
+          await db.delete(packages).where(eq(packages.id, thirdPackageId));
         }
         await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName));
         if (packageId !== undefined) {

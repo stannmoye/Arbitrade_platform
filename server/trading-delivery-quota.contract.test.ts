@@ -93,4 +93,30 @@ describe("server-owned delivery cadence and completion timing", () => {
     expect(delivery).toContain("Math.max(...readyDeadlines.map(value=>value.getTime()))");
     expect(delivery).not.toContain("lastDelivery.deliveredAt).getTime()+Number(policy?.postCompletionIntervalSeconds");
   });
+
+  it("resolves delivery and completion timing independently for every subscribed package", () => {
+    expect(delivery).toContain("const packageNames=[...new Set(eligibleSubscriptions.map(subscription=>String(subscription.packageName)))]");
+    expect(delivery).toContain("const lastDeliveryByPackage=new Map");
+    expect(delivery).toContain("const lastCompletedTradeByPackage=new Map");
+    expect(delivery).toContain("const packageSchedules=new Map");
+    expect(delivery).toContain("packageSchedules.get(String(candidate.packageName))?.cooling===true");
+    expect(delivery).toContain("minIntervalSeconds:Math.max(0,Number(packagePolicy?.minIntervalSeconds||0))");
+    expect(delivery).toContain("postCompletionIntervalSeconds||0");
+  });
+
+  it("skips a cooling package during candidate selection instead of blocking ready packages", () => {
+    const candidateLoop = delivery.indexOf("for(const candidate of eligibleSubscriptions)");
+    const selectedAssignment = delivery.indexOf("selected={subscription:candidate", candidateLoop);
+    const coolingCheck = delivery.indexOf("packageSchedules.get(String(candidate.packageName))?.cooling===true", candidateLoop);
+    expect(candidateLoop).toBeGreaterThanOrEqual(0);
+    expect(coolingCheck).toBeGreaterThan(candidateLoop);
+    expect(coolingCheck).toBeLessThan(selectedAssignment);
+    expect(delivery).not.toContain("if(packageSchedules.get(String(subscription.packageName))?.cooling===true) continue");
+  });
+  it("allows ready-package generation when another assigned package is cooling", () => {
+    expect(delivery).toContain("packageNames.length>0&&packageNames.every(packageName=>packageSchedules.get(packageName)?.cooling===true");
+    expect(delivery).toContain("eligibleSubscriptions.filter(subscription=>packageSchedules.get(String(subscription.packageName))?.cooling!==true)");
+    expect(delivery).toContain("const assignedPackageCooling=Boolean(assignedSubscription&&packageSchedules.get(String(assignedSubscription.packageName))?.cooling===true)");
+    expect(delivery).toContain("!assignedPackageCooling&&[\"generated\",\"delivered\"].includes(assignmentStatus)");
+  });
 });
