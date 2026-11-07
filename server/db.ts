@@ -3454,6 +3454,10 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       minimumTradeDurationSeconds:selectedPolicy.minimumTradeDurationSeconds==null?null:Number(selectedPolicy.minimumTradeDurationSeconds),
       maximumTradeDurationSeconds:selectedPolicy.maximumTradeDurationSeconds==null?null:Number(selectedPolicy.maximumTradeDurationSeconds),
     });
+    const configuredMinimumDuration=Number(selectedPolicy.minimumTradeDurationSeconds);
+    const configuredMaximumDuration=Number(selectedPolicy.maximumTradeDurationSeconds);
+    if(!Number.isSafeInteger(terms.tradeDurationSeconds)||terms.tradeDurationSeconds<configuredMinimumDuration||terms.tradeDurationSeconds>configuredMaximumDuration)
+      throw new Error(`Selected opportunity duration is outside the saved tier range for ${selectedPolicy.packageName}`);
     const minimumMinor=packageMinimum;
     const completionDisplaySeconds=Number(selectedPolicy.completionDisplaySeconds??8);
     if(!Number.isSafeInteger(completionDisplaySeconds)||completionDisplaySeconds<1||completionDisplaySeconds>3600) throw new Error(`Completion display delay is invalid for ${selectedPolicy.packageName}`);
@@ -3462,6 +3466,8 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     // The popup expiry adds only the configured short post-completion display grace period.
     const closesAt=new Date(rewardAt.getTime()+completionDisplaySeconds*1000);
     const displaySeconds=terms.tradeDurationSeconds+completionDisplaySeconds;
+    if(!Number.isSafeInteger(displaySeconds)||displaySeconds<=terms.tradeDurationSeconds||closesAt.getTime()!==input.now.getTime()+displaySeconds*1000)
+      throw new Error(`Generated opportunity timing is inconsistent for ${selectedPolicy.packageName}`);
     const companyMetadata={
       rotationStateVersion:1,rotationCycle,rotationSequence,poolFingerprint,
       repeatPolicy:selectedPolicy.companyRotationRepeatPolicy,
@@ -4886,6 +4892,16 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   if(!packagePolicy||!hasConfiguredTradingOfferPolicy(packagePolicy)) throw new Error("The selected tier has no complete saved Trading policy");
   if(effectiveRateBps<Number(packagePolicy.minimumPayoutRateBps)||effectiveRateBps>Number(packagePolicy.maximumPayoutRateBps)) throw new Error("Saved pop-up return rate is outside the tier's configured range");
   if(effectiveDurationSeconds<Number(packagePolicy.minimumTradeDurationSeconds)||effectiveDurationSeconds>Number(packagePolicy.maximumTradeDurationSeconds)) throw new Error("Saved pop-up duration is outside the tier's configured range");
+  if(input.deliveryEventId!==undefined){
+    const configuredPopupDisplaySeconds=Number(popupSnapshot?.configuredPopupDisplaySeconds||0);
+    const completionDisplaySeconds=configuredPopupDisplaySeconds-effectiveDurationSeconds;
+    const rewardAtMs=new Date(offer.rewardAt).getTime();
+    const closesAtMs=new Date(offer.closesAt).getTime();
+    if(!Number.isSafeInteger(configuredPopupDisplaySeconds)||configuredPopupDisplaySeconds<=effectiveDurationSeconds||
+      !Number.isSafeInteger(completionDisplaySeconds)||completionDisplaySeconds<1||completionDisplaySeconds>3600||
+      !Number.isFinite(rewardAtMs)||!Number.isFinite(closesAtMs)||closesAtMs!==rewardAtMs+completionDisplaySeconds*1000)
+      throw new Error("Saved pop-up timing does not match the selected trade duration");
+  }
   if(Number(packagePolicy.minimumRewardBps||0)>effectiveRateBps) throw new Error("Selected return rate is below the tier's minimum eligible reward rate");
   const uncappedReward=calculateConfiguredProfitMinor(input.amountMinor,effectiveRateBps);
   const reward=Number(packagePolicy.maxRewardPerTradeMinor||0)>0?Math.min(uncappedReward,Number(packagePolicy.maxRewardPerTradeMinor)):uncappedReward;
