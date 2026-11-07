@@ -123,6 +123,39 @@ describe("Durable Trading delivery cadence", () => {
     expect(() => resolveTradingDeliverySchedule({ ...base, maxIntervalSeconds: 299 })).toThrow(RangeError);
     expect(() => resolveTradingDeliverySchedule({ ...base, deliveryEventId: 0 })).toThrow(RangeError);
   });
+
+  it("keeps Package A, B, and C schedules independent and uses each saved bound", () => {
+    const savedPackages = [
+      { name: "Package A", min: 120, max: 240, eventId: 101, deliveredAt: new Date("2026-10-31T10:00:00.000Z") },
+      { name: "Package B", min: 300, max: 420, eventId: 202, deliveredAt: new Date("2026-10-31T10:01:00.000Z") },
+      { name: "Package C", min: 480, max: 600, eventId: 303, deliveredAt: new Date("2026-10-31T10:02:00.000Z") },
+    ];
+    const resolveSaved = (pkg: typeof savedPackages[number]) => resolveTradingDeliverySchedule({
+      lastDeliveredAt: pkg.deliveredAt,
+      deliveryEventId: pkg.eventId,
+      userId: base.userId,
+      policyVersion: base.policyVersion,
+      minIntervalSeconds: pkg.min,
+      maxIntervalSeconds: pkg.max,
+      randomizationEnabled: true,
+    });
+    const schedules = savedPackages.map((pkg) => ({ name: pkg.name, schedule: resolveSaved(pkg) }));
+    expect(schedules.map(({ name }) => name)).toEqual(["Package A", "Package B", "Package C"]);
+    expect(schedules[0].schedule.intervalSeconds).toBeGreaterThanOrEqual(120);
+    expect(schedules[0].schedule.intervalSeconds).toBeLessThanOrEqual(240);
+    expect(schedules[1].schedule.intervalSeconds).toBeGreaterThanOrEqual(300);
+    expect(schedules[1].schedule.intervalSeconds).toBeLessThanOrEqual(420);
+    expect(schedules[2].schedule.intervalSeconds).toBeGreaterThanOrEqual(480);
+    expect(schedules[2].schedule.intervalSeconds).toBeLessThanOrEqual(600);
+
+    const packageB = resolveSaved(savedPackages[1]);
+    const schedulesAfterPackageAChanges = [
+      resolveSaved({ ...savedPackages[0], deliveredAt: new Date("2026-10-31T11:00:00.000Z"), eventId: 999 }),
+      resolveSaved(savedPackages[1]),
+      resolveSaved(savedPackages[2]),
+    ];
+    expect(schedulesAfterPackageAChanges[1]).toEqual(packageB);
+  });
 });
 
 
