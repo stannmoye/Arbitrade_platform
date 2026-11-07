@@ -390,6 +390,7 @@ These controls define how new customers are screened and onboarded. Country-spec
 | **Fees & Earnings Limits** | Review the legacy global fee record and configured earnings ceilings. This route is read-only; the sole active package-specific fee editor is under Tiers & Eligibility. |
 | **Retries & Carry-Forward** | Configure bounded retry limits and review recovery behaviour. Carry-forward across daily windows is not currently enabled. |
 | **Active & Pending Opportunities** | Review opportunity delivery and lifecycle records waiting for customer or system action. |
+| **Opportunity Usage Reset** | Reset one customer’s or all customers’ opportunity usage and delivery cooldown with a required reason, typed confirmation and transactional audit record. Eligible untraded opportunities are withdrawn; linked/in-flight trades, wallets, ledger entries, packages, subscriptions and trade history are preserved. |
 | **Manual Payouts** | The sole Trade Settings route for listing payout requests and recording the existing administrator paid/rejected resolution. Any external bank or blockchain transfer occurs outside Arbitrade; this page does not initiate one. |
 | **Settlement & Reconciliation** | Confirm trade outcomes and review/reconcile trade settlement records only. Payout requests are handled on Manual Payouts. |
 | **Trading History** | Inspect bounded, read-only windows of persisted trade lifecycle and confirmed-result evidence. It does not confirm results or change trade/ledger records. |

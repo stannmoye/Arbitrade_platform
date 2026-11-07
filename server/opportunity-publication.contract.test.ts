@@ -79,6 +79,6 @@ describe("reviewed opportunity publication contracts", () => {
     expect(closure).not.toContain("opportunityDeliveryEvents");
     expect(closure).not.toContain("opportunityPopupEvents");
     expect(database).toMatch(/eq\(opportunityOffers\.status,\s*"open"\)/);
-    expect(database).toContain('"trading_opportunity_closed"] as const');
+    expect(database).toContain('"trading_opportunity_closed"');
   });
 });

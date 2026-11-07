@@ -62,6 +62,23 @@ describe("Trade Settings ownership registry contract", () => {
     }
   });
 
+  it("registers opportunity usage reset as one guarded, audited operational owner", () => {
+    const resetOwner = tradeSettingsOwnershipRegistry.find((entry) => entry.key === "trade.opportunityUsage.reset");
+    expect(resetOwner).toMatchObject({
+      scope: "record",
+      ownerRoute: "trade-opportunity-usage-reset",
+      saveMutation: "adminOperations.resetOpportunityUsage",
+      readQuery: "adminOperations.customers",
+      risk: "high",
+      availability: "available",
+    });
+    expect(resetOwner?.validation).toContain("RESET ALL");
+    expect(resetOwner?.auditRequirement).toContain("Trade Audit & Policy History");
+    expect(resetOwner?.customerImpact).toContain("Wallet, ledger, packages, subscriptions and trade positions are preserved");
+    expect(operationsPagesSource).toContain("confirmAllCustomers: true");
+    expect(operationsPagesSource).toContain('scope === "all" ? "RESET ALL" : "RESET"');
+  });
+
   it("requires complete scope, explanation, validation, read/write, audit, effect and availability metadata", () => {
     for (const entry of tradeSettingsOwnershipRegistry) {
       for (const field of [
