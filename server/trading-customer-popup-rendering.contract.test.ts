@@ -6,6 +6,7 @@ const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf
 const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const eligibility = readFileSync(new URL("../client/src/customer-popup-eligibility.ts", import.meta.url), "utf8");
 const stylesheet = readFileSync(new URL("../client/src/trading-experience.css", import.meta.url), "utf8");
+const stage2Browser = readFileSync(new URL("../scripts/stage2-browser-acceptance.cjs", import.meta.url), "utf8");
 const start = app.indexOf("function CustomerOpportunityAlert(");
 const end = app.indexOf("\nfunction CustomerDashboard(", start);
 const component = app.slice(start, end);
@@ -121,6 +122,15 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain("Network errors");
     expect(component).toContain("are ambiguous (the server may have committed before the response vanished)");
     expect(component).not.toContain('status:"failed"');
+  });
+
+  it("uses a claimed dispatch with a valid lease in the real-browser acknowledgement fixture", () => {
+    const fixtureStart = stage2Browser.indexOf("const offer = {", stage2Browser.indexOf("async function runCustomerOpportunityPopupInteractionCheck"));
+    const fixtureEnd = stage2Browser.indexOf("\n  };", fixtureStart);
+    const fixture = stage2Browser.slice(fixtureStart, fixtureEnd);
+    expect(fixture).toContain('deliveryStatus: "in_progress"');
+    expect(fixture).toMatch(/deliveryLeaseToken: "[0-9a-f-]{36}"/);
+    expect(fixture).not.toContain('deliveryStatus: "delivered"');
   });
 
   it("uses the server clock and persisted offer expiry for a live opportunity countdown", () => {
