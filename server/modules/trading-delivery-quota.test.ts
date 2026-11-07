@@ -149,12 +149,16 @@ describe("Durable Trading delivery cadence", () => {
     expect(schedules[2].schedule.intervalSeconds).toBeLessThanOrEqual(600);
 
     const packageB = resolveSaved(savedPackages[1]);
+    const packageC = resolveSaved(savedPackages[2]);
     const schedulesAfterPackageAChanges = [
-      resolveSaved({ ...savedPackages[0], deliveredAt: new Date("2026-10-31T11:00:00.000Z"), eventId: 999 }),
+      resolveSaved({ ...savedPackages[0], min: 180, max: 360, deliveredAt: new Date("2026-10-31T11:00:00.000Z"), eventId: 999 }),
       resolveSaved(savedPackages[1]),
       resolveSaved(savedPackages[2]),
     ];
+    expect(schedulesAfterPackageAChanges[0].intervalSeconds).toBeGreaterThanOrEqual(180);
+    expect(schedulesAfterPackageAChanges[0].intervalSeconds).toBeLessThanOrEqual(360);
     expect(schedulesAfterPackageAChanges[1]).toEqual(packageB);
+    expect(schedulesAfterPackageAChanges[2]).toEqual(packageC);
   });
 });
 

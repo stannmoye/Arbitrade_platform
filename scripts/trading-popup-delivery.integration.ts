@@ -37,7 +37,8 @@ assert.ok(migratedExecutionPolicies.every(row => row.automaticTradingEnabled ===
 const token = crypto.randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase();
 const userEmail = `popup-delivery-${token.toLowerCase()}@example.invalid`;
 const currency = `P${token.slice(0, 7)}`;
-const packageName = `Popup QA ${token}`;
+const packageNames = { a: `Popup QA A ${token}`, b: `Popup QA B ${token}`, c: `Popup QA C ${token}` };
+const packageName = packageNames.a;
 const now = new Date();
 const quotaDay = now.toISOString().slice(0, 10);
 let userId: number | undefined;
@@ -45,6 +46,9 @@ let packageId: number | undefined;
 let subscriptionId: number | undefined;
 let offerId: number | undefined;
 let blockedOfferId: number | undefined;
+const packageIds: number[] = [];
+const packageSubscriptionIds = new Map<string, number>();
+const packageSelectionOfferIds: number[] = [];
 let currencyInserted = false;
 let originalGlobalControlRow: { settingValue: string; updatedBy: number | null; updatedAt: Date } | null = null;
 let currentTestGlobalPolicy: TradeGlobalControlPolicy | null = null;
@@ -139,6 +143,7 @@ try {
     enabled: true,
   });
   packageId = Number(packageResult.insertId);
+  packageIds.push(packageId);
 
   await db.insert(opportunityPackagePolicies).values({
     packageName,
@@ -184,6 +189,68 @@ try {
     packageTermsVersion: 1,
   });
   subscriptionId = Number(subscriptionResult.insertId);
+  packageSubscriptionIds.set(packageName, subscriptionId);
+
+  const additionalPackages = [
+    { name: packageNames.b, minIntervalSeconds: 300, maxIntervalSeconds: 420, postCompletionIntervalSeconds: 300 },
+    { name: packageNames.c, minIntervalSeconds: 480, maxIntervalSeconds: 600, postCompletionIntervalSeconds: 480 },
+  ];
+  for (const [index, packageFixture] of additionalPackages.entries()) {
+    const [createdPackage] = await db.insert(packages).values({
+      name: packageFixture.name,
+      minimumQualifyingBalanceUsdMinor: 10000,
+      durationMonths: 1,
+      opportunitiesPerDay: 6,
+      termsVersion: 1,
+      maxPopupsPerDay: 0,
+      maxActiveInvestments: 0,
+      enabled: true,
+    });
+    const createdPackageId = Number(createdPackage.insertId);
+    packageIds.push(createdPackageId);
+    await db.insert(opportunityPackagePolicies).values({
+      packageName: packageFixture.name,
+      minimumPayoutRateBps: 200,
+      maximumPayoutRateBps: 300,
+      minimumTradeDurationSeconds: 300,
+      maximumTradeDurationSeconds: 600,
+      companyRotationEnabled: true,
+      maxPopupsPerDay: 10,
+      maxVisibleOffers: 5,
+      minimumTradeUnits: 100,
+      maximumTradeUnits: 1000,
+      burstEnabled: true,
+      maxBurstSize: 3,
+      enabled: true,
+      automaticDelivery: true,
+      automaticTradingEnabled: false,
+      dailyPopupTarget: 0,
+      schedulingPeriod: "rolling_24h",
+      minIntervalSeconds: packageFixture.minIntervalSeconds,
+      maxIntervalSeconds: packageFixture.maxIntervalSeconds,
+      randomizationEnabled: true,
+      popupDisplayTargetSeconds: 120,
+      completionDisplaySeconds: 8,
+      postCompletionIntervalSeconds: packageFixture.postCompletionIntervalSeconds,
+      maxPendingDeliveries: 3,
+      maxDeliveryAttempts: 3,
+      requirePreviousSettlement: true,
+      minSettlementDelaySeconds: 900,
+      maxSettlementDelaySeconds: 900,
+    });
+    const [createdSubscription] = await db.insert(customerPackageSubscriptions).values({
+      userId,
+      packageId: createdPackageId,
+      startsAt: new Date(Date.now() - 60_000),
+      expiresAt: new Date(Date.now() + 86_400_000 + (index + 1) * 1_000),
+      status: "active",
+      activationKey: `auto-tier:popup-delivery-${token}-${packageFixture.name.slice(-1)}`,
+      termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 6, maxPopupsPerDay: 0 }),
+      qualifyingBalanceUsdMinor: 10000,
+      packageTermsVersion: 1,
+    });
+    packageSubscriptionIds.set(packageFixture.name, Number(createdSubscription.insertId));
+  }
 
   await db.insert(customerBalances).values({
     userId,
@@ -328,13 +395,145 @@ try {
     .where(eq(tradePositions.userId, userId))).length, 0,
     "Informational popup delivery must not create financial trade records.");
 
+  // Exercise the production package-selection loop with separate subscribed
+  // packages. The initial real delivery cooled Package A; B and C have not yet
+  // received an opportunity and are ready in subscription order.
+  await db.update(opportunityPackagePolicies).set({
+    minIntervalSeconds: 120,
+    maxIntervalSeconds: 240,
+    postCompletionIntervalSeconds: 120,
+  }).where(eq(opportunityPackagePolicies.packageName, packageNames.a));
+  const createSelectionOffer = async (symbolPrefix: string) => {
+    const [result] = await db.insert(opportunityOffers).values({
+      symbol: `${symbolPrefix}-${token.slice(0, 5)}`,
+      venueFrom: "reviewed-integration-source",
+      venueTo: "reviewed-integration-destination",
+      currency,
+      minimumMinor: 10_000,
+      expectedRewardBps: 250,
+      durationSeconds: 600,
+      opensAt: new Date(Date.now() - 1_000),
+      closesAt: new Date(Date.now() + 10 * 60_000),
+      rewardAt: new Date(Date.now() + 10 * 60_000),
+      status: "open",
+    });
+    const id = Number(result.insertId);
+    packageSelectionOfferIds.push(id);
+    return id;
+  };
+  const packageBOfferId = await createSelectionOffer("SELECT-B");
+  const packageBCycle = await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    allowAutomaticExecution: false,
+  });
+  assert.equal(packageBCycle.offers.find(offer => Number(offer.offerId) === packageBOfferId)?.packageName, packageNames.b,
+    "The actual selector must skip cooling Package A and persist the opportunity to ready Package B.");
+  assert.equal(Number(packageBCycle.offers.find(offer => Number(offer.offerId) === packageBOfferId)?.packageId), packageIds[1]);
+
+  const packageCOfferId = await createSelectionOffer("SELECT-C");
+  const packageCCycle = await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    allowAutomaticExecution: false,
+  });
+  assert.equal(packageCCycle.offers.find(offer => Number(offer.offerId) === packageCOfferId)?.packageName, packageNames.c,
+    "When Packages A and B are cooling, the actual selector must skip both and deliver to ready Package C.");
+  assert.equal(Number(packageCCycle.offers.find(offer => Number(offer.offerId) === packageCOfferId)?.packageId), packageIds[2]);
+
+  // Isolate completed-trade cooldowns from delivery cooldowns: all three
+  // packages have real delivery history, moved safely outside the test window,
+  // while their package-specific settled-trade completion timestamps remain.
+  const oldDeliveryAt = new Date(Math.floor((Date.now() - 60 * 60_000) / 1000) * 1000);
+  const completionAt = new Date(Math.floor((Date.now() - 90_000) / 1000) * 1000);
+  const completedPackageDeliveries = [
+    { packageName: packageNames.a, offerId: offerId!, packageSubscriptionId: packageSubscriptionIds.get(packageNames.a)! },
+    { packageName: packageNames.b, offerId: packageBOfferId, packageSubscriptionId: packageSubscriptionIds.get(packageNames.b)! },
+    { packageName: packageNames.c, offerId: packageCOfferId, packageSubscriptionId: packageSubscriptionIds.get(packageNames.c)! },
+  ];
+  for (const fixture of completedPackageDeliveries) {
+    await db.update(opportunityDeliveryEvents).set({ deliveredAt: oldDeliveryAt }).where(and(
+      eq(opportunityDeliveryEvents.userId, userId),
+      eq(opportunityDeliveryEvents.offerId, fixture.offerId),
+    ));
+    await db.update(opportunityPopupEvents).set({ deliveredAt: oldDeliveryAt }).where(and(
+      eq(opportunityPopupEvents.userId, userId),
+      eq(opportunityPopupEvents.offerId, fixture.offerId),
+    ));
+    await db.insert(tradePositions).values({
+      userId,
+      offerId: fixture.offerId,
+      packageSubscriptionId: fixture.packageSubscriptionId,
+      currency,
+      principalMinor: 10_000,
+      expectedRewardMinor: 250,
+      status: "settled",
+      confirmedAt: completionAt,
+      settlesAt: completionAt,
+      settledAt: completionAt,
+      completionAt,
+    });
+  }
+  const timingSnapshot = await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    allowAutomaticExecution: false,
+  });
+  const expectedPackageTiming = [
+    { packageName: packageNames.a, minIntervalSeconds: 120, maxIntervalSeconds: 240, postCompletionIntervalSeconds: 120 },
+    { packageName: packageNames.b, minIntervalSeconds: 300, maxIntervalSeconds: 420, postCompletionIntervalSeconds: 300 },
+    { packageName: packageNames.c, minIntervalSeconds: 480, maxIntervalSeconds: 600, postCompletionIntervalSeconds: 480 },
+  ];
+  assert.equal(timingSnapshot.delivery.packageSchedules.length, 3);
+  for (const expected of expectedPackageTiming) {
+    const schedule = timingSnapshot.delivery.packageSchedules.find((row: any) => row.packageName === expected.packageName);
+    assert.ok(schedule, `The real delivery path must expose ${expected.packageName}'s independent schedule.`);
+    assert.equal(schedule.minIntervalSeconds, expected.minIntervalSeconds);
+    assert.equal(schedule.maxIntervalSeconds, expected.maxIntervalSeconds);
+    assert.equal(schedule.postCompletionIntervalSeconds, expected.postCompletionIntervalSeconds);
+    assert.equal(schedule.readyAt?.getTime(), completionAt.getTime() + expected.postCompletionIntervalSeconds * 1_000,
+      `${expected.packageName}'s most recent settled-trade completion must use its own post-completion interval.`);
+    assert.equal(schedule.cooling, true);
+  }
+  const scheduleFor = (result: typeof timingSnapshot, name: string) => {
+    const row = result.delivery.packageSchedules.find((item: any) => item.packageName === name);
+    return row && {
+      minIntervalSeconds: row.minIntervalSeconds,
+      maxIntervalSeconds: row.maxIntervalSeconds,
+      postCompletionIntervalSeconds: row.postCompletionIntervalSeconds,
+      cooling: row.cooling,
+      readyAt: row.readyAt?.toISOString() ?? null,
+    };
+  };
+  const packageBScheduleBeforeAChange = scheduleFor(timingSnapshot, packageNames.b);
+  const packageCScheduleBeforeAChange = scheduleFor(timingSnapshot, packageNames.c);
+  await db.update(opportunityPackagePolicies).set({
+    minIntervalSeconds: 180,
+    maxIntervalSeconds: 360,
+    postCompletionIntervalSeconds: 240,
+  }).where(eq(opportunityPackagePolicies.packageName, packageNames.a));
+  const afterPackageAChange = await listCustomerOpportunities(userId, {
+    workerCycle: true,
+    consumeDelivery: false,
+    allowAutomaticExecution: false,
+  });
+  assert.deepEqual(scheduleFor(afterPackageAChange, packageNames.b), packageBScheduleBeforeAChange,
+    "Changing Package A's saved timing must not alter Package B's delivery or completion schedule.");
+  assert.deepEqual(scheduleFor(afterPackageAChange, packageNames.c), packageCScheduleBeforeAChange,
+    "Changing Package A's saved timing must not alter Package C's delivery or completion schedule.");
+  assert.equal(scheduleFor(afterPackageAChange, packageNames.a)?.readyAt,
+    new Date(completionAt.getTime() + 240_000).toISOString(),
+    "After changing Package A, its own saved post-completion interval must control its deadline.");
+
   // Remove unrelated delivery cooldown as a competing gate so the next open
   // opportunity is eligible unless the global policy under test blocks it.
-  await db.update(opportunityPackagePolicies).set({
-    minIntervalSeconds: 0,
-    maxIntervalSeconds: 0,
-    postCompletionIntervalSeconds: 0,
-  }).where(eq(opportunityPackagePolicies.packageName, packageName));
+  for (const fixturePackageName of Object.values(packageNames)) {
+    await db.update(opportunityPackagePolicies).set({
+      minIntervalSeconds: 0,
+      maxIntervalSeconds: 0,
+      postCompletionIntervalSeconds: 0,
+    }).where(eq(opportunityPackagePolicies.packageName, fixturePackageName));
+  }
   const [blockedOfferResult] = await db.insert(opportunityOffers).values({
     symbol: `BLOCKED-${token.slice(0, 5)}`,
     venueFrom: "reviewed-integration-source",
@@ -414,14 +613,16 @@ try {
     globalOffAndFailClosedStates: ["popup-delivery-off", "tier-policy-off", "malformed-policy", "missing-policy"],
     automaticFinancialExecution: "disabled",
     walletAndLedgerMutations: 0,
-    tradeRowsCreated: 0,
+    tradeRowsCreatedByDelivery: 0,
+    packageCoolingScenarios: ["A-cooling-B-ready-to-B", "A-and-B-cooling-C-ready-to-C"],
+    packageSpecificSettledTradeTimingVerified: 3,
   }));
 } finally {
   try {
     await restoreOriginalGlobalPolicy();
   } finally {
     try {
-      for (const fixtureOfferId of [offerId, blockedOfferId]) {
+      for (const fixtureOfferId of [offerId, ...packageSelectionOfferIds, blockedOfferId]) {
         if (userId !== undefined && fixtureOfferId !== undefined) {
           await db.delete(opportunityDeliveryIdempotency).where(and(
             eq(opportunityDeliveryIdempotency.userId, userId),
@@ -439,12 +640,17 @@ try {
         if (fixtureOfferId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, fixtureOfferId));
       }
       if (userId !== undefined) {
+        await db.delete(tradePositions).where(eq(tradePositions.userId, userId));
         await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.userId, userId));
         await db.delete(customerBalances).where(eq(customerBalances.userId, userId));
         await db.delete(users).where(eq(users.id, userId));
       }
-      await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName));
-      if (packageId !== undefined) await db.delete(packages).where(eq(packages.id, packageId));
+      for (const fixturePackageName of Object.values(packageNames)) {
+        await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, fixturePackageName));
+      }
+      for (const fixturePackageId of packageIds) {
+        await db.delete(packages).where(eq(packages.id, fixturePackageId));
+      }
       if (currencyInserted) await db.delete(currencyRegistry).where(eq(currencyRegistry.code, currency));
     } finally {
       await closeDbPool();
