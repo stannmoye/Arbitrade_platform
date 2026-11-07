@@ -606,7 +606,8 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   const availableMinor=Number(popup.balanceAvailableMinor);
   const requiredMoney=formatMinor(requiredMinor);
   const availableMoney=formatMinor(availableMinor);
-  const shortfallMoney=formatMinor(Number.isSafeInteger(requiredMinor)&&Number.isSafeInteger(availableMinor)?Math.max(0,requiredMinor-availableMinor):Number.NaN);
+  const shortfallMinor=Number(popup.shortfallMinor);
+  const shortfallMoney=formatMinor(shortfallMinor);
   const balanceStatus=String(popup.balanceStatus||"unknown").toLowerCase();
   const insufficientBalance=balanceStatus==="insufficient";
   const sufficientBalance=balanceStatus==="sufficient";

@@ -83,6 +83,8 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain("Available balance");
     expect(component).toContain("Shortfall");
     expect(component).toContain("balanceAvailableMinor");
+    expect(component).toContain("const shortfallMinor=Number(popup.shortfallMinor)");
+    expect(component).not.toContain("Math.max(0,requiredMinor-availableMinor)");
     expect(component).toContain("No funds were moved.");
     expect(component).toContain("It does not execute a trade, allocate capital, or change a wallet balance.");
     expect(component).not.toContain("AUTOMATED OPPORTUNITY");

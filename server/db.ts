@@ -3989,6 +3989,17 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
   }
   return {executed,missed:await listMissedOpportunities(userId)};
 }
+function projectPopupBalance(minimumMinorValue:unknown, availableMinorValue:unknown, reportedStatus:unknown){
+  const minimumMinor=Number(minimumMinorValue);
+  const availableMinor=Number(availableMinorValue);
+  const status=String(reportedStatus||"unknown").toLowerCase();
+  if(status==="unknown"||!Number.isSafeInteger(minimumMinor)||minimumMinor<0||!Number.isSafeInteger(availableMinor)||availableMinor<0){
+    return {availableMinor:Number.isSafeInteger(availableMinor)&&availableMinor>=0?availableMinor:0,balanceStatus:"unknown" as const,shortfallMinor:0};
+  }
+  const balanceStatus=availableMinor>=minimumMinor?"sufficient" as const:"insufficient" as const;
+  return {availableMinor,balanceStatus,shortfallMinor:balanceStatus==="insufficient"?minimumMinor-availableMinor:0};
+}
+
 export async function listCustomerOpportunities(userId:number, options:{consumeDelivery?:boolean;workerCycle?:boolean;allowAutomaticExecution?:boolean;generationBatchId?:string;automaticGenerationEnabled?:boolean}={}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const globalPolicy=await getTradeGlobalControls();
@@ -4331,13 +4342,13 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
             return {currency:code,scale:Number(config?.scale??2),availableMinor:Number(wallet.availableMinor||0),rate:rates.get(code)||null};
           }),
         });
-        return {availableMinor,balanceStatus:availableMinor>=Number(offer.minimumMinor)?"sufficient" as const:"insufficient" as const};
-      }catch{return {availableMinor:0,balanceStatus:"unknown" as const};}
+        return {availableMinor,balanceStatus:availableMinor>=Number(offer.minimumMinor)?"sufficient" as const:"insufficient" as const,shortfallMinor:Math.max(0,Number(offer.minimumMinor)-availableMinor)};
+      }catch{return {availableMinor:0,balanceStatus:"unknown" as const,shortfallMinor:0};}
     }));
     // Persist the visible popup first. Only write the quota-consumption ledger after
     // every popup row is confirmed; an insert failure must not consume a quota slot.
     const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map((offer,index)=>{
-      const balance=combinedBalanceSnapshots[index]||{availableMinor:0,balanceStatus:"unknown" as const};
+      const balance=combinedBalanceSnapshots[index]||{availableMinor:0,balanceStatus:"unknown" as const,shortfallMinor:0};
       return {userId,offerId:offer.id,quotaDay,packageId:Number(offer.packageId),packageName:offer.packageName,maxPendingDeliveries:Math.max(0,Number(policyByName.get(normalizeTradingPackagePolicyKey(offer.packageName))?.maxPendingDeliveries??0)),symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
         expectedRewardBps:Number(offer.expectedRewardBps),configuredProfitRateBps:Number(offer.configuredProfitRateBps),
         configuredDurationSeconds:Number(offer.configuredDurationSeconds),configuredPopupDisplaySeconds:Number(offer.configuredPopupDisplaySeconds),
@@ -4439,9 +4450,11 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   let enrichedOffers=popupRows.map(row=>{
     const base:any=tradeCandidates.find(offer=>Number(offer.offerId)===Number(row.offerId))||{};
     const executed=executedByOffer.get(Number(row.offerId))||null;
+    const popupBalance=projectPopupBalance(row.popupMinimumMinor,row.balanceAvailableMinor,row.balanceStatus);
     return {...base,id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageId:Number(row.packageId||0),packageName:row.packageName,
-      symbol:row.symbol,currency:row.currency,minimumMinor:Number(row.popupMinimumMinor),balanceAvailableMinor:Number(row.balanceAvailableMinor),
-      balanceStatus:row.balanceStatus,expectedRewardBps:Number(row.expectedRewardBps),eventStatus:row.eventStatus,deliveredAt:row.deliveredAt,
+      symbol:row.symbol,currency:row.currency,minimumMinor:Number(row.popupMinimumMinor),
+      balanceAvailableMinor:popupBalance.availableMinor,balanceStatus:popupBalance.balanceStatus,shortfallMinor:popupBalance.shortfallMinor,
+      expectedRewardBps:Number(row.expectedRewardBps),eventStatus:row.eventStatus,deliveredAt:row.deliveredAt,
       venueFrom:row.venueFrom||base.venueFrom||"",venueTo:row.venueTo||base.venueTo||"",opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,
       durationSeconds:Number(row.popupDurationSeconds??row.durationSeconds??base.durationSeconds??0),
       configuredProfitRateBps:Number(row.configuredProfitRateBps||row.expectedRewardBps||0),configuredDurationSeconds:Number(row.configuredDurationSeconds||row.popupDurationSeconds||row.durationSeconds||base.durationSeconds||0),

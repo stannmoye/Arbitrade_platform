@@ -27,6 +27,10 @@ describe("insufficient-balance opportunity handling", () => {
     expect(implementation).toContain("calculateCombinedAvailableTargetMinor");
     expect(implementation).toContain("getFreshTradingFxRate");
     expect(implementation).toContain("balanceStatus:balance.balanceStatus");
+    expect(source).toContain("function projectPopupBalance(");
+    expect(implementation).toContain("shortfallMinor:Math.max(0,Number(offer.minimumMinor)-availableMinor)");
+    expect(implementation).toContain("const popupBalance=projectPopupBalance(row.popupMinimumMinor,row.balanceAvailableMinor,row.balanceStatus)");
+    expect(implementation).toContain("shortfallMinor:popupBalance.shortfallMinor");
     expect(walletFx).toContain("calculateCombinedAvailableTargetMinor");
     expect(autoTrade).not.toContain("listBalances(userId)");
     expect(autoTrade).not.toContain('find(row=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())');
