@@ -14,6 +14,7 @@ import { buildChangedPolicyPatches, TRADING_TIER_POLICY_PATCH_KEYS } from "./tra
 import { isFreshCustomerPopupCandidate, isServerActiveCustomerPopupSlotOwner } from "./customer-popup-eligibility";
 import { remainingOpportunityMilliseconds } from "./customer-opportunity-countdown";
 import { CustomerOpportunityHistoryPanel, hasPersistedCustomerOpportunityDismissal } from "./customer-opportunity-history";
+import { acknowledgePopupDelivery } from "./popup-delivery-acknowledgement";
 const AdminSlideMenu = lazy(() => import("@/components/AdminSlideMenu").then((module) => ({ default: module.AdminSlideMenu })));
 const TradeSettingsAdminGuide = lazy(() => import("@/components/TradeSettingsAdminGuide").then((module) => ({ default: module.TradeSettingsAdminGuide })));
 const AdminPackageFeeEditor = lazy(() => import("@/components/AdminPackageFeeEditor"));
@@ -514,9 +515,6 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
       setPopup(offer);
       setMinimized(false);
       if(offer.deliveryEventId){
-        void deliveryStatus.mutateAsync({eventId:offer.deliveryEventId,status:"received",leaseToken:offer.deliveryLeaseToken})
-          .then(()=>deliveryStatus.mutateAsync({eventId:offer.deliveryEventId,status:"rendered",leaseToken:offer.deliveryLeaseToken}))
-          .catch(()=>deliveryStatus.mutate({eventId:offer.deliveryEventId,status:"failed",errorCode:"POPUP_RENDER_FAILED",leaseToken:offer.deliveryLeaseToken}));
         void lifecycle.mutateAsync({eventId:offer.deliveryEventId,action:"noticed"}).catch(()=>{});
       }
       if(sound&&soundSettings.enabled){
@@ -571,6 +569,27 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
       stop();
     }
   },[delivery?.pausedUntilSettled,delivery?.cooldownActive]);
+  useEffect(()=>{
+    const eventId=Number(popup?.deliveryEventId||0);
+    const leaseToken=String(popup?.deliveryLeaseToken||"");
+    if(eventId<=0||!leaseToken)return;
+    let cancelled=false;
+    let retryTimer:number|null=null;
+    const isCurrent=()=>!cancelled&&Number(popupRef.current?.deliveryEventId)===eventId&&String(popupRef.current?.deliveryLeaseToken||"")===leaseToken;
+    const acknowledge=async()=>{
+      const result=await acknowledgePopupDelivery({
+        received:()=>deliveryStatus.mutateAsync({eventId,status:"received",leaseToken}),
+        rendered:()=>deliveryStatus.mutateAsync({eventId,status:"rendered",leaseToken}),
+        isCurrent,
+      });
+      if(result==="retry"&&isCurrent())retryTimer=window.setTimeout(()=>void acknowledge(),5000);
+    };
+    // This effect runs after React commits the alert to the DOM. Network errors
+    // are ambiguous (the server may have committed before the response vanished),
+    // so retry the idempotent acknowledgements; never convert them into FAILED.
+    void acknowledge();
+    return()=>{cancelled=true;if(retryTimer!==null)window.clearTimeout(retryTimer);};
+  },[popup?.deliveryEventId,popup?.deliveryLeaseToken,deliveryStatus.mutateAsync]);
   useEffect(()=>{
     if(!popup||!Array.isArray(opportunityData?.offers))return;
     const current=opportunityData.offers.find((offer:any)=>Number(offer.id)===Number(popup.id));

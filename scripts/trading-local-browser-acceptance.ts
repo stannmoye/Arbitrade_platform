@@ -176,6 +176,7 @@ export async function verifyCustomerPopupInBrowser(input: {
   expectedCompanyName?: string | null;
   expectedOpportunityId?: number;
   waitForRenderedAcknowledgement?: (diagnostics: string[]) => Promise<void>;
+  failFirstRenderedAcknowledgement?: boolean;
 }) {
   const { browser, page } = await launchAuthenticatedPage(
     input.baseUrl,
@@ -185,6 +186,16 @@ export async function verifyCustomerPopupInBrowser(input: {
   );
   try {
     const deliveryAckDiagnostics: string[] = [];
+    let interruptedRenderedAcknowledgement = false;
+    await page.route("**/api/trpc/customer.popupDeliveryStatus**", async route => {
+      const body = route.request().postData() || "";
+      if(input.failFirstRenderedAcknowledgement&&!interruptedRenderedAcknowledgement&&body.includes('"status":"rendered"')){
+        interruptedRenderedAcknowledgement=true;
+        await route.abort("connectionreset");
+        return;
+      }
+      await route.continue();
+    });
     page.on("response", response => {
       if (!response.url().includes("customer.popupDeliveryStatus")) return;
       const request = response.request();
@@ -249,6 +260,7 @@ export async function verifyCustomerPopupInBrowser(input: {
       authenticatedApiReturnedOpportunity: true,
       popupRendered: true,
       acknowledgedByDismissal: true,
+      interruptedRenderedAcknowledgement,
       disclaimerVisible: true,
       companyName: input.expectedCompanyName ?? null,
       popupText: text,

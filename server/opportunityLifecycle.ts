@@ -296,7 +296,7 @@ export async function updatePopupLifecycleForOffer(userId: number, offerId: numb
   });
 }
 
-export async function updatePopupDeliveryStatus(userId: number, eventId: number, status: "received" | "rendered" | "failed", errorCode?: string, leaseToken?: string) {
+export async function updatePopupDeliveryStatus(userId: number, eventId: number, status: "received" | "rendered", leaseToken?: string) {
   if (!process.env.DATABASE_URL || !leaseToken) return;
   await withConnection(async connection => {
     await connection.beginTransaction();
@@ -313,23 +313,12 @@ export async function updatePopupDeliveryStatus(userId: number, eventId: number,
       }
       const currentDeliveryStatus = String(row.deliveryStatus);
       const finalRenderAfterReceipt = status === "rendered" && currentDeliveryStatus === "received";
-      if (currentDeliveryStatus !== "in_progress" &&
-        !(status === "failed" && currentDeliveryStatus === "received") &&
-        !finalRenderAfterReceipt) { await connection.commit(); return; }
-      if (status === "failed") {
-        const [policyRows] = await connection.query<any[]>("SELECT settingValue FROM app_settings WHERE settingKey=? LIMIT 1", [DELIVERY_RETRY_POLICY_SETTING_KEY]);
-        const saved=parseDeliveryRetryPolicy(policyRows[0]?.settingValue) || FAIL_CLOSED_DELIVERY_RETRY_POLICY;
-        const schedule=saved.effectiveAt && Date.parse(saved.effectiveAt)>Date.now() ? FAIL_CLOSED_DELIVERY_RETRY_POLICY : saved;
-        const current:DeliveryState={deliveryStatus:"in_progress",deliveryAttemptCount:Number(row.deliveryAttemptCount||0),deliveryRetryAfter:row.deliveryRetryAfter?new Date(row.deliveryRetryAfter):null,deliveryLeaseToken:row.deliveryLeaseToken,eventStatus:String(row.eventStatus)};
-        const transition=failDeliveryAttempt({state:current,now:new Date(),errorCode:errorCode||null,retrySchedule:schedule,permanent:String(errorCode||"").toUpperCase().startsWith("PERMANENT_")});
-        await connection.execute("UPDATE opportunity_popup_events SET deliveryStatus=?,deliveryRetryAfter=?,deliveryLeaseToken=NULL,deliveryLeaseExpiresAt=NULL,lastErrorCode=?,updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=? AND deliveryLeaseToken=? AND deliveryStatus IN ('in_progress','received') AND eventStatus<>'DISMISSED'", [transition.state.deliveryStatus,transition.retryAt,errorCode||null,eventId,userId,row.deliveryLeaseToken]);
-      } else {
-        const next=acknowledgeDelivery({state:{deliveryStatus:String(row.deliveryStatus) as DeliveryState["deliveryStatus"],deliveryAttemptCount:Number(row.deliveryAttemptCount||0),deliveryRetryAfter:row.deliveryRetryAfter?new Date(row.deliveryRetryAfter):null,deliveryLeaseToken:row.deliveryLeaseToken,eventStatus:String(row.eventStatus)},status,leaseToken});
-        if (next.changed) {
-          const timestamp=status === "received" ? "receivedAt" : "renderedAt";
-          const finalRender = status === "rendered";
-          await connection.execute(`UPDATE opportunity_popup_events SET deliveryStatus=?,${timestamp}=COALESCE(${timestamp},CURRENT_TIMESTAMP),deliveryLeaseToken=${finalRender ? "NULL" : "deliveryLeaseToken"},deliveryLeaseExpiresAt=${finalRender ? "NULL" : "deliveryLeaseExpiresAt"},lastErrorCode=NULL,updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=? AND deliveryLeaseToken=? AND deliveryStatus IN ('in_progress','received') AND eventStatus<>'DISMISSED'`, [status,eventId,userId,row.deliveryLeaseToken]);
-        }
+      if (currentDeliveryStatus !== "in_progress" && !finalRenderAfterReceipt) { await connection.commit(); return; }
+      const next=acknowledgeDelivery({state:{deliveryStatus:String(row.deliveryStatus) as DeliveryState["deliveryStatus"],deliveryAttemptCount:Number(row.deliveryAttemptCount||0),deliveryRetryAfter:row.deliveryRetryAfter?new Date(row.deliveryRetryAfter):null,deliveryLeaseToken:row.deliveryLeaseToken,eventStatus:String(row.eventStatus)},status,leaseToken});
+      if (next.changed) {
+        const timestamp=status === "received" ? "receivedAt" : "renderedAt";
+        const finalRender = status === "rendered";
+        await connection.execute(`UPDATE opportunity_popup_events SET deliveryStatus=?,${timestamp}=COALESCE(${timestamp},CURRENT_TIMESTAMP),deliveryLeaseToken=${finalRender ? "NULL" : "deliveryLeaseToken"},deliveryLeaseExpiresAt=${finalRender ? "NULL" : "deliveryLeaseExpiresAt"},lastErrorCode=NULL,updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=? AND deliveryLeaseToken=? AND deliveryStatus IN ('in_progress','received') AND eventStatus<>'DISMISSED'`, [status,eventId,userId,row.deliveryLeaseToken]);
       }
       await connection.commit();
     } catch(error) { await connection.rollback(); throw error; }

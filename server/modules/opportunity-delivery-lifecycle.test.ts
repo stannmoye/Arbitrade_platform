@@ -106,6 +106,41 @@ describe("durable opportunity delivery lifecycle", () => {
     expect(acknowledgeDelivery({ state: dismissed.state, status: "received" }).changed).toBe(false);
   });
 
+  it("treats repeated receipt and rendering acknowledgements as safe no-ops", () => {
+    const claimed = claim(base, temporary, "stable-token");
+    expect(claimed.claimed).toBe(true);
+    if (!claimed.claimed) return;
+    const received = acknowledgeDelivery({ state: claimed.state, status: "received", leaseToken: "stable-token" });
+    expect(received.state.deliveryStatus).toBe("received");
+    const duplicateReceipt = acknowledgeDelivery({ state: received.state, status: "received", leaseToken: "stable-token" });
+    expect(duplicateReceipt).toEqual({ state: received.state, changed: false });
+    const rendered = acknowledgeDelivery({ state: received.state, status: "rendered", leaseToken: "stable-token" });
+    expect(rendered.state.deliveryStatus).toBe("rendered");
+    const duplicateRender = acknowledgeDelivery({ state: rendered.state, status: "rendered", leaseToken: "stable-token" });
+    expect(duplicateRender).toEqual({ state: rendered.state, changed: false });
+    expect(acknowledgeDelivery({ state: rendered.state, status: "received", leaseToken: "stable-token" })).toEqual({ state: rendered.state, changed: false });
+  });
+
+  it("does not let an acknowledgement timeout or failure transition invalidate a received state", () => {
+    const received: DeliveryState = {
+      deliveryStatus: "received", deliveryAttemptCount: 1, deliveryRetryAfter: null,
+      deliveryLeaseToken: "stable-token", eventStatus: "DELIVERED",
+    };
+    const failure = failDeliveryAttempt({ state: received, now, errorCode: "ACK_TIMEOUT", retrySchedule: temporary });
+    expect(failure).toEqual({ state: received, retryAt: null, terminal: false });
+    expect(acknowledgeDelivery({ state: failure.state, status: "rendered", leaseToken: "stable-token" }).state.deliveryStatus).toBe("rendered");
+  });
+
+  it("keeps an already rendered delivery terminal under repeated dispatch-failure handling", () => {
+    const rendered: DeliveryState = {
+      deliveryStatus: "rendered", deliveryAttemptCount: 1, deliveryRetryAfter: null,
+      deliveryLeaseToken: null, eventStatus: "DELIVERED",
+    };
+    const result = failDeliveryAttempt({ state: rendered, now, errorCode: "LATE_TIMEOUT", retrySchedule: temporary });
+    expect(result).toEqual({ state: rendered, retryAt: null, terminal: true });
+    expect(claim(rendered, temporary).claimed).toBe(false);
+  });
+
   it("has no wallet, ledger or trade effects", () => {
     expect(DELIVERY_FINANCIAL_EFFECTS).toBe(false);
     const retry = failDeliveryAttempt({ state: { ...base, deliveryStatus: "in_progress", deliveryAttemptCount: 1 }, now, errorCode: "TEMP", retrySchedule: temporary });

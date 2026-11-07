@@ -101,7 +101,26 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(delivery).toContain("a refreshed customer portal can retry rendering and status recording");
     expect(delivery).toContain("const dispatches=await claimPopupDeliveryDispatches(userId)");
     expect(delivery).toContain("deliveryLeaseToken:dispatch.leaseToken");
-    expect(component).toContain('status:"received",leaseToken:offer.deliveryLeaseToken');
+    expect(component).toContain("acknowledgePopupDelivery({");
+    expect(component).toContain('status:"received",leaseToken');
+    expect(component).toContain('status:"rendered",leaseToken');
+    expect(component).not.toContain('status:"failed",errorCode:"POPUP_RENDER_FAILED"');
+    expect(component).toContain('retryTimer=window.setTimeout(()=>void acknowledge(),5000)');
+  });
+
+  it("only acknowledges rendering after the popup has committed and never maps RPC errors to failure", () => {
+    const displayStart = component.indexOf("const showOffer=(offer:any)=>");
+    const displayEnd = component.indexOf("const consider=(offer:any)=>", displayStart);
+    const displayBody = component.slice(displayStart, displayEnd);
+    const acknowledgementEffect = component.indexOf("useEffect(()=>{\n    const eventId=Number(popup?.deliveryEventId||0)");
+    expect(displayBody).toContain("setPopup(offer)");
+    expect(displayBody).not.toContain("deliveryStatus.mutateAsync");
+    expect(acknowledgementEffect).toBeGreaterThanOrEqual(0);
+    expect(component).toContain("received:()=>deliveryStatus.mutateAsync");
+    expect(component).toContain("rendered:()=>deliveryStatus.mutateAsync");
+    expect(component).toContain("Network errors");
+    expect(component).toContain("are ambiguous (the server may have committed before the response vanished)");
+    expect(component).not.toContain('status:"failed"');
   });
 
   it("uses the server clock and persisted offer expiry for a live opportunity countdown", () => {

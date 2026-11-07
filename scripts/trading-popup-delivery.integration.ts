@@ -411,6 +411,22 @@ const balanceBefore = await db.select({
   assert.ok(customerRead.offers[0]?.deliveryLeaseToken,
     "A customer poll receives the dispatch fencing token used for acknowledgements.");
 
+  const activeLeaseToken = customerRead.offers[0]?.deliveryLeaseToken;
+  assert.ok(activeLeaseToken, "The claimed delivery must retain a fencing token until acknowledgement.");
+  // Simulate a tab disconnect after the receipt commit. A second browser session
+  // below reconnects/reloads from this durable RECEIVED state.
+  await updatePopupDeliveryStatus(userId, Number(popupRows[0]?.id), "received", activeLeaseToken);
+  await Promise.all([
+    updatePopupDeliveryStatus(userId, Number(popupRows[0]?.id), "received", activeLeaseToken),
+    updatePopupDeliveryStatus(userId, Number(popupRows[0]?.id), "received", activeLeaseToken),
+  ]);
+  assert.equal((await db.select({ deliveryStatus: opportunityPopupEvents.deliveryStatus }).from(opportunityPopupEvents)
+    .where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id))))[0]?.deliveryStatus, "received",
+    "Repeated receipt acknowledgements are idempotent.");
+  assert.equal((await db.select({ deliveryStatus: opportunityPopupEvents.deliveryStatus }).from(opportunityPopupEvents)
+    .where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id))))[0]?.deliveryStatus, "received",
+    "Repeated receipt must keep the delivery received while its rendered acknowledgement is pending.");
+
   let browserAcceptance: { admin?: unknown; customer?: unknown } | null = null;
   if (browserAcceptanceBaseUrl) {
     const browserFailureTriggerName = `fail_browser_admin_save_${token.toLowerCase()}`;
@@ -442,6 +458,7 @@ const balanceBefore = await db.select({
       password: userPassword,
       expectedCompanyName: customerRead.offers[0]?.companyDisplayName,
       expectedOpportunityId: Number(customerRead.offers[0]?.offerId),
+      failFirstRenderedAcknowledgement: true,
       waitForRenderedAcknowledgement: async (diagnostics) => {
         const deadline = Date.now() + 15_000;
         while (Date.now() < deadline) {
@@ -449,6 +466,8 @@ const balanceBefore = await db.select({
             eventStatus: opportunityPopupEvents.eventStatus,
             deliveryStatus: opportunityPopupEvents.deliveryStatus,
           }).from(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id)));
+          assert.ok(["received","rendered"].includes(String(rows[0]?.deliveryStatus)),
+            `A temporary rendered-ack network interruption must preserve RECEIVED/RENDERED, not ${String(rows[0]?.deliveryStatus)}.`);
           if (rows[0]?.deliveryStatus === "rendered") return;
           if (rows[0]?.eventStatus === "DISMISSED") {
             throw new Error("The popup was dismissed before its rendered delivery acknowledgement reached the database.");
@@ -458,6 +477,8 @@ const balanceBefore = await db.select({
         throw new Error(`The real customer popup did not persist a rendered delivery acknowledgement within 15 seconds. API acknowledgement traffic: ${diagnostics.join(" | ") || "none observed"}`);
       },
     });
+    assert.equal((customerResult as any).interruptedRenderedAcknowledgement, true,
+      "The browser acceptance must interrupt the first rendered acknowledgement to exercise retry.");
     const afterBrowserDismissal = await db.select({
       eventStatus: opportunityPopupEvents.eventStatus,
       deliveryStatus: opportunityPopupEvents.deliveryStatus,
@@ -469,15 +490,17 @@ const balanceBefore = await db.select({
     browserAcceptance = { admin: adminResult, customer: customerResult };
   }
 
-  const activeLeaseToken = customerRead.offers[0]?.deliveryLeaseToken;
-  assert.ok(activeLeaseToken, "The claimed delivery must retain a fencing token until acknowledgement.");
-  await updatePopupDeliveryStatus(userId, Number(popupRows[0]?.id), "rendered", undefined, activeLeaseToken);
+  await Promise.all([
+    updatePopupDeliveryStatus(userId, Number(popupRows[0]?.id), "received", activeLeaseToken),
+    updatePopupDeliveryStatus(userId, Number(popupRows[0]?.id), "rendered", activeLeaseToken),
+    updatePopupDeliveryStatus(userId, Number(popupRows[0]?.id), "rendered", activeLeaseToken),
+  ]);
   const acknowledged = await db.select({ deliveryStatus: opportunityPopupEvents.deliveryStatus, eventStatus: opportunityPopupEvents.eventStatus })
     .from(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id)));
   assert.equal(acknowledged[0]?.deliveryStatus, "rendered");
   assert.equal(acknowledged[0]?.eventStatus, browserAcceptance ? "DISMISSED" : "DELIVERED",
     "A rendered acknowledgement or customer dismissal must remain informational and must not determine offer/trade result state.");
-  await updatePopupDeliveryStatus(userId, Number(popupRows[0]?.id), "failed", "STALE_ACK", "stale-lease-token");
+  await updatePopupDeliveryStatus(userId, Number(popupRows[0]?.id), "rendered", "stale-lease-token");
   assert.equal((await db.select({ deliveryStatus: opportunityPopupEvents.deliveryStatus }).from(opportunityPopupEvents)
     .where(eq(opportunityPopupEvents.id, Number(popupRows[0]?.id))))[0]?.deliveryStatus, "rendered",
     "A stale acknowledgement must not overwrite current informational delivery state.");
