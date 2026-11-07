@@ -1,3 +1,13 @@
+## 2026-11-07 — Expired opportunities release visible capacity
+
+- Working branch: `fix/expired-visible-capacity`, based on verified current `main` commit `ac0eacc598e0543623368be946415e54cefd320a`.
+- Root cause: `listCustomerOpportunities` counted retained popup statuses without considering the joined offer's open state, start/expiry timestamps, or persisted popup expiry marker. Retention closed expired offers but left already rendered popup rows in active-looking delivery/event states.
+- Fix: centralize visible-slot eligibility in an expiry-aware helper and have lifecycle retention stamp `expiredAt` on visible popup history when a generated offer expires. Delivery acknowledgement/history and daily delivery quota accounting remain unchanged; no schema migration, customer wallet, ledger, execution, settlement, or other accepted workstream behavior is changed.
+- Reproduced before editing: three retained active-looking popup rows for closed/expired offers yielded `activeVisibleCount=3`, `visibleRemaining=0`, and `remainingQuota=0` with daily quota remaining. Regression coverage proves those three rows now free all visible slots while three valid open offers still fill the cap.
+- Validation on the isolated fix worktree: locked dependency install, TypeScript check, focused expiry/capacity and lifecycle tests (43 passed), full test suite (1,233 passed, 27 skipped), and production build passed. Deployed to the temporary sandbox using the existing protected sandbox environment; `/api/health`, admin portal and customer portal each returned HTTP 200. Published on draft PR #315; exact-head GitHub Actions are pending. PR remains unmerged.
+
+---
+
 ## 2026-11-06 — Customer opportunity popup redesign, Stage 1
 
 - Working branch: `feat/customer-opportunity-popup-redesign-stage1`, based on the known-good merged `main` baseline `592aba30d69b6eb1ada188fadaa882d48540bb9a`.

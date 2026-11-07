@@ -404,6 +404,13 @@ export async function runOpportunityRetention() {
       await connection.execute(
         `UPDATE opportunity_popup_events p
          INNER JOIN opportunity_offers o ON o.id=p.offerId
+         SET p.expiredAt=COALESCE(p.expiredAt,UTC_TIMESTAMP()),p.updatedAt=CURRENT_TIMESTAMP
+         WHERE o.assignedUserId IS NOT NULL AND o.generationKey IS NOT NULL AND o.closesAt<=UTC_TIMESTAMP()
+           AND p.eventStatus IN ('DELIVERED','NOTICED','OPENED') AND p.expiredAt IS NULL`,
+      );
+      await connection.execute(
+        `UPDATE opportunity_popup_events p
+         INNER JOIN opportunity_offers o ON o.id=p.offerId
          SET p.deliveryStatus='expired',p.expiredAt=COALESCE(p.expiredAt,UTC_TIMESTAMP()),p.deliveryRetryAfter=NULL,
              p.deliveryLeaseToken=NULL,p.deliveryLeaseExpiresAt=NULL,p.lastErrorCode='OPPORTUNITY_EXPIRED',p.updatedAt=CURRENT_TIMESTAMP
          WHERE o.assignedUserId IS NOT NULL AND o.generationKey IS NOT NULL AND o.closesAt<=UTC_TIMESTAMP()

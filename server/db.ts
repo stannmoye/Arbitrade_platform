@@ -23,7 +23,7 @@ import { COMPANY_REFERENCE_CATALOGUE, getCompanyReferenceById, normalizeCompanyC
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY, PACKAGE_OPPORTUNITY_POLICY_PATCH_KEYS, resolveEffectivePackageOpportunityPolicy, type PackageOpportunityPolicyPatch } from "./modules/package-opportunity-policy";
-import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule, resolveTradingBurstLimit } from "./modules/trading-delivery-quota";
+import { calculateTierDeliveryCaps, calculateTradingDeliveryCapacity, countActiveVisiblePopupEvents, countConsumedDeliveryOffers, resolveTradingQuotaWindow, resolveTradingDeliverySchedule, resolveTradingBurstLimit } from "./modules/trading-delivery-quota";
 import { indexTradingPackagePolicies, normalizeTradingPackagePolicyKey } from "./modules/trading-package-policy-index";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry, MAX_TRANSIENT_ATTEMPTS_PER_OPPORTUNITY } from "./modules/trade-execution-retry";
@@ -4092,7 +4092,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     policyVersion:opportunityPopupEvents.policyVersion,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
     expectedRewardBps:opportunityPopupEvents.expectedRewardBps,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
-    balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,deliveryStatus:opportunityPopupEvents.deliveryStatus,quotaDay:opportunityPopupEvents.quotaDay,
+    balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,deliveryStatus:opportunityPopupEvents.deliveryStatus,expiredAt:opportunityPopupEvents.expiredAt,quotaDay:opportunityPopupEvents.quotaDay,
     deliveredAt:opportunityPopupEvents.deliveredAt,venueFrom:opportunityOffers.venueFrom,venueTo:opportunityOffers.venueTo,
     offerStatus:opportunityOffers.status,offerMinimumMinor:opportunityOffers.minimumMinor,opensAt:opportunityOffers.opensAt,
     closesAt:opportunityOffers.closesAt,rewardAt:opportunityOffers.rewardAt,durationSeconds:opportunityOffers.durationSeconds,
@@ -4146,11 +4146,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   }
   const deliveredOfferIds=new Set(effectiveDeliveredToday.filter(row=>row.status!=="failed").map(row=>Number(row.offerId)));
   const deliveredOfferCount=countConsumedDeliveryOffers(effectiveDeliveredToday);
-  const activeVisibleCount=activePopupRows.filter(row=>{
-    const eventStatus=String(row.eventStatus||"").toUpperCase();
-    const deliveryStatus=String(row.deliveryStatus||"pending").toLowerCase();
-    return ["DELIVERED","NOTICED","OPENED"].includes(eventStatus)&&["pending","delivered","received","rendered"].includes(deliveryStatus);
-  }).length;
+  const activeVisibleCount=countActiveVisiblePopupEvents(activePopupRows,now);
   const schedulePolicyEnabled=configuredPolicies.some((row:any)=>Number(row.minIntervalSeconds||0)>0||Number(row.maxIntervalSeconds||0)>0||Number(row.postCompletionIntervalSeconds||0)>0);
   const lastDelivery=schedulePolicyEnabled?(await db.select({
     id:opportunityDeliveryEvents.id,deliveredAt:opportunityDeliveryEvents.deliveredAt,policyVersion:opportunityDeliveryEvents.policyVersion,
