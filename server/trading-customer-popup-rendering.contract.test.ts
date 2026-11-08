@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { isServerActiveCustomerPopupSlotOwner } from "../client/src/customer-popup-eligibility";
 
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
+const popupVisibility = readFileSync(new URL("../client/src/popup-visibility-confirmation.ts", import.meta.url), "utf8");
 const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const eligibility = readFileSync(new URL("../client/src/customer-popup-eligibility.ts", import.meta.url), "utf8");
 const stylesheet = readFileSync(new URL("../client/src/trading-experience.css", import.meta.url), "utf8");
@@ -118,9 +119,16 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(displayBody).not.toContain("deliveryStatus.mutateAsync");
     expect(acknowledgementEffect).toBeGreaterThanOrEqual(0);
     expect(component).toContain("received:()=>deliveryStatus.mutateAsync");
-    expect(component).toContain("rendered:()=>deliveryStatus.mutateAsync");
-    expect(component).toContain("Network errors");
-    expect(component).toContain("are ambiguous (the server may have committed before the response vanished)");
+    expect(component).toContain("rendered:async()=>");
+    expect(component).toContain("waitForPopupVisibility(popupSurfaceRef.current,isCurrent,visibilityAbort.signal)");
+    expect(component).toContain('if(visible&&isCurrent())await deliveryStatus.mutateAsync({eventId,status:"rendered",leaseToken})');
+    expect(component).toContain("Ambiguous network errors retry idempotently and never become FAILED.");
+    expect(component).toContain("ref={popupSurfaceRef}");
+    expect(popupVisibility).toContain('document.visibilityState !== "visible"');
+    expect(popupVisibility).toContain('style.display === "none"');
+    expect(popupVisibility).toContain("rect.bottom > 0 && rect.right > 0");
+    expect(popupVisibility).toContain("window.requestAnimationFrame(() => window.requestAnimationFrame");
+    expect(component).toContain("visibilityAbort.abort()");
     expect(component).not.toContain('status:"failed"');
   });
 

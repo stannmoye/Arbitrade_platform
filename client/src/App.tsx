@@ -15,6 +15,7 @@ import { isFreshCustomerPopupCandidate, isServerActiveCustomerPopupSlotOwner } f
 import { remainingOpportunityMilliseconds } from "./customer-opportunity-countdown";
 import { CustomerOpportunityHistoryPanel, hasPersistedCustomerOpportunityDismissal } from "./customer-opportunity-history";
 import { acknowledgePopupDelivery } from "./popup-delivery-acknowledgement";
+import { waitForPopupVisibility } from "./popup-visibility-confirmation";
 const AdminSlideMenu = lazy(() => import("@/components/AdminSlideMenu").then((module) => ({ default: module.AdminSlideMenu })));
 const TradeSettingsAdminGuide = lazy(() => import("@/components/TradeSettingsAdminGuide").then((module) => ({ default: module.TradeSettingsAdminGuide })));
 const AdminPackageFeeEditor = lazy(() => import("@/components/AdminPackageFeeEditor"));
@@ -406,6 +407,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   const [clockNow,setClockNow]=useState(()=>Date.now());
   const serverClockOffsetMs=useRef(0);
   const popupRef=useRef<any>(null);
+  const popupSurfaceRef=useRef<HTMLDivElement|null>(null);
   const seen=useRef<Set<number>>(new Set());
   const dismissed=useRef<Set<number>>(new Set());
   const expired=useRef<Set<number>>(new Set());
@@ -572,24 +574,28 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
   useEffect(()=>{
     const eventId=Number(popup?.deliveryEventId||0);
     const leaseToken=String(popup?.deliveryLeaseToken||"");
-    if(eventId<=0||!leaseToken)return;
+    if(eventId<=0||!leaseToken||minimized)return;
     let cancelled=false;
     let retryTimer:number|null=null;
+    const visibilityAbort=new AbortController();
     const isCurrent=()=>!cancelled&&Number(popupRef.current?.deliveryEventId)===eventId&&String(popupRef.current?.deliveryLeaseToken||"")===leaseToken;
     const acknowledge=async()=>{
       const result=await acknowledgePopupDelivery({
         received:()=>deliveryStatus.mutateAsync({eventId,status:"received",leaseToken}),
-        rendered:()=>deliveryStatus.mutateAsync({eventId,status:"rendered",leaseToken}),
+        rendered:async()=>{
+          const visible=await waitForPopupVisibility(popupSurfaceRef.current,isCurrent,visibilityAbort.signal);
+          if(visible&&isCurrent())await deliveryStatus.mutateAsync({eventId,status:"rendered",leaseToken});
+        },
         isCurrent,
       });
       if(result==="retry"&&isCurrent())retryTimer=window.setTimeout(()=>void acknowledge(),5000);
     };
-    // This effect runs after React commits the alert to the DOM. Network errors
-    // are ambiguous (the server may have committed before the response vanished),
-    // so retry the idempotent acknowledgements; never convert them into FAILED.
+    // Receipt is recorded first; render is acknowledged only after the popup
+    // is connected, visible in the foreground viewport, and survives two paint frames.
+    // Ambiguous network errors retry idempotently and never become FAILED.
     void acknowledge();
-    return()=>{cancelled=true;if(retryTimer!==null)window.clearTimeout(retryTimer);};
-  },[popup?.deliveryEventId,popup?.deliveryLeaseToken,deliveryStatus.mutateAsync]);
+    return()=>{cancelled=true;visibilityAbort.abort();if(retryTimer!==null)window.clearTimeout(retryTimer);};
+  },[popup?.deliveryEventId,popup?.deliveryLeaseToken,deliveryStatus.mutateAsync,minimized]);
   useEffect(()=>{
     if(!popup||!Array.isArray(opportunityData?.offers))return;
     const current=opportunityData.offers.find((offer:any)=>Number(offer.id)===Number(popup.id));
@@ -662,7 +668,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
     </div>
   </div>;
 
-  return <div className="center-opportunity-toast" role="region" aria-label="Customer opportunity alert">
+  return <div ref={popupSurfaceRef} className="center-opportunity-toast" role="region" aria-label="Customer opportunity alert">
     <div className="opportunity-popup-header">
       <div className="toast-live"><span className="pulse"/> OPPORTUNITY ALERT <span className="toast-live-status">Informational notice</span></div>
       <span className={"opportunity-popup-status"+(insufficientBalance?" opportunity-popup-status--insufficient":"")}>{insufficientBalance?"MISSED · INSUFFICIENT BALANCE":"NEW OPPORTUNITY"}</span>

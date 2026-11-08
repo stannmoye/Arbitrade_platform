@@ -39,4 +39,13 @@ describe("accurate opportunity delivery monitoring", () => {
     expect(lifecycle).toContain("AS failed");
     expect(lifecycle).toContain("AS expired");
   });
+
+  it("records pending opportunity capacity deferrals as a non-failure history event", () => {
+    expect(lifecycle).toContain("if (pendingRows.length >= item.maxPendingDeliveries)");
+    expect(lifecycle).toContain('eventType: "capacity_deferred"');
+    expect(lifecycle).toContain('observedStatus: "deferred"');
+    expect(lifecycle).toContain('errorCode: "PENDING_DELIVERY_CAPACITY"');
+    expect(lifecycle).toContain("capacity_deferred:");
+    expect(lifecycle).toContain("await connection.commit();");
+  });
 });

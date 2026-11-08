@@ -96,6 +96,16 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
           [item.userId, item.packageId],
         );
         if (pendingRows.length >= item.maxPendingDeliveries) {
+          // Capacity deferral is a distinct operational outcome, not a failed delivery.
+          // A time-bucketed idempotency key records recurring deferrals without flooding history.
+          await recordDeliveryHistory(connection, {
+            userId: item.userId,
+            offerId: item.offerId,
+            eventKey: `capacity_deferred:${Math.floor(Date.now() / 60_000)}`,
+            eventType: "capacity_deferred",
+            observedStatus: "deferred",
+            errorCode: "PENDING_DELIVERY_CAPACITY",
+          });
           await connection.commit();
           continue deliveryLoop;
         }
