@@ -18,6 +18,7 @@ import {
   Zap,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { AdminOpportunityDeliveryDiagnostics } from "./AdminOpportunityDeliveryDiagnostics";
 import { normalizeGlobalTradeTimingSettings } from "../trading-settings-client-contracts";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
@@ -170,13 +171,14 @@ export function AdminSettings({focus}:{focus?:"tradeDuration"}={}){ const q=trpc
 export function AdminOpportunityDelivery() {
   const query = trpc.adminOperations.popupLifecycleSummary.useQuery(undefined, { refetchInterval: 10_000 });
   const data = (query.data ?? {}) as unknown as LifecycleSummary;
+  const sourceAvailable = data.sourceAvailable === true;
   const totals = data.last24Hours ?? {};
   const daily = data.retainedDaily ?? [];
   const rendered = Number(totals.rendered ?? 0);
   const opened = Number(totals.opened ?? 0);
   const traded = Number(totals.traded ?? 0);
-  const openRate = rendered ? `${((opened / rendered) * 100).toFixed(1)}%` : "—";
-  const tradeRate = opened ? `${((traded / opened) * 100).toFixed(1)}%` : "—";
+  const openRate = !sourceAvailable ? "Unavailable" : rendered ? `${((opened / rendered) * 100).toFixed(1)}%` : "—";
+  const tradeRate = !sourceAvailable ? "Unavailable" : opened ? `${((traded / opened) * 100).toFixed(1)}%` : "—";
   const maxRendered = Math.max(1, ...daily.map((row) => Number(row.rendered ?? 0)));
   const metrics: Array<[string, string, typeof Activity]> = [
     ["Generated", "generated", Zap],
@@ -205,13 +207,13 @@ export function AdminOpportunityDelivery() {
       <div className="admin-ops-meta-line"><span><CalendarClock size={14} /> Rolling 24-hour event window</span><span>Updated {timestamp(data.generatedAt)}</span></div>
       {query.isLoading ? <LoadingState /> : query.isError ? <div className="admin-ops-empty error">Delivery records could not be loaded. Confirm the database is available.</div> : <>
         <section className="admin-ops-metrics">
-          {metrics.map(([label, key, icon]) => <Metric key={key} label={label} value={Number(totals[key] ?? 0).toLocaleString()} icon={icon} />)}
-          <Metric label="Opened / delivered" value={openRate} detail="Observed opens divided by deliveries" icon={CheckCircle2} />
+          {metrics.map(([label, key, icon]) => <Metric key={key} label={label} value={sourceAvailable ? Number(totals[key] ?? 0).toLocaleString() : "Unavailable"} icon={icon} />)}
+          <Metric label="Opened / rendered" value={openRate} detail="Observed opens divided by confirmed render acknowledgements" icon={CheckCircle2} />
           <Metric label="Traded / opened" value={tradeRate} detail="Observed trades divided by opens" icon={CircleDollarSign} />
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Retained history</span><h2>Daily delivery volume</h2></div><span className="admin-ops-subtle">Up to 30 days</span></div>
-          {!daily.length ? <div className="admin-ops-empty compact">No retained daily lifecycle rows yet. New deliveries will appear here.</div> : <div className="admin-ops-chart" role="img" aria-label="Daily delivered opportunities over the retained history">
+          {!sourceAvailable ? <div className="admin-ops-empty compact">Daily history is unavailable because the lifecycle data source could not be confirmed.</div> : !daily.length ? <div className="admin-ops-empty compact">No retained daily lifecycle rows yet. New deliveries will appear here.</div> : <div className="admin-ops-chart" role="img" aria-label="Daily rendered opportunities over the retained history">
             {daily.slice().reverse().map((row, index) => {
               const count = Number(row.rendered ?? 0);
               const height = Math.max(4, Math.round((count / maxRendered) * 100));
@@ -221,6 +223,7 @@ export function AdminOpportunityDelivery() {
         </section>
         <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Operational interpretation</strong> Generated means the opportunity was created; queued means its delivery record is waiting or being retried; received and rendered require browser acknowledgements. Queue persistence is never reported as customer receipt or display.</span></div>
       </>}
+      <AdminOpportunityDeliveryDiagnostics />
     </ToolPage>
   );
 }

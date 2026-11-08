@@ -3546,6 +3546,14 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       configuredProfitRateBps:terms.configuredPayoutRateBps,configuredDurationSeconds:terms.tradeDurationSeconds,
       packageSnapshotJson:JSON.stringify(snapshot),status:"generated",generatedAt:opportunityStartedAt,assignedAt:input.now,expiresAt:closesAt,
     });
+    try {
+      await tx.execute(sql`INSERT INTO opportunity_delivery_history (offerId,eventKey,eventType,observedStatus,attemptNumber,occurredAt)
+        VALUES (${offerId},'generation_persisted','generated',NULL,NULL,${opportunityStartedAt}) ON DUPLICATE KEY UPDATE id=id`);
+      await tx.execute(sql`INSERT INTO opportunity_delivery_history (offerId,eventKey,eventType,observedStatus,attemptNumber,occurredAt)
+        VALUES (${offerId},'assignment_persisted','assigned',NULL,NULL,${input.now}) ON DUPLICATE KEY UPDATE id=id`);
+    } catch {
+      // Operational history is fail-soft and must not alter generation availability.
+    }
     if(rotationStateKey&&nextRotationState){
       await tx.update(appSettings).set({settingValue:JSON.stringify(nextRotationState),updatedBy:input.userId,updatedAt:input.now})
         .where(eq(appSettings.settingKey,rotationStateKey));

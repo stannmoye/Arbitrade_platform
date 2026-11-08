@@ -1,4 +1,5 @@
-import { bigint, int, longtext, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, index, uniqueIndex } from "drizzle-orm/mysql-core";
+import { bigint, int, longtext, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, index, uniqueIndex, foreignKey } from "drizzle-orm/mysql-core";
+import { sql } from "drizzle-orm";
 
 /**
  * Core user table backing auth flow.
@@ -24,7 +25,9 @@ export const users = mysqlTable("users", {
   authVersion: int("authVersion").default(0).notNull(),
   packageName: varchar("packageName", { length: 40 }).default("Starter").notNull(),
   reportingTimezone: varchar("reportingTimezone", { length: 80 }),
-});
+}, (table) => ({
+  deliveryDiagnosticsNameIdx: index("users_delivery_diagnostics_name_idx").on(sql`name(120)`, table.id),
+}));
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
@@ -299,6 +302,10 @@ export const opportunityPopupEvents = mysqlTable("opportunity_popup_events", {
   dailyAttemptUserDayIdx: index("opportunity_popup_user_daily_attempt_day_idx").on(table.userId, table.executionDailyAttemptDay),
   pendingPackageIdIdx: index("opportunity_popup_pending_package_id_idx").on(table.userId, table.packageId, table.deliveryStatus),
   retryDueIdx: index("opportunity_popup_retry_due_idx").on(table.deliveryStatus, table.deliveryRetryAfter),
+  customerOfferHistoryIdx: index("opportunity_popup_customer_offer_history_idx").on(table.userId, table.offerId, table.id),
+  deliveryPackageCreatedIdx: index("opportunity_popup_delivery_package_idx").on(table.packageName, table.createdAt, table.id),
+  deliveryCompanyCreatedIdx: index("opportunity_popup_delivery_company_idx").on(table.companyDisplayName, table.createdAt, table.id),
+  deliveryStatusCreatedIdx: index("opportunity_popup_delivery_status_created_idx").on(table.deliveryStatus, table.createdAt, table.id),
 }));
 export const opportunityPopupDaily = mysqlTable("opportunity_popup_daily", {
   id: int("id").autoincrement().primaryKey(),
@@ -547,6 +554,24 @@ export const opportunityGenerationAssignments = mysqlTable("opportunity_generati
   packageWindowIdx: index("opportunity_generation_assignments_package_window_idx").on(table.packageSubscriptionId, table.generatedAt),
   templateIdx: index("opportunity_generation_assignments_template_idx").on(table.templateId, table.generatedAt),
   batchIdx: index("opportunity_generation_assignments_batch_idx").on(table.batchId, table.generatedAt),
+  deliveryGeneratedIdx: index("opportunity_generation_assignments_delivery_generated_idx").on(table.generatedAt, table.id),
+  deliveryPackageIdx: index("opportunity_generation_assignments_delivery_package_idx").on(table.packageName, table.generatedAt, table.id),
+  deliveryCompanyIdx: index("opportunity_generation_assignments_delivery_company_idx").on(table.companyReferenceId, table.generatedAt, table.id),
+}));
+export const opportunityDeliveryHistory = mysqlTable("opportunity_delivery_history", {
+  id: bigint("id", { mode: "number" }).autoincrement().primaryKey(),
+  offerId: int("offerId").notNull(),
+  eventKey: varchar("eventKey", { length: 120 }).notNull(),
+  eventType: varchar("eventType", { length: 40 }).notNull(),
+  observedStatus: varchar("observedStatus", { length: 24 }),
+  attemptNumber: int("attemptNumber"),
+  errorCode: varchar("errorCode", { length: 80 }),
+  occurredAt: timestamp("occurredAt").defaultNow().notNull(),
+}, (table) => ({
+  eventUnique: uniqueIndex("opportunity_delivery_history_offer_event_uq").on(table.offerId, table.eventKey),
+  offerTimeIdx: index("opportunity_delivery_history_offer_time_idx").on(table.offerId, table.occurredAt, table.id),
+  typeOfferTimeIdx: index("opportunity_delivery_history_type_offer_time_idx").on(table.eventType, table.offerId, table.occurredAt),
+  offerReference: foreignKey({ columns: [table.offerId], foreignColumns: [opportunityOffers.id], name: "opportunity_delivery_history_offer_fk" }).onDelete("cascade"),
 }));
 export const marketInstruments = mysqlTable("market_instruments", {
   id: int("id").autoincrement().primaryKey(),

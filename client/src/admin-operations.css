@@ -937,3 +937,62 @@
   }
   .trade-settings-guide__statuses dt { min-width: 0; }
 }
+
+
+/* Read-only opportunity-delivery investigations embedded in the existing admin route. */
+.delivery-diagnostics { margin-top: 18px; }
+.delivery-diagnostic-heading { align-items: flex-start; }
+.delivery-diagnostic-heading p, .delivery-diagnostic-detail-head p, .delivery-diagnostic-customer-head p { margin: 5px 0 0; color: var(--arb-color-text-soft, #8da5ae); font-size: 10px; line-height: 1.55; }
+.delivery-diagnostic-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.delivery-diagnostic-tabs { display: flex; gap: 7px; margin: 4px 0 16px; padding-bottom: 8px; overflow-x: auto; border-bottom: 1px solid rgba(132,164,177,.15); }
+.delivery-diagnostic-tabs button { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; min-height: 36px; padding: 0 11px; border: 1px solid transparent; border-radius: 9px; color: #8ba3ad; background: transparent; font-size: 10px; font-weight: 700; cursor: pointer; }
+.delivery-diagnostic-tabs button.active { border-color: rgba(124,231,194,.22); color: #d8f8ee; background: rgba(124,231,194,.08); }
+.delivery-diagnostic-filter-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin: 8px 0 12px; }
+.delivery-diagnostic-filter-grid label, .delivery-diagnostic-customer-search { display: grid; gap: 6px; color: #8ea6b0; font-size: 9px; font-weight: 700; }
+.delivery-diagnostic-filter-grid input, .delivery-diagnostic-filter-grid select, .delivery-diagnostic-customer-search input { width: 100%; min-height: 36px; padding: 7px 10px; border: 1px solid rgba(132,164,177,.2); border-radius: 9px; outline: none; color: #dce8e9; background: rgba(6,18,28,.66); font: inherit; font-size: 10px; }
+.delivery-diagnostic-filter-grid input:focus, .delivery-diagnostic-filter-grid select:focus, .delivery-diagnostic-customer-search input:focus { border-color: rgba(124,231,194,.55); box-shadow: 0 0 0 2px rgba(124,231,194,.1); }
+.delivery-diagnostic-checks { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 15px; margin: 6px 0 12px; }
+.delivery-diagnostic-checks label { display: inline-flex; align-items: center; gap: 6px; color: #9eb2b9; font-size: 9px; }
+.delivery-diagnostic-checks input { accent-color: #62d9b1; }
+.delivery-diagnostic-reset, .delivery-diagnostic-inspect { padding: 5px 8px; border: 1px solid rgba(132,164,177,.18); border-radius: 7px; color: #b7c9ce; background: rgba(255,255,255,.035); font-size: 9px; cursor: pointer; }
+.delivery-diagnostic-inspect { color: #baf2df; border-color: rgba(124,231,194,.22); }
+.delivery-diagnostic-pagination { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; color: #829aa5; font-size: 9px; }
+.delivery-diagnostic-pagination > div { display: flex; gap: 8px; }
+.delivery-diagnostic-detail { margin-top: 15px; padding: 15px; border: 1px solid rgba(124,231,194,.15); border-radius: 14px; background: rgba(4,16,26,.48); }
+.delivery-diagnostic-detail-head, .delivery-diagnostic-customer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin: 8px 0 13px; }
+.delivery-diagnostic-detail-head h3, .delivery-diagnostic-customer-head h3, .delivery-diagnostic-worker-card h3 { margin: 5px 0 0; color: #e4eeee; font-size: 14px; }
+.delivery-diagnostic-close { display: inline-grid; width: 32px; height: 32px; place-items: center; border: 1px solid rgba(132,164,177,.2); border-radius: 9px; color: #a7bbc1; background: transparent; cursor: pointer; }
+.delivery-diagnostic-detail-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; color: #a7bdc4; font-size: 9px; }
+.delivery-diagnostic-timeline { position: relative; display: grid; gap: 0; margin: 16px 0; padding: 0; list-style: none; }
+.delivery-diagnostic-timeline:before { position: absolute; top: 9px; bottom: 9px; left: 5px; width: 1px; background: rgba(132,164,177,.24); content: ""; }
+.delivery-diagnostic-timeline li { position: relative; display: grid; grid-template-columns: 12px minmax(0,1fr); gap: 10px; padding: 0 0 14px; }
+.delivery-diagnostic-timeline li:last-child { padding-bottom: 0; }
+.delivery-diagnostic-timeline li i { position: relative; z-index: 1; width: 11px; height: 11px; margin-top: 2px; border: 2px solid rgba(132,164,177,.42); border-radius: 50%; background: #0b1b28; }
+.delivery-diagnostic-timeline li.confirmed i { border-color: #67d9b4; background: #1a745f; }
+.delivery-diagnostic-timeline li strong { display: block; color: #d6e5e6; font-size: 10px; }
+.delivery-diagnostic-timeline li time, .delivery-diagnostic-timeline li small { display: block; margin-top: 3px; color: #849ba5; font-size: 9px; }
+.delivery-diagnostic-timeline li.unavailable strong { color: #869ca5; }
+.delivery-diagnostic-latency { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 12px 0; color: #91a8b1; font-size: 9px; line-height: 1.55; }
+.delivery-diagnostic-latency strong { color: #c8dadc; }
+.delivery-diagnostic-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 9px; margin: 12px 0; }
+.delivery-diagnostic-metric { display: flex; min-height: 76px; flex-direction: column; justify-content: center; gap: 6px; padding: 11px; border: 1px solid rgba(132,164,177,.13); border-radius: 11px; background: rgba(255,255,255,.018); }
+.delivery-diagnostic-metric span { color: #829aa5; font-size: 9px; }
+.delivery-diagnostic-metric strong { color: #e2efed; font-size: 15px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.delivery-diagnostic-metric small { color: #718a95; font-size: 8px; line-height: 1.45; }
+.delivery-diagnostic-customer-search { position: relative; max-width: 520px; }
+.delivery-diagnostic-customer-search input { padding-right: 32px; }
+.delivery-diagnostic-customer-search > svg { position: absolute; right: 10px; bottom: 10px; color: #72909b; }
+.delivery-diagnostic-customer-results { display: grid; max-width: 520px; gap: 6px; margin-top: 9px; }
+.delivery-diagnostic-customer-results button { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid rgba(132,164,177,.14); border-radius: 9px; color: #dce9e9; background: rgba(255,255,255,.025); text-align: left; cursor: pointer; }
+.delivery-diagnostic-customer-results button strong { font-size: 10px; }
+.delivery-diagnostic-customer-results button span { color: #829aa5; font-size: 9px; }
+.delivery-diagnostic-customer { display: grid; gap: 10px; }
+.delivery-diagnostic-worker-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border: 1px solid rgba(132,164,177,.14); border-radius: 12px; background: rgba(255,255,255,.02); }
+.delivery-diagnostic-worker-card p { margin: 5px 0 0; color: #869da6; font-size: 9px; }
+:root[data-arb-theme] .delivery-diagnostic-tabs { border-color: var(--arb-color-border); }
+:root[data-arb-theme] .delivery-diagnostic-tabs button.active { color: var(--arb-color-text); }
+:root[data-arb-theme] .delivery-diagnostic-filter-grid :where(input,select), :root[data-arb-theme] .delivery-diagnostic-customer-search input { color: var(--arb-color-text); background: var(--arb-color-surface); border-color: var(--arb-color-border); }
+:root[data-arb-theme] .delivery-diagnostic-metric, :root[data-arb-theme] .delivery-diagnostic-detail, :root[data-arb-theme] .delivery-diagnostic-worker-card { border-color: var(--arb-color-border); background: var(--arb-color-surface); }
+:root[data-arb-theme] .delivery-diagnostic-metric strong, :root[data-arb-theme] .delivery-diagnostic-detail-head h3, :root[data-arb-theme] .delivery-diagnostic-customer-head h3 { color: var(--arb-color-text); }
+@media(max-width:860px) { .delivery-diagnostic-filter-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .delivery-diagnostic-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media(max-width:640px) { .delivery-diagnostic-heading, .delivery-diagnostic-worker-card { flex-direction: column; align-items: flex-start; } .delivery-diagnostic-actions { justify-content: flex-start; } .delivery-diagnostic-filter-grid { grid-template-columns: minmax(0,1fr); } .delivery-diagnostic-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); } .delivery-diagnostic-pagination { align-items: flex-start; flex-direction: column; } .delivery-diagnostic-pagination > div { width: 100%; } .delivery-diagnostic-pagination .admin-ops-button { flex: 1; } .delivery-diagnostic-customer-results button { align-items: flex-start; flex-direction: column; } }
