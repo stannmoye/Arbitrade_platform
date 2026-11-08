@@ -635,6 +635,45 @@ export const tradeSettlementRecoveryCases = mysqlTable("trade_settlement_recover
   tradeIdx: index("trade_settlement_recovery_trade_idx").on(table.tradeId, table.id),
 }));
 
+export const settlementEvidenceRecords = mysqlTable("settlement_evidence_records", {
+  id: int("id").autoincrement().primaryKey(),
+  tradeId: int("tradeId").notNull(),
+  evidenceReference: varchar("evidenceReference", { length: 160 }).notNull(),
+  evidenceType: varchar("evidenceType", { length: 40 }).notNull(),
+  originalFilename: varchar("originalFilename", { length: 255 }),
+  mimeType: varchar("mimeType", { length: 160 }),
+  sizeBytes: int("sizeBytes"),
+  sha256: varchar("sha256", { length: 64 }),
+  storageKey: varchar("storageKey", { length: 512 }),
+  submittedBy: int("submittedBy").notNull(),
+  submittedAt: timestamp("submittedAt").defaultNow().notNull(),
+  verificationStatus: mysqlEnum("verificationStatus", ["submitted", "under_review", "approved", "rejected"]).default("submitted").notNull(),
+  verifiedBy: int("verifiedBy"),
+  verifiedAt: timestamp("verifiedAt"),
+  verificationNotes: text("verificationNotes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  tradeReferenceUnique: uniqueIndex("settlement_evidence_trade_reference_uq").on(table.tradeId, table.evidenceReference),
+  tradeStatusIdx: index("settlement_evidence_trade_status_idx").on(table.tradeId, table.verificationStatus, table.id),
+  storageKeyUnique: uniqueIndex("settlement_evidence_storage_key_uq").on(table.storageKey),
+}));
+
+export const settlementEvidenceAuditEvents = mysqlTable("settlement_evidence_audit_events", {
+  id: int("id").autoincrement().primaryKey(),
+  evidenceId: int("evidenceId").notNull(),
+  tradeId: int("tradeId").notNull(),
+  action: varchar("action", { length: 80 }).notNull(),
+  fromStatus: varchar("fromStatus", { length: 40 }),
+  toStatus: varchar("toStatus", { length: 40 }),
+  actorUserId: int("actorUserId").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  evidenceHistoryIdx: index("settlement_evidence_audit_evidence_idx").on(table.evidenceId, table.createdAt, table.id),
+  tradeHistoryIdx: index("settlement_evidence_audit_trade_idx").on(table.tradeId, table.createdAt, table.id),
+}));
+
 export const tradePositions = mysqlTable("trade_positions", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),

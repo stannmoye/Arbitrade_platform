@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { getTicketAttachmentAccess, getUserById } from "../db";
+import { getSettlementEvidenceAccess, getTicketAttachmentAccess, getUserById } from "../db";
 import { readStorageObject } from "../storage";
 import { getLocalSessionFromRequest } from "./localAuth";
 
@@ -25,14 +25,22 @@ export function registerLocalStorageRoutes(app: Express) {
           res.status(401).send("Authentication required");
           return;
         }
-        if (!key.startsWith("support/")) {
-          res.status(404).send("File not found");
-          return;
-        }
-        const attachment = await getTicketAttachmentAccess(key);
-        if (!attachment || (user.role !== "admin" && Number(attachment.customerId) !== Number(user.id))) {
-          res.status(404).send("File not found");
-          return;
+        if (key.startsWith("settlement-evidence/")) {
+          const evidence = await getSettlementEvidenceAccess(key);
+          if (user.role !== "admin" || !evidence) {
+            res.status(404).send("File not found");
+            return;
+          }
+        } else {
+          if (!key.startsWith("support/")) {
+            res.status(404).send("File not found");
+            return;
+          }
+          const attachment = await getTicketAttachmentAccess(key);
+          if (!attachment || (user.role !== "admin" && Number(attachment.customerId) !== Number(user.id))) {
+            res.status(404).send("File not found");
+            return;
+          }
         }
       } catch (error) {
         console.error("[LocalStorage] Attachment authorization failed:", error instanceof Error ? error.name : "UnknownError");
