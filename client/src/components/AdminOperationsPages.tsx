@@ -387,8 +387,26 @@ export function AdminTransactionReview({ focus }: { focus?: "ledger" | "capital"
     ...(settlementLedgerBeforeTradeId === undefined ? {} : { beforeTradeId: settlementLedgerBeforeTradeId }),
   }, { enabled: focus === "reconciliation", refetchInterval: 30_000 });
   const confirmSettlement = trpc.adminOperations.confirmManualSettlement.useMutation({ onSuccess: () => { pendingQuery.refetch(); integrityQuery.refetch(); walletLedgerReconciliationQuery.refetch(); } });
+  const [evidenceTradeId, setEvidenceTradeId] = useState(0);
+  const [evidenceReference, setEvidenceReference] = useState("");
+  const [evidenceType, setEvidenceType] = useState<"document"|"statement"|"screenshot"|"transaction_receipt"|"other">("document");
+  const [evidenceNotes, setEvidenceNotes] = useState("");
+  const [evidenceFile, setEvidenceFile] = useState<File|null>(null);
+  const evidenceQuery = trpc.adminOperations.settlementEvidence.useQuery({ tradeId: evidenceTradeId }, { enabled: focus === "reconciliation" && evidenceTradeId > 0, refetchInterval: 10_000 });
+  const submitEvidence = trpc.adminOperations.submitSettlementEvidence.useMutation({ onSuccess: () => { evidenceQuery.refetch(); setEvidenceReference(""); setEvidenceNotes(""); setEvidenceFile(null); } });
+  const reviewEvidence = trpc.adminOperations.reviewSettlementEvidence.useMutation({ onSuccess: () => evidenceQuery.refetch() });
+  const submitEvidenceFile = async () => {
+    if (!evidenceTradeId || !evidenceFile || !evidenceReference.trim() || !evidenceNotes.trim()) return;
+    const prepare = await fetch("/api/admin/settlement-evidence/prepare-upload", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tradeId: evidenceTradeId, fileName: evidenceFile.name, mimeType: evidenceFile.type, sizeBytes: evidenceFile.size }) });
+    const prepared = await prepare.json();
+    if (!prepare.ok || !prepared.uploadUrl) throw new Error(prepared.error || "Unable to prepare evidence upload");
+    const upload = await fetch(prepared.uploadUrl, { method: "PUT", headers: { "Content-Type": evidenceFile.type }, body: evidenceFile });
+    const uploaded = await upload.json();
+    if (!upload.ok) throw new Error(uploaded.error || "Unable to upload evidence");
+    submitEvidence.mutate({ tradeId: evidenceTradeId, evidenceReference: evidenceReference.trim(), evidenceType, originalFilename: evidenceFile.name, mimeType: uploaded.mimeType, sizeBytes: uploaded.sizeBytes, sha256: uploaded.sha256, storageKey: uploaded.storageKey, notes: evidenceNotes.trim() });
+  };
   const tradeFeePolicyQuery = trpc.adminOperations.tradeFeePolicy.useQuery(undefined, { enabled: focus === "fees", staleTime: 60_000 });
-  const [drafts, setDrafts] = useState<Record<number, { grossProfitMinor: string; reference: string }>>({});
+  const [drafts, setDrafts] = useState<Record<number, { grossProfitMinor: string; reference: string; evidenceId: string }>>({});
   const currencyQuery = trpc.adminOperations.currencies.useQuery(undefined, { enabled: focus === "ledger", staleTime: 60_000 });
   const rows = (ledgerQuery.data?.entries ?? []) as unknown as LedgerRecord[];
   const ledgerCustomers = (ledgerCustomersQuery.data ?? []) as unknown as CustomerRecord[];
@@ -419,6 +437,15 @@ export function AdminTransactionReview({ focus }: { focus?: "ledger" | "capital"
         </section>
         </>}
         {focus === "reconciliation" && <>
+        <section className="admin-ops-panel" aria-label="Settlement evidence workflow">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Evidence gate</span><h2>Submit and review settlement evidence</h2></div><span className="admin-ops-subtle">Two-person approval</span></div>
+          <p>Upload a private PDF, PNG, JPEG, CSV, or text record against the trade. A different administrator must approve it before any result can be confirmed.</p>
+          <div className="form-two"><label>Trade ID<input type="number" min="1" value={evidenceTradeId || ""} onChange={event => setEvidenceTradeId(Number(event.target.value) || 0)} /></label><label>Evidence reference<input value={evidenceReference} maxLength={160} onChange={event => setEvidenceReference(event.target.value)} placeholder="Provider receipt or statement ID" /></label></div>
+          <div className="form-two"><label>Evidence type<select value={evidenceType} onChange={event => setEvidenceType(event.target.value as typeof evidenceType)}><option value="document">Document</option><option value="statement">Statement</option><option value="screenshot">Screenshot</option><option value="transaction_receipt">Transaction receipt</option><option value="other">Other</option></select></label><label>Private evidence file<input type="file" accept="application/pdf,image/png,image/jpeg,text/csv,text/plain" onChange={event => setEvidenceFile(event.target.files?.[0] || null)} /></label></div>
+          <label>Submission notes<textarea value={evidenceNotes} maxLength={2000} onChange={event => setEvidenceNotes(event.target.value)} placeholder="Describe what was checked and where the actual result appears." rows={3} /></label>
+          <button className="admin-ops-button" type="button" disabled={submitEvidence.isPending || !evidenceTradeId || !evidenceFile || evidenceReference.trim().length < 3 || evidenceNotes.trim().length < 5} onClick={() => { void submitEvidenceFile().catch(error => window.alert(error instanceof Error ? error.message : "Evidence upload failed")); }}>Submit evidence for review</button>
+          {evidenceQuery.data?.length ? <div className="admin-ops-table-wrap"><table className="admin-ops-table"><thead><tr><th>Reference</th><th>Type / file</th><th>Status</th><th>Review</th></tr></thead><tbody>{evidenceQuery.data.map((evidence) => <tr key={evidence.id}><td><strong>{evidence.evidenceReference}</strong><small>{evidence.verificationNotes || "No notes"}</small></td><td>{evidence.evidenceType}<small>{evidence.originalFilename || "No file"}</small>{evidence.storageKey && <a href={`/storage/${evidence.storageKey}`} target="_blank" rel="noreferrer">Open private file</a>}</td><td>{evidence.verificationStatus}</td><td>{evidence.verificationStatus === "submitted" || evidence.verificationStatus === "under_review" ? <><button className="admin-ops-button" type="button" disabled={reviewEvidence.isPending} onClick={() => reviewEvidence.mutate({ evidenceId: evidence.id, decision: "approve", notes: "Independently reviewed against the submitted file." })}>Approve</button> <button className="admin-ops-button" type="button" disabled={reviewEvidence.isPending} onClick={() => reviewEvidence.mutate({ evidenceId: evidence.id, decision: "reject", notes: "Evidence did not support the claimed settlement result." })}>Reject</button></> : evidence.verifiedBy ? `Reviewer ${evidence.verifiedBy}` : "—"}</td></tr>)}</tbody></table></div> : evidenceTradeId > 0 ? <div className="admin-ops-empty compact">No evidence has been submitted for this trade.</div> : null}
+        </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Settlement and delayed-credit queue</span><h2>Review results and track wallet credits</h2></div><span className="admin-ops-subtle">{pendingQuery.data?.length ?? 0} waiting</span></div>
           {pendingQuery.isError && <div className="admin-ops-empty error">Pending settlements could not be loaded. Refresh before attempting any settlement.</div>}
@@ -426,7 +453,7 @@ export function AdminTransactionReview({ focus }: { focus?: "ledger" | "capital"
           {confirmSettlement.isSuccess && <div className="admin-ops-note" role="status">Actual result confirmed. Principal and earnings remain locked until the saved wallet-credit time; the worker will post the ledger entries automatically.</div>}
           {pendingQuery.isLoading ? <LoadingState /> : !pendingQuery.data?.length ? <div className="admin-ops-empty compact">No trades are awaiting manual settlement.</div> : <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Trades awaiting manual settlement" onKeyDown={(event) => { if (event.key === "ArrowRight") { event.preventDefault(); event.currentTarget.scrollLeft += 80; } else if (event.key === "ArrowLeft") { event.preventDefault(); event.currentTarget.scrollLeft -= 80; } }}><table className="admin-ops-table"><thead><tr><th>Trade / customer</th><th>Due status / evidence health</th><th>Principal</th><th>Reserved reward (estimate)</th><th>Actual gross profit/loss (minor units)</th><th>Settlement evidence reference</th><th>Action</th></tr></thead><tbody>
             {(pendingQuery.data as any[]).map((trade) => {
-              const draft = drafts[trade.id] || { grossProfitMinor: "", reference: "" };
+              const draft = drafts[trade.id] || { grossProfitMinor: "", reference: "", evidenceId: "" };
               const enteredGross = Number(draft.grossProfitMinor);
               const reserved = Number(trade.rewardReservedMinor || 0);
               const reservationAmount = trade.reservationAmountMinor == null ? null : Number(trade.reservationAmountMinor);
@@ -437,15 +464,15 @@ export function AdminTransactionReview({ focus }: { focus?: "ledger" | "capital"
               const creditDueAt = trade.creditAt || trade.settlementReviewAt || trade.settlesAt;
               const isDue = !!dueAt && Number.isFinite(new Date(dueAt).getTime()) && new Date(dueAt).getTime() <= Date.now();
               const alreadyConfirmed = trade.settlementStatus === "confirmed_awaiting_credit";
-              const canConfirm = trade.settlementStatus === "pending" && isDue && reservationConsistent && draft.grossProfitMinor.trim() !== "" && Number.isSafeInteger(enteredGross) && draft.reference.trim().length >= 3;
+              const canConfirm = trade.settlementStatus === "pending" && isDue && reservationConsistent && draft.grossProfitMinor.trim() !== "" && Number.isSafeInteger(enteredGross) && draft.reference.trim().length >= 3 && Number.isSafeInteger(Number(draft.evidenceId)) && Number(draft.evidenceId) > 0;
               return <tr key={trade.id}>
                 <td><strong>Trade {trade.id} · {trade.symbol || "Opportunity"}</strong><small>{trade.customerName || trade.customerEmail || ("Account " + trade.userId)} · {trade.currency}</small><small>Subscription: {trade.packageSubscriptionId ?? "Legacy / none"}</small></td>
                 <td><strong>{alreadyConfirmed ? "Result confirmed — awaiting wallet credit" : trade.lifecycleStage || "Stage not recorded"}</strong><small>{dueAt ? (isDue ? "Review available " : "Review scheduled ") + new Date(dueAt).toLocaleString() : "Missing trade completion timestamp"}</small><small>{alreadyConfirmed ? "Wallet credit scheduled " + new Date(creditDueAt).toLocaleString() : reservationConsistent ? "Reward reservation consistent" : "Reservation mismatch — investigate before settlement"}</small><small>{alreadyConfirmed ? "Evidence reference: " + (trade.settlementReference || "missing") : trade.reservationStatus ? "Reservation: " + trade.reservationStatus : "No reservation record"}</small></td>
                 <td>{trade.principalMinor}</td>
                 <td>{trade.rewardReservedMinor}<small>Estimate only; not a settlement result.</small></td>
                 <td>{alreadyConfirmed ? <><strong>{trade.realizedGrossProfitMinor}</strong><small>Actual gross result · Fee {trade.platformFeeMinor} · Net {trade.netProfitMinor}</small></> : <input type="number" step={1} value={draft.grossProfitMinor} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, grossProfitMinor: event.target.value } }))} placeholder="Positive profit or negative loss" aria-label={"Actual gross profit/loss in minor units for trade " + trade.id} />}</td>
-                <td><input value={alreadyConfirmed ? (trade.settlementReference || draft.reference) : draft.reference} disabled={alreadyConfirmed} maxLength={160} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, reference: event.target.value } }))} placeholder="Actual settlement reference (required)" aria-label={"Settlement evidence reference for trade " + trade.id} /></td>
-                <td><button className="admin-ops-button" type="button" disabled={confirmSettlement.isPending || !canConfirm} onClick={() => confirmSettlement.mutate({ tradeId: trade.id, grossProfitMinor: enteredGross, settlementReference: draft.reference.trim() })}><CheckCircle2 size={14} /> {alreadyConfirmed ? "Awaiting wallet credit" : "Confirm actual result"}</button></td>
+                <td><input value={alreadyConfirmed ? (trade.settlementReference || draft.reference) : draft.reference} disabled={alreadyConfirmed} maxLength={160} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, reference: event.target.value } }))} placeholder="Actual settlement reference (required)" aria-label={"Settlement evidence reference for trade " + trade.id} /><input type="number" min="1" value={draft.evidenceId} disabled={alreadyConfirmed} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, evidenceId: event.target.value } }))} placeholder="Approved evidence ID" aria-label={"Approved evidence ID for trade " + trade.id} /></td>
+                <td><button className="admin-ops-button" type="button" disabled={confirmSettlement.isPending || !canConfirm} onClick={() => confirmSettlement.mutate({ tradeId: trade.id, grossProfitMinor: enteredGross, settlementReference: draft.reference.trim(), evidenceId: Number(draft.evidenceId) })}><CheckCircle2 size={14} /> {alreadyConfirmed ? "Awaiting wallet credit" : "Confirm actual result"}</button></td>
               </tr>;
             })}
           </tbody></table></div>}

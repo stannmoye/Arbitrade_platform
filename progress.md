@@ -1,3 +1,14 @@
+## 2026-11-08 — Settlement evidence verification gate
+
+- **Branch/base:** `fix/settlement-evidence-verification`, based on latest `origin/main` commit `c92a0c40`.
+- **Implementation:** Added additive `settlement_evidence_records` and immutable `settlement_evidence_audit_events` tables in migration `0108_settlement_evidence_records`. Administrators can submit private evidence files, a different administrator must approve them, and manual settlement confirmation now requires an approved evidence ID inside the same transaction before any delayed wallet posting can proceed.
+- **Security:** Added MIME/signature/size/hash validation for PDF, PNG, JPEG, CSV, and text evidence; private `settlement-evidence/<tradeId>/...` storage; administrator-only download authorization; evidence reference uniqueness; two-person approval; and immutable audit events for submission, review, and settlement linkage.
+- **UI/API:** Added admin evidence submission/review controls and linked approved evidence IDs to the settlement confirmation form and router.
+- **Validation:** `pnpm check`, `pnpm build`, focused evidence/settlement contracts (1,282 passed; 31 skipped), installer/migration suite (31 files, 177 passed), and `git diff --check` passed.
+- **Not run locally:** The disposable settlement database integration cannot run because neither `DATABASE_URL` nor `TEST_DATABASE_URL` is configured.
+
+---
+
 ## 2026-11-07 — Existing Trade entitlement quotas follow saved snapshots
 
 - **Branch/base:** `fix/tier-entitlement-quota-snapshot`, based on merged `main` commit `cda901316de10aed041a9e1f28418c8b6774ebc4`.

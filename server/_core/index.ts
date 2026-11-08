@@ -7,7 +7,7 @@ import { registerProviderOAuthRoutes } from "./providerOAuth";
 import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { closeDbPool, countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getUserByEmail, getUserById, processNotificationCampaignLifecycle, reconcileAllDueTradesAwaitingConfirmation, processConfirmedTradeCredits, runAutoTradeCycle, runTradingTierQualificationWorkerCycle } from "../db";
+import { closeDbPool, countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getSettlementEvidenceUploadTarget, getUserByEmail, getUserById, processNotificationCampaignLifecycle, reconcileAllDueTradesAwaitingConfirmation, processConfirmedTradeCredits, runAutoTradeCycle, runTradingTierQualificationWorkerCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
@@ -30,11 +30,13 @@ import { registerLocalStorageRoutes } from "./localStorageRoutes";
 import { refreshMiningPriceFeeds } from "../mining-admin";
 import { runMiningWorkerCycle } from "../mining";
 import { ensureSessionSecret } from "../../installer/session-secret.mjs";
+import { isValidSettlementEvidenceStorageKey, settlementEvidenceStorageKey, validateSettlementEvidenceUpload } from "../settlement-evidence";
 
 const registrationRateLimit = createAuthRateLimiter({ windowMs: 60 * 60_000, max: 5, message: "Too many registration attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-register" });
 const customerLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many login attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-login" });
 const adminLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 8, message: "Too many administrator login attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "admin-login" });
 const supportAttachmentPrepareUploadRateLimit = createAuthRateLimiter({ windowMs: 60_000, max: 20, message: "Too many support attachment requests. Try again shortly.", store: configuredAuthRateLimitStore, scope: "support-attachment-prepare-upload" });
+const settlementEvidenceUploadRateLimit = createAuthRateLimiter({ windowMs: 60_000, max: 30, message: "Too many settlement evidence upload requests. Try again shortly.", store: configuredAuthRateLimitStore, scope: "settlement-evidence-upload" });
 const passwordResetRequestRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 5, message: "Too many password-reset requests. Try again later.", store: configuredAuthRateLimitStore, scope: "password-reset-request" });
 const passwordResetConfirmRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many password-reset attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "password-reset-confirm" });
 const emailVerificationRequestRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 5, message: "Too many email-verification requests. Try again later.", store: configuredAuthRateLimitStore, scope: "email-verification-request" });
@@ -220,6 +222,45 @@ async function startServer() {
       const errorCode = error && typeof error === "object" ? (error as NodeJS.ErrnoException).code : undefined;
       const message = errorCode === "EEXIST" ? "Upload key already exists" : "Unable to save the attachment";
       return res.status(500).json({ error: message });
+    }
+  });
+  app.post("/api/admin/settlement-evidence/prepare-upload", settlementEvidenceUploadRateLimit, async (req, res) => {
+    try {
+      const user = await resolveLocalSupportUser(req, res);
+      if (!user) return;
+      if (user.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      const { tradeId, fileName, mimeType, sizeBytes } = req.body ?? {};
+      if (!Number.isSafeInteger(tradeId) || tradeId < 1 || typeof fileName !== "string" || typeof mimeType !== "string" || !Number.isSafeInteger(sizeBytes) || sizeBytes < 1) return res.status(400).json({ error: "A valid settlement evidence file is required" });
+      const target = await getSettlementEvidenceUploadTarget(tradeId);
+      if (!target || target.status !== "confirmed" || !["pending", "confirmed_awaiting_credit"].includes(String(target.settlementStatus))) return res.status(409).json({ error: "This trade is not accepting settlement evidence" });
+      if (sizeBytes > 25_000_000) return res.status(400).json({ error: "Settlement evidence exceeds the 25 MB maximum" });
+      const key = settlementEvidenceStorageKey(tradeId, fileName);
+      res.set("Cache-Control", "no-store, private");
+      return res.json({ uploadUrl: `/api/admin/settlement-evidence/upload?key=${encodeURIComponent(key)}`, storageKey: key, stableUrl: `/storage/${key}` });
+    } catch (error) {
+      console.error("[SettlementEvidenceUpload] Could not prepare upload", error instanceof Error ? error.name : "UnknownError");
+      return res.status(503).json({ error: "Unable to prepare settlement evidence upload" });
+    }
+  });
+  app.put("/api/admin/settlement-evidence/upload", express.raw({ type: "*/*", limit: "30mb" }), async (req, res) => {
+    try {
+      const user = await resolveLocalSupportUser(req, res);
+      if (!user) return;
+      if (user.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      const key = typeof req.query.key === "string" ? req.query.key : "";
+      const match = /^settlement-evidence\/([1-9][0-9]*)\/[a-f0-9]{48}-([A-Za-z0-9._-]{1,120})$/.exec(key);
+      if (!match || !isValidSettlementEvidenceStorageKey(key, Number(match[1]))) return res.status(400).json({ error: "Invalid settlement evidence storage key" });
+      const target = await getSettlementEvidenceUploadTarget(Number(match[1]));
+      if (!target || target.status !== "confirmed" || !["pending", "confirmed_awaiting_credit"].includes(String(target.settlementStatus))) return res.status(409).json({ error: "This trade is not accepting settlement evidence" });
+      if (!Buffer.isBuffer(req.body) || req.body.length < 1) return res.status(400).json({ error: "The uploaded evidence is empty" });
+      const mimeType = String(req.headers["content-type"] || "application/octet-stream").split(";", 1)[0].trim();
+      const validated = validateSettlementEvidenceUpload({ fileName: match[2], declaredMimeType: mimeType, sizeBytes: req.body.length, content: req.body });
+      await writeStorageObject(key, req.body, validated.mimeType);
+      res.set("Cache-Control", "no-store, private");
+      return res.status(201).json({ success: true, storageKey: key, mimeType: validated.mimeType, sizeBytes: req.body.length, sha256: validated.sha256 });
+    } catch (error) {
+      console.error("[SettlementEvidenceUpload] Upload failed", error instanceof Error ? error.name : "UnknownError");
+      return res.status(400).json({ error: "Settlement evidence upload was rejected" });
     }
   });
   registerProviderOAuthRoutes(app);

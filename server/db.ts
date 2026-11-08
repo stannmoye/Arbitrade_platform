@@ -3,7 +3,7 @@ import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, not
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool, type Pool } from "mysql2/promise";
 import { ENV } from "./_core/env";
-import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityDeliveryIdempotency, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, opportunityGenerationTemplates, opportunityGenerationAssignments, opportunityGenerationBatches, balanceLedger, tradingTierQualificationJobs, tradingPackageFeePolicyVersions, adminWalletAdjustmentIdempotency, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
+import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityDeliveryIdempotency, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, opportunityGenerationTemplates, opportunityGenerationAssignments, opportunityGenerationBatches, balanceLedger, tradingTierQualificationJobs, tradingPackageFeePolicyVersions, adminWalletAdjustmentIdempotency, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, settlementEvidenceRecords, settlementEvidenceAuditEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
@@ -34,6 +34,7 @@ import { assertNotificationPayloadMatches, buildNotificationEventKey, buildTrade
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { deliveryAdmissionLockKey } from "./modules/opportunity-delivery-lifecycle";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
+import { isValidSettlementEvidenceReference, isValidSettlementEvidenceStorageKey, type SettlementEvidenceType } from "./settlement-evidence";
 import { isTradingTierEnablingTransition } from "./modules/trading-tier-activation";
 import { FAIL_CLOSED_TRADE_GLOBAL_CONTROLS, TRADE_GLOBAL_CONTROL_MIGRATION_DIAGNOSTIC_KEY, TRADE_GLOBAL_CONTROL_SETTINGS_KEY, TRADE_GLOBAL_MASTER_KEYS, parseTradeGlobalControlPolicy, requiresPreviousSettlementForAllocation, type TradeGlobalMasterKey, type TradeGlobalControlStatus } from "./trading-global-policy";
 import { classifyTradeFeeSnapshot, normalizeImmutableTradeFeeSnapshot, normalizeLegacyTradeFeePolicy, resolvePackageFeePolicyWrite, selectLatestEffectivePackageFeePolicy } from "./modules/package-fee-policy";
@@ -5301,6 +5302,63 @@ export async function reconcileAllDueTradesAwaitingConfirmation(){
   }
   return {scanned:due.length,marked,limit:1000,asOf:now.toISOString()};
 }
+export async function listSettlementEvidence(tradeId: number) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  return db.select({
+    id:settlementEvidenceRecords.id, tradeId:settlementEvidenceRecords.tradeId, evidenceReference:settlementEvidenceRecords.evidenceReference,
+    evidenceType:settlementEvidenceRecords.evidenceType, originalFilename:settlementEvidenceRecords.originalFilename,
+    mimeType:settlementEvidenceRecords.mimeType, sizeBytes:settlementEvidenceRecords.sizeBytes, sha256:settlementEvidenceRecords.sha256,
+    storageKey:settlementEvidenceRecords.storageKey, submittedBy:settlementEvidenceRecords.submittedBy, submittedAt:settlementEvidenceRecords.submittedAt,
+    verificationStatus:settlementEvidenceRecords.verificationStatus, verifiedBy:settlementEvidenceRecords.verifiedBy,
+    verifiedAt:settlementEvidenceRecords.verifiedAt, verificationNotes:settlementEvidenceRecords.verificationNotes,
+    createdAt:settlementEvidenceRecords.createdAt, updatedAt:settlementEvidenceRecords.updatedAt,
+  }).from(settlementEvidenceRecords).where(eq(settlementEvidenceRecords.tradeId,tradeId)).orderBy(desc(settlementEvidenceRecords.id));
+}
+
+export async function getSettlementEvidenceUploadTarget(tradeId:number) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  return (await db.select({id:tradePositions.id,status:tradePositions.status,settlementStatus:tradePositions.settlementStatus}).from(tradePositions).where(eq(tradePositions.id,tradeId)).limit(1))[0] ?? null;
+}
+
+export async function getSettlementEvidenceAccess(storageKey:string) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  return (await db.select({id:settlementEvidenceRecords.id,tradeId:settlementEvidenceRecords.tradeId}).from(settlementEvidenceRecords).where(eq(settlementEvidenceRecords.storageKey,storageKey)).limit(1))[0] ?? null;
+}
+
+export async function submitSettlementEvidence(adminId:number,input:{tradeId:number;evidenceReference:string;evidenceType:SettlementEvidenceType;originalFilename?:string;mimeType?:string;sizeBytes?:number;sha256?:string;storageKey?:string;notes?:string}) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const reference=input.evidenceReference.trim();
+  if(!isValidSettlementEvidenceReference(reference)) throw new Error("Evidence reference must use 3-160 safe characters");
+  if(input.storageKey&&!isValidSettlementEvidenceStorageKey(input.storageKey,input.tradeId)) throw new Error("Invalid settlement evidence storage key");
+  if(input.notes!==undefined&&input.notes.trim().length>2000) throw new Error("Evidence notes must not exceed 2000 characters");
+  return db.transaction(async tx=>{
+    const trade=(await tx.select({id:tradePositions.id,status:tradePositions.status,settlementStatus:tradePositions.settlementStatus}).from(tradePositions).where(eq(tradePositions.id,input.tradeId)).limit(1))[0];
+    if(!trade) throw new Error("Trade not found");
+    if(trade.status!=="confirmed"||!(["pending","confirmed_awaiting_credit"] as string[]).includes(String(trade.settlementStatus))) throw new Error("Evidence can only be attached to an active settlement record");
+    const inserted=await tx.insert(settlementEvidenceRecords).values({tradeId:input.tradeId,evidenceReference:reference,evidenceType:input.evidenceType,originalFilename:input.originalFilename?.trim().slice(0,255)||null,mimeType:input.mimeType?.trim().slice(0,160)||null,sizeBytes:input.sizeBytes??null,sha256:input.sha256?.trim().toLowerCase()||null,storageKey:input.storageKey||null,submittedBy:adminId,verificationStatus:"submitted",verificationNotes:input.notes?.trim()||null});
+    const evidenceId=Number(inserted[0].insertId);
+    await tx.insert(settlementEvidenceAuditEvents).values({evidenceId,tradeId:input.tradeId,action:"submitted",fromStatus:null,toStatus:"submitted",actorUserId:adminId,notes:input.notes?.trim()||null});
+    return {id:evidenceId,tradeId:input.tradeId,evidenceReference:reference,verificationStatus:"submitted" as const};
+  });
+}
+
+export async function reviewSettlementEvidence(adminId:number,input:{evidenceId:number;decision:"approve"|"reject";notes:string}) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const notes=input.notes.trim();
+  if(notes.length<5||notes.length>2000) throw new Error("Evidence review notes must contain 5-2000 characters");
+  return db.transaction(async tx=>{
+    const evidence=(await tx.select().from(settlementEvidenceRecords).where(eq(settlementEvidenceRecords.id,input.evidenceId)).limit(1).for("update"))[0];
+    if(!evidence) throw new Error("Settlement evidence not found");
+    if(evidence.verificationStatus==="approved") throw new Error("Approved evidence is immutable");
+    if(evidence.verificationStatus==="rejected"&&input.decision==="reject") throw new Error("Evidence is already rejected");
+    if(input.decision==="approve"&&Number(evidence.submittedBy)===adminId) throw new Error("A second administrator must review submitted evidence");
+    const next=input.decision==="approve"?"approved":"rejected";
+    await tx.update(settlementEvidenceRecords).set({verificationStatus:next,verifiedBy:adminId,verifiedAt:new Date(),verificationNotes:notes}).where(eq(settlementEvidenceRecords.id,input.evidenceId));
+    await tx.insert(settlementEvidenceAuditEvents).values({evidenceId:evidence.id,tradeId:evidence.tradeId,action:input.decision==="approve"?"approved":"rejected",fromStatus:evidence.verificationStatus,toStatus:next,actorUserId:adminId,notes});
+    return {id:evidence.id,tradeId:evidence.tradeId,verificationStatus:next};
+  });
+}
+
 export async function listPendingSettlements(){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   return db.select({
@@ -5618,7 +5676,7 @@ export async function listWalletLedgerReconciliation(input?: {
   });
 }
 
-export async function manuallySettleTrade(tradeId:number, adminId:number, input:{grossProfitMinor:number; settlementReference:string; notes?:string}){
+export async function manuallySettleTrade(tradeId:number, adminId:number, input:{grossProfitMinor:number; settlementReference:string; evidenceId:number; notes?:string}){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   if(!Number.isSafeInteger(input.grossProfitMinor)) throw new Error("Actual gross profit or loss must be a signed safe integer");
   const reference=input.settlementReference.trim();
@@ -5628,6 +5686,9 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
   const result=await db.transaction(async tx=>{
     const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,tradeId)).limit(1).for("update"))[0];
     if(!trade) throw new Error("Trade not found");
+    const evidence=(await tx.select().from(settlementEvidenceRecords).where(and(eq(settlementEvidenceRecords.id,input.evidenceId),eq(settlementEvidenceRecords.tradeId,tradeId))).limit(1).for("update"))[0];
+    if(!evidence) throw new Error("Settlement evidence is required for this trade");
+    if(evidence.verificationStatus!=="approved") throw new Error("Settlement evidence must be approved by a second administrator before confirmation");
     // Replaying an already committed reference/result is safe and never posts again.
     if((trade.status==="settled"&&trade.settlementStatus==="completed"||trade.status==="confirmed"&&trade.settlementStatus==="confirmed_awaiting_credit")&&trade.settlementReference===reference){
       if(trade.settlementOutcome==="legacy_unrecorded") throw new Error("This historical settlement has no recorded gross-profit result; replay requires manual financial review.");
@@ -5738,6 +5799,7 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
       tradeId,userId:trade.userId,eventType:"manual_settlement_confirmed",stage:"Settlement Confirmed — Awaiting Wallet Credit",
       payloadJson:JSON.stringify({principalMinor:principal,grossProfitMinor:accounting.grossProfitMinor,platformFeeMinor:accounting.platformFeeMinor,netProfitMinor:accounting.netProfitMinor,feeRateBps:feePolicy.feeRateBps,roundingMode:feePolicy.roundingMode,feePolicyVersion:feePolicy.policyVersion,outcome:accounting.outcome,reference,adminId,creditAt:trade.creditAt||trade.settlementReviewAt||trade.settlesAt}),
     });
+    await tx.insert(settlementEvidenceAuditEvents).values({evidenceId:evidence.id,tradeId,action:"settlement_confirmed",fromStatus:evidence.verificationStatus,toStatus:evidence.verificationStatus,actorUserId:adminId,notes:`Settlement confirmation linked to evidence ${evidence.evidenceReference}`});
     if(accounting.netProfitMinor>Number(trade.rewardReservedMinor||0)){
       await tx.insert(tradeLifecycleEvents).values({
         tradeId,userId:trade.userId,eventType:"realized_reward_exceeded_reservation",stage:"Settlement Reconciliation Required",

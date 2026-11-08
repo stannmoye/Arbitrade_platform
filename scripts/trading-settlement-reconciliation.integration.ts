@@ -4,7 +4,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { closeDbPool, createTrade, getDb, manuallySettleTrade, processConfirmedTradeCredits, reconcileAllDueTradesAwaitingConfirmation } from "../server/db";
 import {
   balanceLedger, customerBalances, customerNotifications, emailOutbox,
-  opportunityOffers, tradeLifecycleEvents, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, users,
+  opportunityOffers, settlementEvidenceRecords, tradeLifecycleEvents, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, users,
 } from "../drizzle/schema";
 
 const db = await getDb();
@@ -15,6 +15,7 @@ const token = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
 const openId = "settlement-reconcile-" + token;
 let userId: number | undefined;
 let adminId: number | undefined;
+let reviewerAdminId: number | undefined;
 let settlementOfferId: number | undefined;
 let settlementImmediateOfferId: number | undefined;
 let fundingUserId: number | undefined;
@@ -65,6 +66,15 @@ try {
     packageName: "Admin",
   });
   adminId = Number(adminInsert[0].insertId);
+  const reviewerOpenId = "settlement-reviewer-" + token;
+  const reviewerInsert = await db.insert(users).values({
+    openId: reviewerOpenId,
+    name: "Settlement Reviewer Integration",
+    email: reviewerOpenId + "@example.invalid",
+    role: "admin",
+    packageName: "Admin",
+  });
+  reviewerAdminId = Number(reviewerInsert[0].insertId);
 
   const now = Date.now();
   const overdueBySchedule = await insertTrade({ settlesAt: new Date(now - 60_000) });
@@ -186,11 +196,19 @@ try {
     status: "reserved",
   });
   const settlementReference = "integration-settlement-" + token;
+  const evidenceInsert = await db.insert(settlementEvidenceRecords).values({
+    tradeId: settlementTradeId, evidenceReference: "evidence-" + token, evidenceType: "statement",
+    originalFilename: "provider-statement.txt", mimeType: "text/plain", sizeBytes: 32, sha256: "a".repeat(64),
+    submittedBy: reviewerAdminId!, verificationStatus: "approved", verifiedBy: adminId!, verifiedAt: new Date(),
+    verificationNotes: "Integration reviewer verified the statement.",
+  });
+  const evidenceId = Number(evidenceInsert[0].insertId);
   const settlementLedgerBefore = await db.select({ id: balanceLedger.id })
     .from(balanceLedger).where(eq(balanceLedger.userId, userId));
   const confirmation = await manuallySettleTrade(settlementTradeId, adminId!, {
     grossProfitMinor: 1000,
     settlementReference,
+    evidenceId,
     notes: "Disposable database integration evidence",
   });
   assert.equal(confirmation.walletCreditPending, true, "Admin confirmation must not imply that the wallet has been credited.");
@@ -211,6 +229,7 @@ try {
   const replayConfirmation = await manuallySettleTrade(settlementTradeId, adminId!, {
     grossProfitMinor: 1000,
     settlementReference,
+    evidenceId,
     notes: "Idempotent confirmation replay",
   });
   assert.equal(replayConfirmation.walletCreditPending, true, "A matching confirmation replay must not post money.");
@@ -289,6 +308,13 @@ try {
     status: "reserved",
   });
   const immediateReference = "integration-immediate-settlement-" + token;
+  const immediateEvidenceInsert = await db.insert(settlementEvidenceRecords).values({
+    tradeId: immediateTradeId, evidenceReference: "immediate-evidence-" + token, evidenceType: "transaction_receipt",
+    originalFilename: "receipt.txt", mimeType: "text/plain", sizeBytes: 24, sha256: "b".repeat(64),
+    submittedBy: reviewerAdminId!, verificationStatus: "approved", verifiedBy: adminId!, verifiedAt: new Date(),
+    verificationNotes: "Immediate settlement evidence verified.",
+  });
+  const immediateEvidenceId = Number(immediateEvidenceInsert[0].insertId);
   const immediateLedgerBefore = await db.select({ id: balanceLedger.id })
     .from(balanceLedger).where(eq(balanceLedger.userId, userId));
   const immediateWalletBefore = (await db.select().from(customerBalances)
@@ -296,6 +322,7 @@ try {
   const immediateConfirmation = await manuallySettleTrade(immediateTradeId, adminId!, {
     grossProfitMinor: 1000,
     settlementReference: immediateReference,
+    evidenceId: immediateEvidenceId,
     notes: "Disposable overdue-credit integration evidence",
   });
   assert.equal(immediateConfirmation.walletCreditPending, true, "Confirmation after creditAt must still wait for the posting worker.");
