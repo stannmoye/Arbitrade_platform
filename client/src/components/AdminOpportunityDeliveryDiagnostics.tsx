@@ -99,7 +99,7 @@ export function AdminOpportunityDeliveryDiagnostics() {
   const [draft, setDraft] = useState<DraftFilters>(initialFilters);
   const [applied, setApplied] = useState<DraftFilters>(initialFilters);
   const [page, setPage] = useState(1);
-  const [selectedOfferId, setSelectedOfferId] = useState<number | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<{ customerId: number; opportunityId: number } | null>(null);
   const [filterError, setFilterError] = useState("");
   const [customerTerm, setCustomerTerm] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
@@ -113,7 +113,7 @@ export function AdminOpportunityDeliveryDiagnostics() {
     { enabled: activeTab === "records" || activeTab === "failures", refetchInterval: 30_000, refetchOnWindowFocus: true },
   );
   const detailsQuery = trpc.adminOperations.opportunityDeliveryDetails.useQuery(
-    { offerId: selectedOfferId ?? 1 }, { enabled: selectedOfferId !== null },
+    { customerId: selectedRecord?.customerId ?? 1, offerId: selectedRecord?.opportunityId ?? 1 }, { enabled: selectedRecord !== null },
   );
   const customerSearchQuery = trpc.adminOperations.opportunityDeliveryCustomerSearch.useQuery(
     { query: customerTerm.trim().length >= 2 ? customerTerm.trim() : "search" },
@@ -139,15 +139,15 @@ export function AdminOpportunityDeliveryDiagnostics() {
   const applyFilters = () => {
     const result = toApiFilters(draft);
     if ("error" in result) { setFilterError(result.error ?? "The supplied filter is invalid."); return; }
-    setFilterError(""); setApplied(draft); setPage(1); setSelectedOfferId(null);
+    setFilterError(""); setApplied(draft); setPage(1); setSelectedRecord(null);
   };
-  const resetFilters = () => { setDraft(initialFilters); setApplied(initialFilters); setFilterError(""); setPage(1); setSelectedOfferId(null); };
+  const resetFilters = () => { setDraft(initialFilters); setApplied(initialFilters); setFilterError(""); setPage(1); setSelectedRecord(null); };
   const refresh = () => {
     if (activeTab === "records" || activeTab === "failures") void listQuery.refetch();
     else if (activeTab === "customers") { if (selectedCustomerId) void customerQuery.refetch(); else if (customerTerm.trim().length >= 2) void customerSearchQuery.refetch(); }
     else if (activeTab === "queue") void queueQuery.refetch();
     else void workerQuery.refetch();
-    if (selectedOfferId !== null) void detailsQuery.refetch();
+    if (selectedRecord !== null) void detailsQuery.refetch();
   };
   const doExport = async () => {
     setExportMessage("");
@@ -165,8 +165,8 @@ export function AdminOpportunityDeliveryDiagnostics() {
   const workerData = workerQuery.data as any;
   const worker = workerData?.workers?.find((item: any) => item.workerKey === "trading-opportunities" && item.isCurrentInstance)
     ?? workerData?.workers?.find((item: any) => item.workerKey === "trading-opportunities");
-  const openDetails = (id: number) => { setSelectedOfferId(id); setActiveTab("records"); };
-  const openCustomer = (id: number, name: string) => { setCustomerTerm(name); setSelectedCustomerId(id); setSelectedOfferId(null); setActiveTab("customers"); };
+  const openDetails = (opportunityId: number, customerId: number) => { setSelectedRecord({ opportunityId, customerId }); setActiveTab("records"); };
+  const openCustomer = (id: number, name: string) => { setCustomerTerm(name); setSelectedCustomerId(id); setSelectedRecord(null); setActiveTab("customers"); };
 
   return <section className="delivery-diagnostics admin-ops-panel" aria-label="Opportunity delivery investigations">
     <div className="admin-ops-panel-head delivery-diagnostic-heading">
@@ -207,15 +207,15 @@ export function AdminOpportunityDeliveryDiagnostics() {
         <div className="admin-ops-meta-line"><span>{total.toLocaleString()} matching opportunities · page {page} of {pages}</span><span>Updated {timestamp((listQuery.data as any)?.generatedAt)}</span></div>
         {activeTab === "records" ? <div className="admin-ops-table-wrap"><table className="admin-ops-table"><thead><tr><th>Opportunity / customer</th><th>Package</th><th>Company</th><th>Generated</th><th>Status</th><th>Age</th><th>Retries</th><th>Last request claim</th><th>Browser receipt</th><th>Rendered</th><th>Last known error</th><th>Inspect</th><th>Customer</th></tr></thead><tbody>
           {!rows.length ? <tr><td className="admin-ops-table-empty" colSpan={13}>No persisted opportunities match the current filters.</td></tr> : rows.map(row => <tr key={`${row.customerId}-${row.opportunityId}`}>
-            <td><strong>#{row.opportunityId}</strong><small>{row.customerName} · customer {row.customerId}</small></td><td>{row.packageName}</td><td>{row.companyName}</td><td>{timestamp(row.generatedAt)}</td><td><Status value={row.deliveryStatus}/></td><td>{age(row.ageMs)}</td><td>{row.retryCount}</td><td>{timestamp(row.lastAttemptAt)}</td><td>{row.browserReceivedAt ? timestamp(row.browserReceivedAt) : "No acknowledgement timestamp"}</td><td>{row.popupRenderedAt ? timestamp(row.popupRenderedAt) : "No acknowledgement timestamp"}</td><td>{row.lastErrorCode ?? "—"}{row.lastErrorMessage && row.lastErrorCode && <small>{row.lastErrorMessage}</small>}</td><td><button className="delivery-diagnostic-inspect" type="button" onClick={() => setSelectedOfferId(row.opportunityId)} aria-label={`Inspect opportunity ${row.opportunityId}`}>Inspect</button></td><td><button className="delivery-diagnostic-inspect" type="button" onClick={() => openCustomer(row.customerId, row.customerName)}>History</button></td>
+            <td><strong>#{row.opportunityId}</strong><small>{row.customerName} · customer {row.customerId}</small></td><td>{row.packageName}</td><td>{row.companyName}</td><td>{timestamp(row.generatedAt)}</td><td><Status value={row.deliveryStatus}/></td><td>{age(row.ageMs)}</td><td>{row.retryCount}</td><td>{timestamp(row.lastAttemptAt)}</td><td>{row.browserReceivedAt ? timestamp(row.browserReceivedAt) : "No acknowledgement timestamp"}</td><td>{row.popupRenderedAt ? timestamp(row.popupRenderedAt) : "No acknowledgement timestamp"}</td><td>{row.lastErrorCode ?? "—"}{row.lastErrorMessage && row.lastErrorCode && <small>{row.lastErrorMessage}</small>}</td><td><button className="delivery-diagnostic-inspect" type="button" onClick={() => setSelectedRecord({ opportunityId: row.opportunityId, customerId: row.customerId })} aria-label={`Inspect opportunity ${row.opportunityId} for customer ${row.customerId}`}>Inspect</button></td><td><button className="delivery-diagnostic-inspect" type="button" onClick={() => openCustomer(row.customerId, row.customerName)}>History</button></td>
           </tr>)}</tbody></table></div> : <div className="admin-ops-table-wrap"><table className="admin-ops-table"><thead><tr><th>Finding</th><th>Opportunity / customer</th><th>Package</th><th>Current state</th><th>Observed at</th><th>Retries</th><th>Last result</th><th>Error code</th><th>Safe diagnostic</th><th>Retry eligibility</th><th>Inspect</th></tr></thead><tbody>
           {!rows.length ? <tr><td className="admin-ops-table-empty" colSpan={11}>No persisted failures, expiry conditions, or overdue leases/retries match these filters.</td></tr> : rows.map(row => <tr key={`${row.customerId}-${row.opportunityId}`}>
-            <td><Status value={row.failure?.category ?? "unknown failure"}/></td><td><strong>#{row.opportunityId}</strong><small>{row.customerName} · customer {row.customerId}</small></td><td>{row.packageName}</td><td><Status value={row.deliveryStatus}/></td><td>{timestamp(row.failureAt)}</td><td>{row.retryCount}</td><td>{row.lastRetryResult}</td><td>{row.lastFailureErrorCode ?? row.lastErrorCode ?? "Unavailable"}</td><td>{row.failure?.message ?? row.lastErrorMessage ?? "Historical reason unavailable."}</td><td>{row.retryPermitted ? "Eligible" : "Not permitted"}</td><td><button className="delivery-diagnostic-inspect" type="button" onClick={() => setSelectedOfferId(row.opportunityId)}>Inspect</button></td>
+            <td><Status value={row.failure?.category ?? "unknown failure"}/></td><td><strong>#{row.opportunityId}</strong><small>{row.customerName} · customer {row.customerId}</small></td><td>{row.packageName}</td><td><Status value={row.deliveryStatus}/></td><td>{timestamp(row.failureAt)}</td><td>{row.retryCount}</td><td>{row.lastRetryResult}</td><td>{row.lastFailureErrorCode ?? row.lastErrorCode ?? "Unavailable"}</td><td>{row.failure?.message ?? row.lastErrorMessage ?? "Historical reason unavailable."}</td><td>{row.retryPermitted ? "Eligible" : "Not permitted"}</td><td><button className="delivery-diagnostic-inspect" type="button" onClick={() => setSelectedRecord({ opportunityId: row.opportunityId, customerId: row.customerId })}>Inspect</button></td>
           </tr>)}</tbody></table></div>}
         <div className="delivery-diagnostic-pagination"><span>Showing {rows.length} of {total.toLocaleString()}</span><div><button className="admin-ops-button" type="button" disabled={page <= 1 || listQuery.isFetching} onClick={() => setPage(value => Math.max(1, value - 1))}><ChevronLeft size={14}/>Previous</button><button className="admin-ops-button" type="button" disabled={page >= pages || listQuery.isFetching} onClick={() => setPage(value => Math.min(pages, value + 1))}>Next<ChevronRight size={14}/></button></div></div>
       </>}
-      {selectedOfferId !== null && <div className="delivery-diagnostic-detail" aria-live="polite">
-        <div className="delivery-diagnostic-detail-head"><div><span className="admin-ops-kicker">Opportunity #{selectedOfferId}</span><h3>Evidence timeline</h3></div><button className="delivery-diagnostic-close" type="button" aria-label="Close opportunity details" onClick={() => setSelectedOfferId(null)}><X size={16}/></button></div>
+      {selectedRecord !== null && <div className="delivery-diagnostic-detail" aria-live="polite">
+        <div className="delivery-diagnostic-detail-head"><div><span className="admin-ops-kicker">Opportunity #{selectedRecord.opportunityId} · customer {selectedRecord.customerId}</span><h3>Evidence timeline</h3></div><button className="delivery-diagnostic-close" type="button" aria-label="Close opportunity details" onClick={() => setSelectedRecord(null)}><X size={16}/></button></div>
         {detailsQuery.isError ? <div className="admin-ops-empty error">Details could not be loaded.</div> : detailsQuery.isLoading ? <Empty>Loading persisted timeline…</Empty> : !detail?.record ? <Empty>Opportunity not found in persisted assignment or popup history.</Empty> : <>
           <div className="delivery-diagnostic-detail-summary"><span>{detail.record.customerName} · customer {detail.record.customerId}</span><span>{detail.record.packageName}</span><span>{detail.record.companyName}</span><span>Generated: {timestamp(detail.record.generatedAt)}</span><span>Assignment persisted: {timestamp(detail.record.assignmentPersistedAt)}</span><span>Assigned: {timestamp(detail.record.assignedAt)}</span><span>Expiry deadline: {timestamp(detail.record.assignmentExpiresAt ?? detail.record.offerClosesAt)}</span><Status value={detail.record.deliveryStatus}/></div>
           {(detail.record.lastErrorCode || detail.record.lastFailureErrorCode) && <div className="admin-ops-note"><AlertTriangle size={15}/><span><strong>{detail.record.lastFailureErrorCode ?? detail.record.lastErrorCode}</strong> · {detail.record.lastErrorMessage ?? "A safe diagnostic code is persisted; historical detail unavailable."}</span></div>}
@@ -239,7 +239,7 @@ export function AdminOpportunityDeliveryDiagnostics() {
           <div className="delivery-diagnostic-metrics">{[["Generated", customer.aggregates.generated], ["Pending", customer.aggregates.pending], ["Browser received", customer.aggregates.received], ["Rendered", customer.aggregates.rendered], ["Failed", customer.aggregates.failed], ["Expired", customer.aggregates.expired]].map(([label, value]: any) => <SmallMetric key={label} label={label} value={Number(value).toLocaleString()}/>)}</div>
           <div className="delivery-diagnostic-latency"><span>Last confirmed render: <strong>{timestamp(customer.aggregates.lastRenderedAt)}</strong></span><span>Most recent failure/expiry: <strong>{timestamp(customer.aggregates.mostRecentFailureAt)}</strong></span><span>Failure code: <strong>{customer.aggregates.mostRecentFailureCode ?? "Unavailable"}</strong></span><span>Average generation → render: <strong>{duration(customer.aggregates.averageDeliveryLatencyMs)}</strong> · {customer.aggregates.averageDeliveryLatencySamples} samples</span></div>
           <div className="delivery-diagnostic-detail-head"><div><h3>Recent opportunities</h3><p>Click inspect to open the persisted event timeline.</p></div></div>
-          <div className="admin-ops-table-wrap"><table className="admin-ops-table"><thead><tr><th>Opportunity</th><th>Company</th><th>Current state</th><th>Generated</th><th>Browser receipt</th><th>Rendered</th><th>Retries</th><th>Inspect</th></tr></thead><tbody>{customer.recent?.length ? customer.recent.map((row: any) => <tr key={row.opportunityId}><td>#{row.opportunityId}</td><td>{row.companyName}</td><td><Status value={row.deliveryStatus}/></td><td>{timestamp(row.generatedAt)}</td><td>{timestamp(row.browserReceivedAt)}</td><td>{timestamp(row.popupRenderedAt)}</td><td>{row.retryCount}</td><td><button className="delivery-diagnostic-inspect" type="button" onClick={() => openDetails(row.opportunityId)}>Inspect</button></td></tr>) : <tr><td colSpan={8} className="admin-ops-table-empty">No recent persisted opportunities.</td></tr>}</tbody></table></div>
+          <div className="admin-ops-table-wrap"><table className="admin-ops-table"><thead><tr><th>Opportunity</th><th>Company</th><th>Current state</th><th>Generated</th><th>Browser receipt</th><th>Rendered</th><th>Retries</th><th>Inspect</th></tr></thead><tbody>{customer.recent?.length ? customer.recent.map((row: any) => <tr key={`${row.customerId}-${row.opportunityId}`}><td>#{row.opportunityId}</td><td>{row.companyName}</td><td><Status value={row.deliveryStatus}/></td><td>{timestamp(row.generatedAt)}</td><td>{timestamp(row.browserReceivedAt)}</td><td>{timestamp(row.popupRenderedAt)}</td><td>{row.retryCount}</td><td><button className="delivery-diagnostic-inspect" type="button" onClick={() => openDetails(row.opportunityId, row.customerId)}>Inspect</button></td></tr>) : <tr><td colSpan={8} className="admin-ops-table-empty">No recent persisted opportunities.</td></tr>}</tbody></table></div>
         </>}
       </>}
       <div className="admin-ops-note"><UserRound size={15}/><span>Customer search is prefix-based and paginated to the first 20 recent opportunities. Counts distinguish persisted generation assignments from delivery acknowledgement states.</span></div>

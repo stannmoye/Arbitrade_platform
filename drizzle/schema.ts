@@ -560,6 +560,7 @@ export const opportunityGenerationAssignments = mysqlTable("opportunity_generati
 }));
 export const opportunityDeliveryHistory = mysqlTable("opportunity_delivery_history", {
   id: bigint("id", { mode: "number" }).autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
   offerId: int("offerId").notNull(),
   eventKey: varchar("eventKey", { length: 120 }).notNull(),
   eventType: varchar("eventType", { length: 40 }).notNull(),
@@ -568,9 +569,10 @@ export const opportunityDeliveryHistory = mysqlTable("opportunity_delivery_histo
   errorCode: varchar("errorCode", { length: 80 }),
   occurredAt: timestamp("occurredAt").defaultNow().notNull(),
 }, (table) => ({
-  eventUnique: uniqueIndex("opportunity_delivery_history_offer_event_uq").on(table.offerId, table.eventKey),
-  offerTimeIdx: index("opportunity_delivery_history_offer_time_idx").on(table.offerId, table.occurredAt, table.id),
-  typeOfferTimeIdx: index("opportunity_delivery_history_type_offer_time_idx").on(table.eventType, table.offerId, table.occurredAt),
+  eventUnique: uniqueIndex("opportunity_delivery_history_customer_offer_event_uq").on(table.userId, table.offerId, table.eventKey),
+  customerOfferTimeIdx: index("opportunity_delivery_history_customer_offer_time_idx").on(table.userId, table.offerId, table.occurredAt, table.id),
+  customerTypeOfferTimeIdx: index("opportunity_delivery_history_customer_type_offer_time_idx").on(table.userId, table.eventType, table.offerId, table.occurredAt),
+  userReference: foreignKey({ columns: [table.userId], foreignColumns: [users.id], name: "opportunity_delivery_history_user_fk" }).onDelete("cascade"),
   offerReference: foreignKey({ columns: [table.offerId], foreignColumns: [opportunityOffers.id], name: "opportunity_delivery_history_offer_fk" }).onDelete("cascade"),
 }));
 export const marketInstruments = mysqlTable("market_instruments", {

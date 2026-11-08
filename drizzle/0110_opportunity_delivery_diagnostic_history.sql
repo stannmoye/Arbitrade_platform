@@ -3,6 +3,7 @@
 -- only transitions actually observed by the current code paths.
 CREATE TABLE IF NOT EXISTS `opportunity_delivery_history` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `userId` INT NOT NULL,
   `offerId` INT NOT NULL,
   `eventKey` VARCHAR(120) NOT NULL,
   `eventType` VARCHAR(40) NOT NULL,
@@ -11,8 +12,10 @@ CREATE TABLE IF NOT EXISTS `opportunity_delivery_history` (
   `errorCode` VARCHAR(80) NULL,
   `occurredAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `opportunity_delivery_history_offer_event_uq` (`offerId`,`eventKey`),
-  KEY `opportunity_delivery_history_offer_time_idx` (`offerId`,`occurredAt`,`id`),
+  UNIQUE KEY `opportunity_delivery_history_customer_offer_event_uq` (`userId`,`offerId`,`eventKey`),
+  KEY `opportunity_delivery_history_customer_offer_time_idx` (`userId`,`offerId`,`occurredAt`,`id`),
+  CONSTRAINT `opportunity_delivery_history_user_fk`
+    FOREIGN KEY (`userId`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `opportunity_delivery_history_offer_fk`
     FOREIGN KEY (`offerId`) REFERENCES `opportunity_offers` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -34,4 +37,4 @@ ALTER TABLE `opportunity_generation_assignments`
   ADD KEY `opportunity_generation_assignments_delivery_company_idx` (`companyReferenceId`,`generatedAt`,`id`);
 --> statement-breakpoint
 ALTER TABLE `opportunity_delivery_history`
-  ADD KEY `opportunity_delivery_history_type_offer_time_idx` (`eventType`,`offerId`,`occurredAt`);
+  ADD KEY `opportunity_delivery_history_customer_type_offer_time_idx` (`userId`,`eventType`,`offerId`,`occurredAt`);

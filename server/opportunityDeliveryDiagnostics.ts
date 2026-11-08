@@ -22,6 +22,7 @@ type SqlRow = Record<string, any>;
 
 type DeliveryHistoryRow = {
   id: number;
+  userId: number;
   offerId: number;
   eventKey: string;
   eventType: string;
@@ -232,22 +233,25 @@ export async function listOpportunityDeliveryRecords(input: {
     const offset = (input.page - 1) * input.pageSize;
     const [rows] = await connection.query<any[]>(`${RECORD_CTES}
       SELECT r.*,u.name AS customerName,
-        (SELECT MAX(h.occurredAt) FROM opportunity_delivery_history h WHERE h.offerId=r.offerId AND h.eventType='dispatch_claimed') AS lastAttemptAt,
-        (SELECT h.occurredAt FROM opportunity_delivery_history h WHERE h.offerId=r.offerId AND h.eventType IN ('lease_expired','retry_scheduled','retry_exhausted') ORDER BY h.occurredAt DESC,h.id DESC LIMIT 1) AS lastFailureAt,
-        (SELECT h.observedStatus FROM opportunity_delivery_history h WHERE h.offerId=r.offerId AND h.eventType IN ('lease_expired','retry_scheduled','retry_exhausted') ORDER BY h.occurredAt DESC,h.id DESC LIMIT 1) AS lastFailureStatus,
-        (SELECT h.errorCode FROM opportunity_delivery_history h WHERE h.offerId=r.offerId AND h.eventType IN ('lease_expired','retry_scheduled','retry_exhausted') ORDER BY h.occurredAt DESC,h.id DESC LIMIT 1) AS lastFailureErrorCode
+        (SELECT MAX(h.occurredAt) FROM opportunity_delivery_history h WHERE h.userId=r.userId AND h.offerId=r.offerId AND h.eventType='dispatch_claimed') AS lastAttemptAt,
+        (SELECT h.occurredAt FROM opportunity_delivery_history h WHERE h.userId=r.userId AND h.offerId=r.offerId AND h.eventType IN ('lease_expired','retry_scheduled','retry_exhausted') ORDER BY h.occurredAt DESC,h.id DESC LIMIT 1) AS lastFailureAt,
+        (SELECT h.observedStatus FROM opportunity_delivery_history h WHERE h.userId=r.userId AND h.offerId=r.offerId AND h.eventType IN ('lease_expired','retry_scheduled','retry_exhausted') ORDER BY h.occurredAt DESC,h.id DESC LIMIT 1) AS lastFailureStatus,
+        (SELECT h.errorCode FROM opportunity_delivery_history h WHERE h.userId=r.userId AND h.offerId=r.offerId AND h.eventType IN ('lease_expired','retry_scheduled','retry_exhausted') ORDER BY h.occurredAt DESC,h.id DESC LIMIT 1) AS lastFailureErrorCode
       FROM record_rows r LEFT JOIN users u ON u.id=r.userId ${where.sql}
       ORDER BY COALESCE(r.generatedAt,r.popupCreatedAt) DESC,r.offerId DESC,r.userId DESC LIMIT ? OFFSET ?`, [...where.params, input.pageSize, offset]);
     const mapped = rows.map(row => mapRecord(row));
     let histories: DeliveryHistoryRow[] = [];
-    if (input.includeHistory && mapped.length) histories = await loadHistory(connection, mapped.map(row => row.opportunityId));
-    const historyByOffer = new Map<number, DeliveryHistoryRow[]>();
-    for (const item of histories) historyByOffer.set(item.offerId, [...(historyByOffer.get(item.offerId) ?? []), item]);
+    if (input.includeHistory && mapped.length) histories = await loadHistory(connection, mapped.map(row => ({ userId: row.customerId, offerId: row.opportunityId })));
+    const historyByOffer = new Map<string, DeliveryHistoryRow[]>();
+    for (const item of histories) {
+      const key = `${item.userId}:${item.offerId}`;
+      historyByOffer.set(key, [...(historyByOffer.get(key) ?? []), item]);
+    }
     return {
       sourceAvailable: true as const,
       rows: mapped.map(row => {
         const { _source, ...publicRow } = row;
-        const events = historyByOffer.get(row.opportunityId) ?? [];
+        const events = historyByOffer.get(`${row.customerId}:${row.opportunityId}`) ?? [];
         const stalled = (_source.deliveryStatus === "in_progress" && _source.deliveryLeaseExpiresAt && new Date(_source.deliveryLeaseExpiresAt).getTime() <= Date.now()) || (_source.deliveryStatus === "retry_wait" && _source.deliveryRetryAfter && new Date(_source.deliveryRetryAfter).getTime() <= Date.now());
         const failure = classifyDeliveryFailure({ assignmentStatus: _source.assignmentStatus, deliveryStatus: _source.deliveryStatus, errorCode: row.lastFailureErrorCode ?? row.lastErrorCode, receivedAt: _source.receivedAt, renderedAt: _source.renderedAt, stalled: Boolean(stalled) });
         const lastAttemptEvent = [...events].reverse().find(event => ["lease_expired", "retry_scheduled", "retry_exhausted"].includes(event.eventType));
@@ -258,24 +262,26 @@ export async function listOpportunityDeliveryRecords(input: {
   });
 }
 
-async function loadHistory(connection: mysql.PoolConnection, offerIds: number[]) {
-  if (!offerIds.length) return [] as DeliveryHistoryRow[];
-  const placeholders = offerIds.map(() => "?").join(",");
-  const [rows] = await connection.query<any[]>(`SELECT id,offerId,eventKey,eventType,observedStatus,attemptNumber,errorCode,occurredAt
-    FROM opportunity_delivery_history WHERE offerId IN (${placeholders}) ORDER BY occurredAt ASC,id ASC`, offerIds);
-  return rows.map(row => ({ ...row, id: Number(row.id), offerId: Number(row.offerId), attemptNumber: row.attemptNumber == null ? null : Number(row.attemptNumber) })) as DeliveryHistoryRow[];
+async function loadHistory(connection: mysql.PoolConnection, records: Array<{ userId: number; offerId: number }>) {
+  if (!records.length) return [] as DeliveryHistoryRow[];
+  const pairs = records.map(() => "(userId=? AND offerId=?)").join(" OR ");
+  const params = records.flatMap(record => [record.userId, record.offerId]);
+  const [rows] = await connection.query<any[]>(`SELECT id,userId,offerId,eventKey,eventType,observedStatus,attemptNumber,errorCode,occurredAt
+    FROM opportunity_delivery_history WHERE ${pairs} ORDER BY occurredAt ASC,id ASC`, params);
+  return rows.map(row => ({ ...row, id: Number(row.id), userId: Number(row.userId), offerId: Number(row.offerId), attemptNumber: row.attemptNumber == null ? null : Number(row.attemptNumber) })) as DeliveryHistoryRow[];
 }
 
-export async function getOpportunityDeliveryDetails(offerId: number) {
+export async function getOpportunityDeliveryDetails(customerId: number, offerId: number) {
+  if (!Number.isSafeInteger(customerId) || customerId < 1) throw new RangeError("A valid customer ID is required.");
   if (!Number.isSafeInteger(offerId) || offerId < 1) throw new RangeError("A valid opportunity ID is required.");
   if (!process.env.DATABASE_URL) return { sourceAvailable: false as const, record: null, timeline: [], attempts: [], durationsMs: {}, generatedAt: null };
-  const page = await listOpportunityDeliveryRecords({ filters: { opportunityId: offerId }, page: 1, pageSize: 1, includeHistory: false, includeInternal: true });
+  const page = await listOpportunityDeliveryRecords({ filters: { customerId, opportunityId: offerId }, page: 1, pageSize: 1, includeHistory: false, includeInternal: true });
   if (!page.sourceAvailable || !page.rows[0]) return { sourceAvailable: true as const, record: null, timeline: [], attempts: [], durationsMs: {}, generatedAt: new Date().toISOString() };
   const record = page.rows[0];
   return withConnection(async connection => {
-    const histories = await loadHistory(connection, [offerId]);
     const source = (record as any)._source as SqlRow;
     const actual = (record as any);
+    const histories = await loadHistory(connection, [{ userId: Number(source.userId), offerId }]);
     const firstClaim = histories.find(item => item.eventType === "dispatch_claimed");
     const final = histories.filter(item => ["lease_expired", "retry_scheduled", "retry_exhausted"].includes(item.eventType));
     const timeline: Array<{ label: string; occurredAt: string | null; evidence: string; status?: string | null; errorCode?: string | null }> = [
@@ -348,7 +354,7 @@ export async function getOpportunityDeliveryCustomer(userId: number) {
     const [timestamps] = await connection.query<any[]>(`${RECORD_CTES}
       SELECT MAX(r.renderedAt) AS lastRenderedAt,
         (SELECT COALESCE(r2.lastErrorCode,r2.failureReason) FROM record_rows r2 WHERE r2.userId=? AND (r2.deliveryStatus='failed' OR r2.assignmentStatus='failed' OR r2.deliveryStatus='expired' OR r2.assignmentStatus='expired') ORDER BY COALESCE(r2.generatedAt,r2.popupCreatedAt) DESC,r2.offerId DESC LIMIT 1) AS mostRecentFailureCode,
-        (SELECT COALESCE((SELECT h.occurredAt FROM opportunity_delivery_history h WHERE h.offerId=r2.offerId AND h.eventType IN ('lease_expired','retry_exhausted') ORDER BY h.occurredAt DESC,h.id DESC LIMIT 1),r2.expiredAt) FROM record_rows r2 WHERE r2.userId=? AND (r2.deliveryStatus='failed' OR r2.assignmentStatus='failed' OR r2.deliveryStatus='expired' OR r2.assignmentStatus='expired') ORDER BY COALESCE(r2.generatedAt,r2.popupCreatedAt) DESC,r2.offerId DESC LIMIT 1) AS mostRecentFailureAt
+        (SELECT COALESCE((SELECT h.occurredAt FROM opportunity_delivery_history h WHERE h.userId=r2.userId AND h.offerId=r2.offerId AND h.eventType IN ('lease_expired','retry_scheduled','retry_exhausted') ORDER BY h.occurredAt DESC,h.id DESC LIMIT 1),r2.expiredAt) FROM record_rows r2 WHERE r2.userId=? AND (r2.deliveryStatus='failed' OR r2.assignmentStatus='failed' OR r2.deliveryStatus='expired' OR r2.assignmentStatus='expired') ORDER BY COALESCE(r2.generatedAt,r2.popupCreatedAt) DESC,r2.offerId DESC LIMIT 1) AS mostRecentFailureAt
       FROM record_rows r WHERE r.userId=?`, [userId,userId,userId]);
     const [latencyRows] = await connection.query<any[]>(`${RECORD_CTES}
       SELECT AVG(TIMESTAMPDIFF(MICROSECOND,a.generatedAt,p.renderedAt)/1000) AS averageMs,COUNT(*) AS samples
@@ -388,7 +394,7 @@ export async function getOpportunityDeliveryQueueDiagnostics() {
       FROM opportunity_popup_events e
       INNER JOIN (SELECT userId,offerId,MAX(id) AS id FROM opportunity_popup_events GROUP BY userId,offerId) latest ON latest.id=e.id
       LEFT JOIN opportunity_offers offer ON offer.id=e.offerId
-      LEFT JOIN (SELECT offerId,COUNT(*) AS expiredCount FROM opportunity_delivery_history WHERE eventType='lease_expired' GROUP BY offerId) lease_events ON lease_events.offerId=e.offerId`);
+      LEFT JOIN (SELECT userId,offerId,COUNT(*) AS expiredCount FROM opportunity_delivery_history WHERE eventType='lease_expired' GROUP BY userId,offerId) lease_events ON lease_events.userId=e.userId AND lease_events.offerId=e.offerId`);
     const [latencyRows] = await connection.query<any[]>(`SELECT
       AVG(IF(p.createdAt>=a.generatedAt,TIMESTAMPDIFF(MICROSECOND,a.generatedAt,p.createdAt)/1000,NULL)) AS generationToQueueMs,
       COUNT(IF(p.createdAt>=a.generatedAt,1,NULL)) AS generationToQueueSamples,
@@ -402,7 +408,7 @@ export async function getOpportunityDeliveryQueueDiagnostics() {
       COUNT(IF(p.renderedAt>=a.generatedAt,1,NULL)) AS generationToRenderSamples
       FROM opportunity_generation_assignments a
       INNER JOIN (SELECT e.userId,e.offerId,e.createdAt,e.receivedAt,e.renderedAt FROM opportunity_popup_events e INNER JOIN (SELECT userId,offerId,MAX(id) AS id FROM opportunity_popup_events GROUP BY userId,offerId) latest ON latest.id=e.id) p ON p.userId=a.userId AND p.offerId=a.offerId
-      LEFT JOIN (SELECT offerId,MIN(occurredAt) AS firstClaimAt FROM opportunity_delivery_history WHERE eventType='dispatch_claimed' GROUP BY offerId) claim ON claim.offerId=a.offerId`);
+      LEFT JOIN (SELECT userId,offerId,MIN(occurredAt) AS firstClaimAt FROM opportunity_delivery_history WHERE eventType='dispatch_claimed' GROUP BY userId,offerId) claim ON claim.userId=a.userId AND claim.offerId=a.offerId`);
     const latency = latencyRows[0] ?? {};
     return {
       sourceAvailable: true as const,

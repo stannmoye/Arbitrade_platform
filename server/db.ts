@@ -3547,10 +3547,10 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       packageSnapshotJson:JSON.stringify(snapshot),status:"generated",generatedAt:opportunityStartedAt,assignedAt:input.now,expiresAt:closesAt,
     });
     try {
-      await tx.execute(sql`INSERT INTO opportunity_delivery_history (offerId,eventKey,eventType,observedStatus,attemptNumber,occurredAt)
-        VALUES (${offerId},'generation_persisted','generated',NULL,NULL,${opportunityStartedAt}) ON DUPLICATE KEY UPDATE id=id`);
-      await tx.execute(sql`INSERT INTO opportunity_delivery_history (offerId,eventKey,eventType,observedStatus,attemptNumber,occurredAt)
-        VALUES (${offerId},'assignment_persisted','assigned',NULL,NULL,${input.now}) ON DUPLICATE KEY UPDATE id=id`);
+      await tx.execute(sql`INSERT INTO opportunity_delivery_history (userId,offerId,eventKey,eventType,observedStatus,attemptNumber,occurredAt)
+        VALUES (${input.userId},${offerId},'generation_persisted','generated',NULL,NULL,${opportunityStartedAt}) ON DUPLICATE KEY UPDATE id=id`);
+      await tx.execute(sql`INSERT INTO opportunity_delivery_history (userId,offerId,eventKey,eventType,observedStatus,attemptNumber,occurredAt)
+        VALUES (${input.userId},${offerId},'assignment_persisted','assigned',NULL,NULL,${input.now}) ON DUPLICATE KEY UPDATE id=id`);
     } catch {
       // Operational history is fail-soft and must not alter generation availability.
     }

@@ -26,7 +26,7 @@ describe("Opportunity delivery diagnostics", () => {
     await expect(appRouter.createCaller({ ...contextForRole("user"), user: null }).adminOperations.opportunityDeliveryRecords(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(appRouter.createCaller(contextForRole("user")).adminOperations.opportunityDeliveryQueueDiagnostics()).rejects.toMatchObject({ code: "FORBIDDEN" });
     const caller = appRouter.createCaller(contextForRole("user"));
-    await expect(caller.adminOperations.opportunityDeliveryDetails({ offerId: 902 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller.adminOperations.opportunityDeliveryDetails({ customerId: 41, offerId: 902 })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(caller.adminOperations.opportunityDeliveryCustomerSearch({ query: "Ada" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(caller.adminOperations.opportunityDeliveryCustomer({ customerId: 41 })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(caller.adminOperations.exportOpportunityDeliveryRecords({ filters: {}, maxRows: 100 })).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -38,6 +38,7 @@ describe("Opportunity delivery diagnostics", () => {
     await expect(caller.adminOperations.opportunityDeliveryRecords({ filters: {}, page: 1, pageSize: 101 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await expect(caller.adminOperations.opportunityDeliveryRecords({ filters: { from: "2026-11-08" }, page: 1, pageSize: 20 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await expect(caller.adminOperations.opportunityDeliveryRecords({ filters: { from: "2026-11-09T00:00:00.000Z", to: "2026-11-08T00:00:00.000Z" }, page: 1, pageSize: 20 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(caller.adminOperations.opportunityDeliveryDetails({ customerId: 0, offerId: 902 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await expect(caller.adminOperations.exportOpportunityDeliveryRecords({ filters: {}, maxRows: 10_001 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
@@ -75,6 +76,8 @@ describe("Opportunity delivery diagnostics", () => {
       expect(routerSource).toContain(`${endpoint}: adminProcedure`);
     }
     expect(routerSource).toContain("opportunityDeliveryRecords: adminProcedure.input(");
+    expect(routerSource).toContain("opportunityDeliveryDetails: adminProcedure.input(z.object({ customerId:");
+    expect(diagnosticsSource).toContain("filters: { customerId, opportunityId: offerId }");
     expect(routerSource).toContain("max(100)");
     expect(routerSource).toContain("max(10_000)");
     expect(diagnosticsSource).toContain("ORDER BY COALESCE(r.generatedAt,r.popupCreatedAt) DESC,r.offerId DESC,r.userId DESC LIMIT ? OFFSET ?");
@@ -82,6 +85,8 @@ describe("Opportunity delivery diagnostics", () => {
     expect(diagnosticsSource).toContain("queueWaitThresholdConfigured: false");
     expect(diagnosticsSource).toContain("eventType='dispatch_claimed'");
     expect(diagnosticsSource).toContain("'lease_expired','retry_scheduled','retry_exhausted'");
+    expect(diagnosticsSource).toContain("h.userId=r.userId AND h.offerId=r.offerId");
+    expect(diagnosticsSource).toContain("records.map(() => \"(userId=? AND offerId=?)\")");
     expect(diagnosticsSource).not.toContain("worker_claimed");
     expect(lifecycleSource).toContain("if(Number(claimResult?.affectedRows||0)===0) continue;");
     expect(lifecycleSource).toContain("if(Number(leaseResult?.affectedRows||0)===0) continue;");
@@ -89,7 +94,8 @@ describe("Opportunity delivery diagnostics", () => {
     expect(diagnosticsSource).toContain("deliveryStatus='delivered' AND ${alias}.receivedAt IS NULL");
     expect(diagnosticsSource).toContain("Historical queue-size snapshots are not persisted");
     expect(historyMigration).toContain("CREATE TABLE IF NOT EXISTS `opportunity_delivery_history`");
-    expect(historyMigration).toContain("UNIQUE KEY `opportunity_delivery_history_offer_event_uq`");
+    expect(historyMigration).toContain("UNIQUE KEY `opportunity_delivery_history_customer_offer_event_uq` (`userId`,`offerId`,`eventKey`)");
+    expect(historyMigration).toContain("FOREIGN KEY (`userId`) REFERENCES `users` (`id`) ON DELETE CASCADE");
     expect(uiSource).toContain("No acknowledgement timestamp");
     expect(uiSource).toContain("Terminal records have no manual retry action here");
     expect(uiSource).toContain("user-scoped customer requests");

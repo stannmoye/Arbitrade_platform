@@ -829,8 +829,8 @@ export const appRouter = router({
       page: z.number().int().min(1).max(10_000),
       pageSize: z.number().int().min(1).max(100),
     }).strict()).query(({ input }) => listOpportunityDeliveryRecords({ ...input, includeHistory: true })),
-    opportunityDeliveryDetails: adminProcedure.input(z.object({ offerId: z.number().int().positive().max(2_147_483_647) }).strict())
-      .query(({ input }) => getOpportunityDeliveryDetails(input.offerId)),
+    opportunityDeliveryDetails: adminProcedure.input(z.object({ customerId: z.number().int().positive().max(2_147_483_647), offerId: z.number().int().positive().max(2_147_483_647) }).strict())
+      .query(({ input }) => getOpportunityDeliveryDetails(input.customerId, input.offerId)),
     opportunityDeliveryCustomerSearch: adminProcedure.input(z.object({ query: z.string().trim().min(2).max(100) }).strict())
       .query(({ input }) => searchOpportunityDeliveryCustomers(input.query)),
     opportunityDeliveryCustomer: adminProcedure.input(z.object({ customerId: z.number().int().positive().max(2_147_483_647) }).strict())

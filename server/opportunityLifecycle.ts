@@ -47,6 +47,7 @@ async function withConnection<T>(fn: (connection: mysql.PoolConnection) => Promi
 }
 
 async function recordDeliveryHistory(connection: mysql.PoolConnection, input: {
+  userId: number;
   offerId: number;
   eventKey: string;
   eventType: string;
@@ -57,9 +58,9 @@ async function recordDeliveryHistory(connection: mysql.PoolConnection, input: {
 }) {
   try {
     await connection.execute(
-      `INSERT INTO opportunity_delivery_history (offerId,eventKey,eventType,observedStatus,attemptNumber,errorCode,occurredAt)
-       VALUES (?,?,?,?,?,?,COALESCE(?,CURRENT_TIMESTAMP)) ON DUPLICATE KEY UPDATE id=id`,
-      [input.offerId, input.eventKey, input.eventType, input.observedStatus ?? null, input.attemptNumber ?? null, input.errorCode ?? null, input.occurredAt ?? null],
+      `INSERT INTO opportunity_delivery_history (userId,offerId,eventKey,eventType,observedStatus,attemptNumber,errorCode,occurredAt)
+       VALUES (?,?,?,?,?,?,?,COALESCE(?,CURRENT_TIMESTAMP)) ON DUPLICATE KEY UPDATE id=id`,
+      [input.userId, input.offerId, input.eventKey, input.eventType, input.observedStatus ?? null, input.attemptNumber ?? null, input.errorCode ?? null, input.occurredAt ?? null],
     );
   } catch {
     // Diagnostics are deliberately fail-soft: history storage must never change
@@ -247,7 +248,7 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
         );
         const popupEventId = Number(insertResult.insertId || 0);
         if (!popupEventId) throw new Error("Durable popup lifecycle insert did not return an event identifier.");
-        await recordDeliveryHistory(connection, { offerId: item.offerId, eventKey: "queue_created", eventType: "queue_created", observedStatus: "queued", attemptNumber: 0 });
+        await recordDeliveryHistory(connection, { userId: item.userId, offerId: item.offerId, eventKey: "queue_created", eventType: "queue_created", observedStatus: "queued", attemptNumber: 0 });
         await connection.execute(
           "INSERT INTO opportunity_delivery_idempotency (userId,offerId,popupEventId,packageId,packageName) VALUES (?,?,?,?,?)",
           [item.userId, item.offerId, popupEventId, item.packageId, item.packageName],
@@ -331,7 +332,7 @@ export async function updatePopupDeliveryStatus(userId: number, eventId: number,
       if (String(row.deliveryLeaseToken || "") !== leaseToken) { await connection.commit(); return; }
       if (row.offerStatus !== "open" || !row.closesAt || new Date(row.closesAt).getTime() <= Date.now()) {
         const [expiredResult] = await connection.execute<any>("UPDATE opportunity_popup_events SET deliveryStatus='expired',expiredAt=COALESCE(expiredAt,CURRENT_TIMESTAMP),deliveryRetryAfter=NULL,deliveryLeaseToken=NULL,deliveryLeaseExpiresAt=NULL,updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=? AND deliveryStatus IN ('queued','in_progress','retry_wait')", [eventId,userId]);
-        if (Number(expiredResult?.affectedRows || 0) > 0) await recordDeliveryHistory(connection, { offerId: Number(row.offerId), eventKey: "delivery_expired", eventType: "delivery_expired", observedStatus: "expired", attemptNumber: Number(row.deliveryAttemptCount || 0), errorCode: "OPPORTUNITY_EXPIRED" });
+        if (Number(expiredResult?.affectedRows || 0) > 0) await recordDeliveryHistory(connection, { userId, offerId: Number(row.offerId), eventKey: "delivery_expired", eventType: "delivery_expired", observedStatus: "expired", attemptNumber: Number(row.deliveryAttemptCount || 0), errorCode: "OPPORTUNITY_EXPIRED" });
         await connection.commit(); return;
       }
       const currentDeliveryStatus = String(row.deliveryStatus);
@@ -342,7 +343,7 @@ export async function updatePopupDeliveryStatus(userId: number, eventId: number,
         const timestamp=status === "received" ? "receivedAt" : "renderedAt";
         const finalRender = status === "rendered";
         const [ackResult] = await connection.execute<any>(`UPDATE opportunity_popup_events SET deliveryStatus=?,${timestamp}=COALESCE(${timestamp},CURRENT_TIMESTAMP),deliveryLeaseToken=${finalRender ? "NULL" : "deliveryLeaseToken"},deliveryLeaseExpiresAt=${finalRender ? "NULL" : "deliveryLeaseExpiresAt"},lastErrorCode=NULL,updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=? AND deliveryLeaseToken=? AND deliveryStatus IN ('in_progress','received') AND eventStatus<>'DISMISSED'`, [status,eventId,userId,row.deliveryLeaseToken]);
-        if (Number(ackResult?.affectedRows || 0) > 0) await recordDeliveryHistory(connection, { offerId: Number(row.offerId), eventKey: status === "received" ? "browser_received" : "popup_rendered", eventType: status === "received" ? "browser_received" : "popup_rendered", observedStatus: status, attemptNumber: Number(row.deliveryAttemptCount || 0) });
+        if (Number(ackResult?.affectedRows || 0) > 0) await recordDeliveryHistory(connection, { userId, offerId: Number(row.offerId), eventKey: status === "received" ? "browser_received" : "popup_rendered", eventType: status === "received" ? "browser_received" : "popup_rendered", observedStatus: status, attemptNumber: Number(row.deliveryAttemptCount || 0) });
       }
       await connection.commit();
     } catch(error) { await connection.rollback(); throw error; }
@@ -366,7 +367,7 @@ export async function claimPopupDeliveryDispatches(userId:number) {
         if(row.eventStatus==="DISMISSED"||expiredOffer){
           const nextStatus=row.eventStatus==="DISMISSED"?"dismissed":"expired";
           const [terminalResult]=await connection.execute<any>("UPDATE opportunity_popup_events SET deliveryStatus=?,expiredAt=IF(?='expired',COALESCE(expiredAt,CURRENT_TIMESTAMP),expiredAt),deliveryRetryAfter=NULL,deliveryLeaseToken=NULL,deliveryLeaseExpiresAt=NULL,updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=? AND deliveryStatus IN ('queued','in_progress','retry_wait')",[nextStatus,nextStatus,row.id,userId]);
-          if(Number(terminalResult?.affectedRows||0)>0&&nextStatus==="expired") await recordDeliveryHistory(connection,{offerId:Number(row.offerId),eventKey:"delivery_expired",eventType:"delivery_expired",observedStatus:"expired",attemptNumber:Number(row.deliveryAttemptCount||0),errorCode:"OPPORTUNITY_EXPIRED"});
+          if(Number(terminalResult?.affectedRows||0)>0&&nextStatus==="expired") await recordDeliveryHistory(connection,{userId,offerId:Number(row.offerId),eventKey:"delivery_expired",eventType:"delivery_expired",observedStatus:"expired",attemptNumber:Number(row.deliveryAttemptCount||0),errorCode:"OPPORTUNITY_EXPIRED"});
           continue;
         }
         let state:DeliveryState={deliveryStatus:row.deliveryStatus,deliveryAttemptCount:Number(row.deliveryAttemptCount||0),deliveryRetryAfter:row.deliveryRetryAfter?new Date(row.deliveryRetryAfter):null,deliveryLeaseToken:row.deliveryLeaseToken,eventStatus:String(row.eventStatus)};
@@ -378,8 +379,8 @@ export async function claimPopupDeliveryDispatches(userId:number) {
           const failed=failDeliveryAttempt({state,now,errorCode:"DELIVERY_LEASE_EXPIRED",retrySchedule:schedule});
           const [leaseResult]=await connection.execute<any>("UPDATE opportunity_popup_events SET deliveryStatus=?,deliveryRetryAfter=?,deliveryLeaseToken=NULL,deliveryLeaseExpiresAt=NULL,lastErrorCode='DELIVERY_LEASE_EXPIRED',updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=? AND deliveryLeaseToken=? AND deliveryStatus='in_progress'",[failed.state.deliveryStatus,failed.retryAt,row.id,userId,row.deliveryLeaseToken]);
           if(Number(leaseResult?.affectedRows||0)===0) continue;
-          await recordDeliveryHistory(connection,{offerId:Number(row.offerId),eventKey:`lease_expired:${state.deliveryAttemptCount}`,eventType:"lease_expired",observedStatus:failed.state.deliveryStatus,attemptNumber:state.deliveryAttemptCount,errorCode:"DELIVERY_LEASE_EXPIRED"});
-          if(failed.state.deliveryStatus==="retry_wait") await recordDeliveryHistory(connection,{offerId:Number(row.offerId),eventKey:`retry_scheduled:${state.deliveryAttemptCount}`,eventType:"retry_scheduled",observedStatus:"retry_wait",attemptNumber:state.deliveryAttemptCount,errorCode:"DELIVERY_LEASE_EXPIRED",occurredAt:now});
+          await recordDeliveryHistory(connection,{userId,offerId:Number(row.offerId),eventKey:`lease_expired:${state.deliveryAttemptCount}`,eventType:"lease_expired",observedStatus:failed.state.deliveryStatus,attemptNumber:state.deliveryAttemptCount,errorCode:"DELIVERY_LEASE_EXPIRED"});
+          if(failed.state.deliveryStatus==="retry_wait") await recordDeliveryHistory(connection,{userId,offerId:Number(row.offerId),eventKey:`retry_scheduled:${state.deliveryAttemptCount}`,eventType:"retry_scheduled",observedStatus:"retry_wait",attemptNumber:state.deliveryAttemptCount,errorCode:"DELIVERY_LEASE_EXPIRED",occurredAt:now});
           state=failed.state;
           if(state.deliveryStatus!=="retry_wait") continue;
         }
@@ -388,13 +389,13 @@ export async function claimPopupDeliveryDispatches(userId:number) {
         if(!transition.claimed) {
           if(transition.reason==="attempts-exhausted") {
             const [exhaustedResult]=await connection.execute<any>("UPDATE opportunity_popup_events SET deliveryStatus='failed',lastErrorCode='DELIVERY_ATTEMPTS_EXHAUSTED',deliveryRetryAfter=NULL,deliveryLeaseToken=NULL,deliveryLeaseExpiresAt=NULL,updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=? AND deliveryStatus IN ('queued','retry_wait')",[row.id,userId]);
-            if(Number(exhaustedResult?.affectedRows||0)>0) await recordDeliveryHistory(connection,{offerId:Number(row.offerId),eventKey:`retry_exhausted:${state.deliveryAttemptCount}`,eventType:"retry_exhausted",observedStatus:"failed",attemptNumber:state.deliveryAttemptCount,errorCode:"DELIVERY_ATTEMPTS_EXHAUSTED"});
+            if(Number(exhaustedResult?.affectedRows||0)>0) await recordDeliveryHistory(connection,{userId,offerId:Number(row.offerId),eventKey:`retry_exhausted:${state.deliveryAttemptCount}`,eventType:"retry_exhausted",observedStatus:"failed",attemptNumber:state.deliveryAttemptCount,errorCode:"DELIVERY_ATTEMPTS_EXHAUSTED"});
           }
           continue;
         }
         const [claimResult]=await connection.execute<any>("UPDATE opportunity_popup_events SET deliveryStatus='in_progress',deliveryAttemptCount=?,deliveryRetryAfter=NULL,deliveryLeaseToken=?,deliveryLeaseExpiresAt=DATE_ADD(UTC_TIMESTAMP(),INTERVAL 60 SECOND),deliveryPolicyVersionSnapshot=?,updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=? AND deliveryStatus IN ('queued','retry_wait') AND eventStatus<>'DISMISSED'",[transition.state.deliveryAttemptCount,token,schedule.version??1,row.id,userId]);
         if(Number(claimResult?.affectedRows||0)===0) continue;
-        await recordDeliveryHistory(connection,{offerId:Number(row.offerId),eventKey:`dispatch_claimed:${transition.state.deliveryAttemptCount}`,eventType:"dispatch_claimed",observedStatus:"in_progress",attemptNumber:transition.state.deliveryAttemptCount});
+        await recordDeliveryHistory(connection,{userId,offerId:Number(row.offerId),eventKey:`dispatch_claimed:${transition.state.deliveryAttemptCount}`,eventType:"dispatch_claimed",observedStatus:"in_progress",attemptNumber:transition.state.deliveryAttemptCount});
         claimed.push({eventId:Number(row.id),attemptNumber:transition.state.deliveryAttemptCount,leaseToken:token,deliveryStatus:"in_progress"});
       }
       await connection.commit(); return claimed;
