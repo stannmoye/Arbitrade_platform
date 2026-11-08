@@ -113,7 +113,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <h3>Buttons</h3>
 <ul>
 <li><strong>Create tier:</strong> saves a new enabled tier for future automatic eligibility. It does not manually assign it to a customer.</li>
-<li><strong>Save tier settings:</strong> saves the edited tier terms. The page shows “Saving tier…” and then confirms the returned quota and terms version against a fresh database read. If that read-back fails, it shows an error and keeps your draft visible. Future automatic assignments use the new terms; existing entitlement snapshots keep their saved terms.</li>
+<li><strong>Save tier settings:</strong> saves the edited tier terms. The page shows “Saving tier…” and then confirms the returned quota and terms version against a fresh database read. If that read-back fails, it shows an error and keeps your draft visible. The latest saved daily opportunity quota applies to all active customers assigned to that package, including existing customers.</li>
 <li><strong>Refresh / Retry loading:</strong> reloads the tier list if it is stale or failed to load.</li>
 </ul>
 <div class="callout">The customer is not given a package picker. The server assigns a tier when qualifying credits meet its threshold. When multiple active tiers apply, their daily opportunity contributions are cumulative, subject to the configured overall limits.</div>
@@ -129,7 +129,7 @@ a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{ma
 <div class="field"><b>Delivery counting window</b><span><strong>Rolling 24 hours</strong> or <strong>Calendar day (UTC)</strong>. This controls the period used to count the operational caps.</span></div>
 </div>
 <div class="callout"><strong>Example:</strong> To make a tier entitlement of 600 opportunities/day available, set the hard daily pop-up ceiling to at least 600 and leave the optional daily target at 0. The package entitlement remains the source of the customer's allowance; caps do not increase it.</div>
-<div class="callout warn">Tier edits apply to future automatic assignments. The quota saved in an existing customer entitlement snapshot is authoritative: lowering the package quota does not reduce that entitlement, and raising it does not increase it. Separate operational delivery caps may still reduce the saved allowance.</div>
+<div class="callout warn">The latest saved package daily quota applies immediately to existing and future customers assigned to that package. Lowering or raising it changes their remaining daily allowance on the next server check. Historical assignment snapshots are retained unchanged for audit; separate operational delivery caps may still reduce the current allowance.</div>
 </section>
 
 <section class="section anchor" id="opportunity">

@@ -654,53 +654,43 @@ const balanceBefore = await db.select({
     "Concurrent retries must consume one rotation position, never two.");
 
   // The first package has consumed exactly three generation slots (initial
-  // generation, rollback retry, and one concurrent generation). A tier edit
-  // lowers the live quota below those already-assigned terms; the saved
-  // subscription must still be allowed to use all six of its saved slots.
+  // generation, rollback retry, and one concurrent generation). The latest
+  // admin quota must immediately govern this already-active subscription.
   await db.update(opportunityOffers).set({ status: "closed" }).where(eq(opportunityOffers.id, concurrentOfferId));
   await db.update(packages).set({ opportunitiesPerDay: 2 }).where(eq(packages.id, packageId));
   await db.update(opportunityPackagePolicies).set({ maxPopupsPerDay: 20 })
     .where(eq(opportunityPackagePolicies.packageName, packageName));
-  assert.equal(Number((await db.select({ quota: packages.opportunitiesPerDay }).from(packages)
-    .where(eq(packages.id, packageId)))[0]?.quota), 2);
-  const savedQuotaAfterLowering = JSON.parse(String((await db.select({ termsSnapshotJson: customerPackageSubscriptions.termsSnapshotJson })
+  const historicalQuotaAfterLowering = JSON.parse(String((await db.select({ termsSnapshotJson: customerPackageSubscriptions.termsSnapshotJson })
     .from(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.id, subscriptionId)))[0]?.termsSnapshotJson || "{}"));
-  assert.equal(Number(savedQuotaAfterLowering.opportunitiesPerDay), 6,
-    "Lowering the current package quota must not rewrite the existing subscription snapshot.");
+  assert.equal(Number(historicalQuotaAfterLowering.opportunitiesPerDay), 6,
+    "The original assignment snapshot must remain unchanged for audit.");
+  const loweredQuotaCycle = await listCustomerOpportunities(userId, {
+    workerCycle: true, consumeDelivery: false, automaticGenerationEnabled: true,
+    generationBatchId: `live-quota-lowered-${token}`,
+  });
+  assert.equal(loweredQuotaCycle.generatedOpportunityId, null,
+    "The current package quota of two must immediately stop this existing subscription after three consumed slots.");
 
-  for (let index = 0; index < 3; index += 1) {
-    const savedQuotaCycle = await listCustomerOpportunities(userId, {
-      workerCycle: true,
-      consumeDelivery: false,
-      automaticGenerationEnabled: true,
-      generationBatchId: `saved-entitlement-lower-current-quota-${index}-${token}`,
-    });
-    const savedQuotaOfferId = Number(savedQuotaCycle.generatedOpportunityId);
-    assert.ok(Number.isSafeInteger(savedQuotaOfferId) && savedQuotaOfferId > 0,
-      `Existing saved quota must allow generation ${index + 4} even though the current package quota is 2.`);
-    const savedQuotaAssignment = (await db.select().from(opportunityGenerationAssignments)
-      .where(eq(opportunityGenerationAssignments.offerId, savedQuotaOfferId)))[0];
-    assert.equal(Number(savedQuotaAssignment?.packageId), packageId,
-      "Generation below the saved six-opportunity limit must continue using the original package entitlement.");
-    if (index === 0) {
-      const assignmentSnapshot = JSON.parse(String(savedQuotaAssignment?.packageSnapshotJson || "{}"));
-      assert.equal(Number(assignmentSnapshot.customerDailyQuota), 6);
-      assert.equal(Number(assignmentSnapshot.packageDailyOpportunityQuota), 6,
-        "The generated assignment must record the saved quota, not the lower current package quota.");
-    }
-    await db.update(opportunityOffers).set({ status: "closed" })
-      .where(eq(opportunityOffers.id, savedQuotaOfferId));
-  }
-
-  // Raising the current package quota still cannot enlarge the already saved
-  // subscription: after its sixth assignment, selection must continue to B.
+  // Raising the same package quota must immediately restore capacity for the
+  // existing subscription without rewriting its historical assignment.
   await db.update(packages).set({ opportunitiesPerDay: 20 }).where(eq(packages.id, packageId));
-  assert.equal(Number((await db.select({ quota: packages.opportunitiesPerDay }).from(packages)
-    .where(eq(packages.id, packageId)))[0]?.quota), 20);
-  const savedQuotaAfterRaising = JSON.parse(String((await db.select({ termsSnapshotJson: customerPackageSubscriptions.termsSnapshotJson })
+  const historicalQuotaAfterRaising = JSON.parse(String((await db.select({ termsSnapshotJson: customerPackageSubscriptions.termsSnapshotJson })
     .from(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.id, subscriptionId)))[0]?.termsSnapshotJson || "{}"));
-  assert.equal(Number(savedQuotaAfterRaising.opportunitiesPerDay), 6,
-    "Raising the current package quota must leave the existing subscription snapshot unchanged.");
+  assert.equal(Number(historicalQuotaAfterRaising.opportunitiesPerDay), 6,
+    "The historical assignment snapshot remains unchanged after raising the live quota.");
+  const raisedQuotaCycle = await listCustomerOpportunities(userId, {
+    workerCycle: true, consumeDelivery: false, automaticGenerationEnabled: true,
+    generationBatchId: `live-quota-raised-${token}`,
+  });
+  const raisedQuotaOfferId = Number(raisedQuotaCycle.generatedOpportunityId);
+  assert.ok(Number.isSafeInteger(raisedQuotaOfferId) && raisedQuotaOfferId > 0,
+    "The current package quota of twenty must immediately allow another opportunity for this existing subscription.");
+  const raisedQuotaAssignment = (await db.select().from(opportunityGenerationAssignments)
+    .where(eq(opportunityGenerationAssignments.offerId, raisedQuotaOfferId)))[0];
+  const raisedQuotaSnapshot = JSON.parse(String(raisedQuotaAssignment?.packageSnapshotJson || "{}"));
+  assert.equal(Number(raisedQuotaSnapshot.customerDailyQuota), 20);
+  assert.equal(Number(raisedQuotaSnapshot.packageDailyOpportunityQuota), 20);
+  await db.update(opportunityOffers).set({ status: "closed" }).where(eq(opportunityOffers.id, raisedQuotaOfferId));
 
   const secondPackageName = packageName + "Plus";
   const [secondPackageResult] = await db.insert(packages).values({
