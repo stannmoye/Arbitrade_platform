@@ -37,6 +37,28 @@ import { getDeliveryRetryPolicy, updateDeliveryRetryPolicy, DeliveryRetryPolicyV
 import { closeOpportunityOffer } from "./db";
 import { getOpportunityGenerationControl, getOpportunityGenerationMonitor, listOpportunityGenerationTemplates, OpportunityGenerationControlVersionConflictError, saveOpportunityGenerationTemplate, setOpportunityGenerationControl } from "./db";
 import { getSystemDiagnosticsReport } from "./_core/systemDiagnostics";
+import { exportOpportunityDeliveryRecords, getOpportunityDeliveryCustomer, getOpportunityDeliveryDetails, getOpportunityDeliveryQueueDiagnostics, listOpportunityDeliveryRecords, searchOpportunityDeliveryCustomers } from "./opportunityDeliveryDiagnostics";
+
+const opportunityDeliveryFiltersSchema = z.object({
+  customerName: z.string().trim().min(2).max(100).optional(),
+  customerId: z.number().int().positive().max(2_147_483_647).optional(),
+  opportunityId: z.number().int().positive().max(2_147_483_647).optional(),
+  packageName: z.string().trim().min(1).max(80).optional(),
+  companyName: z.string().trim().min(1).max(120).optional(),
+  status: z.enum(["queued","in_progress","retry_wait","delivered","received","rendered","failed","dismissed","expired","generated","cancelled","queue_record_unavailable","unknown"]).optional(),
+  from: z.string().datetime({ offset: true }).optional(),
+  to: z.string().datetime({ offset: true }).optional(),
+  failedOnly: z.boolean().optional(),
+  failureAnalysisOnly: z.boolean().optional(),
+  expiredOnly: z.boolean().optional(),
+  queuedOnly: z.boolean().optional(),
+  stalledOnly: z.boolean().optional(),
+  minRetries: z.number().int().min(0).max(20).optional(),
+}).strict().superRefine((value, context) => {
+  if (value.from && value.to && Date.parse(value.from) > Date.parse(value.to)) {
+    context.addIssue({ code: "custom", message: "Start date must not be after end date.", path: ["from"] });
+  }
+});
 
 async function getCustomerApprovedCompanyReferences(
   filters: Parameters<typeof searchCompanyReferences>[0] = {},
@@ -802,6 +824,22 @@ export const appRouter = router({
     packagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),
     overviewPackagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),
     popupLifecycleSummary: adminProcedure.query(() => getOpportunityLifecycleSummary()),
+    opportunityDeliveryRecords: adminProcedure.input(z.object({
+      filters: opportunityDeliveryFiltersSchema,
+      page: z.number().int().min(1).max(10_000),
+      pageSize: z.number().int().min(1).max(100),
+    }).strict()).query(({ input }) => listOpportunityDeliveryRecords({ ...input, includeHistory: true })),
+    opportunityDeliveryDetails: adminProcedure.input(z.object({ customerId: z.number().int().positive().max(2_147_483_647), offerId: z.number().int().positive().max(2_147_483_647) }).strict())
+      .query(({ input }) => getOpportunityDeliveryDetails(input.customerId, input.offerId)),
+    opportunityDeliveryCustomerSearch: adminProcedure.input(z.object({ query: z.string().trim().min(2).max(100) }).strict())
+      .query(({ input }) => searchOpportunityDeliveryCustomers(input.query)),
+    opportunityDeliveryCustomer: adminProcedure.input(z.object({ customerId: z.number().int().positive().max(2_147_483_647) }).strict())
+      .query(({ input }) => getOpportunityDeliveryCustomer(input.customerId)),
+    opportunityDeliveryQueueDiagnostics: adminProcedure.query(() => getOpportunityDeliveryQueueDiagnostics()),
+    exportOpportunityDeliveryRecords: adminProcedure.input(z.object({
+      filters: opportunityDeliveryFiltersSchema,
+      maxRows: z.number().int().min(1).max(10_000).default(10_000),
+    }).strict()).query(({ input }) => exportOpportunityDeliveryRecords(input.filters, input.maxRows)),
     runPopupRetention: adminProcedure.mutation(() => runOpportunityRetention()),
     updatePackagePolicies: adminProcedure.input(z.object({
       reason: z.string().trim().min(5).max(500),

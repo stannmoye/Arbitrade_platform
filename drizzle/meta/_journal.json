@@ -554,6 +554,13 @@
       "when": 1794000000002,
       "tag": "0109_customer_company_country_restrictions",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1794000000003,
+      "tag": "0110_opportunity_delivery_diagnostic_history",
+      "breakpoints": true
     }
   ]
 }
