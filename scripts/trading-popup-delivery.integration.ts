@@ -810,8 +810,8 @@ const balanceBefore = await db.select({
     .from(opportunityGenerationAssignments).where(and(
       eq(opportunityGenerationAssignments.userId, userId),
       eq(opportunityGenerationAssignments.packageId, packageId),
-    ))).length, 6,
-    "Skipping the exhausted package must not create an extra assignment against its saved quota.");
+    ))).length, 4,
+    "Skipping the exhausted package must not create an extra assignment after the live administrator quota was lowered to four.");
   assert.equal((await db.select({ id: opportunityGenerationAssignments.id })
     .from(opportunityGenerationAssignments).where(and(
       eq(opportunityGenerationAssignments.userId, userId),
