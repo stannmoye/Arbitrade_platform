@@ -62,6 +62,32 @@ describe("global Trade timing settings hydration", () => {
     });
     expect(operationsUiSource).toContain("normalizeGlobalTradeTimingSettings(q.data.trade)");
   });
+ 
+  it("replaces out-of-range and fractional persisted values with safe defaults", () => {
+    expect(normalizeGlobalTradeTimingSettings({
+      settlementDelaySeconds: 899,
+      creditDelaySeconds: -1,
+      cooldownSeconds: 0.5,
+      nextPopupFormulaDelaySeconds: 604801,
+      popupCooldownSeconds: "invalid",
+      popupDisplaySeconds: 0,
+      popupPreAlertSeconds: 3601,
+      popupJitterSeconds: -10,
+      popupMaxPerHour: 0,
+      marketRefreshIntervalMinutes: 10081,
+    })).toMatchObject({
+      settlementMinutes: 15,
+      creditDelaySeconds: 0,
+      cooldownSeconds: 30,
+      nextPopupFormulaDelaySeconds: 30,
+      popupCooldownSeconds: 45,
+      popupDisplaySeconds: 8,
+      popupPreAlertSeconds: 4,
+      popupJitterSeconds: 90,
+      popupMaxPerHour: 12,
+      marketRefreshIntervalMinutes: 120,
+    });
+  });
 });
 
 describe("client Trading settings API contracts", () => {

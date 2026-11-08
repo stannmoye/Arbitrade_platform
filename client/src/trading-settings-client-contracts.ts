@@ -200,23 +200,23 @@ export type GlobalTradeTimingFormValues = {
  */
 export function normalizeGlobalTradeTimingSettings(value: unknown): GlobalTradeTimingFormValues {
   const settings = isRecord(value) ? value : {};
-  const numberOrDefault = (key: string, fallback: number) => {
+  const boundedIntegerOrDefault = (key: string, fallback: number, minimum: number, maximum: number) => {
     const raw = settings[key];
     if (raw === null || raw === undefined || raw === "") return fallback;
     const parsed = Number(raw);
-    return Number.isFinite(parsed) ? parsed : fallback;
+    return Number.isSafeInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : fallback;
   };
   return {
-    settlementMinutes: Math.max(15, Math.ceil(numberOrDefault("settlementDelaySeconds", 900) / 60)),
-    creditDelaySeconds: numberOrDefault("creditDelaySeconds", 0),
-    cooldownSeconds: numberOrDefault("cooldownSeconds", 30),
-    nextPopupFormulaDelaySeconds: numberOrDefault("nextPopupFormulaDelaySeconds", 30),
-    popupCooldownSeconds: numberOrDefault("popupCooldownSeconds", 45),
-    popupDisplaySeconds: numberOrDefault("popupDisplaySeconds", 8),
-    popupPreAlertSeconds: numberOrDefault("popupPreAlertSeconds", 4),
-    popupJitterSeconds: numberOrDefault("popupJitterSeconds", 90),
-    popupMaxPerHour: numberOrDefault("popupMaxPerHour", 12),
-    marketRefreshIntervalMinutes: numberOrDefault("marketRefreshIntervalMinutes", 120),
+    settlementMinutes: Math.ceil(boundedIntegerOrDefault("settlementDelaySeconds", 900, 900, 604_800) / 60),
+    creditDelaySeconds: boundedIntegerOrDefault("creditDelaySeconds", 0, 0, 604_800),
+    cooldownSeconds: boundedIntegerOrDefault("cooldownSeconds", 30, 0, 604_800),
+    nextPopupFormulaDelaySeconds: boundedIntegerOrDefault("nextPopupFormulaDelaySeconds", 30, 0, 604_800),
+    popupCooldownSeconds: boundedIntegerOrDefault("popupCooldownSeconds", 45, 0, 604_800),
+    popupDisplaySeconds: boundedIntegerOrDefault("popupDisplaySeconds", 8, 1, 3_600),
+    popupPreAlertSeconds: boundedIntegerOrDefault("popupPreAlertSeconds", 4, 0, 3_600),
+    popupJitterSeconds: boundedIntegerOrDefault("popupJitterSeconds", 90, 0, 604_800),
+    popupMaxPerHour: boundedIntegerOrDefault("popupMaxPerHour", 12, 1, 10_000),
+    marketRefreshIntervalMinutes: boundedIntegerOrDefault("marketRefreshIntervalMinutes", 120, 1, 10_080),
     blockUntilSettled: typeof settings.blockUntilSettled === "boolean" ? settings.blockUntilSettled : true,
   };
 }
