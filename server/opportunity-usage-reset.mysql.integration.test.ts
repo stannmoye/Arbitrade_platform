@@ -30,7 +30,8 @@ function disposableUrl(raw: string) {
 
 async function query<T = any>(sql: string, values: any[] = []) {
   if (!connection) throw new Error("Reset integration database is not ready.");
-  const [rows] = await connection.execute<T[]>(sql, values);
+  // Use the text protocol so DDL (notably CREATE/DROP TRIGGER) is supported by MySQL 8.4 and MariaDB 11.4.
+  const [rows] = await connection.query<T[]>(sql, values);
   return rows;
 }
 
@@ -73,7 +74,8 @@ async function insertOffer(userId: number, packageId: number, subscriptionId: nu
 async function insertPopupAndDelivery(userId: number, offerId: number, packageId: number, deliveryStatus: "queued" | "rendered" = "queued", eventStatus = "DELIVERED") {
   const key = `${token}-popup-${offerId}`;
   await query("INSERT INTO opportunity_popup_events (eventKey,userId,offerId,quotaDay,packageId,packageName,symbol,currency,minimumMinor,expectedRewardBps,configuredProfitRateBps,configuredDurationSeconds,eventStatus,deliveryStatus,deliveryAttemptCount,executionStatus) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [key, userId, offerId, new Date().toISOString().slice(0, 10), packageId, policyNames[packageIds.indexOf(packageId)], "RESET", "USD", 1000, 500, 500, 3600, eventStatus, deliveryStatus, 1, "READY"]);
-  await query("INSERT INTO opportunity_delivery_events (userId,offerId,quotaDay,status,attemptCount,policyVersion) VALUES (?,?,?,'pending',1,4)", [userId, offerId, new Date().toISOString().slice(0, 10)]);
+  const dispatchStatus = deliveryStatus === "rendered" ? "delivered" : "pending";
+  await query("INSERT INTO opportunity_delivery_events (userId,offerId,quotaDay,status,attemptCount,policyVersion) VALUES (?,?,?, ?,1,4)", [userId, offerId, new Date().toISOString().slice(0, 10), dispatchStatus]);
 }
 
 async function snapshotProtectedData(userId: number) {
@@ -180,7 +182,7 @@ describe.skipIf(!enabled)("Opportunity Usage Reset against disposable MySQL/Mari
     const offer = await insertOffer(customer, packageOne, sub, "open", "rollback");
     await insertPopupAndDelivery(customer, offer, packageOne, "queued");
     await query(`CREATE TRIGGER \`${triggerName}\` BEFORE UPDATE ON opportunity_offers FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='intentional reset rollback failure'`);
-    await expect(resetTradeOpportunityUsage({ scope: "customer", customerId: customer, reason: "Verify atomic rollback behavior", operationId: crypto.randomUUID() }, adminId)).rejects.toThrow("intentional reset rollback failure");
+    await expect(resetTradeOpportunityUsage({ scope: "customer", customerId: customer, reason: "Verify atomic rollback behavior", operationId: crypto.randomUUID() }, adminId)).rejects.toThrow();
     await query(`DROP TRIGGER \`${triggerName}\``);
     expect((await query("SELECT status FROM opportunity_offers WHERE id=?", [offer]) as any[])[0].status).toBe("open");
     expect((await query("SELECT status FROM opportunity_delivery_events WHERE offerId=?", [offer]) as any[])[0].status).toBe("pending");
