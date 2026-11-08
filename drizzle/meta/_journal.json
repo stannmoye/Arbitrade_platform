@@ -547,6 +547,13 @@
       "when": 1794000000001,
       "tag": "0108_settlement_evidence_records",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1794000000002,
+      "tag": "0109_customer_company_country_restrictions",
+      "breakpoints": true
     }
   ]
 }

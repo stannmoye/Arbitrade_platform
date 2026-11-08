@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import {describe,expect,it} from "vitest";
 import {COMPANY_REFERENCE_CATALOGUE} from "./company-catalogue-reference";
-import {buildCompanySpotlightPool,isCompanySpotlightDisplayAllowed,nextCompanySpotlight,normalizeCompanyRotationCountryNames,parseCompanyCatalogueAdminState} from "./company-spotlight-rotation";
+import {buildCompanySpotlightPool,intersectCompanyCountryFilters,isCompanySpotlightDisplayAllowed,nextCompanySpotlight,normalizeCompanyRotationCountryNames,normalizeCustomerCompanyCountryRestrictions,parseCompanyCatalogueAdminState} from "./company-spotlight-rotation";
 
 const allVerifiedState={verifiedIds:COMPANY_REFERENCE_CATALOGUE.map(company=>company.id),archivedIds:[]};
 
@@ -35,6 +35,16 @@ describe("package-scoped company spotlight rotation",()=>{
     expect(normalizeCompanyRotationCountryNames(" "+country+", "+country+" ")).toBe(country);
     expect(buildCompanySpotlightPool(country,allVerifiedState).every(company=>company.countryName===country)).toBe(true);
     expect(()=>normalizeCompanyRotationCountryNames("Definitely Not a Country Folder")).toThrow("Unknown company catalogue country-folder label");
+  });
+  it("intersects customer restrictions with package filters without broadening access",()=>{
+    const countries=[...new Set(COMPANY_REFERENCE_CATALOGUE.map(company=>company.countryName))];
+    const first=countries[0]!;
+    const second=countries.find(country=>country!==first)!;
+    expect(normalizeCustomerCompanyCountryRestrictions([first,first])).toBe(first);
+    expect(intersectCompanyCountryFilters("",first)).toBe(first);
+    expect(intersectCompanyCountryFilters(first+", "+second,second)).toBe(second);
+    expect(intersectCompanyCountryFilters(first,second)).toBe("");
+    expect(()=>normalizeCustomerCompanyCountryRestrictions(["Not a catalogue country"])).toThrow("Unknown company catalogue country-folder label");
   });
   it("avoids repeats until the full filtered pool has been traversed",()=>{
     const pool=buildCompanySpotlightPool("",allVerifiedState,COMPANY_REFERENCE_CATALOGUE.slice(0,8));
