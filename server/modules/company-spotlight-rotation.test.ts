@@ -141,16 +141,21 @@ describe("customer company catalogue access boundary",()=>{
     for(const action of ["Mark selected verified","Reject / mark unverified","Enable selected","Disable selected","Delete selected"]) expect(adminCatalogue).toContain(action);
     expect(adminCatalogue).toContain('<option value="disabled">Disabled</option>');
   });
-  it("uses customer-only catalogue routes that filter current approvals before pagination",()=>{
-    expect(routerSource).toContain("customerSearch: protectedProcedure");
-    expect(routerSource).toContain("customerCount: protectedProcedure");
-    expect(routerSource).toContain("customerSummary: protectedProcedure");
-    expect(routerSource).toContain("const companyDisplayAllowed = createCompanySpotlightDisplayGuard(adminState)");
-    expect(routerSource).toContain(".filter((company) => companyDisplayAllowed(company.id))");
-    expect(routerSource).toContain(".slice(offset, offset + limit)");
-    expect(customerPortal).toContain("companyCatalogueReference.customerSearch.useQuery");
-    expect(customerPortal).toContain("companyCatalogueReference.customerCount.useQuery");
-    expect(customerPortal).toContain("companyCatalogueReference.customerSummary.useQuery");
-    expect(customerPortal).not.toContain("companyCatalogueReference.search.useQuery");
+  it("does not expose a customer-facing company directory or customer catalogue API",()=>{
+    expect(routerSource).not.toContain("customerSearch:");
+    expect(routerSource).not.toContain("customerCount:");
+    expect(routerSource).not.toContain("customerSummary:");
+    expect(customerPortal).not.toContain("companyCatalogueReference.customerSearch");
+    expect(customerPortal).not.toContain("companyCatalogueReference.customerCount");
+    expect(customerPortal).not.toContain("companyCatalogueReference.customerSummary");
+    expect(customerPortal).not.toContain("Search approved company references");
+    expect(customerPortal).not.toContain("company-reference-panel");
+  });
+  it("continues to display company names and logos from saved opportunity and trade snapshots",()=>{
+    expect(customerPortal).toContain('offer.companyDisplayName');
+    expect(customerPortal).toContain('offer.companyLogoUrl');
+    expect(customerPortal).toContain('trade.companyDisplayName');
+    expect(customerPortal).toContain('trade.companyLogoUrl');
+    expect(customerPortal).toContain('<CompanyReferenceLogo');
   });
 });
