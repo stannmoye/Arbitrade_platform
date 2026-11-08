@@ -225,6 +225,8 @@ async function main() {
     await executeCompatibleMigrationSql(db, automaticFinancialExecutionOffMigration);
     const packageFeePolicyMigration = await readFile(resolve(root, "drizzle/0101_package_fee_policy_versions.sql"), "utf8");
     await executeCompatibleMigrationSql(db, packageFeePolicyMigration);
+    const deliveryDiagnosticHistoryMigration = await readFile(resolve(root, "drizzle/0110_opportunity_delivery_diagnostic_history.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, deliveryDiagnosticHistoryMigration);
 
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],

@@ -56,6 +56,14 @@ type LifecycleSummary = {
   generatedAt?: string;
 };
 
+type DeliveryDiagnosticItem = {
+  opportunityId: number; customerId: number; customerName?: string | null; customerEmail?: string | null;
+  packageName: string; companyName?: string | null; generatedAt?: string | null; deliveryStatus: string;
+  assignmentStatus: string; retryAttempts: number; retryAt?: string | null; receivedAt?: string | null;
+  renderedAt?: string | null; openedAt?: string | null; completedAt?: string | null; expiredAt?: string | null;
+  lastErrorCode?: string | null; failureCategory?: string | null; diagnosticMessage?: string | null; workerId?: string | null;
+};
+
 function ToolPage({
   eyebrow,
   title,
@@ -169,7 +177,20 @@ export function AdminSettings({focus}:{focus?:"tradeDuration"}={}){ const q=trpc
 
 export function AdminOpportunityDelivery() {
   const query = trpc.adminOperations.popupLifecycleSummary.useQuery(undefined, { refetchInterval: 10_000 });
+  const overviewQuery=trpc.adminOperations.deliveryOverview.useQuery(undefined,{refetchInterval:10_000,refetchOnWindowFocus:true});
+  const workerQuery=trpc.adminOperations.workerHealth.useQuery(undefined,{refetchInterval:15_000,refetchOnWindowFocus:true});
   const data = (query.data ?? {}) as unknown as LifecycleSummary;
+  const overview=(overviewQuery.data??{}) as any;
+  const overviewAvailable=overview.sourceAvailable===true;
+  const lifecycleAvailable=data.sourceAvailable===true;
+  const overviewValue=(value:unknown)=>overviewAvailable?Number(value??0).toLocaleString():"Unavailable";
+  const lifecycleValue=(value:unknown)=>lifecycleAvailable?Number(value??0).toLocaleString():"Unavailable";
+  const workerData=(workerQuery.data??{}) as any;
+  const tradingWorker=(workerData.workers??[]).find((item:any)=>item.workerKey==="trading-opportunities"&&item.isCurrentInstance);
+  const tradingWorkerStatus=workerQuery.isError?"Unavailable":tradingWorker?String(tradingWorker.status||"Unavailable").replaceAll("_"," "):workerQuery.isLoading?"Loading":"Not reported";
+  const currentLatency=overview.averageQueueToBrowserReceiptMilliseconds24h;
+  const priorLatency=overview.prior29DayAverageLatencyMilliseconds;
+  const latencyTrend=currentLatency==null||priorLatency==null||Number(priorLatency)<=0?"Trend unavailable":`${((Number(currentLatency)-Number(priorLatency))/Number(priorLatency)*100).toFixed(1)}% vs prior 29 days`;
   const totals = data.last24Hours ?? {};
   const daily = data.retainedDaily ?? [];
   const rendered = Number(totals.rendered ?? 0);
@@ -182,7 +203,7 @@ export function AdminOpportunityDelivery() {
     ["Generated", "generated", Zap],
     ["Queued", "queued", Clock3],
     ["Received", "received", BadgeCheck],
-    ["Rendered", "rendered", Activity],
+    ["Historical render acknowledgements", "rendered", Activity],
     ["Failed", "failed", XCircle],
     ["Expired", "expired", AlertTriangle],
     ["Noticed", "noticed", BadgeCheck],
@@ -200,29 +221,173 @@ export function AdminOpportunityDelivery() {
       title="Opportunity delivery"
       description="Observe persisted popup delivery and customer follow-through. Counts are sourced from the lifecycle event store, not demo placeholders."
       icon={Activity}
-      action={<button className="admin-ops-button" type="button" onClick={() => query.refetch()} disabled={query.isFetching}><RefreshCw size={14} /> {query.isFetching ? "Refreshing…" : "Refresh"}</button>}
+      action={<button className="admin-ops-button" type="button" onClick={() => {void Promise.all([query.refetch(),overviewQuery.refetch(),workerQuery.refetch()]);}} disabled={query.isFetching||overviewQuery.isFetching||workerQuery.isFetching}><RefreshCw size={14} /> {query.isFetching||overviewQuery.isFetching||workerQuery.isFetching ? "Refreshing…" : "Refresh"}</button>}
     >
       <div className="admin-ops-meta-line"><span><CalendarClock size={14} /> Rolling 24-hour event window</span><span>Updated {timestamp(data.generatedAt)}</span></div>
       {query.isLoading ? <LoadingState /> : query.isError ? <div className="admin-ops-empty error">Delivery records could not be loaded. Confirm the database is available.</div> : <>
+        {!lifecycleAvailable&&<div className="admin-ops-empty error" role="status">Retained lifecycle history is unavailable. Counts and daily history are not reported as zero.</div>}
+        {overviewQuery.isError?<div className="admin-ops-empty error" role="status">Advanced overview metrics are unavailable. Do not interpret missing data as zero.</div>:overviewQuery.isLoading?<LoadingState/>:<>
+          <section className="admin-ops-metrics delivery-overview-metrics">
+            {!overviewAvailable&&<div className="admin-ops-empty error" role="status">The advanced delivery data source is unavailable. Metrics below are not reported as zero.</div>}
+            <Metric label="Generated · last 24h" value={overviewValue(overview.generated24h)} detail="Append-only generation events" icon={Zap}/>
+            <Metric label="Currently queued" value={overviewValue(overview.currentQueue?.queued)} icon={Clock3}/>
+            <Metric label="Currently processing" value={overviewValue(overview.currentQueue?.inProgress)} icon={Activity}/>
+            <Metric label="Successfully delivered" value={overviewValue(overview.successfullyDelivered24h)} detail="Browser receipt confirmed · last 24h" icon={BadgeCheck}/>
+            <Metric label="Browser acknowledgements" value={overviewValue(overview.browserAcknowledged24h)} detail="Persisted acknowledgement events · last 24h" icon={CheckCircle2}/>
+            <Metric label="Visible popup renders" value={overviewValue(overview.rendered24h)} detail="Confirmed visible paint · last 24h" icon={Activity}/>
+            <Metric label="Awaiting retry" value={overviewValue(overview.currentQueue?.retryWait)} icon={RefreshCw}/>
+            <Metric label="Failed events" value={overviewValue(overview.failedEvents24h)} detail={`Current failed rows: ${overviewValue(overview.currentQueue?.currentFailed)}`} icon={XCircle}/>
+            <Metric label="Expired events" value={overviewValue(overview.expiredEvents24h)} detail={`Current expired rows: ${overviewValue(overview.currentQueue?.currentExpired)}`} icon={AlertTriangle}/>
+            <Metric label="Queue → browser receipt latency" value={!overviewAvailable||overview.averageQueueToBrowserReceiptMilliseconds24h==null?"Unavailable":durationLabel(Number(overview.averageQueueToBrowserReceiptMilliseconds24h))} detail={`24h: ${overviewValue(overview.averageLatency24hSampleCount)} samples · prior 29d baseline: ${!overviewAvailable||overview.prior29DayAverageLatencyMilliseconds==null?"Unavailable":durationLabel(Number(overview.prior29DayAverageLatencyMilliseconds))} (${overviewValue(overview.prior29DayLatencySampleCount)} samples) · ${latencyTrend}`} icon={Activity}/>
+            <Metric label="Pending beyond observed wait" value={!overviewAvailable||overview.pendingBeyondObservedWait==null?"Unavailable":overviewValue(overview.pendingBeyondObservedWait)} detail="Compared with measured recent queue-to-receipt latency; not a hard-coded SLA" icon={Clock3}/>
+            <Metric label="Pending approaching expiry" value={!overviewAvailable||overview.pendingApproachingExpiry==null?"Unavailable":overviewValue(overview.pendingApproachingExpiry)} detail="Opportunity closes within the observed delivery-latency window" icon={CalendarClock}/>
+            <Metric label="Tracked backlog change · 1h" value={!overviewAvailable||overview.trackedBacklogDeltaOneHour==null?"Unavailable":`${Number(overview.trackedBacklogDeltaOneHour)>0?"+":""}${Number(overview.trackedBacklogDeltaOneHour).toLocaleString()}`} detail={`${overviewValue(overview.trackedBacklogBaselineCount)} event-tracked opportunities within 30-day history at baseline; compares persisted pending rows`} icon={Activity}/>
+            <Metric label="Oldest pending delivery" value={!overviewAvailable?"Unavailable":overview.oldestPendingAgeMilliseconds==null?(Number(overview.currentQueue?.pendingTotal??0)===0?"None":"Unavailable"):durationLabel(Number(overview.oldestPendingAgeMilliseconds))} detail={overview.oldestPending?.createdAt?`Opportunity #${overview.oldestPending.opportunityId} · created ${timestamp(overview.oldestPending.createdAt)} · closes ${timestamp(overview.oldestPending.expiresAt)}`:undefined} icon={CalendarClock}/>
+            <Metric label="Trading opportunities worker" value={tradingWorkerStatus} detail={tradingWorker?.healthRecordAvailable?`Heartbeat ${timestamp(tradingWorker.heartbeatAt)} · last success ${timestamp(tradingWorker.lastSuccessAt)}`:"No dedicated delivery-daemon heartbeat exists"} icon={ShieldCheck}/>
+          </section>
+          {overviewAvailable&&<div className="admin-ops-note"><Activity size={16}/><span><strong>Recorded-evidence view</strong> {overview.attributionNote} Delivery success is browser receipt, not queue persistence; a render count requires the customer surface to be visible and painted. Per-opportunity worker attribution is unavailable because dispatch is customer-request scoped.</span></div>}
+          {overviewAvailable&&(Number(overview.currentQueue?.staleProcessingLeases??0)>0||Number(overview.currentQueue?.pendingPastExpiry??0)>0||Number(overview.repeatedFailureOpportunities24h??0)>0||Number(overview.pendingBeyondObservedWait??0)>0||Number(overview.pendingApproachingExpiry??0)>0||Number(overview.trackedBacklogDeltaOneHour??0)>0)&&<div className="admin-ops-empty error" role="status">Attention: {Number(overview.currentQueue?.staleProcessingLeases??0)>0?`${Number(overview.currentQueue.staleProcessingLeases)} processing lease(s) are past their persisted expiry. `:""}{Number(overview.currentQueue?.pendingPastExpiry??0)>0?`${Number(overview.currentQueue.pendingPastExpiry)} pending record(s) are already past opportunity expiry. `:""}{Number(overview.pendingApproachingExpiry??0)>0?`${Number(overview.pendingApproachingExpiry)} pending record(s) expire within observed delivery latency. `:""}{Number(overview.pendingBeyondObservedWait??0)>0?`${Number(overview.pendingBeyondObservedWait)} pending record(s) exceed the measured delivery wait. `:""}{Number(overview.repeatedFailureOpportunities24h??0)>0?`${Number(overview.repeatedFailureOpportunities24h)} opportunity(ies) have repeated recorded failures in the last 24 hours. `:""}{Number(overview.trackedBacklogDeltaOneHour??0)>0?`Event-tracked backlog increased by ${Number(overview.trackedBacklogDeltaOneHour)} over one hour. `:""} Inspect the filtered records below; monitoring does not modify queue state.</div>}
+        </>}
         <section className="admin-ops-metrics">
-          {metrics.map(([label, key, icon]) => <Metric key={key} label={label} value={Number(totals[key] ?? 0).toLocaleString()} icon={icon} />)}
-          <Metric label="Opened / delivered" value={openRate} detail="Observed opens divided by deliveries" icon={CheckCircle2} />
-          <Metric label="Traded / opened" value={tradeRate} detail="Observed trades divided by opens" icon={CircleDollarSign} />
+          {metrics.map(([label, key, icon]) => <Metric key={key} label={label} value={lifecycleValue(totals[key])} icon={icon} />)}
+          <Metric label="Opened / historical render ack" value={lifecycleAvailable?openRate:"Unavailable"} detail="Legacy aggregate ratio; older rows may predate visibility-gated render telemetry" icon={CheckCircle2} />
+          <Metric label="Traded / opened" value={lifecycleAvailable?tradeRate:"Unavailable"} detail="Observed trades divided by opens" icon={CircleDollarSign} />
         </section>
         <section className="admin-ops-panel">
-          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Retained history</span><h2>Daily delivery volume</h2></div><span className="admin-ops-subtle">Up to 30 days</span></div>
-          {!daily.length ? <div className="admin-ops-empty compact">No retained daily lifecycle rows yet. New deliveries will appear here.</div> : <div className="admin-ops-chart" role="img" aria-label="Daily delivered opportunities over the retained history">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Legacy retained history</span><h2>Daily render acknowledgements</h2></div><span className="admin-ops-subtle">Up to 30 days · may predate visibility-gated telemetry</span></div>
+          {!lifecycleAvailable?<div className="admin-ops-empty compact">Retained daily lifecycle history is unavailable.</div>:!daily.length ? <div className="admin-ops-empty compact">No retained daily lifecycle rows yet. New event-backed delivery metrics are shown above.</div> : <div className="admin-ops-chart" role="img" aria-label="Historical render acknowledgement counts; not necessarily confirmed visible renders">
             {daily.slice().reverse().map((row, index) => {
               const count = Number(row.rendered ?? 0);
               const height = Math.max(4, Math.round((count / maxRendered) * 100));
-              return <div className="admin-ops-bar-column" key={`${String(row.eventDate ?? index)}-${index}`} title={`${String(row.eventDate ?? "Day")}: ${count} rendered`}><span>{count}</span><i style={{ height: `${height}%` }} /><small>{String(row.eventDate ?? "").slice(5, 10)}</small></div>;
+              return <div className="admin-ops-bar-column" key={`${String(row.eventDate ?? index)}-${index}`} title={`${String(row.eventDate ?? "Day")}: ${count} historical render acknowledgements`}><span>{count}</span><i style={{ height: `${height}%` }} /><small>{String(row.eventDate ?? "").slice(5, 10)}</small></div>;
             })}
           </div>}
         </section>
-        <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Operational interpretation</strong> Generated means the opportunity was created; queued means its delivery record is waiting or being retried; received and rendered require browser acknowledgements. Queue persistence is never reported as customer receipt or display.</span></div>
+        <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Operational interpretation</strong> Generated means the opportunity was created; queued means its delivery record is waiting or being retried. The new event-backed receipt and visible-render metrics are separate; retained aggregate render acknowledgements may predate the visibility gate and are not retroactively upgraded. Queue persistence is never reported as customer receipt or display.</span></div>
+        <AdminOpportunityDeliveryExplorer />
       </>}
     </ToolPage>
   );
+}
+
+function AdminOpportunityDeliveryExplorer() {
+  const utils=trpc.useUtils();
+  const endDay=new Date().toISOString().slice(0,10);
+  const startDay=new Date(Date.now()-29*24*60*60*1000).toISOString().slice(0,10);
+  const [draft,setDraft]=useState({fromDate:startDay,toDate:endDay,customer:"",packageName:"",company:"",opportunityId:"",status:"",workerStatus:"",minimumAttempts:"",failedOnly:false,pendingOnly:false,expiredOnly:false});
+  const [filters,setFilters]=useState<any>({fromDate:`${startDay}T00:00:00.000Z`,toDate:`${endDay}T23:59:59.999Z`});
+  const [cursors,setCursors]=useState<Array<string|null>>([null]);
+  const [selectedOpportunityId,setSelectedOpportunityId]=useState<number|null>(null);
+  const [selectedCustomerId,setSelectedCustomerId]=useState<number|null>(null);
+  const [exporting,setExporting]=useState(false);
+  const [exportMessage,setExportMessage]=useState<string|null>(null);
+  const [filterMessage,setFilterMessage]=useState<string|null>(null);
+  const cursor=cursors[cursors.length-1]||undefined;
+  const list=trpc.adminOperations.deliveryDiagnostics.useQuery({...filters,cursor,pageSize:25},{refetchInterval:15_000,refetchOnWindowFocus:true});
+  const failures=trpc.adminOperations.deliveryFailureAnalysis.useQuery({fromDate:filters.fromDate,toDate:filters.toDate},{refetchInterval:30_000});
+  const customer=trpc.adminOperations.deliveryCustomerDiagnostics.useQuery({customerId:selectedCustomerId||0},{enabled:Boolean(selectedCustomerId),refetchInterval:30_000});
+  const detail=trpc.adminOperations.deliveryOpportunityDiagnostics.useQuery({opportunityId:selectedOpportunityId||0},{enabled:Boolean(selectedOpportunityId),refetchInterval:15_000});
+  const worker=trpc.adminOperations.workerHealth.useQuery(undefined,{refetchInterval:15_000});
+  const workerCycle=(worker.data as any)?.opportunityDelivery?.opportunityCycle;
+  const rows=((list.data as any)?.items||[]) as DeliveryDiagnosticItem[];
+  const categories=(failures.data as any)?.categories||[];
+  const apply=(event:FormEvent)=>{
+    event.preventDefault();setFilterMessage(null);
+    const from=draft.fromDate?Date.parse(`${draft.fromDate}T00:00:00.000Z`):undefined;
+    const to=draft.toDate?Date.parse(`${draft.toDate}T23:59:59.999Z`):undefined;
+    if(from!==undefined&&to!==undefined&&(from>to||to-from>90*24*60*60*1000)){setFilterMessage("Choose a valid date range of 90 days or less.");return;}
+    const numericCustomer=/^\d+$/.test(draft.customer.trim());
+    const numericOpportunity=/^\d+$/.test(draft.opportunityId.trim());
+    setFilters({
+      fromDate:draft.fromDate?new Date(`${draft.fromDate}T00:00:00.000Z`).toISOString():undefined,
+      toDate:draft.toDate?new Date(`${draft.toDate}T23:59:59.999Z`).toISOString():undefined,
+      customerId:numericCustomer?Number(draft.customer):undefined,
+      customerQuery:draft.customer.trim()&&!numericCustomer?draft.customer.trim():undefined,
+      packageName:draft.packageName.trim()||undefined,companyQuery:draft.company.trim()||undefined,
+      opportunityId:numericOpportunity?Number(draft.opportunityId):undefined,
+      status:draft.status||undefined,minimumAttempts:draft.minimumAttempts?Number(draft.minimumAttempts):undefined,
+      workerStatus:draft.workerStatus||undefined,
+      failedOnly:draft.failedOnly||undefined,pendingOnly:draft.pendingOnly||undefined,expiredOnly:draft.expiredOnly||undefined,
+    });
+    setCursors([null]);
+  };
+  const reset=()=>{
+    const from=new Date(Date.now()-29*24*60*60*1000).toISOString().slice(0,10);
+    const to=new Date().toISOString().slice(0,10);
+    setDraft({fromDate:from,toDate:to,customer:"",packageName:"",company:"",opportunityId:"",status:"",workerStatus:"",minimumAttempts:"",failedOnly:false,pendingOnly:false,expiredOnly:false});
+    setFilters({fromDate:`${from}T00:00:00.000Z`,toDate:`${to}T23:59:59.999Z`});setCursors([null]);setFilterMessage(null);
+  };
+  const exportAll=async()=>{
+    if(exporting)return;setExporting(true);setExportMessage(null);
+    try{
+      let next:string|undefined;const all:DeliveryDiagnosticItem[]=[];let capped=false;
+      for(let page=0;page<50;page++){
+        const result=await utils.adminOperations.deliveryDiagnostics.fetch({...filters,cursor:next,pageSize:100});
+        if((result as any).sourceAvailable!==true)throw new Error("Delivery diagnostic history is unavailable; no CSV was produced.");
+        all.push(...(((result as any).items||[]) as DeliveryDiagnosticItem[]));next=(result as any).nextCursor||undefined;
+        if(!next)break;if(page===49)capped=true;
+      }
+      const exportRows=all.map(item=>({opportunityId:item.opportunityId,customerId:item.customerId,customerName:item.customerName,customerEmail:item.customerEmail,packageName:item.packageName,companyName:item.companyName,generatedAt:item.generatedAt,deliveryStatus:item.deliveryStatus,assignmentStatus:item.assignmentStatus,retryAttempts:item.retryAttempts,retryAt:item.retryAt,receivedAt:item.receivedAt,renderedAt:item.renderedAt,openedAt:item.openedAt,completedAt:item.completedAt,expiredAt:item.expiredAt,lastErrorCode:item.lastErrorCode,failureCategory:item.failureCategory,diagnosticMessage:item.diagnosticMessage,workerId:item.workerId}));
+      if(exportRows.length)downloadCsv("opportunity-delivery-diagnostics.csv",exportRows);
+      setExportMessage(exportRows.length?`${exportRows.length.toLocaleString()} filtered records exported${capped?"; capped at 5,000 records, narrow the filters for remaining rows":""}.`:"No filtered diagnostic records are available to export.");
+    }catch(error){setExportMessage(error instanceof Error?error.message:"Filtered diagnostics could not be exported.");}
+    finally{setExporting(false);}
+  };
+  const label=(value:string)=>value.replace(/_/g," ");
+
+  return <>
+    <section className="admin-ops-panel" aria-labelledby="delivery-explorer-title">
+      <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Server-side search</span><h2 id="delivery-explorer-title">Opportunity delivery explorer</h2></div><span className="admin-ops-subtle">25 records per page · 90-day maximum</span></div>
+      <form onSubmit={apply}>
+        <div className="admin-delivery-filter-grid">
+          <label>From date (UTC)<input type="date" value={draft.fromDate} onChange={event=>setDraft({...draft,fromDate:event.target.value})}/></label>
+          <label>To date (UTC)<input type="date" value={draft.toDate} onChange={event=>setDraft({...draft,toDate:event.target.value})}/></label>
+          <label>Customer ID, name or email<input value={draft.customer} onChange={event=>setDraft({...draft,customer:event.target.value})} maxLength={100} placeholder="ID or name/email prefix"/></label>
+          <label>Package / tier<input value={draft.packageName} onChange={event=>setDraft({...draft,packageName:event.target.value})} maxLength={80}/></label>
+          <label>Company name prefix<input value={draft.company} onChange={event=>setDraft({...draft,company:event.target.value})} maxLength={100}/></label>
+          <label>Opportunity ID<input inputMode="numeric" value={draft.opportunityId} onChange={event=>setDraft({...draft,opportunityId:event.target.value})} maxLength={12}/></label>
+          <label>Delivery status<select value={draft.status} onChange={event=>setDraft({...draft,status:event.target.value})}><option value="">Any status</option><option value="generated">Generated</option><option value="queue_admission_skipped">Admission deferred</option><option value="queued">Queued</option><option value="in_progress">In progress</option><option value="retry_wait">Retry wait</option><option value="received">Received</option><option value="rendered">Rendered</option><option value="failed">Failed</option><option value="expired">Expired</option><option value="dismissed">Dismissed</option><option value="pending">Pending</option><option value="unconfirmed">Unconfirmed</option></select></label>
+          <label>Current Trading worker status<select value={draft.workerStatus} onChange={event=>setDraft({...draft,workerStatus:event.target.value})}><option value="">Any current worker status</option><option value="running">Running</option><option value="healthy">Healthy</option><option value="degraded">Degraded</option><option value="stale">Stale</option><option value="not_started">Not started</option><option value="unavailable">Unavailable</option></select><small>Global trading-opportunities cycle status; not a per-delivery worker identity.</small></label>
+          <label>Minimum attempts<input type="number" min="1" max="100" value={draft.minimumAttempts} onChange={event=>setDraft({...draft,minimumAttempts:event.target.value})}/></label>
+        </div>
+        <div className="admin-delivery-filter-checks"><label><input type="checkbox" checked={draft.failedOnly} onChange={event=>setDraft({...draft,failedOnly:event.target.checked,pendingOnly:false,expiredOnly:false})}/> Failed only</label><label><input type="checkbox" checked={draft.pendingOnly} onChange={event=>setDraft({...draft,pendingOnly:event.target.checked,failedOnly:false,expiredOnly:false})}/> Pending only</label><label><input type="checkbox" checked={draft.expiredOnly} onChange={event=>setDraft({...draft,expiredOnly:event.target.checked,failedOnly:false,pendingOnly:false})}/> Expired only</label></div>
+        <div className="admin-ops-actions"><button className="admin-ops-button" type="submit">Apply filters</button><button className="admin-ops-button" type="button" onClick={reset}>Reset</button><button className="admin-ops-button" type="button" onClick={()=>void exportAll()} disabled={exporting||list.isLoading}>{exporting?"Preparing export…":"Export filtered CSV"}</button></div>
+      </form>
+      {filterMessage&&<div className="admin-ops-empty error" role="alert">{filterMessage}</div>}
+      {(list.data as any)?.workerStatusObservation&&<div className="admin-ops-note" role="status"><Activity size={15}/><span>Worker-status filter requested “{(list.data as any).workerStatusObservation.requested}”; current global status is “{(list.data as any).workerStatusObservation.observed}”. It scopes the result set by the current Trading opportunities worker state and does not attribute that worker to individual delivery rows.</span></div>}
+      {list.isLoading?<LoadingState/>:list.isError?<div className="admin-ops-empty error" role="alert">Filtered diagnostic history is unavailable. This is not a zero-result or healthy status.</div>:!(list.data as any)?.sourceAvailable?<div className="admin-ops-empty error">Delivery diagnostic history is unavailable because the database is not connected.</div>:<>
+        <div className="admin-ops-meta-line"><span>{rows.length} records on this page</span><span>Read {timestamp((list.data as any)?.generatedAt)}</span></div>
+        {!rows.length?<div className="admin-ops-empty compact">No tracked opportunities match the selected filters. Older records may appear only in retained lifecycle aggregates.</div>:<div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Filtered opportunity delivery diagnostic records"><table className="admin-ops-table"><thead><tr><th>Opportunity</th><th>Customer</th><th>Package / company</th><th>Delivery status</th><th>Attempts / retry</th><th>Browser receipt</th><th>Visible render</th><th>Failure evidence</th><th>Inspect</th></tr></thead><tbody>{rows.map(item=><tr key={item.opportunityId}>
+          <td><strong>#{item.opportunityId}</strong><small>Generated {timestamp(item.generatedAt)}</small></td>
+          <td><button className="admin-ops-link-button" type="button" onClick={()=>setSelectedCustomerId(item.customerId)}>{item.customerName||`Customer ${item.customerId}`}</button><small>{item.customerEmail||`Customer ID ${item.customerId}`}</small></td>
+          <td><strong>{item.packageName}</strong><small>{item.companyName||"Company unavailable"}</small></td>
+          <td><span className={`admin-ops-status ${item.deliveryStatus==="failed"?"high":item.deliveryStatus==="expired"||item.deliveryStatus==="retry_wait"||item.deliveryStatus==="queue_admission_skipped"?"watch":item.deliveryStatus==="rendered"?"good":""}`}>{label(item.deliveryStatus)}</span><small>Assignment: {item.assignmentStatus}</small></td>
+          <td>{item.retryAttempts}<small>{item.retryAt?`Retry at ${timestamp(item.retryAt)}`:"No scheduled retry"}</small></td>
+          <td>{item.receivedAt?timestamp(item.receivedAt):"Not confirmed"}</td><td>{item.renderedAt?timestamp(item.renderedAt):"Not confirmed"}</td>
+          <td>{item.failureCategory?<><strong>{label(item.failureCategory)}</strong><small>{item.lastErrorCode||"Error code unavailable"}</small></>:item.lastErrorCode||"No failure recorded"}</td>
+          <td><button className="admin-ops-button" type="button" onClick={()=>{setSelectedOpportunityId(item.opportunityId);setSelectedCustomerId(item.customerId);}}>Inspect</button></td>
+        </tr>)}</tbody></table></div>}
+        <div className="admin-delivery-pagination"><button className="admin-ops-button" type="button" disabled={cursors.length<=1||list.isFetching} onClick={()=>setCursors(current=>current.slice(0,-1))}>Previous page</button><span>Page {cursors.length}</span><button className="admin-ops-button" type="button" disabled={!(list.data as any)?.nextCursor||list.isFetching} onClick={()=>setCursors(current=>[...current,(list.data as any).nextCursor])}>Next page</button></div>
+      </>}
+      {exportMessage&&<div className="admin-ops-note" role="status" aria-live="polite"><FileText size={15}/><span>{exportMessage}</span></div>}
+    </section>
+    <section className="admin-ops-panel" aria-labelledby="delivery-failure-analysis-title"><div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Recorded evidence</span><h2 id="delivery-failure-analysis-title">Failure analysis</h2></div><span className="admin-ops-subtle">Selected date range · captured failure events</span></div>
+      {failures.isLoading?<LoadingState/>:failures.isError||!(failures.data as any)?.sourceAvailable?<div className="admin-ops-empty error">Failure-event analysis is unavailable; missing data is not a zero-failure result.</div>:!categories.length?<div className="admin-ops-empty compact">No append-only failure events are recorded in this range. Legacy rows without a reliable failure timestamp are excluded.</div>:<div className="admin-delivery-failure-grid">{categories.map((item:any)=><article key={item.category}><strong>{label(String(item.category))}</strong><span>{Number(item.opportunities).toLocaleString()} opportunities · {Number(item.failureEvents).toLocaleString()} events</span><small>Latest recorded failure: {timestamp(item.lastFailureAt)}</small></article>)}</div>}
+    </section>
+    <section className="admin-ops-panel" aria-labelledby="delivery-worker-title"><div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Runtime evidence</span><h2 id="delivery-worker-title">Worker and dispatcher status</h2></div><span className={`admin-ops-status ${workerCycle?.status==="healthy"||workerCycle?.status==="running"?"good":workerCycle?.status?"watch":""}`}>{workerCycle?.status||"Unavailable"}</span></div>
+      <p className="admin-ops-subtle">Trading opportunities cycle heartbeat: {workerCycle?.healthRecordAvailable&&workerCycle?.heartbeatAt?timestamp(workerCycle.heartbeatAt):"Unavailable / not recorded"}. Popup dispatch is customer-request scoped; no dedicated dispatcher heartbeat or per-opportunity worker status is fabricated. Worker Health &amp; Recovery shows the monitored cycle and sampled queue state.</p>{worker.isError&&<div className="admin-ops-empty error">Worker status is unavailable; delivery history is separate evidence.</div>}
+    </section>
+    {selectedCustomerId&&<section className="admin-ops-panel" aria-labelledby="delivery-customer-summary-title"><div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Customer drill-down</span><h2 id="delivery-customer-summary-title">Customer delivery summary · {selectedCustomerId}</h2></div><button className="admin-ops-button" type="button" onClick={()=>setSelectedCustomerId(null)}>Close</button></div>
+      {customer.isLoading?<LoadingState/>:customer.isError||!(customer.data as any)?.sourceAvailable?<div className="admin-ops-empty error">Customer summary is unavailable.</div>:(customer.data as any)?.customer?<><p className="admin-ops-subtle">{(customer.data as any).customer.name||"Customer"} · {(customer.data as any).customer.email||`ID ${selectedCustomerId}`} · {(customer.data as any).customer.packageName||"Package unavailable"}</p><section className="admin-ops-metrics compact-metrics">{Object.entries({Generated:(customer.data as any).summary.generated,Received:(customer.data as any).summary.browserReceived,"Visible renders":(customer.data as any).summary.rendered,Pending:(customer.data as any).summary.pending,Failed:(customer.data as any).summary.failed,Expired:(customer.data as any).summary.expired,Retried:(customer.data as any).summary.retried}).map(([name,value])=><Metric key={name} label={name} value={Number(value||0).toLocaleString()} icon={Activity}/>)}</section><section className="admin-ops-metrics compact-metrics"><Metric label="Current delivery status" value={(customer.data as any).summary.currentDeliveryStatus||"Unavailable"} detail={(customer.data as any).summary.currentOpportunityId?`Latest opportunity #${(customer.data as any).summary.currentOpportunityId} · updated ${timestamp((customer.data as any).summary.currentStatusAt)}`:"No generated opportunity"} icon={Activity}/><Metric label="Latest failure" value={(customer.data as any).summary.mostRecentFailure?.failureCategory||"None recorded"} detail={(customer.data as any).summary.mostRecentFailure?.errorCode||"Error code unavailable"} icon={AlertTriangle}/></section><div className="admin-ops-note"><ShieldCheck size={16}/><span>Detailed history tracks {(customer.data as any).summary.trackedByDiagnosticHistory} of {(customer.data as any).summary.generated} generated opportunities; {(customer.data as any).summary.olderGeneratedWithoutEventHistory} older rows predate event capture. Last browser receipt: {timestamp((customer.data as any).summary.lastReceivedAt)}. Last visibility-confirmed render: {timestamp((customer.data as any).summary.lastRenderedAt)}. Last recorded failure: {timestamp((customer.data as any).summary.lastFailureAt)}. {(customer.data as any).summary.mostRecentFailure?.message||"No detailed failure message recorded."}</span></div>{(customer.data as any).summary.retryHistory?.length>0&&<div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Customer opportunity retry history"><table className="admin-ops-table"><thead><tr><th>Opportunity</th><th>Attempt</th><th>Recorded</th><th>Retry scheduled</th><th>Error code</th></tr></thead><tbody>{(customer.data as any).summary.retryHistory.map((item:any,index:number)=><tr key={`${item.opportunityId}-${item.eventAt}-${index}`}><td><button className="admin-ops-link-button" type="button" onClick={()=>setSelectedOpportunityId(Number(item.opportunityId))}>#{item.opportunityId}</button></td><td>{item.retryAttempt??"Unavailable"}</td><td>{timestamp(item.eventAt)}</td><td>{timestamp(item.retryAt)}</td><td>{item.errorCode||"Unavailable"}</td></tr>)}</tbody></table></div>}</>:<div className="admin-ops-empty compact">Customer record not found.</div>}
+    </section>}
+    {selectedOpportunityId&&<section className="admin-ops-panel" aria-labelledby="delivery-opportunity-detail-title"><div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Opportunity drill-down</span><h2 id="delivery-opportunity-detail-title">Opportunity #{selectedOpportunityId} lifecycle</h2></div><button className="admin-ops-button" type="button" onClick={()=>setSelectedOpportunityId(null)}>Close</button></div>
+      {detail.isLoading?<LoadingState/>:detail.isError||!(detail.data as any)?.sourceAvailable?<div className="admin-ops-empty error">Opportunity details are unavailable.</div>:!(detail.data as any)?.opportunity?<div className="admin-ops-empty compact">No generated opportunity was found for this identifier.</div>:<>
+        <div className="admin-delivery-detail-grid"><div><small>Customer</small><strong>{(detail.data as any).opportunity.customerName||`Customer ${(detail.data as any).opportunity.customerId}`} · ID {(detail.data as any).opportunity.customerId}</strong></div><div><small>Package / company</small><strong>{(detail.data as any).opportunity.packageName} · {(detail.data as any).opportunity.companyName||"Company unavailable"}</strong><small>Company identifier: {(detail.data as any).opportunity.companyReferenceId||"Unavailable"}</small></div><div><small>Generated</small><strong>{timestamp((detail.data as any).opportunity.generatedAt)}</strong></div><div><small>Delivery status</small><strong>{(detail.data as any).opportunity.deliveryStatus}</strong></div><div><small>Retry attempts</small><strong>{(detail.data as any).opportunity.retryAttempts}</strong></div><div><small>Next retry</small><strong>{timestamp((detail.data as any).opportunity.retryAt)}</strong></div><div><small>Last error / category</small><strong>{(detail.data as any).opportunity.lastErrorCode||"None recorded"} · {(detail.data as any).opportunity.failureCategory||"No failure class"}</strong></div></div>
+        {!(detail.data as any).historyAvailable&&<div className="admin-ops-note"><AlertTriangle size={16}/><span>Detailed event history was not recorded for this opportunity. Stages shown come only from retained assignment or popup rows; missing timestamps are not reconstructed.</span></div>}
+        <ol className="admin-delivery-timeline">{((detail.data as any).history||[]).map((event:any,index:number)=><li key={`${event.id}-${event.eventType}-${index}`}><span className="admin-delivery-timeline-dot"/><div><strong>{label(String(event.eventType))}</strong><time>{event.eventAt?timestamp(event.eventAt):"Timestamp unavailable"}</time><small>{event.durationMs==null?"Duration unavailable":`Stage duration ${Math.round(event.durationMs/1000).toLocaleString()} seconds`}{event.retryAttempt?` · attempt ${event.retryAttempt}`:""}{event.retryAt?` · retry scheduled ${timestamp(event.retryAt)}`:""}</small>{(event.errorCode||event.message)&&<small>{event.failureCategory?label(event.failureCategory):event.eventType==="queue_admission_skipped"?"Deferred": "Unclassified"}{event.errorCode?` · ${event.errorCode}`:""} · {event.message||"Safe error detail unavailable"}</small>}<small>Source: {label(String(event.evidenceSource||"persisted diagnostic record"))}{event.workerId?` · worker ${event.workerId}`:""}</small></div></li>)}</ol>
+      </>}
+    </section>}
+  </>;
 }
 
 export function AdminTradeSettingsOverview() {

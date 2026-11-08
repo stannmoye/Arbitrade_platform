@@ -245,10 +245,11 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(last.tag).toBe("0109_customer_company_country_restrictions");
-    expect(journal.entries.at(-2).tag).toBe("0108_settlement_evidence_records");
-    expect(journal.entries.at(-3).tag).toBe("0107_accurate_opportunity_delivery_monitoring");
-    expect(journal.entries.at(-4).tag).toBe("0106_package_popup_defaults");
+    expect(last.tag).toBe("0110_opportunity_delivery_diagnostic_history");
+    expect(journal.entries.at(-2).tag).toBe("0109_customer_company_country_restrictions");
+    expect(journal.entries.at(-3).tag).toBe("0108_settlement_evidence_records");
+    expect(journal.entries.at(-4).tag).toBe("0107_accurate_opportunity_delivery_monitoring");
+    expect(journal.entries.at(-5).tag).toBe("0106_package_popup_defaults");
     const firstTradingMigration = journal.entries.findIndex((entry) => entry.tag === "0072_wallet_ledger_reconciliation_indexes");
     const masterIndex = journal.entries.findIndex((entry) => entry.tag === "0100_global_trade_master_controls");
     const feeIndex = journal.entries.findIndex((entry) => entry.tag === "0101_package_fee_policy_versions");
@@ -323,7 +324,7 @@ describe("worker schema contracts", () => {
     // 0048 and 0055 remain authoritative standalone/portal-chain sources.
     // The journaled 0062 bridge intentionally provides their worker tables to
     // deployments that run only Drizzle's standard migration path.
-    for (const table of Object.keys(WORKER_SCHEMA_CONTRACTS).filter((name) => !["trading_tier_qualification_jobs", "opportunity_popup_events", "opportunity_delivery_events", "trade_positions", "admin_wallet_adjustment_idempotency", "trading_package_fee_policy_versions", "opportunity_delivery_idempotency"].includes(name))) {
+    for (const table of Object.keys(WORKER_SCHEMA_CONTRACTS).filter((name) => !["trading_tier_qualification_jobs", "opportunity_popup_events", "opportunity_delivery_events", "trade_positions", "admin_wallet_adjustment_idempotency", "trading_package_fee_policy_versions", "opportunity_delivery_idempotency", "opportunity_delivery_diagnostic_events"].includes(name))) {
       expect(mainSql).toContain(table);
     }
     for (const column of WORKER_SCHEMA_CONTRACTS.mining_pending_boost_rewards.columns) {
@@ -379,5 +380,24 @@ describe("worker schema contracts", () => {
     expect(verifier).toContain("const verified = await assertWorkerSchemaContracts(db);");
     expect(installerVerifier).toContain("const verified = await assertWorkerSchemaContracts(db);");
     expect(installerVerifier).toContain('report("Worker schema contracts", false, detail)');
+  });
+
+  it("bridges and verifies the additive opportunity delivery diagnostic history schema", async () => {
+    const root = new URL("../", import.meta.url);
+    const [runtimeRepair, migration, schema, journalText] = await Promise.all([
+      readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
+      readFile(new URL("drizzle/0110_opportunity_delivery_diagnostic_history.sql", root), "utf8"),
+      readFile(new URL("drizzle/schema.ts", root), "utf8"),
+      readFile(new URL("drizzle/meta/_journal.json", root), "utf8"),
+    ]);
+    const journal=JSON.parse(journalText);
+    const table=WORKER_SCHEMA_CONTRACTS.opportunity_delivery_diagnostic_events;
+    expect(journal.entries.at(-1).tag).toBe("0110_opportunity_delivery_diagnostic_history");
+    expect(runtimeRepair).toContain('drizzle/0110_opportunity_delivery_diagnostic_history.sql');
+    expect(runtimeRepair).toContain("await executeCompatibleMigrationSql(db, deliveryDiagnosticHistoryMigration)");
+    expect(runtimeRepair.indexOf("await executeCompatibleMigrationSql(db, deliveryDiagnosticHistoryMigration)")).toBeLessThan(runtimeRepair.lastIndexOf("await assertWorkerSchemaContracts(db)"));
+    for(const column of table.columns)expect(migration).toContain(`\`${column}\``);
+    for(const index of Object.keys(table.indexes))if(index==="PRIMARY")expect(migration).toContain("PRIMARY KEY");else expect(migration).toContain(`\`${index}\``);
+    expect(schema).toContain('mysqlTable("opportunity_delivery_diagnostic_events"');
   });
 });

@@ -76,6 +76,21 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
       opportunity_delivery_idempotency_popup_idx: { unique: false, columns: ["popupEventId"] },
     },
   },
+  opportunity_delivery_diagnostic_events: {
+    columns: ["id", "opportunityId", "customerId", "popupEventId", "eventType", "eventAt", "workerId", "retryAttempt", "retryAt", "errorCode", "failureCategory", "diagnosticMessage", "metadataJson", "idempotencyKey", "createdAt"],
+    dataTypes: { id: "int", opportunityId: "int", customerId: "int", popupEventId: "int", eventType: "varchar", eventAt: "timestamp", workerId: "varchar", retryAttempt: "int", retryAt: "timestamp", errorCode: "varchar", failureCategory: "varchar", diagnosticMessage: "varchar", metadataJson: "text", idempotencyKey: "varchar", createdAt: "timestamp" },
+    nullable: { popupEventId: true, workerId: true, retryAttempt: true, retryAt: true, errorCode: true, failureCategory: true, diagnosticMessage: true, metadataJson: true },
+    indexes: {
+      PRIMARY: { unique: true, columns: ["id"] },
+      opportunity_delivery_diag_idempotency_uq: { unique: true, columns: ["idempotencyKey"] },
+      opportunity_delivery_diag_offer_idx: { unique: false, columns: ["opportunityId", "id"] },
+      opportunity_delivery_diag_customer_offer_idx: { unique: false, columns: ["customerId", "opportunityId", "id"] },
+      opportunity_delivery_diag_customer_time_idx: { unique: false, columns: ["customerId", "eventAt", "id"] },
+      opportunity_delivery_diag_event_time_idx: { unique: false, columns: ["eventAt", "id"] },
+      opportunity_delivery_diag_type_time_idx: { unique: false, columns: ["eventType", "eventAt", "id"] },
+      opportunity_delivery_diag_worker_time_idx: { unique: false, columns: ["workerId", "eventAt"] },
+    },
+  },
   trade_positions: {
     columns: ["walletFundingPlanJson", "settlementReviewAt", "packageIdSnapshot", "packageFeeRateBpsSnapshot", "packageFeeRoundingModeSnapshot", "packageFeePolicyVersionSnapshot", "packageFeeEffectiveAtSnapshot"],
     dataTypes: { walletFundingPlanJson: "text", settlementReviewAt: "timestamp", packageIdSnapshot: "int", packageFeeRateBpsSnapshot: "int", packageFeeRoundingModeSnapshot: "varchar", packageFeePolicyVersionSnapshot: "int", packageFeeEffectiveAtSnapshot: "datetime" },

@@ -14,6 +14,7 @@ import { ACCOUNT_CLOSURE_TICKET_SUBJECT, AccountClosureDecisionError, applyAccou
 import { allocateStake, cancelStake, getStakeDashboard, projectStake } from "./stakeEarn";
 import { closeTransactionConsoleSession, listTransactionConsoleEvents, recordTransactionConsoleEvent, recordTransactionConsolePulse } from "./transactionConsole";
 import { getOpportunityLifecycleSummary, runOpportunityRetention, updatePopupLifecycle, updatePopupDeliveryStatus } from "./opportunityLifecycle";
+import { getOpportunityDeliveryCustomerDiagnostics, getOpportunityDeliveryFailureAnalysis, getOpportunityDeliveryOpportunityDiagnostics, getOpportunityDeliveryOverview, listOpportunityDeliveryDiagnostics } from "./opportunityDeliveryDiagnostics";
 import { confirmEmailVerification, requestEmailVerification } from "./emailAuth";
 import { enqueueAdminMessage, getCustomerEmailPreferences, updateCustomerEmailPreferences, sendEmailTest, getDailyDigestSchedule } from "./emailQueue";
 import { isEmailDeliveryConfigured } from "./email";
@@ -802,6 +803,34 @@ export const appRouter = router({
     packagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),
     overviewPackagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),
     popupLifecycleSummary: adminProcedure.query(() => getOpportunityLifecycleSummary()),
+    deliveryOverview: adminProcedure.query(() => getOpportunityDeliveryOverview()),
+    deliveryDiagnostics: adminProcedure.input(z.object({
+      fromDate:z.string().trim().max(40).refine(value=>Number.isFinite(Date.parse(value))).optional(),
+      toDate:z.string().trim().max(40).refine(value=>Number.isFinite(Date.parse(value))).optional(),
+      cursor:z.string().max(240).optional(),pageSize:z.number().int().min(1).max(100).optional(),
+      customerId:z.number().int().positive().optional(),customerQuery:z.string().trim().max(100).optional(),
+      packageName:z.string().trim().max(80).optional(),companyQuery:z.string().trim().max(100).optional(),opportunityId:z.number().int().positive().optional(),
+      status:z.enum(["generated","queue_admission_skipped","queued","in_progress","retry_wait","received","rendered","failed","expired","dismissed","pending","unconfirmed"]).optional(),
+      failedOnly:z.boolean().optional(),pendingOnly:z.boolean().optional(),expiredOnly:z.boolean().optional(),minimumAttempts:z.number().int().min(1).max(100).optional(),
+      workerStatus:z.enum(["running","healthy","degraded","stale","not_started","unavailable"]).optional(),
+    }).optional()).query(async ({input})=>{
+      const {workerStatus,...diagnosticFilters}=input??{};
+      const result=await listOpportunityDeliveryDiagnostics(diagnosticFilters);
+      if(!workerStatus)return result;
+      let observed="unavailable";
+      try{
+        const health=await getWorkerHealthSummary();
+        const current=health.workers?.find((worker:any)=>worker.workerKey==="trading-opportunities"&&worker.isCurrentInstance);
+        observed=String(current?.status||health.opportunityDelivery?.opportunityCycle?.status||"unavailable");
+      }catch{}
+      return {...result,workerStatusObservation:{requested:workerStatus,observed,scope:"global_current_trading_opportunities_worker_not_per_opportunity_attribution"},items:observed===workerStatus?result.items:[],nextCursor:observed===workerStatus?result.nextCursor:null};
+    }),
+    deliveryCustomerDiagnostics: adminProcedure.input(z.object({customerId:z.number().int().positive()})).query(({input})=>getOpportunityDeliveryCustomerDiagnostics(input.customerId)),
+    deliveryOpportunityDiagnostics: adminProcedure.input(z.object({opportunityId:z.number().int().positive()})).query(({input})=>getOpportunityDeliveryOpportunityDiagnostics(input.opportunityId)),
+    deliveryFailureAnalysis: adminProcedure.input(z.object({
+      fromDate:z.string().trim().max(40).refine(value=>Number.isFinite(Date.parse(value))).optional(),
+      toDate:z.string().trim().max(40).refine(value=>Number.isFinite(Date.parse(value))).optional(),
+    }).optional()).query(({input})=>getOpportunityDeliveryFailureAnalysis(input??{})),
     runPopupRetention: adminProcedure.mutation(() => runOpportunityRetention()),
     updatePackagePolicies: adminProcedure.input(z.object({
       reason: z.string().trim().min(5).max(500),

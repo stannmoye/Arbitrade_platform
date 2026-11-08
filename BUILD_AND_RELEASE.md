@@ -67,3 +67,7 @@ Manual payout tickets and an administrator marking a request paid are records of
 8. Record hosted acceptance separately before describing the application as production-certified.
 
 Never use fresh-install mode against a database containing customer or business data. Preserve an immutable rollback target and do not roll back schema changes blindly.
+
+## Trade opportunity delivery diagnostics migration
+
+The advanced Trade opportunity delivery diagnostics feature adds the forward-only migration `drizzle/0110_opportunity_delivery_diagnostic_history.sql`. It creates an append-only, idempotent event-history table and indexes; it does not rewrite existing opportunities or touch wallet, ledger, or settlement data. The migration is registered in Drizzle's ordered journal and in the worker runtime-schema bridge/contracts. Before deploying a branch containing it, back up the database and verify recovery, apply the migration through the repository's guarded migration/runtime-schema workflow, then run worker schema verification and the focused lifecycle/diagnostics tests. Existing rows without recorded events remain historically unavailable; migration or UI installation does not create retroactive receipt/render evidence. No production migration, hosted browser acceptance, or deployment is implied by source tests.

@@ -3,7 +3,7 @@ import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, not
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool, type Pool } from "mysql2/promise";
 import { ENV } from "./_core/env";
-import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityDeliveryIdempotency, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, opportunityGenerationTemplates, opportunityGenerationAssignments, opportunityGenerationBatches, balanceLedger, tradingTierQualificationJobs, tradingPackageFeePolicyVersions, adminWalletAdjustmentIdempotency, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, settlementEvidenceRecords, settlementEvidenceAuditEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
+import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityDeliveryIdempotency, opportunityDeliveryDiagnosticEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, opportunityGenerationTemplates, opportunityGenerationAssignments, opportunityGenerationBatches, balanceLedger, tradingTierQualificationJobs, tradingPackageFeePolicyVersions, adminWalletAdjustmentIdempotency, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, settlementEvidenceRecords, settlementEvidenceAuditEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
@@ -3545,6 +3545,10 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
       packagePolicyVersion:Number(selectedPolicy.policyVersion||1),companyReferenceId:company.id,
       configuredProfitRateBps:terms.configuredPayoutRateBps,configuredDurationSeconds:terms.tradeDurationSeconds,
       packageSnapshotJson:JSON.stringify(snapshot),status:"generated",generatedAt:opportunityStartedAt,assignedAt:input.now,expiresAt:closesAt,
+    });
+    await tx.insert(opportunityDeliveryDiagnosticEvents).values({
+      opportunityId:offerId,customerId:input.userId,eventType:"generated",eventAt:opportunityStartedAt,
+      idempotencyKey:`opportunity:${offerId}:generated`,metadataJson:JSON.stringify({source:"opportunity_generation_worker",batchId:input.batchId}),
     });
     if(rotationStateKey&&nextRotationState){
       await tx.update(appSettings).set({settingValue:JSON.stringify(nextRotationState),updatedBy:input.userId,updatedAt:input.now})

@@ -5,6 +5,8 @@ const lifecycle = readFileSync(new URL("./opportunityLifecycle.ts", import.meta.
 const admin = readFileSync(new URL("../client/src/components/AdminOperationsPages.tsx", import.meta.url), "utf8");
 const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../drizzle/0107_accurate_opportunity_delivery_monitoring.sql", import.meta.url), "utf8");
+const diagnostics = readFileSync(new URL("./opportunityDeliveryDiagnostics.ts", import.meta.url), "utf8");
+const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 
 describe("accurate opportunity delivery monitoring", () => {
   it("never treats queue persistence as receipt or rendering", () => {
@@ -38,5 +40,30 @@ describe("accurate opportunity delivery monitoring", () => {
     expect(lifecycle).toContain("AS rendered");
     expect(lifecycle).toContain("AS failed");
     expect(lifecycle).toContain("AS expired");
+  });
+
+  it("uses durable event evidence for advanced metrics and never upgrades legacy render timestamps", () => {
+    expect(diagnostics).toContain("eventType='popup_render_confirmed'");
+    expect(diagnostics).toContain("averageQueueToBrowserReceiptMilliseconds");
+    expect(diagnostics).toContain("oldestPendingAgeMilliseconds");
+    expect(diagnostics).toContain("staleProcessingLeases");
+    expect(diagnostics).toContain("pendingPastExpiry");
+    expect(diagnostics).toContain("repeatedFailureOpportunities24h");
+    expect(diagnostics).toContain("eventAt>=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 30 DAY) AND eventAt<=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 HOUR)");
+    expect(diagnostics).toContain("trackedBacklogCoverageDays:30");
+    expect(diagnostics).toContain("legacy_render_acknowledgement");
+    expect(diagnostics).not.toContain('addLegacy("popup_render_confirmed", row.renderedAt)');
+    expect(diagnostics).toContain("workerStatus?: \"running\" | \"healthy\"");
+    expect(router).toContain("deliveryOverview: adminProcedure.query");
+    expect(router).toContain("scope:\"global_current_trading_opportunities_worker_not_per_opportunity_attribution\"");
+  });
+
+  it("records pending-capacity admission deferrals without misclassifying them as failures", () => {
+    expect(lifecycle).toContain("eventType:\"queue_admission_skipped\"");
+    expect(lifecycle).toContain("reasonCode:\"PENDING_DELIVERY_LIMIT\"");
+    expect(diagnostics).toContain("eventType='queue_admission_skipped'");
+    expect(router).toContain("\"queue_admission_skipped\"");
+    expect(admin).toContain("Admission deferred");
+    expect(admin).toContain("eventType===\"queue_admission_skipped\"?\"Deferred\"");
   });
 });

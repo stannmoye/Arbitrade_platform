@@ -548,6 +548,31 @@ export const opportunityGenerationAssignments = mysqlTable("opportunity_generati
   templateIdx: index("opportunity_generation_assignments_template_idx").on(table.templateId, table.generatedAt),
   batchIdx: index("opportunity_generation_assignments_batch_idx").on(table.batchId, table.generatedAt),
 }));
+export const opportunityDeliveryDiagnosticEvents = mysqlTable("opportunity_delivery_diagnostic_events", {
+  id: int("id").autoincrement().primaryKey(),
+  opportunityId: int("opportunityId").notNull(),
+  customerId: int("customerId").notNull(),
+  popupEventId: int("popupEventId"),
+  eventType: varchar("eventType", { length: 40 }).notNull(),
+  eventAt: timestamp("eventAt").defaultNow().notNull(),
+  workerId: varchar("workerId", { length: 128 }),
+  retryAttempt: int("retryAttempt"),
+  retryAt: timestamp("retryAt"),
+  errorCode: varchar("errorCode", { length: 80 }),
+  failureCategory: varchar("failureCategory", { length: 48 }),
+  diagnosticMessage: varchar("diagnosticMessage", { length: 240 }),
+  metadataJson: text("metadataJson"),
+  idempotencyKey: varchar("idempotencyKey", { length: 200 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  idempotencyKeyUnique: uniqueIndex("opportunity_delivery_diag_idempotency_uq").on(table.idempotencyKey),
+  opportunityIdx: index("opportunity_delivery_diag_offer_idx").on(table.opportunityId, table.id),
+  customerOpportunityIdx: index("opportunity_delivery_diag_customer_offer_idx").on(table.customerId, table.opportunityId, table.id),
+  customerTimeIdx: index("opportunity_delivery_diag_customer_time_idx").on(table.customerId, table.eventAt, table.id),
+  eventTimeIdx: index("opportunity_delivery_diag_event_time_idx").on(table.eventAt, table.id),
+  eventTypeTimeIdx: index("opportunity_delivery_diag_type_time_idx").on(table.eventType, table.eventAt, table.id),
+  workerTimeIdx: index("opportunity_delivery_diag_worker_time_idx").on(table.workerId, table.eventAt),
+}));
 export const marketInstruments = mysqlTable("market_instruments", {
   id: int("id").autoincrement().primaryKey(),
   symbol: varchar("symbol", { length: 40 }).notNull().unique(),
