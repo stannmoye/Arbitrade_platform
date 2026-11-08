@@ -5,7 +5,7 @@ import {
   countActiveVisiblePopupEvents,
   calculateTradingDeliveryCapacity,
   countConsumedDeliveryOffers,
-  resolveSavedEntitlementQuota,
+  resolveCurrentPackageEntitlementQuota,
   resolveTradingQuotaWindow,
   resolveTradingDeliverySchedule,
   resolveTradingBurstLimit,
@@ -27,36 +27,24 @@ describe("Trading quota windows", () => {
   });
 });
 
-describe("Saved subscription entitlement quotas", () => {
-  it("keeps the saved quota authoritative when the current package quota is raised or lowered", () => {
-    const savedSnapshot = { opportunitiesPerDay: 6 };
-    const afterPackageQuotaLowered = resolveSavedEntitlementQuota(savedSnapshot, 2);
-    const afterPackageQuotaRaised = resolveSavedEntitlementQuota(savedSnapshot, 20);
-
-    expect(afterPackageQuotaLowered).toBe(6);
-    expect(afterPackageQuotaRaised).toBe(6);
-    expect(calculateEffectiveEntitlementQuota({ savedEntitlementQuota: afterPackageQuotaLowered })).toBe(6);
-    expect(calculateEffectiveEntitlementQuota({ savedEntitlementQuota: afterPackageQuotaRaised })).toBe(6);
+describe("Live administrator-configured entitlement quotas", () => {
+  it("applies repeated package quota edits to existing subscriptions", () => {
+    const historicalSnapshot = { opportunitiesPerDay: 6 };
+    expect(resolveCurrentPackageEntitlementQuota(historicalSnapshot, 2)).toBe(2);
+    expect(resolveCurrentPackageEntitlementQuota(historicalSnapshot, 6000)).toBe(6000);
+    expect(resolveCurrentPackageEntitlementQuota(historicalSnapshot, 20)).toBe(20);
+    expect(historicalSnapshot.opportunitiesPerDay).toBe(6);
   });
 
-  it("lets operational delivery limits reduce, but never increase, the saved quota", () => {
-    expect(calculateEffectiveEntitlementQuota({
-      savedEntitlementQuota: 6,
-      policyDailyCap: 4,
-      packagePopupCap: 0,
-      dailyTargetCap: 3,
-    })).toBe(3);
-    expect(calculateEffectiveEntitlementQuota({
-      savedEntitlementQuota: 6,
-      policyDailyCap: 10,
-      packagePopupCap: 2,
-      dailyTargetCap: 0,
-    })).toBe(2);
+  it("uses the historical snapshot only when the live package value is unavailable", () => {
+    expect(resolveCurrentPackageEntitlementQuota({ opportunitiesPerDay: 6 }, null)).toBe(6);
+    expect(resolveCurrentPackageEntitlementQuota({ opportunitiesPerDay: 6 }, undefined)).toBe(6);
+    expect(resolveCurrentPackageEntitlementQuota({ opportunitiesPerDay: 6 }, 0)).toBe(0);
   });
 
-  it("uses the current package quota only when a legacy snapshot has no saved quota", () => {
-    expect(resolveSavedEntitlementQuota({}, 4)).toBe(4);
-    expect(resolveSavedEntitlementQuota({ opportunitiesPerDay: 0 }, 4)).toBe(0);
+  it("lets operational delivery limits reduce, but never increase, the current quota", () => {
+    expect(calculateEffectiveEntitlementQuota({ savedEntitlementQuota: 6, policyDailyCap: 4, packagePopupCap: 0, dailyTargetCap: 3 })).toBe(3);
+    expect(calculateEffectiveEntitlementQuota({ savedEntitlementQuota: 6, policyDailyCap: 10, packagePopupCap: 2, dailyTargetCap: 0 })).toBe(2);
   });
 });
 

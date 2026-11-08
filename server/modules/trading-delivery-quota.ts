@@ -1,26 +1,28 @@
 export type TradingQuotaWindowPeriod = "rolling_24h" | "calendar_day";
 
 /**
- * Read an assigned subscription's saved daily entitlement. The package value is
- * only a compatibility fallback for legacy rows with no saved quota; current
- * tier edits must not replace a quota already present in the snapshot.
+ * Resolve the current administrator-configured daily entitlement for an active
+ * subscription. The live package value takes precedence over the historical
+ * assignment snapshot, which is only a fallback for legacy reads where the
+ * current package value is unavailable.
  */
-export function resolveSavedEntitlementQuota(termsSnapshot: unknown, fallbackQuota: unknown): number {
+export function resolveCurrentPackageEntitlementQuota(termsSnapshot: unknown, currentPackageQuota: unknown): number {
+  const liveQuota = Number(currentPackageQuota);
+  if (currentPackageQuota !== null && currentPackageQuota !== undefined && currentPackageQuota !== "" &&
+      Number.isSafeInteger(liveQuota) && liveQuota >= 0) return liveQuota;
   let snapshot = termsSnapshot;
   if (typeof snapshot === "string") {
     try { snapshot = JSON.parse(snapshot); } catch { snapshot = null; }
   }
   const savedQuota = snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)
-    ? (snapshot as Record<string, unknown>).opportunitiesPerDay
-    : undefined;
-  const quota = Number(savedQuota ?? fallbackQuota);
-  return Number.isSafeInteger(quota) && quota >= 0 ? quota : 0;
+    ? (snapshot as Record<string, unknown>).opportunitiesPerDay : undefined;
+  const legacyQuota = Number(savedQuota);
+  return Number.isSafeInteger(legacyQuota) && legacyQuota >= 0 ? legacyQuota : 0;
 }
 
 /**
- * Apply operational delivery limits to a saved subscription entitlement.
- * Mutable package quota is deliberately not an input: tier edits apply only
- * when a future subscription snapshot is created.
+ * Apply operational delivery limits to the current administrator-configured
+ * package entitlement. These independent limits may reduce, never increase it.
  */
 export function calculateEffectiveEntitlementQuota(input: {
   savedEntitlementQuota: number;

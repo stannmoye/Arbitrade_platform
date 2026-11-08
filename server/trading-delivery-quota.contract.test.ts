@@ -75,12 +75,13 @@ describe("runtime Trading delivery quota semantics", () => {
     expect(editor).toContain('<option value="calendar_day">Calendar day (UTC)</option>');
   });
 
-  it("uses the saved subscription quota as generation and allocation entitlement", () => {
-    expect(database).toContain("const customerDailyQuota=resolveSavedEntitlementQuota(entitlementSnapshot,packageDailyQuota)");
+  it("uses the latest administrator package quota for generation, eligibility and allocation", () => {
+    expect(database).toContain("const customerDailyQuota=resolveCurrentPackageEntitlementQuota(entitlementSnapshot,packageDailyQuota)");
     expect(database).toContain("savedEntitlementQuota:customerDailyQuota");
-    expect(database).toContain("const dailyQuota=resolveSavedEntitlementQuota(snapshot,subscription.packageQuota)");
+    expect(database).toContain("const dailyQuota=resolveCurrentPackageEntitlementQuota(snapshot,subscription.packageQuota)");
+    expect(database).toContain("const quota=resolveCurrentPackageEntitlementQuota(snapshotFor(row),row.dailyQuota)");
     expect(database).not.toContain("Math.min(packageDailyQuota,policyDailyQuota)");
-    expect(helper).toContain("Mutable package quota is deliberately not an input");
+    expect(helper).toContain("current administrator-configured daily entitlement");
   });
 });
 
