@@ -747,14 +747,18 @@ const balanceBefore = await db.select({
   });
   secondSubscriptionId = Number(secondSubscriptionResult.insertId);
 
+  // Set the latest administrator quota to the four assignments already used.
+  // This proves package selection respects the live value rather than the
+  // historical snapshot of six, after the earlier 2 -> 20 edit checks.
+  await db.update(packages).set({ opportunitiesPerDay: 4 }).where(eq(packages.id, packageId));
   const firstPackageAssignmentsBeforeSelection = await db.select({
     id: opportunityGenerationAssignments.id,
   }).from(opportunityGenerationAssignments).where(and(
     eq(opportunityGenerationAssignments.userId, userId),
     eq(opportunityGenerationAssignments.packageId, packageId),
   ));
-  assert.equal(firstPackageAssignmentsBeforeSelection.length, 6,
-    "The first package must be exhausted at its saved quota despite the live package quota being 20.");
+  assert.equal(firstPackageAssignmentsBeforeSelection.length, 4,
+    "The first package must be exhausted at the current administrator quota of four, not its historical snapshot of six.");
 
   const quotaSelectionCycle = await listCustomerOpportunities(userId, {
     workerCycle: true,
