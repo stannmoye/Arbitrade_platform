@@ -2467,8 +2467,14 @@ async function runCustomerOpportunityPopupInteractionCheck(browser) {
     record("popup-makes-no-financial-execution-claim", informationalOnly);
     record("opportunity-popup-renders-server-synchronised-expiry-countdown", expiryCountdownVisible);
     const countdownBefore = await popup.locator(".opportunity-expiry-ring span").innerText();
-    await page.waitForTimeout(1100);
-    const countdownAfter = await popup.locator(".opportunity-expiry-ring span").innerText();
+    // The component updates on a one-second interval. Poll across a complete
+    // interval instead of sleeping 1.1s from an arbitrary point in that cycle.
+    const countdownDeadline = Date.now() + 3000;
+    let countdownAfter = countdownBefore;
+    while (countdownAfter === countdownBefore && Date.now() < countdownDeadline) {
+      await page.waitForTimeout(100);
+      countdownAfter = await popup.locator(".opportunity-expiry-ring span").innerText();
+    }
     record("opportunity-expiry-countdown-updates-in-real-time", countdownBefore !== countdownAfter, {
       countdownBefore, countdownAfter,
     });
