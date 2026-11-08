@@ -6,7 +6,6 @@ import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { listAdminTradeAuditHistory, listAdminTradingHistory, resetTradeOpportunityUsage } from "./db";
 import { countCompanyReferences, findCompanyReferencesBySymbol, getCompanyReferenceById, getCompanyReferenceSummary, getRandomCompanyReference, searchCompanyReferences } from "./modules/company-catalogue-reference";
-import { createCompanySpotlightDisplayGuard, normalizeCustomerCompanyCountryRestrictions, parseCompanyCatalogueAdminState } from "./modules/company-spotlight-rotation";
 import { z } from "zod";
 import { communicationSettingsInput, getAdminCommunicationSettings, getCustomerCommunicationOptions, saveAdminCommunicationSettings, validateCommunicationSettingsInput } from "./communicationSettings";
 import { TRPCError } from "@trpc/server";
@@ -60,20 +59,6 @@ const opportunityDeliveryFiltersSchema = z.object({
   }
 });
 
-async function getCustomerApprovedCompanyReferences(
-  filters: Parameters<typeof searchCompanyReferences>[0] = {},
-  userId?: number,
-) {
-  const raw = await getAppSetting("trade.companyCatalogue.adminState", "{}");
-  const adminState = parseCompanyCatalogueAdminState(raw);
-  const companyDisplayAllowed = createCompanySpotlightDisplayGuard(adminState);
-  const controls=userId ? await ensureCustomerControls(userId) : null;
-  const restrictedCountries=new Set(normalizeCustomerCompanyCountryRestrictions(controls?.companyCountryRestrictions||"").split(",").map(value=>value.trim()).filter(Boolean));
-  return searchCompanyReferences({ ...filters, offset: 0, limit: 1811 })
-    .filter((company) => companyDisplayAllowed(company.id))
-    .filter((company) => !restrictedCountries.size || restrictedCountries.has(company.countryName));
-}
-
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
@@ -94,31 +79,6 @@ export const appRouter = router({
       offset: z.number().int().min(0).max(1810).optional(),
       limit: z.number().int().min(1).max(1811).optional(),
     }).optional()).query(({ input }) => searchCompanyReferences(input ?? {})),
-    customerSummary: protectedProcedure.query(async ({ ctx }) => {
-      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Customer company references are available only to customer accounts." });
-      const approved = await getCustomerApprovedCompanyReferences({},ctx.user.id);
-      const countryCounts = new Map<string, number>();
-      for (const company of approved) countryCounts.set(company.countryName, (countryCounts.get(company.countryName) ?? 0) + 1);
-      return { total: approved.length, countryCounts: Object.fromEntries([...countryCounts].sort(([a], [b]) => a.localeCompare(b))) };
-    }),
-    customerCount: protectedProcedure.input(z.object({
-      search: z.string().trim().max(100).optional(),
-      countryName: z.string().trim().min(1).max(100).optional(),
-    }).optional()).query(async ({ ctx, input }) => {
-      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Customer company references are available only to customer accounts." });
-      return (await getCustomerApprovedCompanyReferences(input ?? {},ctx.user.id)).length;
-    }),
-    customerSearch: protectedProcedure.input(z.object({
-      search: z.string().trim().max(100).optional(),
-      countryName: z.string().trim().min(1).max(100).optional(),
-      offset: z.number().int().min(0).max(1810).optional(),
-      limit: z.number().int().min(1).max(1811).optional(),
-    }).optional()).query(async ({ ctx, input }) => {
-      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Customer company references are available only to customer accounts." });
-      const offset = input?.offset ?? 0;
-      const limit = input?.limit ?? 50;
-      return (await getCustomerApprovedCompanyReferences(input ?? {},ctx.user.id)).slice(offset, offset + limit);
-    }),
     adminState: adminProcedure.query(async () => {
       const raw = await getAppSetting("trade.companyCatalogue.adminState", "{}");
       try {
