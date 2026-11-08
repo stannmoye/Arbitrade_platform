@@ -6485,7 +6485,9 @@ export async function resetTradeOpportunityUsage(input: {
       customerCount: userIds.length,
       withdrawnOpportunities: withdrawnRows.length,
       clearedPendingDeliveries: eligibleDeliveryEventRows.length,
-      closedOffers: uniqueEligibleOfferIds.length,
+      // Count offers actually eligible for closure; active popup events may
+      // still reference offers that were already closed before this reset.
+      closedOffers: openOffers.filter(row => !protectedOfferIds.has(Number(row.id))).length,
       cancelledAssignments: assignmentRows.length,
       preservedTradePositions: linkedTradePositions.length,
       protectedOpportunities: protectedOfferIds.size,
