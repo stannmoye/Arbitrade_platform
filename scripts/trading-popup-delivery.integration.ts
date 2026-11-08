@@ -849,8 +849,8 @@ const balanceBefore = await db.select({
   })), exhaustedRotationBefore,
   "When all subscriptions are exhausted, no company rotation position may be consumed.");
   assert.equal((await db.select({ id: opportunityGenerationAssignments.id }).from(opportunityGenerationAssignments)
-    .where(eq(opportunityGenerationAssignments.userId, userId))).length, 7,
-  "All-exhausted generation must not create another quota assignment.");
+    .where(eq(opportunityGenerationAssignments.userId, userId))).length, 5,
+  "All-exhausted generation must not create another quota assignment; only four first-package assignments and one second-package assignment should exist.");
 
   // Restore positive per-subscription and package capacity for both candidates.
   // The first subscription expires earlier, so existing candidate ordering must
