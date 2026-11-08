@@ -15,6 +15,19 @@ export function normalizeCompanyRotationCountryNames(raw:unknown):string {
   if(invalid.length) throw new Error("Unknown company catalogue country-folder label: "+invalid.slice(0,3).join(", "));
   return unique.join(", ");
 }
+/** Normalize an administrator's customer-specific country restriction. Empty means no extra restriction. */
+export function normalizeCustomerCompanyCountryRestrictions(raw:unknown):string {
+  return normalizeCompanyRotationCountryNames(raw);
+}
+/** Intersect package policy countries with a customer restriction without broadening either scope. */
+export function intersectCompanyCountryFilters(packageFilter:unknown, customerFilter:unknown):string {
+  const packageNames=normalizeCompanyRotationCountryNames(packageFilter).split(",").map(name=>name.trim()).filter(Boolean);
+  const customerNames=normalizeCustomerCompanyCountryRestrictions(customerFilter).split(",").map(name=>name.trim()).filter(Boolean);
+  if(!packageNames.length) return customerNames.join(", ");
+  if(!customerNames.length) return packageNames.join(", ");
+  const customerSet=new Set(customerNames);
+  return packageNames.filter(name=>customerSet.has(name)).join(", ");
+}
 export type CompanyCatalogueAdminState = {
   verifiedIds: readonly string[];
   archivedIds: readonly string[];

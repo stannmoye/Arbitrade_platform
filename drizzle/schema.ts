@@ -44,6 +44,7 @@ export const customerControls = mysqlTable("customer_controls", {
   emailVerified: boolean("emailVerified").default(false).notNull(),
   riskTier: varchar("riskTier", { length: 24 }).default("standard").notNull(),
   adminNote: text("adminNote"),
+  companyCountryRestrictions: text("companyCountryRestrictions"),
   updatedBy: int("updatedBy"),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

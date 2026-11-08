@@ -1636,3 +1636,12 @@ The `89bd2bd6` installer log showed one remaining stale expectation in the secon
 - Updated the assertion to verify that an active eligible offer is not misclassified as insufficient balance. Existing popup metadata, expiry, read-only details, lifecycle acknowledgement, minimize/maximize and dismiss checks remain in place.
 - Test fixture and assertions only; no customer/server business logic, database, worker, wallet, ledger, allocation, trade execution or settlement behavior changed. Automatic financial execution remains hard-disabled.
 - Exact-head GitHub Actions are pending for this correction. This is mocked browser acceptance evidence only, not live customer or hosted production verification.
+
+### Finding 10 — Administrator customer company restrictions (2026-11-08)
+- Added persisted `customer_controls.companyCountryRestrictions` with migration `0109_customer_company_country_restrictions.sql`.
+- Added administrator customer controls for exact company catalogue country-folder restrictions; blank means all currently approved countries.
+- Applied restrictions server-side to automatic company opportunity generation by intersecting customer restrictions with package policy country filters. Customer restrictions cannot broaden package policy access.
+- Applied the same restriction to customer company catalogue summary, count, and search endpoints so catalogue visibility matches opportunity assignment.
+- Added preview enforcement and regression coverage for normalization, intersection, persistence contracts, and customer/admin route boundaries.
+- Validation passed: `pnpm check`; 30 focused company-catalogue/restriction tests; `pnpm build:static`; `git diff --check`.
+- No merge or deployment performed.

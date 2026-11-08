@@ -19,7 +19,7 @@ import { isOpportunityDurationWithinBounds, validateOpportunityDurationSnapshot 
 import { calculateCombinedAvailableTargetMinor, calculateCombinedBalanceSnapshot, planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, usdUnitsToNativeMinor } from "../shared/money";
-import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, createCompanySpotlightDisplayGuard, isCompanySpotlightDisplayAllowed, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
+import { normalizeCompanyRotationCountryNames, normalizeCustomerCompanyCountryRestrictions, intersectCompanyCountryFilters, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, createCompanySpotlightDisplayGuard, isCompanySpotlightDisplayAllowed, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
 import { COMPANY_REFERENCE_CATALOGUE, getCompanyReferenceById, normalizeCompanyCatalogueActionReason, transitionCompanyCatalogueAdminState, type CompanyCatalogueStatusAction } from "./modules/company-catalogue-reference";
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
@@ -2230,7 +2230,8 @@ export async function listAdminCustomers(){
       qualifyingDepositUsd:qualifyingUsdMinor/100,
       status:control?.accountStatus||"active",accountState:control?.accountStatus||"active",opportunities:"Automatically assigned tier allowance",
       kyc:control?.kycRequired??true,withdrawals:control?.withdrawalsEnabled??false,twofa:control?.twoFactorRequired??false,
-      facial:false,emailVerified:control?.emailVerified??false,riskTier:control?.riskTier||"standard",adminNote:control?.adminNote||"",createdAt:row.createdAt};
+      facial:false,emailVerified:control?.emailVerified??false,riskTier:control?.riskTier||"standard",adminNote:control?.adminNote||"",
+      companyCountryRestrictions:normalizeCustomerCompanyCountryRestrictions(control?.companyCountryRestrictions||""),createdAt:row.createdAt};
   });
 }
 export async function createAdminCustomer(input:{name:string;email:string;password:string}){
@@ -2254,12 +2255,13 @@ export async function updateAdminCustomer(input:{id:number;name:string;email:str
   await db.update(users).set({name:input.name.trim(),email}).where(and(eq(users.id,input.id),eq(users.role,"user")));
   return {success:true};
 }
-export async function updateCustomerControls(adminId:number,input:{userId:number;accountStatus?:"active"|"suspended"|"restricted";withdrawalsEnabled?:boolean;kycRequired?:boolean;twoFactorRequired?:boolean;emailVerified?:boolean;riskTier?:string;adminNote?:string}){
+export async function updateCustomerControls(adminId:number,input:{userId:number;accountStatus?:"active"|"suspended"|"restricted";withdrawalsEnabled?:boolean;kycRequired?:boolean;twoFactorRequired?:boolean;emailVerified?:boolean;riskTier?:string;adminNote?:string;companyCountryRestrictions?:string[]}){
   const db=await getDb();if(!db)throw new Error("Database is not available");
   const values:any={};
   for(const key of ["accountStatus","withdrawalsEnabled","kycRequired","twoFactorRequired","emailVerified","riskTier","adminNote"] as const){
     if(input[key]!==undefined) values[key]=input[key];
   }
+  if(input.companyCountryRestrictions!==undefined) values.companyCountryRestrictions=normalizeCustomerCompanyCountryRestrictions(input.companyCountryRestrictions)||null;
   const existing=(await db.select().from(customerControls).where(eq(customerControls.userId,input.userId)).limit(1))[0];
   if(existing) await db.update(customerControls).set({...values,updatedBy:adminId}).where(eq(customerControls.userId,input.userId));
   else await db.insert(customerControls).values({userId:input.userId,updatedBy:adminId,...values});
@@ -3215,7 +3217,8 @@ export async function previewNextCustomerCompanySpotlight(userId:number) {
   const catalogueRow=(await db.select({settingValue:appSettings.settingValue})
     .from(appSettings).where(eq(appSettings.settingKey,"trade.companyCatalogue.adminState")).limit(1))[0];
   const catalogueState=parseCompanyCatalogueAdminState(catalogueRow?.settingValue??"{}");
-  const pool=buildCompanySpotlightPool(String(policy.companyRotationCountryNames||""),catalogueState);
+  const customerControls=await ensureCustomerControls(userId);
+  const pool=buildCompanySpotlightPool(intersectCompanyCountryFilters(String(policy.companyRotationCountryNames||""),customerControls.companyCountryRestrictions||""),catalogueState);
   if(!pool.length) return null;
   const stateKey="trading.companyRotation."+userId+"."+packageId;
   if(stateKey.length>120) throw new Error("Company rotation scope key exceeds the storage limit.");
@@ -3250,6 +3253,7 @@ type AutomaticOpportunityGenerationInput={
   userId:number;batchId:string;now:Date;quotaWindowStart:Date;
   eligibleSubscriptions:Array<{subscriptionId:number;packageId:number;packageName:string}>;
   companyRotationEnabled:boolean;
+  customerCompanyCountryRestrictions?:string;
 };
 type AutomaticOpportunityGenerationOutcome={offerId:number|null;skipReason:string|null;skipDetail?:Record<string,number>};
 
@@ -3406,7 +3410,7 @@ async function generateAutomaticCustomerOpportunity(input:AutomaticOpportunityGe
     const catalogueState=parseCompanyCatalogueAdminState(String(catalogueSetting?.settingValue||"{}"));
     // The existing brand catalogue is the generation source. Templates are optional
     // display-term overrides and must never shrink or gate the company rotation pool.
-    const approvedPool=buildCompanySpotlightPool(String(selectedPolicy.companyRotationCountryNames||""),catalogueState);
+    const approvedPool=buildCompanySpotlightPool(intersectCompanyCountryFilters(String(selectedPolicy.companyRotationCountryNames||""),input.customerCompanyCountryRestrictions||""),catalogueState);
     if(!approvedPool.length)return skipped("NO_APPROVED_COMPANIES_FOR_COUNTRY_FILTER");
 
     let company:any;
@@ -4275,6 +4279,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       eligibleSubscriptions:eligibleSubscriptions.filter(subscription=>packageSchedules.get(String(subscription.packageName))?.cooling!==true)
         .map(subscription=>({subscriptionId:Number(subscription.subscriptionId),packageId:Number(subscription.packageId),packageName:String(subscription.packageName)})),
       companyRotationEnabled:Boolean(globalPolicy.companyRotationEnabled),
+      customerCompanyCountryRestrictions:normalizeCustomerCompanyCountryRestrictions(controls.companyCountryRestrictions||""),
     });
     generatedOpportunityId=outcome.offerId;
     generationSkipReason=outcome.skipReason;
