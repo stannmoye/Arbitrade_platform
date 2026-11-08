@@ -1111,7 +1111,8 @@ const balanceBefore = await db.select({
   await db.update(opportunityPopupEvents).set({ eventStatus: "WITHDRAWN", deliveryStatus: "dismissed" })
     .where(and(eq(opportunityPopupEvents.userId, userId), eq(opportunityPopupEvents.offerId, secondReadyPackageOfferId)));
   await setPackageDeliveryAt(Object.values(selectionPackageNames), oldPackageDeliveryAt);
-  const completionAt = new Date(Math.floor((Date.now() - 90_000) / 1000) * 1000);
+  // Keep these synthetic settlements newer than any usage-reset boundary created earlier in this integration run.
+  const completionAt = new Date(Math.floor(Date.now() / 1000) * 1000);
   for (const fixture of selectionPackages) {
     const linkedOfferId = fixture.packageName === selectionPackageNames.a ? offerId!
       : fixture.packageName === selectionPackageNames.b ? firstReadyPackageOfferId : secondReadyPackageOfferId;
