@@ -16,6 +16,7 @@ import { remainingOpportunityMilliseconds } from "./customer-opportunity-countdo
 import { CustomerOpportunityHistoryPanel, hasPersistedCustomerOpportunityDismissal } from "./customer-opportunity-history";
 import { acknowledgePopupDelivery } from "./popup-delivery-acknowledgement";
 import { waitForPopupVisibility } from "./popup-visibility-confirmation";
+import { CustomerOpportunityReviewPanel } from "@/components/CustomerOpportunityReviewPanel";
 const AdminSlideMenu = lazy(() => import("@/components/AdminSlideMenu").then((module) => ({ default: module.AdminSlideMenu })));
 const TradeSettingsAdminGuide = lazy(() => import("@/components/TradeSettingsAdminGuide").then((module) => ({ default: module.TradeSettingsAdminGuide })));
 const AdminPackageFeeEditor = lazy(() => import("@/components/AdminPackageFeeEditor"));
@@ -651,71 +652,33 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
     return hours>0?`${String(hours).padStart(2,"0")}:${String(minutes).padStart(2,"0")}:${String(remainder).padStart(2,"0")}`:`${String(minutes).padStart(2,"0")}:${String(remainder).padStart(2,"0")}`;
   };
   const expiryCountdown=formatExpiry(remainingSeconds);
-  const heading=String(popup.companyDisplayName||popup.symbol||"Opportunity")+" opportunity notice";
-  const connectionLabel=connectionStatus==="offline"?"Connection interrupted":connectionStatus==="updating"?"Refreshing status":"Live status connected";
+  const connectionLabel=connectionStatus==="offline"?"Connection interrupted":connectionStatus==="updating"?"Refreshing server status":"Server connection active";
   const openedLabel=Number.isFinite(Date.parse(String(popup.opensAt||"")))?new Date(popup.opensAt).toLocaleString():"Unavailable";
-
-  if(minimized)return <div className="opportunity-popup-dock" role="region" aria-label="Minimized opportunity alert" aria-live="polite">
-    <div className="opportunity-popup-dock__content">
-      <strong>{insufficientBalance?"Missed — insufficient balance":sufficientBalance?"Opportunity available":"Opportunity status unavailable"}</strong>
-      <span>{String(popup.companyDisplayName||popup.symbol||"Opportunity")} · {expiryLabel}: {expiryCountdown}</span>
-      <span>Scheduled expiry: {closesLabel}</span>
-      {insufficientBalance&&<span>Required: {requiredMoney} · Available: {availableMoney} · Shortfall: {shortfallMoney}</span>}
-    </div>
-    <div className="opportunity-popup-dock__actions">
-      <button type="button" aria-label="Maximize opportunity alert" onClick={()=>setMinimized(false)}>Maximize</button>
-      <button type="button" className="opportunity-popup-dock__dismiss" onClick={dismiss}>Dismiss</button>
-    </div>
-  </div>;
-
-  return <div ref={popupSurfaceRef} className="center-opportunity-toast" role="region" aria-label="Customer opportunity alert">
-    <div className="opportunity-popup-header">
-      <div className="toast-live"><span className="pulse"/> OPPORTUNITY ALERT <span className="toast-live-status">Informational notice</span></div>
-      <span className={"opportunity-popup-status"+(insufficientBalance?" opportunity-popup-status--insufficient":"")}>{insufficientBalance?"MISSED · INSUFFICIENT BALANCE":"NEW OPPORTUNITY"}</span>
-      <span className={"opportunity-popup-connection opportunity-popup-connection--"+connectionStatus} role="status" aria-live="polite"><span aria-hidden="true"/>{connectionLabel}</span>
-      <button type="button" className="opportunity-popup-minimize" aria-label="Minimize opportunity alert" onClick={()=>{stopConfiguredSound();setMinimized(true);}}>Minimize</button>
-    </div>
-    {popup.badgeLabel&&<span className={"trading-package-badge trading-package-badge--"+(["neutral","blue","purple","gold","green"].includes(popup.badgeStyle)?popup.badgeStyle:"neutral")}>{popup.badgeLabel}</span>}
-    {popup.companyDisplayName&&<div className="trading-opportunity-identity popup-company-reference opportunity-popup-company"><CompanyReferenceLogo name={String(popup.companyDisplayName)} logoUrl={popup.companyLogoUrl||null}/><div className="opportunity-popup-company__details"><strong>{popup.companyDisplayName}</strong><span>{popup.symbol?`Supplied code: ${popup.symbol}`:"Company code unavailable"}</span></div><span className="opportunity-popup-package">{popup.packageName||"Assigned package"}</span></div>}
-    <h3>{heading}</h3>
-    <p>Opportunity {popup.id} · {popup.companyDisplayName||popup.symbol||"Company unavailable"}</p>
-    {insufficientBalance?<section className="opportunity-balance-status opportunity-balance-status--insufficient" role="status">
-      <strong>Missed — insufficient balance</strong>
-      <div className="opportunity-balance-values">
-        <span>Required capital <b>{requiredMoney}</b></span>
-        <span>Available balance <b>{availableMoney}</b></span>
-        <span>Shortfall <b>{shortfallMoney}</b></span>
-      </div>
-      <p>This opportunity was not allocated because the available balance was insufficient. No funds were moved.</p>
-    </section>:sufficientBalance?<section className="opportunity-balance-status" role="status">
-      <strong>Opportunity available for review</strong>
-      <p>The balance check passed when this notice was created. This notice does not allocate or move funds.</p>
-    </section>:<section className="opportunity-balance-status opportunity-balance-status--unavailable" role="status">
-      <strong>Balance status unavailable</strong>
-      <p>No funds were allocated or moved. Review the opportunity details for current information.</p>
-    </section>}
-    <section className="opportunity-expiry-panel" role="group" aria-label={`Opportunity expiry countdown: ${expiryCountdown}`}>
-      <div className="opportunity-expiry-ring" aria-hidden="true"><svg viewBox="0 0 76 76"><circle className="opportunity-expiry-ring__track" cx="38" cy="38" r="31"/><circle className="opportunity-expiry-ring__value" cx="38" cy="38" r="31" style={{strokeDashoffset:194.78*(1-expiryProgress/100)}}/></svg><span>{remainingSeconds===null?"--":expiryCountdown}</span></div>
-      <div className="opportunity-expiry-copy"><span>{expiryLabel}</span><strong>{expiryCountdown}</strong><small>{expiryConfirmed?"The server has confirmed that this opportunity expired.":remainingSeconds===0?"The expiry time has passed; the server status is being confirmed.":"Countdown is synchronised to the server-saved expiry timestamp."}</small></div>
-    </section>
-    <div className="toast-timing"><Clock size={14}/> Scheduled expiry: {closesLabel}</div>
-    <section className="opportunity-popup-details" aria-label="Opportunity information">
-      <button type="button" className="opportunity-popup-details__toggle" aria-expanded={detailsExpanded} onClick={()=>setDetailsExpanded(value=>!value)}>{detailsExpanded?"Hide":"Show"} opportunity details <ChevronDown size={15} aria-hidden="true"/></button>
-      {detailsExpanded&&<dl className="opportunity-popup-details__grid">
-        <div><dt>Company</dt><dd>{String(popup.companyDisplayName||"Unavailable")}</dd></div>
-        <div><dt>Assigned package</dt><dd>{String(popup.packageName||"Unavailable")}</dd></div>
-        <div><dt>Opportunity reference</dt><dd>{String(popup.id||"Unavailable")}</dd></div>
-        <div><dt>Opens at</dt><dd>{openedLabel}</dd></div>
-        <div><dt>Scheduled expiry</dt><dd>{closesLabel}</dd></div>
-        <div><dt>Server status</dt><dd>{String(popup.expiryStatus||popup.offerStatus||"Pending confirmation")}</dd></div>
-      </dl>}
-    </section>
-    <p className="opportunity-popup-disclaimer">Informational notice only. It does not execute a trade, allocate capital, or change a wallet balance.</p>
-    <div className="toast-actions">
-      <button className="primary-button" onClick={()=>{if(popup.deliveryEventId)void lifecycle.mutateAsync({eventId:popup.deliveryEventId,action:"opened"}).catch(()=>{});stop();onOpen();}}>Review details <ArrowUpRight size={14}/></button>
-      <button className="toast-dismiss" onClick={dismiss}>Dismiss notification</button>
-    </div>
-  </div>;
+  return <CustomerOpportunityReviewPanel
+    popup={popup}
+    companyLogo={popup.companyDisplayName?<CompanyReferenceLogo name={String(popup.companyDisplayName)} logoUrl={popup.companyLogoUrl||null}/>:<span className="opportunity-review-logo-fallback" aria-label="Company identity unavailable">—</span>}
+    rootRef={popupSurfaceRef}
+    minimized={minimized}
+    insufficientBalance={insufficientBalance}
+    sufficientBalance={sufficientBalance}
+    requiredMoney={requiredMoney}
+    availableMoney={availableMoney}
+    shortfallMoney={shortfallMoney}
+    expiryLabel={expiryLabel}
+    expiryCountdown={expiryCountdown}
+    expiryConfirmed={expiryConfirmed}
+    expiryProgress={expiryProgress}
+    closesLabel={closesLabel}
+    openedLabel={openedLabel}
+    connectionStatus={connectionStatus}
+    connectionLabel={connectionLabel}
+    detailsExpanded={detailsExpanded}
+    setDetailsExpanded={setDetailsExpanded}
+    onMinimize={()=>{stopConfiguredSound();setMinimized(true);}}
+    onMaximize={()=>setMinimized(false)}
+    onDismiss={dismiss}
+    onReview={()=>{if(popup.deliveryEventId)void lifecycle.mutateAsync({eventId:popup.deliveryEventId,action:"opened"}).catch(()=>{});stop();onOpen();}}
+  />;
 }
 function CustomerDashboard({push,sound,setSound,soundSettings,delivery,opportunityData}:{push:(x:string)=>void;sound:boolean;setSound:(x:boolean)=>void;soundSettings:SoundSettings;delivery?:{enabled?:boolean;maxPopupsPerDay:number;maxVisibleOffers:number;pausedUntilSettled?:boolean;outstandingTrades?:number};opportunityData?:any}) {
   const balances=trpc.customer.balances.useQuery(undefined,{refetchInterval:5000});

@@ -9,6 +9,7 @@ const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const lifecycle = readFileSync(new URL("./opportunityLifecycle.ts", import.meta.url), "utf8");
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
+const reviewPanel = readFileSync(new URL("../client/src/components/CustomerOpportunityReviewPanel.tsx", import.meta.url), "utf8");
 const policyEditor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
 const workerSchema = readFileSync(new URL("../scripts/worker-schema-contracts.mjs", import.meta.url), "utf8");
 
@@ -55,7 +56,7 @@ describe("administrator-managed Trading popup policy bounds and snapshots", () =
     expect(app).not.toContain("formatCompanyReferenceMetadata");
     expect(app).not.toContain("Company reference only");
     expect(app).not.toContain("Admin-approved company reference");
-    expect(app).toContain("<strong>{popup.companyDisplayName}</strong>");
+    expect(reviewPanel).toContain("const companyName = savedText(popup.companyDisplayName);");
     expect(app).toContain("CompanyReferenceLogo name={String(popup.companyDisplayName)}");
     expect(database).toContain("companyReferenceMetadataJson:tradePositions.companyReferenceMetadataJson");
     expect(policyEditor).toContain("Each newly delivered pop-up selects one rate and one duration inside the saved tier ranges.");

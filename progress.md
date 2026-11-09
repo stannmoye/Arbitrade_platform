@@ -1,3 +1,13 @@
+## 2026-11-09 — Database-backed opportunity review popup
+
+- **Branch/base:** Prepared as a patch against `main` commit `faa1d0076b822b7af91a6d6c815f91e20fba7d73`; verified that `origin/main` was at the same SHA. No commit, tag, push, or release was created.
+- **UI:** Replaced the compact customer opportunity alert with a responsive review panel inspired by the supplied reference, including company identity, saved terms, balance check, return/wallet status, timeline, audit fields, accessible detail expansion, and a minimized dock.
+- **Data/safety:** The panel receives the existing server-backed popup record and balance/expiry values. It does not invent a market price, listing verification, realized profit, fee charge, execution, or wallet movement. It labels configured returns and duration as saved policy snapshots and routes only to the existing Trading review action.
+- **Validation:** `pnpm check`, full `pnpm test -- --reporter=dot` (162 files passed, 6 skipped; 1,296 tests passed, 31 skipped), `pnpm build`, and `git diff --check` passed.
+- **Not run:** Live customer-browser/database acceptance and deployment; no database migration or production action was performed.
+
+---
+
 ## 2026-11-08 — Settlement evidence verification gate
 
 - **Branch/base:** `fix/settlement-evidence-verification`, based on latest `origin/main` commit `c92a0c40`.
