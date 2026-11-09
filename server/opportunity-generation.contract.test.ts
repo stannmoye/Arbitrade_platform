@@ -10,6 +10,7 @@ const migration104 = readFileSync(new URL("../drizzle/0104_catalogue_native_oppo
 const journal = readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8");
 const admin = readFileSync(new URL("../client/src/components/AdminOpportunityTemplates.tsx", import.meta.url), "utf8");
 const customerPortal = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
+const reviewPanel = readFileSync(new URL("../client/src/components/CustomerOpportunityReviewPanel.tsx", import.meta.url), "utf8");
 const customerQueryStart = db.indexOf("export async function listCustomerOpportunities(");
 const customerQueryEnd = db.indexOf("export async function claimAutoTradeCycleCustomers(", customerQueryStart);
 const customerQuery = db.slice(customerQueryStart, customerQueryEnd);
@@ -71,10 +72,11 @@ describe("automatic opportunity generation and package-aware customer delivery",
   });
 
   it("shows catalogue company identity instead of the BRAND display sentinel in customer popup headings", () => {
-    expect(customerPortal).toContain('String(popup.companyDisplayName||popup.symbol||"Opportunity")+" opportunity notice"');
-    expect(customerPortal).toContain('popup.companyDisplayName||popup.symbol||"Company unavailable"');
-    expect(customerPortal).toContain('value!=="Informational"');
-    expect(customerPortal).toContain('"Brand catalogue opportunity"');
+    expect(customerPortal).toContain("<CustomerOpportunityReviewPanel");
+    expect(customerPortal).toContain("popup={popup}");
+    expect(customerPortal).toContain('CompanyReferenceLogo name={String(popup.companyDisplayName)}');
+    expect(reviewPanel).toContain("const companyName = savedText(popup.companyDisplayName);");
+    expect(reviewPanel).toContain("const symbol = savedText(popup.symbol);");
   });
 
   it("explains automatic generation in the customer dashboard and displays catalogue company identity", () => {

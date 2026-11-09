@@ -11,6 +11,7 @@ const stage2Browser = readFileSync(new URL("../scripts/stage2-browser-acceptance
 const start = app.indexOf("function CustomerOpportunityAlert(");
 const end = app.indexOf("\nfunction CustomerDashboard(", start);
 const component = app.slice(start, end);
+const reviewPanel = readFileSync(new URL("../client/src/components/CustomerOpportunityReviewPanel.tsx", import.meta.url), "utf8");
 const deliveryStart = database.indexOf("export async function listCustomerOpportunities(");
 const deliveryEnd = database.indexOf("export async function claimAutoTradeCycleCustomers(", deliveryStart);
 const delivery = database.slice(deliveryStart, deliveryEnd);
@@ -70,27 +71,27 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(database).toContain("const configuredPopupDisplaySeconds=configuredDurationSeconds+completionDisplaySeconds");
     expect(database).not.toContain("Math.max(86_400");
     expect(component).toContain("setMinimized(true)");
-    expect(component).toContain('aria-label="Minimize opportunity alert"');
-    expect(component).toContain('aria-label="Maximize opportunity alert"');
-    expect(component).toContain('className="opportunity-popup-dock"');
+    expect(reviewPanel).toContain('aria-label="Minimize opportunity alert"');
+    expect(reviewPanel).toContain('aria-label="Maximize opportunity alert"');
+    expect(reviewPanel).toContain('className="opportunity-popup-dock opportunity-review-dock"');
     expect(component).not.toContain("timer.current=window.setTimeout(stop");
-    expect(component).toContain('aria-label="Minimized opportunity alert"');
+    expect(reviewPanel).toContain('aria-label="Minimized opportunity alert"');
     expect(stylesheet).toContain(".customer-portal .opportunity-popup-dock");
     expect(stylesheet).toContain(".customer-portal .center-opportunity-toast .opportunity-popup-minimize");
   });
 
   it("shows an explicit insufficient-balance notice without implying allocation or execution", () => {
-    expect(component).toContain("Missed — insufficient balance");
-    expect(component).toContain("Required capital");
-    expect(component).toContain("Available balance");
-    expect(component).toContain("Shortfall");
+    expect(reviewPanel).toContain("Missed — insufficient balance");
+    expect(reviewPanel).toContain("Required capital");
+    expect(reviewPanel).toContain("Available balance at server check");
+    expect(reviewPanel).toContain("Shortfall");
     expect(component).toContain("balanceAvailableMinor");
     expect(component).toContain("const shortfallMinor=Number(popup.shortfallMinor)");
-    expect(component).not.toContain("Math.max(0,requiredMinor-availableMinor)");
-    expect(component).toContain("No funds were moved.");
-    expect(component).toContain("It does not execute a trade, allocate capital, or change a wallet balance.");
-    expect(component).not.toContain("AUTOMATED OPPORTUNITY");
-    expect(component).not.toContain("Configured return rate:");
+    expect(reviewPanel).not.toContain("Math.max(0,requiredMinor-availableMinor)");
+    expect(reviewPanel).toContain("No funds were moved.");
+    expect(reviewPanel).toMatch(/No automatic financial\s+execution/);
+    expect(reviewPanel).not.toContain("AUTOMATED OPPORTUNITY");
+    expect(reviewPanel).not.toContain("Configured return rate:");
   });
 
   it("uses the server's current offer status and configured currency scale", () => {
@@ -123,7 +124,8 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain("waitForPopupVisibility(popupSurfaceRef.current,isCurrent,visibilityAbort.signal)");
     expect(component).toContain('if(visible&&isCurrent())await deliveryStatus.mutateAsync({eventId,status:"rendered",leaseToken})');
     expect(component).toContain("Ambiguous network errors retry idempotently and never become FAILED.");
-    expect(component).toContain("ref={popupSurfaceRef}");
+    expect(app).toContain("rootRef={popupSurfaceRef}");
+    expect(reviewPanel).toContain("ref={rootRef}");
     expect(popupVisibility).toContain('document.visibilityState !== "visible"');
     expect(popupVisibility).toContain('style.display === "none"');
     expect(popupVisibility).toContain("rect.bottom > 0 && rect.right > 0");
@@ -149,10 +151,10 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(component).toContain("serverClockOffsetMs.current");
     expect(component).toContain("popup.expiryStatus");
     expect(component).toContain("Opportunity expires in");
-    expect(component).toContain("Countdown is synchronised to the server-saved expiry timestamp.");
-    expect(component).toContain("Scheduled expiry:");
-    expect(component).toContain("{expiryLabel}: {expiryCountdown}");
-    expect(component).toContain("Supplied code:");
+    expect(reviewPanel).toContain("Countdown target comes from saved closesAt");
+    expect(reviewPanel).toContain("Scheduled expiry");
+    expect(reviewPanel).toContain("{expiryLabel}: {expiryCountdown}");
+    expect(reviewPanel).toContain("Supplied code");
     expect(component).not.toContain("Trade closes in");
   });
 
@@ -166,35 +168,35 @@ describe("customer opportunity popup retry and visibility gates", () => {
     expect(app).toContain('connectionStatus={opportunityMeta.isError?"offline":opportunityMeta.isFetching&&!opportunityMeta.data?"updating":"connected"}');
     expect(app).toContain('opportunityMeta.isFetching&&!opportunityMeta.data');
     expect(component).toContain('connectionStatus:"connected"|"updating"|"offline"');
-    expect(component).toContain('className={"opportunity-popup-connection opportunity-popup-connection--"+connectionStatus}');
+    expect(reviewPanel).toContain("opportunity-popup-connection--${connectionStatus}");
     expect(component).toContain("Connection interrupted");
-    expect(component).toContain("Refreshing status");
-    expect(component).toContain("Live status connected");
+    expect(component).toContain("Refreshing server status");
+    expect(component).toContain("Server connection active");
     expect(stylesheet).toContain(".opportunity-popup-connection--offline");
     expect(stylesheet).toContain(".opportunity-popup-connection--updating");
   });
 
   it("provides keyboard-operable, read-only expandable opportunity details", () => {
-    expect(component).toContain('className="opportunity-popup-details__toggle"');
-    expect(component).toContain("aria-expanded={detailsExpanded}");
-    expect(component).toContain("setDetailsExpanded(value=>!value)");
-    expect(component).toContain("Opportunity reference");
-    expect(component).toContain("Assigned package");
-    expect(component).toContain("Scheduled expiry");
-    expect(component).toContain("Server status");
-    expect(component).toContain("<dl");
+    expect(reviewPanel).toContain('className="opportunity-popup-details__toggle"');
+    expect(reviewPanel).toContain("aria-expanded={detailsExpanded}");
+    expect(reviewPanel).toContain("setDetailsExpanded(!detailsExpanded)");
+    expect(reviewPanel).toContain("Opportunity reference");
+    expect(reviewPanel).toContain("Assigned package label");
+    expect(reviewPanel).toContain("Scheduled expiry");
+    expect(reviewPanel).toContain("Server status");
+    expect(reviewPanel).toContain("<dl");
     expect(stylesheet).toContain(".opportunity-popup-details__toggle:focus-visible");
     expect(stylesheet).toContain("@media (max-width: 520px)");
-    expect(component).toContain("It does not execute a trade, allocate capital, or change a wallet balance.");
+    expect(reviewPanel).toContain("does not execute");
   });
 
   it("keeps the expiry countdown informational and respects reduced-motion styling", () => {
-    expect(component).toContain('className="opportunity-expiry-panel"');
+    expect(reviewPanel).toContain("opportunity-review-expiry");
     expect(component).toContain("Expiry time reached · confirming status");
     expect(stylesheet).toContain("@keyframes opportunityPopupEnter");
     expect(stylesheet).toContain("@keyframes opportunityPopupShimmer");
     expect(stylesheet).toContain("@media (prefers-reduced-motion: reduce)");
-    expect(stylesheet).toContain(".customer-portal .opportunity-expiry-ring__value");
+    expect(stylesheet).toContain(".customer-portal .opportunity-review-expiry-value");
   });
 
   it("holds the browser tab lock until the opportunity alert is dismissed or withdrawn", () => {
@@ -252,8 +254,9 @@ describe("customer opportunity popup retry and visibility gates", () => {
   });
 
   it("keeps manual minimization reversible without cancelling saved expiry", () => {
-    expect(component).toContain('onClick={()=>setMinimized(false)}');
-    expect(component).toContain('onClick={()=>{stopConfiguredSound();setMinimized(true);}}');
+    expect(component).toContain('onMaximize={()=>setMinimized(false)}');
+    expect(component).toContain('onMinimize={()=>{stopConfiguredSound();setMinimized(true);}}');
+    expect(reviewPanel).toContain("onClick={onMaximize}");
     expect(component).not.toContain('stopConfiguredSound();if(timer.current!==null)window.clearTimeout(timer.current);timer.current=null;setMinimized(true)');
   });
 
@@ -279,6 +282,6 @@ describe("customer opportunity popup retry and visibility gates", () => {
   it("does not poll trade history for informational-only opportunity alerts", () => {
     expect(component).not.toContain("trpc.customer.trades.useQuery");
     expect(component).not.toContain("automaticTrade");
-    expect(component).toContain("Informational notice only");
+    expect(reviewPanel).toContain("Informational only");
   });
 });
