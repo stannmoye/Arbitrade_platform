@@ -7,7 +7,7 @@ import { registerProviderOAuthRoutes } from "./providerOAuth";
 import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { closeDbPool, countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getSettlementEvidenceUploadTarget, getUserByEmail, getUserById, processNotificationCampaignLifecycle, reconcileAllDueTradesAwaitingConfirmation, processConfirmedTradeCredits, runAutoTradeCycle, runTradingTierQualificationWorkerCycle } from "../db";
+import { closeDbPool, countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getSettlementEvidenceUploadTarget, getUserByEmail, getUserById, processNotificationCampaignLifecycle, reconcileAllDueTradesAwaitingConfirmation, processAutomaticMarketSettlements, processConfirmedTradeCredits, runAutoTradeCycle, runTradingTierQualificationWorkerCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
@@ -357,12 +357,19 @@ async function startServer() {
       tradeCycleRunning = true;
       try {
         let settlementReconciliation: Awaited<ReturnType<typeof reconcileAllDueTradesAwaitingConfirmation>> | null = null;
+        let automaticMarketSettlement: Awaited<ReturnType<typeof processAutomaticMarketSettlements>> | null = null;
         let settlementCreditPosting: Awaited<ReturnType<typeof processConfirmedTradeCredits>> | null = null;
         try {
           settlementReconciliation = await runMonitoredWorkerCycle("settlement-reconciliation", () => reconcileAllDueTradesAwaitingConfirmation());
           if (settlementReconciliation.marked) console.log("[SettlementReconciliation] overdue trades marked for confirmation", settlementReconciliation);
         } catch (error) {
           console.error("[SettlementReconciliation] sweep failed", sanitizeWorkerErrorMessage(error));
+        }
+        try {
+          automaticMarketSettlement = await runMonitoredWorkerCycle("automatic-market-settlement", () => processAutomaticMarketSettlements({ limit: 100 }));
+          if (automaticMarketSettlement.settled) console.log("[AutomaticMarketSettlement] real market results recorded", automaticMarketSettlement);
+        } catch (error) {
+          console.error("[AutomaticMarketSettlement] sweep failed", sanitizeWorkerErrorMessage(error));
         }
         try {
           settlementCreditPosting = await runMonitoredWorkerCycle("settlement-credit-posting", () => processConfirmedTradeCredits({ limit: 100 }));
@@ -381,7 +388,7 @@ async function startServer() {
         });
         tradeCycleConsecutiveFailures = 0;
         tradeCycleRetryAfterMs = 0;
-        console.log("[AutoTrade] cycle", { ...result, generationDiagnostics: result.generationDiagnostics, deliveryDiagnostics: result.deliveryDiagnostics, settlementReconciliation, settlementCreditPosting });
+        console.log("[AutoTrade] cycle", { ...result, generationDiagnostics: result.generationDiagnostics, deliveryDiagnostics: result.deliveryDiagnostics, settlementReconciliation, automaticMarketSettlement, settlementCreditPosting });
       } catch (error) {
         tradeCycleConsecutiveFailures = Math.min(tradeCycleConsecutiveFailures + 1, 8);
         const backoffMs = Math.min(tradeCycleMaximumBackoffMs, tradeCycleBaseIntervalMs * (2 ** (tradeCycleConsecutiveFailures - 1)));

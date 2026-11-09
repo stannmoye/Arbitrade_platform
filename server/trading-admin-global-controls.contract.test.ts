@@ -42,7 +42,7 @@ describe("Package Configuration global Trade controls", () => {
     expect(adminApp).toContain("OFF · locked");
     expect(adminApp).not.toContain("This safety prerequisite cannot be switched OFF through this route.");
     expect(database).not.toContain('if(input.key==="requirePreviousSettlement"&&input.enabled===false)');
-    expect(database).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false");
+    expect(database).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = true");
     expect(adminApp).not.toContain("automaticTradingEnabled: true");
   });
 

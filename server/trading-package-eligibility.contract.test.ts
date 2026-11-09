@@ -44,7 +44,7 @@ describe("server-side automatic Trading tier eligibility", () => {
     const implementation = source.slice(start, end);
     expect(implementation).toContain("globalDeliveryEnabled=globalPolicy.available&&globalPolicy.tierPolicyMasterEnabled&&globalPolicy.informationalPopupDeliveryEnabled");
     expect(implementation).not.toContain("configured.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(configured)");
-    expect(source).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false;");
+    expect(source).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = true;");
   });
 
   it("allows tier lifecycle enablement only when valid policy terms exist, independently of global masters", () => {
@@ -78,19 +78,21 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(defaults).toContain("randomizationEnabled: false");
     expect(defaults).toContain("burstEnabled: false");
     expect(defaults).toContain("maxBurstSize: 3");
-    expect(defaults).toContain("automaticTradingEnabled: false");
+    expect(defaults).toContain("automaticTradingEnabled: true");
     expect(defaults).toContain("requirePreviousSettlement: true");
     expect(defaults).toContain("policyVersion: 1");
     expect(router).toContain("globalTradeControls: adminProcedure.query(() => getTradeGlobalControls())");
   });
 
-  it("keeps unattended financial execution disabled while preserving informational delivery", () => {
-    expect(source).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false;");
+  it("enables package-scoped execution only through the live market-result worker", () => {
+    expect(source).toContain("const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = true;");
     expect(source).toContain("AUTOMATIC_FINANCIAL_EXECUTION_ENABLED && options.workerCycle");
-    expect(packagePolicySource).toContain("automaticTradingEnabled: false");
+    expect(packagePolicySource).toContain("automaticTradingEnabled: true");
     expect(source).toContain("requested.some(policy=>(policy as Record<string,unknown>).automaticTradingEnabled===true)");
-    expect(executionOffMigrationSource).toContain("SET `automaticTradingEnabled` = 0");
-    expect(executionOffMigrationSource).toContain("WHERE `automaticTradingEnabled` <> 0");
+    expect(source).toContain("processAutomaticMarketSettlements");
+    expect(source).toContain("recorded_market_snapshot");
+    expect(source).toContain("no configured payout percentage was used as the result");
+    expect(executionOffMigrationSource).toContain("automaticTradingEnabled");
   });
 
   it("returns the package's persisted enabled state from package creation", () => {
@@ -101,7 +103,7 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(implementation).not.toContain("enabled:false,termsVersion:1");
   });
 
-  it("keeps pop-up delivery independent while the settlement gate blocks financial execution", () => {
+  it("keeps pop-up delivery independent while the settlement gate controls allocation", () => {
     const start = source.indexOf("export async function runAutoTradeCycle(");
     const end = source.indexOf("\nexport async function createTrade(", start);
     const implementation = source.slice(start, end);

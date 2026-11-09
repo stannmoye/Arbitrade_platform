@@ -84,7 +84,7 @@ describe("admin Trading History read-only contract", () => {
     const routerSource = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
     const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
     const queryStart = dbSource.indexOf("export async function listAdminTradingHistory(");
-    const queryEnd = dbSource.indexOf("export async function markDueTradesAwaitingConfirmation(", queryStart);
+    const queryEnd = dbSource.indexOf("export async function processAutomaticMarketSettlements(", queryStart);
     const query = dbSource.slice(queryStart, queryEnd);
     expect(queryStart).toBeGreaterThanOrEqual(0);
     expect(queryEnd).toBeGreaterThan(queryStart);

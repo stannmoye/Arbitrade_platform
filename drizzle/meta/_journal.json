@@ -561,6 +561,13 @@
       "when": 1794000000003,
       "tag": "0110_opportunity_delivery_diagnostic_history",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1794000000004,
+      "tag": "0111_automatic_market_result_settlement",
+      "breakpoints": true
     }
   ]
 }

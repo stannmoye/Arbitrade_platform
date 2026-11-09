@@ -1,3 +1,12 @@
+## 2026-11-09 — Automatic real-market execution checkpoint
+
+- Branch: `feat/automatic-real-data-trading`
+- Added additive migration `0111_automatic_market_result_settlement.sql` and immutable market-entry/market-exit snapshot columns on `trade_positions`.
+- Enabled package-scoped automatic execution only through the scheduled worker. Allocation now captures the published opportunity's market snapshot and price; `processAutomaticMarketSettlements` requires a newer persisted market snapshot, computes signed realized P/L from entry/exit prices, applies the immutable fee snapshot, and transitions trades atomically to `confirmed_awaiting_credit` with a reference claim and lifecycle audit event.
+- Wired the worker before idempotent wallet-credit posting and registered `automatic-market-settlement` in worker health. Updated legacy contracts to assert the new live-market safety model.
+- Validation: `pnpm test` — 161 files passed, 1,292 tests passed, 6 integration files skipped (no disposable DB configured); `pnpm check` passed; `pnpm build` passed; `git diff --check` passed.
+- Resume: inspect the commit after this entry and run the MySQL/MariaDB integration suites in CI or against a disposable database before enabling production rollout.
+
 ## 2026-11-08 — Settlement evidence verification gate
 
 - **Branch/base:** `fix/settlement-evidence-verification`, based on latest `origin/main` commit `c92a0c40`.

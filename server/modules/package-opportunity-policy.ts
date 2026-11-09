@@ -29,7 +29,8 @@ export type PackageOpportunityPolicyPatch = Pick<OpportunityPackagePolicyRow, "p
  * Delivery masters intentionally remain OFF compatibility placeholders:
  * global delivery/eligibility controls are owned by Package Configuration.
  * The package can be enabled independently, but delivery still requires valid
- * package terms and the global masters. Financial execution is always OFF.
+ * package terms and the global masters. Automatic execution is permitted only
+ * when explicitly enabled and the live-result worker can settle from market data.
  */
 export const DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY = {
   badgeLabel: null,
@@ -68,7 +69,7 @@ export const DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY = {
   duplicatePrevention: true,
   audioEnabled: true,
   audioSound: "soft-chime",
-  automaticTradingEnabled: false,
+  automaticTradingEnabled: true,
   maxTradeAttemptsPerDay: 0,
   tradeRetryDelaySeconds: 30,
   maxSuccessfulTradesPerDay: 0,
@@ -114,7 +115,8 @@ export function resolveEffectivePackageOpportunityPolicy(
     ...supplied,
     packageName,
     updatedBy,
-    // Informational opportunity delivery never enables unattended execution.
-    automaticTradingEnabled: false,
+    // Keep this package-scoped; the automatic result worker still fails closed
+    // when a live exit snapshot is unavailable.
+    automaticTradingEnabled: Boolean(supplied.automaticTradingEnabled ?? current?.automaticTradingEnabled ?? DEFAULT_NEW_PACKAGE_OPPORTUNITY_POLICY.automaticTradingEnabled),
   };
 }

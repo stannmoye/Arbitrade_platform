@@ -3,7 +3,7 @@ import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, not
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool, type Pool } from "mysql2/promise";
 import { ENV } from "./_core/env";
-import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityDeliveryIdempotency, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, opportunityGenerationTemplates, opportunityGenerationAssignments, opportunityGenerationBatches, balanceLedger, tradingTierQualificationJobs, tradingPackageFeePolicyVersions, adminWalletAdjustmentIdempotency, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, settlementEvidenceRecords, settlementEvidenceAuditEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
+import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityDeliveryIdempotency, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, opportunityGenerationTemplates, opportunityGenerationAssignments, opportunityGenerationBatches, balanceLedger, tradingTierQualificationJobs, tradingPackageFeePolicyVersions, adminWalletAdjustmentIdempotency, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, settlementEvidenceRecords, settlementEvidenceAuditEvents, users, v5AuditEvents, v5Wallets, missedOpportunities, marketSnapshots } from "../drizzle/schema";
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
@@ -3940,8 +3940,9 @@ export async function recordOpportunityExecutionFailure(userId:number,eventId:nu
   if(state.status==="RETRYING") set.executionRetryDay=now.toISOString().slice(0,10);
   await db.update(opportunityPopupEvents).set(set).where(and(eq(opportunityPopupEvents.id,eventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.executionLeaseToken,state.executionLeaseToken),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED"])));
 }
-// Customer popup delivery is informational; this worker must never initiate financial execution.
-const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = false;
+// Financial execution is server-owned and requires the real-market-result stage
+// below before any wallet credit can occur.
+const AUTOMATIC_FINANCIAL_EXECUTION_ENABLED = true;
 async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:any){
   const executed:any[]=[];
   if(controls.accountStatus!=="active") return {executed,missed:await listMissedOpportunities(userId)};
@@ -4740,7 +4741,7 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
   };
 }
 export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number;packageId?:number;executionLeaseToken?:string}){
- if(!AUTOMATIC_FINANCIAL_EXECUTION_ENABLED) throw new Error("Automatic trade allocation is hard-disabled");
+ if(!AUTOMATIC_FINANCIAL_EXECUTION_ENABLED) throw new Error("Automatic trade allocation is disabled by the server safety guard");
  const db=await getDb();if(!db)throw new Error("Database is not available");
  // Fetch FX quotes before opening the financial transaction. The transaction below
  // locks every affected wallet in stable order and rechecks all spendable balances.
@@ -4837,6 +4838,12 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const totalWalletFunds=(await tx.select({availableMinor:sql`COALESCE(SUM(${customerBalances.availableMinor}),0)`}).from(customerBalances).where(eq(customerBalances.userId,userId)))[0]; if(Number(totalWalletFunds?.availableMinor||0)<=0) throw new Error("Trading is unavailable until at least one wallet has available funds");
   const offer=(await tx.select().from(opportunityOffers).where(and(eq(opportunityOffers.id,input.offerId),eq(opportunityOffers.status,"open"))).limit(1))[0];
   if(!offer || new Date(offer.closesAt).getTime()<=Date.now()) throw new Error("This opportunity is no longer open");
+  const entrySnapshot=offer.marketSnapshotId&&offer.instrumentId
+    ?(await tx.select({id:marketSnapshots.id,instrumentId:marketSnapshots.instrumentId,priceUsd:marketSnapshots.priceUsd,observedAt:marketSnapshots.observedAt,source:marketSnapshots.source})
+      .from(marketSnapshots).where(and(eq(marketSnapshots.id,Number(offer.marketSnapshotId)),eq(marketSnapshots.instrumentId,Number(offer.instrumentId)))).limit(1))[0]
+    : null;
+  const entryPrice=Number(entrySnapshot?.priceUsd);
+  if(!entrySnapshot||!Number.isFinite(entryPrice)||entryPrice<=0) throw new Error("A valid entry market snapshot is required before automatic allocation");
   let savedDurationSnapshot:ReturnType<typeof validateOpportunityDurationSnapshot>=null;
   if(input.deliveryEventId!==undefined){
     const assignment=(await tx.select({packageSnapshotJson:opportunityGenerationAssignments.packageSnapshotJson,configuredDurationSeconds:opportunityGenerationAssignments.configuredDurationSeconds})
@@ -5083,7 +5090,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const settlementReviewAt=new Date(settlesAt.getTime()+settlementDelaySeconds*1000);
   const creditAt=new Date(settlementReviewAt.getTime()+settlementPolicy.creditDelaySeconds*1000);
   const snapshotVersion=Number(popupSnapshot?.packagePolicyVersionSnapshot||packagePolicy.policyVersion||activePackageSubscription.termsVersion||1);
-  const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null,companyLogoUrl:popupSnapshot?.companyLogoUrl||null,companyReferenceMetadataJson:popupSnapshot?.companyReferenceMetadataJson||null,companyReferenceOnly:Boolean(popupSnapshot?.companyReferenceOnly??false),walletFundingPlanJson,packageIdSnapshot:feePackageId,packageFeeRateBpsSnapshot:packageFeePolicy.feeRateBps,packageFeeRoundingModeSnapshot:packageFeePolicy.roundingMode,packageFeePolicyVersionSnapshot:packageFeePolicy.version,packageFeeEffectiveAtSnapshot:new Date(packageFeePolicy.effectiveAt),feePolicyVersion:packageFeePolicy.version,platformFeeRateBps:packageFeePolicy.feeRateBps,platformFeeRoundingMode:packageFeePolicy.roundingMode,transactionReference:ref,rewardReservedMinor:reward,settlesAt,settlementReviewAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:snapshotVersion} as any);
+  const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null,companyLogoUrl:popupSnapshot?.companyLogoUrl||null,companyReferenceMetadataJson:popupSnapshot?.companyReferenceMetadataJson||null,companyReferenceOnly:Boolean(popupSnapshot?.companyReferenceOnly??false),walletFundingPlanJson,instrumentIdSnapshot:Number(offer.instrumentId),entryMarketSnapshotId:Number(entrySnapshot.id),entryPriceUsd:String(entryPrice),settlementResultSource:null,settlementProvider:null,settlementObservedAt:null,packageIdSnapshot:feePackageId,packageFeeRateBpsSnapshot:packageFeePolicy.feeRateBps,packageFeeRoundingModeSnapshot:packageFeePolicy.roundingMode,packageFeePolicyVersionSnapshot:packageFeePolicy.version,packageFeeEffectiveAtSnapshot:new Date(packageFeePolicy.effectiveAt),feePolicyVersion:packageFeePolicy.version,platformFeeRateBps:packageFeePolicy.feeRateBps,platformFeeRoundingMode:packageFeePolicy.roundingMode,transactionReference:ref,rewardReservedMinor:reward,settlesAt,settlementReviewAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:snapshotVersion} as any);
   const tradeId=Number(result[0].insertId);
   await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,packageSubscriptionId:selectedSubscriptionId,packageId:Number(activePackageSubscription.packageId),termsVersion:Number(activePackageSubscription.termsVersion||1),policyVersion:snapshotVersion,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null})});
   if(input.deliveryEventId!==undefined) await tx.update(opportunityPopupEvents).set({tradeId,eventStatus:"TRADED",executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,tradedAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offer.id)));
@@ -5247,6 +5254,55 @@ export async function listAdminTradingHistory(filters: AdminTradingHistoryFilter
     scanLimit,
   };
 }
+export async function processAutomaticMarketSettlements(input?: { limit?: number }) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const limit=Math.max(1,Math.min(250,Number.isSafeInteger(input?.limit)?Number(input?.limit):100));
+  const now=new Date();
+  const due=await db.select({id:tradePositions.id}).from(tradePositions).where(and(
+    eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),
+    or(lte(tradePositions.settlementReviewAt,now),and(isNull(tradePositions.settlementReviewAt),lte(tradePositions.settlesAt,now))),
+  )).orderBy(tradePositions.settlementReviewAt,tradePositions.settlesAt).limit(limit);
+  let settled=0, waitingForMarket=0, skipped=0;
+  for(const item of due){
+    const result=await db.transaction(async tx=>{
+      const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,item.id)).limit(1).for("update"))[0];
+      if(!trade||trade.status!=="confirmed"||trade.settlementStatus!=="pending") return "skipped" as const;
+      const dueAt=trade.settlementReviewAt||trade.settlesAt;
+      if(!dueAt||new Date(dueAt).getTime()>now.getTime()) return "skipped" as const;
+      if(!trade.instrumentIdSnapshot||!trade.entryMarketSnapshotId||!trade.entryPriceUsd) return "waiting" as const;
+      const entryPrice=Number(trade.entryPriceUsd);
+      const exit=(await tx.select({id:marketSnapshots.id,priceUsd:marketSnapshots.priceUsd,observedAt:marketSnapshots.observedAt,source:marketSnapshots.source})
+        .from(marketSnapshots).where(and(eq(marketSnapshots.instrumentId,Number(trade.instrumentIdSnapshot)),gt(marketSnapshots.observedAt,new Date(trade.confirmedAt)))).orderBy(desc(marketSnapshots.observedAt),desc(marketSnapshots.id)).limit(1))[0];
+      const exitPrice=Number(exit?.priceUsd);
+      if(!exit||!Number.isFinite(entryPrice)||entryPrice<=0||!Number.isFinite(exitPrice)||exitPrice<=0) return "waiting" as const;
+      const grossProfitMinor=Math.round(Number(trade.principalMinor)*((exitPrice-entryPrice)/entryPrice));
+      if(!Number.isSafeInteger(grossProfitMinor)||grossProfitMinor<-Number(trade.principalMinor)) return "waiting" as const;
+      let feePolicy:{feeRateBps:number;roundingMode:FeeRoundingMode;policyVersion:number};
+      if(trade.packageIdSnapshot!==null&&trade.packageFeeRateBpsSnapshot!==null&&trade.packageFeeRoundingModeSnapshot!==null&&trade.packageFeePolicyVersionSnapshot!==null){
+        const saved=normalizePackageFeePolicy({packageId:trade.packageIdSnapshot,version:trade.packageFeePolicyVersionSnapshot,feeRateBps:trade.packageFeeRateBpsSnapshot,roundingMode:trade.packageFeeRoundingModeSnapshot,effectiveAt:trade.packageFeeEffectiveAtSnapshot||trade.confirmedAt,changedAt:trade.confirmedAt});
+        feePolicy={feeRateBps:saved.feeRateBps,roundingMode:saved.roundingMode,policyVersion:saved.version};
+      } else feePolicy=normalizeImmutableTradeFeeSnapshot({feeRateBps:trade.platformFeeRateBps,roundingMode:trade.platformFeeRoundingMode,policyVersion:trade.feePolicyVersion});
+      const accounting=calculateRealizedProfitSettlement({principalMinor:Number(trade.principalMinor),grossProfitMinor,feeRateBps:feePolicy.feeRateBps,roundingMode:feePolicy.roundingMode});
+      const reference=`auto-market-${trade.id}-${exit.id}`;
+      try { await tx.insert(tradeSettlementReferenceClaims).values({settlementReference:reference,tradeId:trade.id}); }
+      catch(error){ const code=error&&typeof error==='object'&&'code' in error?String((error as {code:unknown}).code):""; if(code==="ER_DUP_ENTRY") return "skipped" as const; throw error; }
+      const stateUpdate=await tx.update(tradePositions).set({
+        lifecycleStage:"Settlement Confirmed — Awaiting Wallet Credit",settlementStatus:"confirmed_awaiting_credit",
+        realizedGrossProfitMinor:accounting.grossProfitMinor,platformFeeMinor:accounting.platformFeeMinor,netProfitMinor:accounting.netProfitMinor,
+        rewardCreditedMinor:0,feePolicyVersion:feePolicy.policyVersion,platformFeeRateBps:feePolicy.feeRateBps,platformFeeRoundingMode:feePolicy.roundingMode,
+        settlementOutcome:accounting.outcome,transactionReference:reference,settlementReference:reference,settlementConfirmedAt:now,settlementConfirmedBy:-1,
+        settlementNotes:"Automatically resolved from a newer recorded market snapshot; no configured payout percentage was used as the result.",
+        exitMarketSnapshotId:Number(exit.id),exitPriceUsd:String(exitPrice),settlementResultSource:"recorded_market_snapshot",settlementProvider:String(exit.source||"market-sync"),settlementObservedAt:exit.observedAt,
+      }).where(and(eq(tradePositions.id,trade.id),eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending")));
+      assertExactlyOneAffectedRow(stateUpdate,"Automatic market settlement transition");
+      await tx.insert(tradeLifecycleEvents).values({tradeId:trade.id,userId:trade.userId,eventType:"automatic_market_settlement_confirmed",stage:"Settlement Confirmed — Awaiting Wallet Credit",payloadJson:JSON.stringify({reference,entryMarketSnapshotId:trade.entryMarketSnapshotId,entryPriceUsd:entryPrice,exitMarketSnapshotId:exit.id,exitPriceUsd:exitPrice,grossProfitMinor,platformFeeMinor:accounting.platformFeeMinor,netProfitMinor:accounting.netProfitMinor,provider:exit.source||"market-sync",observedAt:exit.observedAt})});
+      return "settled" as const;
+    });
+    if(result==="settled") settled++; else if(result==="waiting") waitingForMarket++; else skipped++;
+  }
+  return {scanned:due.length,settled,waitingForMarket,skipped,limit,asOf:now.toISOString()};
+}
+
 export async function markDueTradesAwaitingConfirmation(userId:number){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const now=new Date();
@@ -5852,7 +5908,8 @@ export async function processConfirmedTradeCredits(input?: { limit?: number }) {
       if(!trade||trade.status!=="confirmed"||trade.settlementStatus!=="confirmed_awaiting_credit"||trade.walletUpdatedAt) return null;
       const creditDueAt=trade.creditAt||trade.settlementReviewAt||trade.settlesAt;
       if(!creditDueAt||new Date(creditDueAt).getTime()>now.getTime()) return null;
-      if(!trade.settlementConfirmedAt||!trade.settlementConfirmedBy||!trade.settlementReference||trade.settlementOutcome==="legacy_unrecorded") {
+      const automaticMarketResult=trade.settlementResultSource==="recorded_market_snapshot";
+      if(!trade.settlementConfirmedAt||(!trade.settlementConfirmedBy&&!automaticMarketResult)||!trade.settlementReference||trade.settlementOutcome==="legacy_unrecorded") {
         throw new Error("Confirmed trade is missing its evidence-backed settlement record");
       }
       const claim=(await tx.select().from(tradeSettlementReferenceClaims).where(eq(tradeSettlementReferenceClaims.tradeId,trade.id)).limit(1))[0];

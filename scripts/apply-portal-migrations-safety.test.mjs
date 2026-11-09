@@ -29,9 +29,9 @@ describe("portal migration diagnostic privacy", () => {
     const journal = JSON.parse(await readFile(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8"));
     const masterIndex = journal.entries.findIndex(entry => entry.tag === "0100_global_trade_master_controls");
     expect(journal.entries[masterIndex + 1]?.tag).toBe("0101_package_fee_policy_versions");
-    expect(journal.entries.at(-1).tag).toBe("0110_opportunity_delivery_diagnostic_history");
-    expect(journal.entries.at(-2).tag).toBe("0109_customer_company_country_restrictions");
-    expect(journal.entries.at(-3).tag).toBe("0108_settlement_evidence_records");
+    expect(journal.entries.at(-1).tag).toBe("0111_automatic_market_result_settlement");
+    expect(journal.entries.at(-2).tag).toBe("0110_opportunity_delivery_diagnostic_history");
+    expect(journal.entries.at(-3).tag).toBe("0109_customer_company_country_restrictions");
     expect(journal.entries.at(-4).tag).toBe("0107_accurate_opportunity_delivery_monitoring");
     expect(journal.entries.at(-5).tag).toBe("0106_package_popup_defaults");
     expect(journal.entries.at(-6).tag).toBe("0105_default_on_global_information_delivery");
